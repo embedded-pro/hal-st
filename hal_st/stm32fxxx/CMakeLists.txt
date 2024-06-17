@@ -87,8 +87,10 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:UartStmDma.hpp>
     $<$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32f7xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>:UartStmDuplexDma.cpp>
     $<$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32f7xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>:UartStmDuplexDma.hpp>
-    UsbLinkLayerStm.cpp
-    UsbLinkLayerStm.hpp
+    UsbDeviceLinkLayerStm.cpp
+    UsbDeviceLinkLayerStm.hpp
+    UsbHostLinkLayerStm.cpp
+    UsbHostLinkLayerStm.hpp
     UniqueDeviceId.cpp
     UniqueDeviceId.hpp
     WatchDogStm.cpp

@@ -1,11 +1,11 @@
-#include "hal_st/stm32fxxx/UsbLinkLayerStm.hpp"
+#include "hal_st/stm32fxxx/UsbDeviceLinkLayerStm.hpp"
 #include <cstdlib>
 
 #ifdef HAS_PERIPHERAL_USB
 
 extern "C" void OTG_FS_IRQHandler(void)
 {
-    static_cast<hal::UsbLinkLayerStm&>(hal::UsbLinkLayerStm::Instance()).IrqHandler();
+    static_cast<hal::UsbDeviceLinkLayerStm&>(hal::UsbDeviceLinkLayerStm::Instance()).IrqHandler();
 }
 
 void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
@@ -25,52 +25,52 @@ void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd)
 
 void HAL_PCD_SetupStageCallback(PCD_HandleTypeDef* hpcd)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->SetupStageCallback();
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->SetupStageCallback();
 }
 
 void HAL_PCD_DataOutStageCallback(PCD_HandleTypeDef* hpcd, uint8_t epnum)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->DataOutStageCallback(epnum);
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->DataOutStageCallback(epnum);
 }
 
 void HAL_PCD_DataInStageCallback(PCD_HandleTypeDef* hpcd, uint8_t epnum)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->DataInStageCallback(epnum);
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->DataInStageCallback(epnum);
 }
 
 void HAL_PCD_SOFCallback(PCD_HandleTypeDef* hpcd)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->StartOfFrameCallback();
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->StartOfFrameCallback();
 }
 
 void HAL_PCD_ResetCallback(PCD_HandleTypeDef* hpcd)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->ResetCallback();
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->ResetCallback();
 }
 
 void HAL_PCD_SuspendCallback(PCD_HandleTypeDef* hpcd)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->SuspendCallback();
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->SuspendCallback();
 }
 
 void HAL_PCD_ResumeCallback(PCD_HandleTypeDef* hpcd)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->ResumeCallback();
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->ResumeCallback();
 }
 
 void HAL_PCD_ISOOUTIncompleteCallback(PCD_HandleTypeDef* hpcd, uint8_t epnum)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->GetObserver().IsochronousOutIncomplete(epnum);
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->GetObserver().IsochronousOutIncomplete(epnum);
 }
 
 void HAL_PCD_ISOINIncompleteCallback(PCD_HandleTypeDef* hpcd, uint8_t epnum)
 {
-    static_cast<hal::UsbLinkLayerStm*>(hpcd->pData)->GetObserver().IsochronousInIncomplete(epnum);
+    static_cast<hal::UsbDeviceLinkLayerStm*>(hpcd->pData)->GetObserver().IsochronousInIncomplete(epnum);
 }
 
 namespace hal
 {
-    UsbLinkLayerStm::UsbLinkLayerStm(UsbDeviceFactory& deviceFactory, hal::GpioPin& powerSwitch, hal::GpioPin& vbus, hal::GpioPin& overCurrent, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp)
+    UsbDeviceLinkLayerStm::UsbDeviceLinkLayerStm(UsbDeviceFactory& deviceFactory, hal::GpioPin& powerSwitch, hal::GpioPin& vbus, hal::GpioPin& overCurrent, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp)
         : deviceFactory(deviceFactory)
         , powerSwitch(powerSwitch)
         , vbus(vbus)
@@ -100,7 +100,7 @@ namespace hal
         HAL_PCD_Start(&pcd);
     }
 
-    UsbLinkLayerStm::~UsbLinkLayerStm()
+    UsbDeviceLinkLayerStm::~UsbDeviceLinkLayerStm()
     {
         deviceFactory.Destroy();
 
@@ -108,32 +108,32 @@ namespace hal
         HAL_PCD_DeInit(&pcd);
     }
 
-    void UsbLinkLayerStm::OpenEndPoint(uint8_t ep_addr, UsbEndPointType type, uint16_t ep_mps)
+    void UsbDeviceLinkLayerStm::OpenEndPoint(uint8_t ep_addr, UsbEndPointType type, uint16_t ep_mps)
     {
         HAL_PCD_EP_Open(&pcd, ep_addr, ep_mps, static_cast<uint8_t>(type));
     }
 
-    void UsbLinkLayerStm::CloseEndPoint(uint8_t ep_addr)
+    void UsbDeviceLinkLayerStm::CloseEndPoint(uint8_t ep_addr)
     {
         HAL_PCD_EP_Close(&pcd, ep_addr);
     }
 
-    void UsbLinkLayerStm::FlushEndPoint(uint8_t ep_addr)
+    void UsbDeviceLinkLayerStm::FlushEndPoint(uint8_t ep_addr)
     {
         HAL_PCD_EP_Flush(&pcd, ep_addr);
     }
 
-    void UsbLinkLayerStm::StallEndPoint(uint8_t ep_addr)
+    void UsbDeviceLinkLayerStm::StallEndPoint(uint8_t ep_addr)
     {
         HAL_PCD_EP_SetStall(&pcd, ep_addr);
     }
 
-    void UsbLinkLayerStm::ClearStallEndPoint(uint8_t ep_addr)
+    void UsbDeviceLinkLayerStm::ClearStallEndPoint(uint8_t ep_addr)
     {
         HAL_PCD_EP_ClrStall(&pcd, ep_addr);
     }
 
-    bool UsbLinkLayerStm::IsStallEndPoint(uint8_t ep_addr)
+    bool UsbDeviceLinkLayerStm::IsStallEndPoint(uint8_t ep_addr)
     {
         PCD_HandleTypeDef* hpcd = &pcd;
 
@@ -143,47 +143,47 @@ namespace hal
             return hpcd->OUT_ep[ep_addr & 0x7F].is_stall;
     }
 
-    void UsbLinkLayerStm::SetUsbAddress(uint8_t dev_addr)
+    void UsbDeviceLinkLayerStm::SetUsbAddress(uint8_t dev_addr)
     {
         HAL_PCD_SetAddress(&pcd, dev_addr);
     }
 
-    void UsbLinkLayerStm::Transmit(uint8_t ep_addr, infra::ConstByteRange data)
+    void UsbDeviceLinkLayerStm::Transmit(uint8_t ep_addr, infra::ConstByteRange data)
     {
         HAL_PCD_EP_Transmit(&pcd, ep_addr, const_cast<uint8_t*>(data.begin()), data.size());
     }
 
-    void UsbLinkLayerStm::PrepareReceive(uint8_t ep_addr, infra::ConstByteRange data)
+    void UsbDeviceLinkLayerStm::PrepareReceive(uint8_t ep_addr, infra::ConstByteRange data)
     {
         HAL_PCD_EP_Receive(&pcd, ep_addr, const_cast<uint8_t*>(data.begin()), data.size());
     }
 
-    uint32_t UsbLinkLayerStm::GetReceiveDataSize(uint8_t ep_addr)
+    uint32_t UsbDeviceLinkLayerStm::GetReceiveDataSize(uint8_t ep_addr)
     {
         return HAL_PCD_EP_GetRxCount(&pcd, ep_addr);
     }
 
-    void UsbLinkLayerStm::SetupStageCallback()
+    void UsbDeviceLinkLayerStm::SetupStageCallback()
     {
         GetObserver().SetupStage(infra::ConstByteRange((uint8_t*)pcd.Setup, (uint8_t*)pcd.Setup + sizeof(pcd.Setup)));
     }
 
-    void UsbLinkLayerStm::DataOutStageCallback(uint8_t epnum)
+    void UsbDeviceLinkLayerStm::DataOutStageCallback(uint8_t epnum)
     {
         GetObserver().DataOutStage(epnum, infra::ByteRange(pcd.OUT_ep[epnum].xfer_buff, pcd.OUT_ep[epnum].xfer_buff + pcd.OUT_ep[epnum].xfer_count));
     }
 
-    void UsbLinkLayerStm::DataInStageCallback(uint8_t epnum)
+    void UsbDeviceLinkLayerStm::DataInStageCallback(uint8_t epnum)
     {
         GetObserver().DataInStage(epnum, infra::ByteRange(pcd.IN_ep[epnum].xfer_buff, pcd.IN_ep[epnum].xfer_buff + pcd.IN_ep[epnum].xfer_count));
     }
 
-    void UsbLinkLayerStm::StartOfFrameCallback()
+    void UsbDeviceLinkLayerStm::StartOfFrameCallback()
     {
         GetObserver().StartOfFrame();
     }
 
-    void UsbLinkLayerStm::ResetCallback()
+    void UsbDeviceLinkLayerStm::ResetCallback()
     {
         UsbSpeed speed = UsbSpeed::full;
 
@@ -204,21 +204,21 @@ namespace hal
         deviceFactory.Create(*this);
     }
 
-    void UsbLinkLayerStm::SuspendCallback()
+    void UsbDeviceLinkLayerStm::SuspendCallback()
     {
         if (HasObserver())
             GetObserver().Suspend();
         __HAL_PCD_GATE_PHYCLOCK(&pcd);
     }
 
-    void UsbLinkLayerStm::ResumeCallback()
+    void UsbDeviceLinkLayerStm::ResumeCallback()
     {
         __HAL_PCD_UNGATE_PHYCLOCK(&pcd);
         if (HasObserver())
             GetObserver().Resume();
     }
 
-    void UsbLinkLayerStm::IrqHandler()
+    void UsbDeviceLinkLayerStm::IrqHandler()
     {
         HAL_PCD_IRQHandler(&pcd);
     }
