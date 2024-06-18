@@ -1,7 +1,6 @@
 #include "hal_st/stm32fxxx/UsbHostLinkLayerStm.hpp"
 #include "hal/interfaces/UsbLinkLayer.hpp"
 #include "infra/util/ByteRange.hpp"
-#include "stm32f407xx.h"
 
 #ifdef HAS_PERIPHERAL_USB
 
