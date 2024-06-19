@@ -52,7 +52,6 @@ namespace hal
         void SetToggle(uint8_t pipe, bool toggle) override;
         bool Toggle(uint8_t pipe) override;
 
-        void Wakeup() const;
         void StartOfFrame() const;
         void Connected() const;
         void Disconnected() const;

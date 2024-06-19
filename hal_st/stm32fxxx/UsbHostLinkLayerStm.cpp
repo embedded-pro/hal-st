@@ -4,11 +4,6 @@
 
 #ifdef HAS_PERIPHERAL_USB
 
-void HAL_HCD_WKUP_IRQHandler(HCD_HandleTypeDef* hcd)
-{
-    static_cast<hal::UsbHostLinkLayerStm*>(hcd->pData)->Wakeup();
-}
-
 void HAL_HCD_SOF_Callback(HCD_HandleTypeDef* hcd)
 {
     static_cast<hal::UsbHostLinkLayerStm*>(hcd->pData)->StartOfFrame();
@@ -227,11 +222,6 @@ namespace hal
             return hcd.hc[pipe].toggle_in;
         else
             return hcd.hc[pipe].toggle_out;
-    }
-
-    void UsbHostLinkLayerStm::Wakeup() const
-    {
-
     }
 
     void UsbHostLinkLayerStm::StartOfFrame() const
