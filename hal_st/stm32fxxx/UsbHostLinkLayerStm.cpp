@@ -138,8 +138,8 @@ namespace
 
 namespace hal
 {
-    UsbHostLinkLayerStm::UsbHostLinkLayerStm(uint8_t oneBasedIndex, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config)
-        : usbIndex(oneBasedIndex - 1)
+    UsbHostLinkLayerStm::UsbHostLinkLayerStm(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config)
+        : usbIndex(static_cast<uint8_t>(usbType))
         , id(id, hal::PinConfigTypeStm::usbFsId, usbIndex)
         , dm(dm, hal::PinConfigTypeStm::usbFsDm, usbIndex)
         , dp(dp, hal::PinConfigTypeStm::usbFsDp, usbIndex)

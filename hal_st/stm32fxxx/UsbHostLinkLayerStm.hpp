@@ -33,7 +33,13 @@ namespace hal
     public:
         using Config = detail::UsbHostStmConfig;
 
-        UsbHostLinkLayerStm(uint8_t oneBasedIndex, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config = Config());
+        enum class Type : uint8_t
+        {
+            fullSpeed = 0,
+            highSpeed,
+        };
+
+        UsbHostLinkLayerStm(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config = Config());
         ~UsbHostLinkLayerStm();
 
         // Implementation of UsbHostLinkLayer
