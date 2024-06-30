@@ -93,6 +93,23 @@
     <pin name="Dm"><input name="USB_OTG_FS_DM"/></pin>
     <pin name="Dp"><input name="USB_OTG_FS_DP"/></pin>
   </peripheral>
+  <peripheral name="UsbHs">
+    <pin name="Id"><input name="USB_OTG_HS_ID"/></pin>
+    <pin name="Dm"><input name="USB_OTG_HS_DM"/></pin>
+    <pin name="Dp"><input name="USB_OTG_HS_DP"/></pin>
+    <pin name="UlpiClk"><input name="USB_OTG_HS_ULPI_CK"/></pin>
+    <pin name="UlpiDir"><input name="USB_OTG_HS_ULPI_DIR"/></pin>
+    <pin name="UlpiStp"><input name="USB_OTG_HS_ULPI_STP"/></pin>
+    <pin name="UlpiNxt"><input name="USB_OTG_HS_ULPI_NXT"/></pin>
+    <pin name="UlpiD0"><input name="USB_OTG_HS_ULPI_D0"/></pin>
+    <pin name="UlpiD1"><input name="USB_OTG_HS_ULPI_D1"/></pin>
+    <pin name="UlpiD2"><input name="USB_OTG_HS_ULPI_D2"/></pin>
+    <pin name="UlpiD3"><input name="USB_OTG_HS_ULPI_D3"/></pin>
+    <pin name="UlpiD4"><input name="USB_OTG_HS_ULPI_D4"/></pin>
+    <pin name="UlpiD5"><input name="USB_OTG_HS_ULPI_D5"/></pin>
+    <pin name="UlpiD6"><input name="USB_OTG_HS_ULPI_D6"/></pin>
+    <pin name="UlpiD7"><input name="USB_OTG_HS_ULPI_D7"/></pin>
+  </peripheral>
   <peripheral name="Can">
     <pin name="Rx"><input name="CAN:_RX"/></pin>
     <pin name="Tx"><input name="CAN:_TX"/></pin>
