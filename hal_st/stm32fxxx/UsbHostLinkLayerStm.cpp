@@ -135,24 +135,16 @@ namespace hal
 {
     UsbHostLinkLayerStm::UsbHostLinkLayerStm(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config)
         : usbIndex(static_cast<uint8_t>(usbType))
-        , id(id, hal::PinConfigTypeStm::usbFsId, usbIndex)
-        , dm(dm, hal::PinConfigTypeStm::usbFsDm, usbIndex)
-        , dp(dp, hal::PinConfigTypeStm::usbFsDp, usbIndex)
+        , pins{ infra::InPlaceType<InternalPhy>(), usbType, id, dm, dp }
     {
-        hcd.Instance = peripheralUSBLocal[usbIndex];
-        hcd.Init.Host_channels = numberOfChannels;
-        hcd.pData = this;
-        hcd.Init.dma_enable = 0;
-        hcd.Init.low_power_enable = config.lowPower;
-        hcd.Init.phy_itface = config.phyInterface;
-        hcd.Init.Sof_enable = config.startOfFrame;
-        hcd.Init.speed = config.speed;
-        hcd.Init.use_external_vbus = config.externalVBus;
+        Initialize(HCD_PHY_EMBEDDED, config);
+    }
 
-        HAL_HCD_Init(&hcd);
-        EnableClockUSBLocally(usbIndex);
-        CreateInterruptDispatched();
-        HAL_HCD_Start(&hcd);
+    UsbHostLinkLayerStm::UsbHostLinkLayerStm(Type usbType, Ulpi pins, const Config& config)
+        : usbIndex(static_cast<uint8_t>(usbType))
+        , pins{ infra::InPlaceType<ExternalPhy>(), pins }
+    {
+        Initialize(HCD_PHY_ULPI, config);
     }
 
     UsbHostLinkLayerStm::~UsbHostLinkLayerStm()
@@ -161,6 +153,24 @@ namespace hal
         HAL_HCD_DeInit(&hcd);
         DestroyInterruptDispatched();
         DisableClockUSBLocally(usbIndex);
+    }
+
+    void UsbHostLinkLayerStm::Initialize(uint32_t phyInterface, const Config& config)
+    {
+        hcd.Instance = peripheralUSBLocal[usbIndex];
+        hcd.Init.Host_channels = numberOfChannels;
+        hcd.pData = this;
+        hcd.Init.dma_enable = config.useDma;
+        hcd.Init.low_power_enable = config.lowPower;
+        hcd.Init.phy_itface = phyInterface;
+        hcd.Init.Sof_enable = config.startOfFrame;
+        hcd.Init.speed = config.speed;
+        hcd.Init.use_external_vbus = config.externalVBus;
+
+        HAL_HCD_Init(&hcd);
+        EnableClockUSBLocally(usbIndex);
+        CreateInterruptDispatched();
+        HAL_HCD_Start(&hcd);
     }
 
     void UsbHostLinkLayerStm::CreateInterruptDispatched()
