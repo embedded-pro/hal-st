@@ -86,9 +86,9 @@ namespace hal
         struct InternalPhy
         {
             InternalPhy(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp)
-                : id(id, hal::PinConfigTypeStm::usbFsId, static_cast<uint8_t>(usbType))
-                , dm(dm, hal::PinConfigTypeStm::usbFsDm, static_cast<uint8_t>(usbType))
-                , dp(dp, hal::PinConfigTypeStm::usbFsDp, static_cast<uint8_t>(usbType))
+                : id(id, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsId : hal::PinConfigTypeStm::usbHsId, static_cast<uint8_t>(usbType))
+                , dm(dm, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDm : hal::PinConfigTypeStm::usbHsDm, static_cast<uint8_t>(usbType))
+                , dp(dp, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDp : hal::PinConfigTypeStm::usbHsDp, static_cast<uint8_t>(usbType))
             {}
 
             hal::PeripheralPinStm id;
