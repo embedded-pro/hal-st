@@ -86,9 +86,9 @@ namespace hal
         struct InternalPhy
         {
             InternalPhy(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp)
-                : id(id, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsId : hal::PinConfigTypeStm::usbHsId, static_cast<uint8_t>(usbType))
-                , dm(dm, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDm : hal::PinConfigTypeStm::usbHsDm, static_cast<uint8_t>(usbType))
-                , dp(dp, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDp : hal::PinConfigTypeStm::usbHsDp, static_cast<uint8_t>(usbType))
+                : id(id, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsId : hal::PinConfigTypeStm::usbHsId, 0)
+                , dm(dm, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDm : hal::PinConfigTypeStm::usbHsDm, 0)
+                , dp(dp, usbType == Type::fullSpeed ? hal::PinConfigTypeStm::usbFsDp : hal::PinConfigTypeStm::usbHsDp, 0)
             {}
 
             hal::PeripheralPinStm id;
@@ -99,18 +99,18 @@ namespace hal
         struct ExternalPhy
         {
             explicit ExternalPhy(Ulpi pins)
-                : clock(pins.clock, hal::PinConfigTypeStm::usbHsUlpiClk, static_cast<uint8_t>(Type::highSpeed))
-                , direction(pins.direction, hal::PinConfigTypeStm::usbHsUlpiDir, static_cast<uint8_t>(Type::highSpeed))
-                , dataStreamStop(pins.dataStreamStop, hal::PinConfigTypeStm::usbHsUlpiStp, static_cast<uint8_t>(Type::highSpeed))
-                , dataStreamNextRequest(pins.dataStreamNextRequest, hal::PinConfigTypeStm::usbHsUlpiNxt, static_cast<uint8_t>(Type::highSpeed))
-                , d0(pins.d0, hal::PinConfigTypeStm::usbHsUlpiD0, static_cast<uint8_t>(Type::highSpeed))
-                , d1(pins.d1, hal::PinConfigTypeStm::usbHsUlpiD1, static_cast<uint8_t>(Type::highSpeed))
-                , d2(pins.d2, hal::PinConfigTypeStm::usbHsUlpiD2, static_cast<uint8_t>(Type::highSpeed))
-                , d3(pins.d3, hal::PinConfigTypeStm::usbHsUlpiD3, static_cast<uint8_t>(Type::highSpeed))
-                , d4(pins.d4, hal::PinConfigTypeStm::usbHsUlpiD4, static_cast<uint8_t>(Type::highSpeed))
-                , d5(pins.d5, hal::PinConfigTypeStm::usbHsUlpiD5, static_cast<uint8_t>(Type::highSpeed))
-                , d6(pins.d6, hal::PinConfigTypeStm::usbHsUlpiD6, static_cast<uint8_t>(Type::highSpeed))
-                , d7(pins.d7, hal::PinConfigTypeStm::usbHsUlpiD7, static_cast<uint8_t>(Type::highSpeed))
+                : clock(pins.clock, hal::PinConfigTypeStm::usbHsUlpiClk, 0)
+                , direction(pins.direction, hal::PinConfigTypeStm::usbHsUlpiDir, 0)
+                , dataStreamStop(pins.dataStreamStop, hal::PinConfigTypeStm::usbHsUlpiStp, 0)
+                , dataStreamNextRequest(pins.dataStreamNextRequest, hal::PinConfigTypeStm::usbHsUlpiNxt, 0)
+                , d0(pins.d0, hal::PinConfigTypeStm::usbHsUlpiD0, 0)
+                , d1(pins.d1, hal::PinConfigTypeStm::usbHsUlpiD1, 0)
+                , d2(pins.d2, hal::PinConfigTypeStm::usbHsUlpiD2, 0)
+                , d3(pins.d3, hal::PinConfigTypeStm::usbHsUlpiD3, 0)
+                , d4(pins.d4, hal::PinConfigTypeStm::usbHsUlpiD4, 0)
+                , d5(pins.d5, hal::PinConfigTypeStm::usbHsUlpiD5, 0)
+                , d6(pins.d6, hal::PinConfigTypeStm::usbHsUlpiD6, 0)
+                , d7(pins.d7, hal::PinConfigTypeStm::usbHsUlpiD7, 0)
             {}
 
             hal::PeripheralPinStm clock;
