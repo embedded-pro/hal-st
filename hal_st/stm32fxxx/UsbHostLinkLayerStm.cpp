@@ -167,8 +167,8 @@ namespace hal
         hcd.Init.speed = config.speed;
         hcd.Init.use_external_vbus = config.externalVBus;
 
-        HAL_HCD_Init(&hcd);
         EnableClockUSBLocally(usbIndex);
+        HAL_HCD_Init(&hcd);
         CreateInterruptDispatched();
         HAL_HCD_Start(&hcd);
     }
