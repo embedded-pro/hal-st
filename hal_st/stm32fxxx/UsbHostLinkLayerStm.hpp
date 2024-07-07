@@ -140,7 +140,7 @@ namespace hal
         infra::Variant<InternalPhy, ExternalPhy> pins;
         HCD_HandleTypeDef hcd;
         std::array<channelCallbacks, numberOfChannels> channelCallbacks;
-        infra::Optional<DispatchedInterruptHandler> dispatchedInterruptHandler;
+        infra::Optional<ImmediateInterruptHandler> immediateInterruptHandler;
         std::array<uint8_t, maxReceptionBufferSize> receptionBuffer;
     };
 }

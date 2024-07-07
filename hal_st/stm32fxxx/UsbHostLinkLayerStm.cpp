@@ -1,5 +1,6 @@
 #include "hal_st/stm32fxxx/UsbHostLinkLayerStm.hpp"
 #include "hal/interfaces/UsbLinkLayer.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ByteRange.hpp"
 
 #ifdef HAS_PERIPHERAL_USB
@@ -175,7 +176,7 @@ namespace hal
 
     void UsbHostLinkLayerStm::CreateInterruptDispatched()
     {
-        dispatchedInterruptHandler.Emplace(peripheralUSBIrq[usbIndex], [this]()
+        immediateInterruptHandler.Emplace(peripheralUSBIrq[usbIndex], [this]()
             {
                 HAL_HCD_IRQHandler(&hcd);
             });
@@ -183,7 +184,7 @@ namespace hal
 
     void UsbHostLinkLayerStm::DestroyInterruptDispatched()
     {
-        dispatchedInterruptHandler = infra::none;
+        immediateInterruptHandler = infra::none;
     }
 
     UsbSpeed UsbHostLinkLayerStm::Speed()
@@ -209,13 +210,13 @@ namespace hal
     void UsbHostLinkLayerStm::Transmit(uint8_t pipe, UsbEndPointType type, Pid token, infra::ConstByteRange buffer, bool ping, const infra::Function<void(UsbRequestBlockState)>& onDone)
     {
         channelCallbacks.at(pipe).onTransmissionDone = onDone;
-        HAL_HCD_HC_SubmitRequest(&hcd,pipe, 0, ToEndPointType(type), ToToken(token), const_cast<uint8_t *>(buffer.begin()), static_cast<uint16_t>(buffer.size()), ping);
+        HAL_HCD_HC_SubmitRequest(&hcd, pipe, 0, ToEndPointType(type), ToToken(token), const_cast<uint8_t *>(buffer.begin()), static_cast<uint16_t>(buffer.size()), ping);
     }
 
     void UsbHostLinkLayerStm::Receive(uint8_t pipe, UsbEndPointType type, Pid token, bool ping, const infra::Function<void(infra::ConstByteRange, UsbRequestBlockState)>& onDone)
     {
         channelCallbacks.at(pipe).onReceptionDone = onDone;
-        HAL_HCD_HC_SubmitRequest(&hcd,pipe, 1, ToEndPointType(type), ToToken(token), receptionBuffer.data(), static_cast<uint16_t>(receptionBuffer.size()), 0);
+        HAL_HCD_HC_SubmitRequest(&hcd, pipe, 1, ToEndPointType(type), ToToken(token), receptionBuffer.data(), static_cast<uint16_t>(receptionBuffer.size()), 0);
     }
 
     void UsbHostLinkLayerStm::SetToggle(uint8_t pipe, bool toggle)
@@ -243,35 +244,51 @@ namespace hal
     void UsbHostLinkLayerStm::Connected() const
     {
         if (HasObserver())
-            GetObserver().Connected();
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    GetObserver().Connected();
+                });
+
     }
 
     void UsbHostLinkLayerStm::Disconnected() const
     {
         if (HasObserver())
-            GetObserver().Disconnected();
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    GetObserver().Disconnected();
+                });
     }
 
     void UsbHostLinkLayerStm::PortEnabled() const
     {
         if (HasObserver())
-            GetObserver().PortEnabled();
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    GetObserver().PortEnabled();
+                });
     }
 
     void UsbHostLinkLayerStm::PortDisabled() const
     {
         if (HasObserver())
-            GetObserver().PortDisabled();
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    GetObserver().PortDisabled();
+                });
     }
 
     void UsbHostLinkLayerStm::UrbChanged(uint8_t pipe, uint8_t urbState)
     {
-        auto& callbacks = channelCallbacks.at(pipe);
+        infra::EventDispatcher::Instance().Schedule([this, pipe, urbState]()
+            {
+                auto& callbacks = channelCallbacks.at(pipe);
 
-        if (callbacks.onReceptionDone)
-            callbacks.onReceptionDone(infra::ConstByteRange(receptionBuffer.data(), receptionBuffer.data() + HAL_HCD_HC_GetXferCount(&hcd, pipe)), ToUrbState(urbState));
-        else if (callbacks.onTransmissionDone)
-            callbacks.onTransmissionDone(ToUrbState(urbState));
+                if (callbacks.onReceptionDone)
+                    callbacks.onReceptionDone(infra::ConstByteRange(receptionBuffer.data(), receptionBuffer.data() + HAL_HCD_HC_GetXferCount(&hcd, pipe)), ToUrbState(urbState));
+                else if (callbacks.onTransmissionDone)
+                    callbacks.onTransmissionDone(ToUrbState(urbState));
+            });
     }
 }
 
