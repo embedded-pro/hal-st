@@ -77,6 +77,8 @@ namespace hal
         void PortDisabled() const;
         void UrbChanged(uint8_t pipe, uint8_t urbState);
 
+        void IrqHandler();
+
     private:
         void Initialize(uint32_t phyInterface, const Config& config);
         void CreateInterruptDispatched();
@@ -140,8 +142,8 @@ namespace hal
         infra::Variant<InternalPhy, ExternalPhy> pins;
         HCD_HandleTypeDef hcd;
         std::array<channelCallbacks, numberOfChannels> channelCallbacks;
-        infra::Optional<ImmediateInterruptHandler> immediateInterruptHandler;
-        std::array<uint8_t, maxReceptionBufferSize> receptionBuffer;
+        std::array<infra::Optional<ImmediateInterruptHandler>, 4> immediateInterruptHandler;
+        std::array<uint8_t, maxReceptionBufferSize> receptionBuffer  __attribute__((aligned(4)));
     };
 }
 
