@@ -103,13 +103,25 @@ namespace
 
     const infra::MemoryRange<USB_OTG_GlobalTypeDef* const> peripheralUSBLocal = infra::ReinterpretCastMemoryRange<USB_OTG_GlobalTypeDef* const>(infra::MakeRange(peripheralUSBArray));
 
-    constexpr std::array<IRQn_Type const, 2> peripheralUSBIrqArray =
+    constexpr std::array<IRQn_Type const, 1> peripheralUSBFsIrqArray =
     {{
         OTG_FS_IRQn,
-        OTG_HS_IRQn,
     }};
 
-    constexpr infra::MemoryRange<IRQn_Type const> peripheralUSBIrq = peripheralUSBIrqArray;
+    constexpr std::array<IRQn_Type const, 3> peripheralUSBHsIrqArray =
+    {{
+        OTG_HS_IRQn,
+        OTG_HS_EP1_IN_IRQn,
+        OTG_HS_EP1_OUT_IRQn
+    }};
+
+    std::array<infra::MemoryRange<IRQn_Type const>, 2> peripheralUSBIrqArray =
+    {{
+        peripheralUSBFsIrqArray,
+        peripheralUSBHsIrqArray,
+    }};
+
+    const infra::MemoryRange<infra::MemoryRange<IRQn_Type const>> peripheralUSBIrq = peripheralUSBIrqArray;
 
     void EnableClockUSBLocally(std::size_t index)
     {
@@ -176,15 +188,17 @@ namespace hal
 
     void UsbHostLinkLayerStm::CreateInterruptDispatched()
     {
-        immediateInterruptHandler.Emplace(peripheralUSBIrq[usbIndex], [this]()
-            {
-                HAL_HCD_IRQHandler(&hcd);
-            });
+        for (std::size_t i = 0; i < peripheralUSBIrq[usbIndex].size(); i++)
+            immediateInterruptHandler[i].Emplace(peripheralUSBIrq[usbIndex][i], [this]()
+                {
+                    HAL_HCD_IRQHandler(&hcd);
+                });
     }
 
     void UsbHostLinkLayerStm::DestroyInterruptDispatched()
     {
-        immediateInterruptHandler = infra::none;
+        for (auto& handler : immediateInterruptHandler)
+            handler = infra::none;
     }
 
     UsbSpeed UsbHostLinkLayerStm::Speed()
@@ -210,13 +224,15 @@ namespace hal
     void UsbHostLinkLayerStm::Transmit(uint8_t pipe, UsbEndPointType type, Pid token, infra::ConstByteRange buffer, bool ping, const infra::Function<void(UsbRequestBlockState)>& onDone)
     {
         channelCallbacks.at(pipe).onTransmissionDone = onDone;
+
         HAL_HCD_HC_SubmitRequest(&hcd, pipe, 0, ToEndPointType(type), ToToken(token), const_cast<uint8_t *>(buffer.begin()), static_cast<uint16_t>(buffer.size()), ping);
     }
 
     void UsbHostLinkLayerStm::Receive(uint8_t pipe, UsbEndPointType type, Pid token, bool ping, const infra::Function<void(infra::ConstByteRange, UsbRequestBlockState)>& onDone)
     {
         channelCallbacks.at(pipe).onReceptionDone = onDone;
-        HAL_HCD_HC_SubmitRequest(&hcd, pipe, 1, ToEndPointType(type), ToToken(token), receptionBuffer.data(), static_cast<uint16_t>(receptionBuffer.size()), 0);
+
+        HAL_HCD_HC_SubmitRequest(&hcd, pipe, 1, ToEndPointType(type), ToToken(token), receptionBuffer.data(), static_cast<uint16_t>(receptionBuffer.size()), ping);
     }
 
     void UsbHostLinkLayerStm::SetToggle(uint8_t pipe, bool toggle)
@@ -284,11 +300,17 @@ namespace hal
             {
                 auto& callbacks = channelCallbacks.at(pipe);
 
-                if (callbacks.onReceptionDone)
+                if (callbacks.onReceptionDone && urbState != URB_NOTREADY)
                     callbacks.onReceptionDone(infra::ConstByteRange(receptionBuffer.data(), receptionBuffer.data() + HAL_HCD_HC_GetXferCount(&hcd, pipe)), ToUrbState(urbState));
-                else if (callbacks.onTransmissionDone)
+
+                if (callbacks.onTransmissionDone)
                     callbacks.onTransmissionDone(ToUrbState(urbState));
             });
+    }
+
+    void UsbHostLinkLayerStm::IrqHandler()
+    {
+        HAL_HCD_IRQHandler(&hcd);
     }
 }
 
