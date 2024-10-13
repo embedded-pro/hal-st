@@ -92,7 +92,7 @@ target_sources(hal_st.stm32fxxx PRIVATE
     UsbDeviceLinkLayerStm.cpp
     UsbDeviceLinkLayerStm.hpp
     UsbHostLinkLayerStm.cpp
-    UsbHostLinkLayerStm.hpp dab7360ad76050b539a838a04ddb1faa47fdb603
+    UsbHostLinkLayerStm.hpp
     UniqueDeviceId.cpp
     UniqueDeviceId.hpp
     WatchDogStm.cpp
