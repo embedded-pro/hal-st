@@ -10,11 +10,19 @@ namespace hal
         , miso(miso, PinConfigTypeStm::spiMiso, oneBasedSpiIndex)
         , mosi(mosi, PinConfigTypeStm::spiMosi, oneBasedSpiIndex)
         , slaveSelect(slaveSelect, PinConfigTypeStm::spiSlaveSelect, oneBasedSpiIndex)
+#if !defined(STM32WBA) && !defined(STM32H5)
         , tx(transmitStream, &peripheralSpi[spiInstance]->DR, 1, [this]()
+#else
+        , tx(transmitStream, &peripheralSpi[spiInstance]->TXDR, 1, [this]()
+#endif
               {
                   SendDone();
               })
+#if !defined(STM32WBA) && !defined(STM32H5)
         , rx(receiveStream, &peripheralSpi[spiInstance]->DR, 1, [this]()
+#else
+        , rx(receiveStream, &peripheralSpi[spiInstance]->RXDR, 1, [this]()
+#endif
               {
                   ReceiveDone();
               })
@@ -22,6 +30,12 @@ namespace hal
         ResetPeripheralSpi(spiInstance);
         EnableClockSpi(spiInstance);
         Configure();
+    }
+
+    SpiSlaveStmDma::~SpiSlaveStmDma()
+    {
+        DisableSpi();
+        DisableClockSpi(spiInstance);
     }
 
     void SpiSlaveStmDma::SendAndReceive(infra::ConstByteRange sendData, infra::ByteRange receiveData, const infra::Function<void()>& onDone)
@@ -54,6 +68,10 @@ namespace hal
         receiveDone = false;
         sendDone = false;
 
+#ifdef STM32H5
+        DisableSpi();
+#endif
+
         if (!sendData.empty() && !receiveData.empty())
         {
             assert(sendData.size() == receiveData.size());
@@ -72,6 +90,10 @@ namespace hal
         }
         else
             std::abort();
+
+#ifdef STM32H5
+        EnableSpi();
+#endif
     }
 
     void SpiSlaveStmDma::ReceiveDone()
@@ -92,12 +114,15 @@ namespace hal
 
     void SpiSlaveStmDma::TransferDone()
     {
+#ifdef STM32H5
+        DisableSpi();
+#endif
         onDone();
     }
 
     void SpiSlaveStmDma::Configure()
     {
-        SPI_HandleTypeDef spiHandle;
+        SPI_HandleTypeDef spiHandle{};
         spiHandle.Instance = peripheralSpi[spiInstance];
         spiHandle.Init.Mode = SPI_MODE_SLAVE;
         spiHandle.Init.Direction = SPI_DIRECTION_2LINES;
@@ -112,27 +137,56 @@ namespace hal
         spiHandle.Init.CRCPolynomial = 1;
 #if defined(STM32F0) || defined(STM32F1) || defined(STM32F3) || defined(STM32F7)
         spiHandle.Init.CRCLength = SPI_CRC_LENGTH_8BIT;
+#endif
+#ifdef SPI_CFG1_FTHLV
+        spiHandle.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
+#endif
+#ifdef SPI_NSS_PULSE_DISABLE
         spiHandle.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
 #endif
-        HAL_SPI_Init(&spiHandle);
+#ifdef SPI_NSS_POLARITY_LOW
+        spiHandle.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+#endif
+
+        auto result = HAL_SPI_Init(&spiHandle);
+        assert(result == HAL_OK);
 
 #if defined(STM32F0) || defined(STM32F1) || defined(STM32F3) || defined(STM32F7)
         peripheralSpi[spiInstance]->CR2 |= SPI_RXFIFO_THRESHOLD_QF;
 #endif
 
-        __HAL_SPI_ENABLE(&spiHandle);
         EnableDma();
+    }
+
+    void SpiSlaveStmDma::EnableSpi()
+    {
+        peripheralSpi[spiInstance]->CR1 |= SPI_CR1_SPE;
+    }
+
+    void SpiSlaveStmDma::DisableSpi()
+    {
+        peripheralSpi[spiInstance]->CR1 |= SPI_CR1_SPE;
     }
 
     void SpiSlaveStmDma::EnableDma()
     {
+#ifdef SPI_CR2_RXDMAEN
         peripheralSpi[spiInstance]->CR2 |= SPI_CR2_RXDMAEN;
         peripheralSpi[spiInstance]->CR2 |= SPI_CR2_TXDMAEN;
+#else
+        peripheralSpi[spiInstance]->CFG1 |= SPI_CFG1_RXDMAEN;
+        peripheralSpi[spiInstance]->CFG1 |= SPI_CFG1_TXDMAEN;
+#endif
     }
 
     void SpiSlaveStmDma::DisableDma()
     {
+#ifdef SPI_CR2_TXDMAEN
         peripheralSpi[spiInstance]->CR2 &= ~SPI_CR2_TXDMAEN;
         peripheralSpi[spiInstance]->CR2 &= ~SPI_CR2_RXDMAEN;
+#else
+        peripheralSpi[spiInstance]->CFG1 &= ~SPI_CFG1_TXDMAEN;
+        peripheralSpi[spiInstance]->CFG1 &= ~SPI_CFG1_RXDMAEN;
+#endif
     }
 }

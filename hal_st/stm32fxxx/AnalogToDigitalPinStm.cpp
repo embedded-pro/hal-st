@@ -1,18 +1,69 @@
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
+#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/event/EventDispatcher.hpp"
+#include "infra/util/Function.hpp"
 #include "infra/util/MemoryRange.hpp"
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+
+#include DEVICE_HEADER
+
 #if defined(STM32F7)
 extern "C"
 {
-    #include "stm32f7xx_ll_adc.h"
+#include "stm32f7xx_ll_adc.h"
 }
 #endif
 
 namespace
 {
-    constexpr std::array<uint32_t, 19> adcChannel = {
-        ADC_CHANNEL_0,
+#if defined(STM32G4)
+    constexpr std::array irqMap
+    {
+#if defined(ADC1)
+        std::make_pair(1, IRQn_Type::ADC1_2_IRQn), // only ADC1 or ADC2 can be configured to use the single interrupt vector
+#endif
+#if defined(ADC2)
+            std::make_pair(2, IRQn_Type::ADC1_2_IRQn), // only ADC1 or ADC2 can be configured to use the single interrupt vector
+#endif
+
+#if defined(ADC3)
+            std::make_pair(3, IRQn_Type::ADC3_IRQn),
+#endif
+
+#if defined(ADC4)
+            std::make_pair(4, IRQn_Type::ADC4_IRQn),
+#endif
+
+#if defined(ADC5)
+            std::make_pair(5, IRQn_Type::ADC5_IRQn),
+#endif
+    };
+
+    IRQn_Type LookupIrq(std::size_t index)
+    {
+        auto iter = std::find_if(irqMap.begin(), irqMap.end(), [index](const auto& pair)
+            {
+                return pair.first == index;
+            });
+
+        if (iter == irqMap.end())
+            std::abort();
+
+        return iter->second;
+    }
+#endif
+
+    constexpr std::array adcChannel{
+        // STM32F4x header defines ADC_CHANNEL_0 as 0x0u, all others are cast to uint32_t
+        // all other device headers are consistent with all their channel types
+        static_cast<decltype(ADC_CHANNEL_1)>(ADC_CHANNEL_0),
         ADC_CHANNEL_1,
         ADC_CHANNEL_2,
         ADC_CHANNEL_3,
@@ -26,19 +77,25 @@ namespace
         ADC_CHANNEL_11,
         ADC_CHANNEL_12,
         ADC_CHANNEL_13,
+#ifdef ADC_CHANNEL_18
         ADC_CHANNEL_14,
         ADC_CHANNEL_15,
         ADC_CHANNEL_16,
         ADC_CHANNEL_17,
-        ADC_CHANNEL_18
+        ADC_CHANNEL_18,
+#endif
+#ifdef ADC_CHANNEL_19
+        ADC_CHANNEL_19,
+#endif
     };
 }
 
 namespace hal
 {
-    AnalogToDigitalPinImplStm::AnalogToDigitalPinImplStm(hal::GpioPinStm& pin, AdcStm& adc)
+    AnalogToDigitalPinImplStm::AnalogToDigitalPinImplStm(hal::GpioPinStm& pin, AdcStm& adc, const Config& config)
         : analogPin(pin)
         , adc(adc)
+        , config(config)
     {
         HAL_ADC_Stop(&adc.Handle());
         LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_SOFTWARE_START);
@@ -46,24 +103,26 @@ namespace hal
 
     void AnalogToDigitalPinImplStm::Measure(std::size_t numberOfSamples, const infra::Function<void(infra::MemoryRange<uint16_t>)>& onDone)
     {
-        ADC_ChannelConfTypeDef channelConfig;
+        ADC_ChannelConfTypeDef channelConfig{};
         channelConfig.Channel = adc.Channel(analogPin);
-#if defined(STM32WB) || defined(STM32G0) || defined(STM32G4)
+
+#ifdef ADC_REGULAR_RANK_1
         channelConfig.Rank = ADC_REGULAR_RANK_1;
 #else
         channelConfig.Rank = 1;
 #endif
-#if defined(STM32F0) || defined(STM32F3)
-        channelConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
-#elif defined(STM32WB) || defined(STM32G4)
-        channelConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
-        channelConfig.Offset = 0;
-        channelConfig.OffsetNumber = ADC_OFFSET_NONE;
-        channelConfig.SingleDiff = ADC_SINGLE_ENDED;
-#elif defined(STM32G0)
-        channelConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES_5;
+#ifdef ADC_SMPR_SMP1
+        channelConfig.SamplingTime = ADC_SAMPLINGTIME_COMMON_1;
 #else
-        channelConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+        channelConfig.SamplingTime = config.samplingTime;
+#endif
+#ifdef ADC_OFFSET_NONE
+        channelConfig.OffsetNumber = ADC_OFFSET_NONE;
+#endif
+#ifdef ADC_SINGLE_ENDED
+        channelConfig.SingleDiff = ADC_SINGLE_ENDED;
+#endif
+#ifdef ADC_OFFSET_1
         channelConfig.Offset = 0;
 #endif
         HAL_StatusTypeDef result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
@@ -82,8 +141,8 @@ namespace hal
 
     void AnalogToDigitalInternalTemperatureStm::Measure(std::size_t numberOfSamples, const infra::Function<void(infra::MemoryRange<uint16_t>)>& onDone)
     {
-        ADC_ChannelConfTypeDef channelConfig;
-#if !defined(STM32G4)
+        ADC_ChannelConfTypeDef channelConfig{};
+#ifdef ADC_CHANNEL_TEMPSENSOR
         channelConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
 #else
         if (adc.index == 1)
@@ -91,16 +150,18 @@ namespace hal
         else
             channelConfig.Channel = ADC_CHANNEL_TEMPSENSOR_ADC5;
 #endif
-#if defined(STM32WB) || defined(STM32G0) || defined(STM32G4)
+#ifdef ADC_REGULAR_RANK_1
         channelConfig.Rank = ADC_REGULAR_RANK_1;
 #else
         channelConfig.Rank = 1;
 #endif
-#if defined(STM32WB) || defined(STM32G4)
+#ifdef ADC_OFFSET_NONE
         channelConfig.OffsetNumber = ADC_OFFSET_NONE;
+#endif
+#ifdef ADC_SINGLE_ENDED
         channelConfig.SingleDiff = ADC_SINGLE_ENDED;
 #endif
-#if !defined(STM32F0) && !defined(STM32F3) && !defined(STM32G0)
+#ifdef ADC_OFFSET_1
         channelConfig.Offset = 0;
 #endif
         channelConfig.SamplingTime = config.samplingTime;
@@ -111,50 +172,53 @@ namespace hal
         adc.Measure(onDone);
     }
 
-    AdcStm::AdcStm(uint8_t oneBasedIndex)
+    AdcStm::AdcStm(uint8_t oneBasedIndex, const Config& config)
         : index(oneBasedIndex - 1)
 #if defined(STM32WB) || defined(STM32G0)
         , interruptHandler(ADC1_IRQn, [this]()
 #elif defined(STM32G4)
-        , interruptHandler(ADC1_2_IRQn, [this]()
+        , interruptHandler(LookupIrq(oneBasedIndex), [this]()
+#elif defined(STM32WBA)
+        , interruptHandler(ADC4_IRQn, [this]()
+#elif defined(STM32H5)
+        , interruptHandler(ADC2_IRQn, [this]()
 #else
         , interruptHandler(ADC_IRQn, [this]()
 #endif
-              { MeasurementDone(); })
+              {
+                  MeasurementDone();
+              })
     {
         EnableClockAdc(index);
 
         handle.Instance = peripheralAdc[index];
-#if !defined(STM32F3)
-        handle.Init.ClockPrescaler = ADC_CLOCKPRESCALER_PCLK_DIV4;
+        handle.Init.ClockPrescaler = config.clockPrescaler;
         handle.Init.Resolution = ADC_RESOLUTION_12B;
-#endif
         handle.Init.ScanConvMode = DISABLE;
         handle.Init.ContinuousConvMode = DISABLE;
         handle.Init.DiscontinuousConvMode = DISABLE;
-#if !defined(STM32G0)
+#if defined(ADC_CFGR_DISCNUM) || defined(ADC_CR1_DISCNUM)
         handle.Init.NbrOfDiscConversion = 0;
 #endif
-#if !defined(STM32F3)
         handle.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-#endif
+        handle.Init.DMAContinuousRequests = DISABLE;
         handle.Init.ExternalTrigConv = ADC_SOFTWARE_START;
         handle.Init.DataAlign = ADC_DATAALIGN_RIGHT;
         handle.Init.NbrOfConversion = 1;
-#if !defined(STM32F3)
-        handle.Init.DMAContinuousRequests = DISABLE;
-#endif
-#if defined(STM32WB) || defined(STM32G0) || defined(STM32G4)
         handle.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+#ifdef ADC_OVR_DATA_OVERWRITTEN
         handle.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
+#endif
+#ifdef IS_ADC_OVERSAMPLING_RATIO
         handle.Init.OversamplingMode = DISABLE;
-#elif !defined(STM32F3)
-        handle.Init.EOCSelection = DISABLE;
+#endif
+#ifdef ADC_SMPR_SMP1
+        handle.Init.SamplingTimeCommon1 = ADC_SAMPLETIME_79CYCLES_5;
 #endif
         HAL_StatusTypeDef result = HAL_ADC_Init(&handle);
         assert(result == HAL_OK);
 
-#if defined(STM32WB)
+#ifdef IS_ADC_SINGLE_DIFFERENTIAL
         result = HAL_ADCEx_Calibration_Start(&handle, ADC_SINGLE_ENDED);
         assert(result == HAL_OK);
 #endif
@@ -186,7 +250,7 @@ namespace hal
     void AdcStm::MeasurementDone()
     {
         assert(onDone != nullptr);
-#if defined(STM32WB) || defined(STM32G4) || defined(STM32G0)
+#ifdef ADC_ISR_EOC
         handle.Instance->ISR |= ADC_ISR_EOC | ADC_ISR_EOS;
 #else
         handle.Instance->SR &= ~ADC_SR_EOC;

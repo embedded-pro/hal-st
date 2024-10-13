@@ -1,14 +1,14 @@
 #ifndef HAL_UART_STM_HPP
 #define HAL_UART_STM_HPP
 
+#include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/SerialCommunication.hpp"
 #include "hal_st/cortex/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
-#include "infra/util/Optional.hpp"
 
 namespace hal
 {
-#if defined(STM32WB)
+#if defined(HAS_PERIPHERAL_LPUART)
     struct LpUart
     {};
 
@@ -38,13 +38,13 @@ namespace hal
 
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, const Config& config = Config());
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, GpioPinStm& uartRts, GpioPinStm& uartCts, const Config& config = Config());
-#if defined(STM32WB)
+#if defined(HAS_PERIPHERAL_LPUART)
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, LpUart lpUart, const Config& config = Config());
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, GpioPinStm& uartRts, GpioPinStm& uartCts, LpUart lpUart, const Config& config = Config());
 #endif
     private:
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, GpioPinStm& uartRts, GpioPinStm& uartCts, const Config& config, bool hasFlowControl);
-#if defined(STM32WB)
+#if defined(HAS_PERIPHERAL_LPUART)
         UartStm(uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, GpioPinStm& uartRts, GpioPinStm& uartCts, LpUart lpUart, const Config& config, bool hasFlowControl);
 #endif
 
@@ -54,6 +54,10 @@ namespace hal
         void SendData(infra::MemoryRange<const uint8_t> data, infra::Function<void()> actionOnCompletion = infra::emptyFunction) override;
         void ReceiveData(infra::Function<void(infra::ConstByteRange data)> dataReceived) override;
 
+    protected:
+        uint8_t uartIndex;
+        infra::Function<void(infra::ConstByteRange data)> dataReceived;
+
     private:
         void UartStmHalInit(const Config& config, bool hasFlowControl);
         void RegisterInterrupt(const Config& config);
@@ -61,7 +65,6 @@ namespace hal
         void Invoke() override;
 
     private:
-        uint8_t uartIndex;
         hal::PeripheralPinStm uartTx;
         hal::PeripheralPinStm uartRx;
         hal::PeripheralPinStm uartRts;
@@ -70,7 +73,6 @@ namespace hal
         UART_HandleTypeDef uartHandle = {};
 
         infra::Function<void()> transferDataComplete;
-        infra::Function<void(infra::ConstByteRange data)> dataReceived;
 
         infra::MemoryRange<const uint8_t> sendData;
         bool sending = false;

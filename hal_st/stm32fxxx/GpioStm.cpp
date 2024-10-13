@@ -1,35 +1,59 @@
 #include "hal_st/stm32fxxx/GpioStm.hpp"
+#include "hal/interfaces/Gpio.hpp"
+#include "hal_st/cortex/InterruptCortex.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/BitLogic.hpp"
+#include "infra/util/Function.hpp"
+#include "infra/util/MemoryRange.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <stdlib.h>
+#include <utility>
+#include DEVICE_HEADER
 
 namespace hal
 {
     namespace
     {
-        GPIO_TypeDef* const portToGPIOPort[] = {
+        const std::array portToGPIOPort = {
+#if defined(GPIOA)
             GPIOA,
+#endif
+#if defined(GPIOB)
             GPIOB,
+#endif
+#if defined(GPIOC)
             GPIOC,
+#endif
+#if defined(GPIOD)
             GPIOD,
-#if !defined(STM32G0)
+#endif
+#if defined(GPIOE)
             GPIOE,
 #endif
-#if !defined(STM32WB) && !defined(STM32G0)
+#if defined(GPIOF)
             GPIOF,
 #endif
-#if defined(STM32F2) || defined(STM32F4) || defined(STM32F7)
+#if defined(GPIOG)
             GPIOG,
+#endif
+#if defined(GPIOH)
             GPIOH,
+#endif
+#if defined(GPIOI)
             GPIOI,
 #endif
-#if defined(STM32F7)
+#if defined(GPIOJ)
             GPIOJ,
-            GPIOK
+#endif
+#if defined(GPIOK)
+            GPIOK,
 #endif
         };
 
-        const uint16_t pinToGPIOPin[16] = {
+        const std::array pinToGPIOPin = {
             GPIO_PIN_0,
             GPIO_PIN_1,
             GPIO_PIN_2,
@@ -48,20 +72,22 @@ namespace hal
             GPIO_PIN_15,
         };
 
-        const uint32_t weakPullToPuPd[3] = {
+        const std::array weakPullToPuPd = {
             GPIO_NOPULL,
             GPIO_PULLUP,
             GPIO_PULLDOWN
         };
 
-        const uint32_t speedToSpeed[] = {
+        const std::array speedToSpeed = {
             GPIO_SPEED_FREQ_LOW,
             GPIO_SPEED_FREQ_MEDIUM,
             GPIO_SPEED_FREQ_HIGH,
+#if defined(GPIO_SPEED_FREQ_VERY_HIGH)
             GPIO_SPEED_FREQ_VERY_HIGH
+#endif
         };
 
-        const uint32_t driveToAFMode[2] = {
+        const std::array driveToAFMode = {
             GPIO_MODE_AF_PP,
             GPIO_MODE_AF_OD
         };
@@ -144,9 +170,9 @@ namespace hal
         GpioStm::Instance().ClearPinReservation(port, index);
     }
 
-    void GpioPinStm::EnableInterrupt(const infra::Function<void()>& action, InterruptTrigger trigger)
+    void GpioPinStm::EnableInterrupt(const infra::Function<void()>& action, InterruptTrigger trigger, InterruptType type)
     {
-        GpioStm::Instance().EnableInterrupt(port, index, action, trigger);
+        GpioStm::Instance().EnableInterrupt(port, index, action, trigger, type);
     }
 
     void GpioPinStm::DisableInterrupt()
@@ -229,7 +255,7 @@ namespace hal
     void DummyPinStm::ResetConfig()
     {}
 
-    void DummyPinStm::EnableInterrupt(const infra::Function<void()>& action, InterruptTrigger trigger)
+    void DummyPinStm::EnableInterrupt(const infra::Function<void()>& action, InterruptTrigger trigger, InterruptType type)
     {}
 
     void DummyPinStm::DisableInterrupt()
@@ -311,9 +337,9 @@ namespace hal
 
     void MultiGpioPinStm::ConfigPeripheral(PinConfigTypeStm pinConfigType, uint8_t peripheral)
     {
-        for (const std::pair<Port, uint8_t>& portAndIndex : table)
+        for (const auto& portAndIndex : table)
         {
-            std::pair<const GpioStm::PinPosition&, const GpioStm::PinoutTable&> peripheralPinConfig = GpioStm::Instance().GetPeripheralPinConfig(portAndIndex.first, portAndIndex.second, pinConfigType, peripheral);
+            const auto peripheralPinConfig = GpioStm::Instance().GetPeripheralPinConfig(portAndIndex.first, portAndIndex.second, pinConfigType, peripheral);
 
             GpioStm::Instance().ReservePin(portAndIndex.first, portAndIndex.second);
 
@@ -365,32 +391,72 @@ namespace hal
               { ExtiInterrupt(EXTI3_IRQn, 3, 4); })
         , interruptDispatcher4(EXTI4_IRQn, [this]()
               { ExtiInterrupt(EXTI4_IRQn, 4, 5); })
+#if defined(STM32WBA) || defined(STM32H5)
+        , interruptDispatcher5(EXTI5_IRQn, [this]()
+              { ExtiInterrupt(EXTI5_IRQn, 5, 6); })
+        , interruptDispatcher6(EXTI6_IRQn, [this]()
+              { ExtiInterrupt(EXTI6_IRQn, 6, 7); })
+        , interruptDispatcher7(EXTI7_IRQn, [this]()
+              { ExtiInterrupt(EXTI7_IRQn, 7, 8); })
+        , interruptDispatcher8(EXTI8_IRQn, [this]()
+              { ExtiInterrupt(EXTI8_IRQn, 8, 9); })
+        , interruptDispatcher9(EXTI9_IRQn, [this]()
+              { ExtiInterrupt(EXTI9_IRQn, 9, 10); })
+        , interruptDispatcher10(EXTI10_IRQn, [this]()
+              { ExtiInterrupt(EXTI10_IRQn, 10, 11); })
+        , interruptDispatcher11(EXTI11_IRQn, [this]()
+              { ExtiInterrupt(EXTI11_IRQn, 11, 12); })
+        , interruptDispatcher12(EXTI12_IRQn, [this]()
+              { ExtiInterrupt(EXTI12_IRQn, 12, 13); })
+        , interruptDispatcher13(EXTI13_IRQn, [this]()
+              { ExtiInterrupt(EXTI13_IRQn, 13, 14); })
+        , interruptDispatcher14(EXTI14_IRQn, [this]()
+              { ExtiInterrupt(EXTI14_IRQn, 14, 15); })
+        , interruptDispatcher15(EXTI15_IRQn, [this]()
+              { ExtiInterrupt(EXTI15_IRQn, 15, 16); })
+#else
         , interruptDispatcher9_5(EXTI9_5_IRQn, [this]()
               { ExtiInterrupt(EXTI9_5_IRQn, 5, 10); })
         , interruptDispatcher15_10(EXTI15_10_IRQn, [this]()
               { ExtiInterrupt(EXTI15_10_IRQn, 10, 16); })
 #endif
+#endif
     {
-#if !defined(STM32WB)
+#if !defined(STM32WB) && !defined(STM32H5)
         __SYSCFG_CLK_ENABLE();
 #endif
+
+#if defined(GPIOA)
         __GPIOA_CLK_ENABLE();
+#endif
+#if defined(GPIOB)
         __GPIOB_CLK_ENABLE();
+#endif
+#if defined(GPIOC)
         __GPIOC_CLK_ENABLE();
+#endif
+#if defined(GPIOD)
         __GPIOD_CLK_ENABLE();
-#if !defined(STM32G0)
+#endif
+#if defined(GPIOE)
         __GPIOE_CLK_ENABLE();
 #endif
-#if !defined(STM32WB) && !defined(STM32G0)
+#if defined(GPIOF)
         __GPIOF_CLK_ENABLE();
 #endif
-#if defined(STM32F2) || defined(STM32F4) || defined(STM32F7)
+#if defined(GPIOG)
         __GPIOG_CLK_ENABLE();
+#endif
+#if defined(GPIOH)
         __GPIOH_CLK_ENABLE();
+#endif
+#if defined(GPIOI)
         __GPIOI_CLK_ENABLE();
 #endif
-#if defined(STM32F7)
+#if defined(GPIOJ)
         __GPIOJ_CLK_ENABLE();
+#endif
+#if defined(GPIOK)
         __GPIOK_CLK_ENABLE();
 #endif
     }
@@ -427,17 +493,24 @@ namespace hal
         abort();
     }
 
-    void GpioStm::EnableInterrupt(Port port, uint8_t index, const infra::Function<void()>& action, InterruptTrigger trigger)
+    void GpioStm::EnableInterrupt(Port port, uint8_t index, const infra::Function<void()>& action, InterruptTrigger trigger, InterruptType type)
     {
-        uint32_t extiMask = 0xf << ((index & 0x03) << 2);
-        uint32_t extiValue = static_cast<uint8_t>(port) << ((index & 0x03) << 2);
-#if defined(STM32G0)
+#if defined(STM32WBA) || defined(STM32H5)
+        uint8_t pos = 3;
+#else
+        uint8_t pos = 2;
+#endif
+
+        uint32_t extiMask = 0xf << ((index & 0x03) << pos);
+        uint32_t extiValue = static_cast<uint8_t>(port) << ((index & 0x03) << pos);
+
+#if defined(EXTI_EXTICR1_EXTI0)
         EXTI->EXTICR[index >> 2] = (EXTI->EXTICR[index >> 2] & ~extiMask) | extiValue;
 #else
         SYSCFG->EXTICR[index >> 2] = (SYSCFG->EXTICR[index >> 2] & ~extiMask) | extiValue;
 #endif
 
-#if defined(STM32WB) || defined(STM32G4) || defined(STM32G0)
+#if defined(EXTI_RTSR1_RT0)
         if (trigger != InterruptTrigger::fallingEdge)
             EXTI->RTSR1 |= 1 << index;
         else
@@ -464,11 +537,12 @@ namespace hal
 #endif
         really_assert(!handlers[index]);
         handlers[index] = action;
+        interruptTypes[index] = type;
     }
 
     void GpioStm::DisableInterrupt(Port port, uint8_t index)
     {
-#if defined(STM32WB) || defined(STM32G4) || defined(STM32G0)
+#if defined(EXTI_IMR1_IM0)
         EXTI->IMR1 &= ~(1 << index);
 #else
         EXTI->IMR &= ~(1 << index);
@@ -484,7 +558,7 @@ namespace hal
             if (EXTI->PR1 & (1 << line))
             {
                 EXTI->PR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
-#elif defined(STM32G0)
+#elif defined(STM32G0) || defined(STM32WBA) || defined(STM32H5)
             if ((EXTI->RPR1 & (1 << line)) || (EXTI->FPR1 & (1 << line)))
             {
                 EXTI->RPR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
@@ -495,10 +569,28 @@ namespace hal
                 EXTI->PR &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
 #endif
                 if (handlers[line])
-                    infra::EventDispatcher::Instance().Schedule(handlers[line]);
+                {
+                    if (interruptTypes[line] == InterruptType::dispatched)
+                    {
+                        DispatchExtiInterrupt(line);
+                    }
+                    else
+                        handlers[line]();
+                }
                 NVIC_ClearPendingIRQ(irq);
             }
         }
+    }
+
+    void GpioStm::DispatchExtiInterrupt(std::size_t line)
+    {
+        if (!notificationScheduled[line].exchange(true))
+            infra::EventDispatcher::Instance().Schedule([this, line]
+                {
+                    notificationScheduled[line] = false;
+                    if (handlers[line])
+                        handlers[line]();
+                });
     }
 
     void GpioStm::ReservePin(Port port, uint8_t index)
