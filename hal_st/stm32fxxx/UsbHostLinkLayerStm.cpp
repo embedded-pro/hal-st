@@ -39,21 +39,25 @@ namespace
 {
     hal::UsbSpeed ToSpeed(uint32_t speed)
     {
+        using enum hal::UsbSpeed;
+
         if (speed == HCD_DEVICE_SPEED_FULL)
-            return  hal::UsbSpeed::full;
+            return  full;
 
         if (speed == HCD_DEVICE_SPEED_HIGH)
-            return hal::UsbSpeed::high;
+            return high;
 
-        return hal::UsbSpeed::low;
+        return low;
     }
 
     uint8_t ToSpeed(hal::UsbSpeed speed)
     {
-        if (speed == hal::UsbSpeed::full)
+        using enum hal::UsbSpeed;
+
+        if (speed == full)
             return HCD_DEVICE_SPEED_FULL;
 
-        if (speed == hal::UsbSpeed::high)
+        if (speed == high)
             return HCD_DEVICE_SPEED_HIGH;
 
         return HCD_DEVICE_SPEED_LOW;
@@ -61,13 +65,15 @@ namespace
 
     uint8_t ToEndPointType(hal::UsbEndPointType type)
     {
-        if (type == hal::UsbEndPointType::bulk)
+        using enum hal::UsbEndPointType;
+
+        if (type == bulk)
             return EP_TYPE_BULK;
 
-        if (type == hal::UsbEndPointType::control)
+        if (type == control)
             return EP_TYPE_CTRL;
 
-        if (type == hal::UsbEndPointType::interrupt)
+        if (type == interrupt)
             return EP_TYPE_INTR;
 
         return EP_TYPE_ISOC;
@@ -75,7 +81,9 @@ namespace
 
     uint8_t ToToken(hal::UsbHostLinkLayer::Pid token)
     {
-        if (token == hal::UsbHostLinkLayer::Pid::data)
+        using enum hal::UsbHostLinkLayer::Pid;
+
+        if (token == data)
             return 1;
         else
             return 0;
@@ -83,16 +91,18 @@ namespace
 
     hal::UsbHostLinkLayer::UsbRequestBlockState ToUrbState(uint8_t state)
     {
+        using enum hal::UsbHostLinkLayer::UsbRequestBlockState;
+
         if (state == URB_DONE)
-            return hal::UsbHostLinkLayer::UsbRequestBlockState::success;
+            return success;
 
         if (state == URB_STALL)
-            return hal::UsbHostLinkLayer::UsbRequestBlockState::stall;
+            return stall;
 
         if (state == URB_NOTREADY)
-            return hal::UsbHostLinkLayer::UsbRequestBlockState::notReady;
+            return notReady;
 
-        return hal::UsbHostLinkLayer::UsbRequestBlockState::error;
+        return error;
     }
 
     constexpr std::array<unsigned int, 2> peripheralUSBArray =
@@ -142,6 +152,62 @@ namespace
             default: std::abort();
         }
     }
+
+    class NakInterruptControl
+    {
+    public:
+        explicit NakInterruptControl(HCD_HandleTypeDef& hhcd)
+            : hhcd(hhcd)
+            , USBx_BASE(reinterpret_cast<uint32_t>(hhcd.Instance))
+        {
+#if defined(USB_OTG_GINTSTS_SOF)
+            if (__HAL_HCD_GET_FLAG(&hhcd, USB_OTG_GINTSTS_SOF) && hhcd.Init.dma_enable == 0)
+                for (uint32_t channel = 0; channel < hhcd.Init.Host_channels; channel++)
+                    EnableNakInterrupt(channel);
+#endif
+        }
+
+        ~NakInterruptControl()
+        {
+#if defined(USB_OTG_GINTSTS_HCINT)
+            if (__HAL_HCD_GET_FLAG(&hhcd, USB_OTG_GINTSTS_HCINT) && hhcd.Init.dma_enable == 0)
+                for (uint32_t channel = 0; channel < hhcd.Init.Host_channels; channel++)
+                    if (IsNakInterrupt(channel) && (IsControlEndpoint(channel) || IsBulkEndpoint(channel)))
+                        DisableNakInterrupt(channel);
+#endif
+        }
+
+#if defined(USB_OTG_HCINT_NAK)
+        bool IsNakInterrupt(uint32_t channel) const
+        {
+            return USBx_HC(channel)->HCINT & USB_OTG_HCINT_NAK;
+        }
+
+        bool IsControlEndpoint(uint32_t channel) const
+        {
+            return hhcd.hc[channel].ep_type == EP_TYPE_CTRL;
+        }
+
+        bool IsBulkEndpoint(uint32_t channel) const
+        {
+            return hhcd.hc[channel].ep_type == EP_TYPE_BULK;
+        }
+
+        void EnableNakInterrupt(uint32_t channel) const
+        {
+            USBx_HC(channel)->HCINTMSK |= USB_OTG_HCINT_NAK;
+        }
+
+        void DisableNakInterrupt(uint32_t channel) const
+        {
+            USBx_HC(channel)->HCINTMSK &= ~USB_OTG_HCINT_NAK;
+        }
+#endif
+
+    private:
+        HCD_HandleTypeDef& hhcd;
+        uint32_t USBx_BASE;
+    };
 }
 
 namespace hal
@@ -191,6 +257,7 @@ namespace hal
         for (std::size_t i = 0; i < peripheralUSBIrq[usbIndex].size(); i++)
             immediateInterruptHandler[i].Emplace(peripheralUSBIrq[usbIndex][i], [this]()
                 {
+                    NakInterruptControl nakInterruptControl{ hcd };
                     HAL_HCD_IRQHandler(&hcd);
                 });
     }
