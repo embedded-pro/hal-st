@@ -30,12 +30,15 @@ namespace hal
 #ifdef ADC_SINGLE_ENDED
         auto result = HAL_ADCEx_Calibration_Start(&adc.Handle(), ADC_SINGLE_ENDED);
         assert(result == HAL_OK);
+#elif defined(IS_ADC_CALFACT)
+        auto result = HAL_ADCEx_Calibration_Start(&adc.Handle());
+        assert(result == HAL_OK);
 #endif
 
         LL_ADC_REG_SetDMATransfer(adc.Handle().Instance, LL_ADC_REG_DMA_TRANSFER_LIMITED);
     }
 
-    void AdcDmaMultiChannelStmBase::Measure(const infra::Function<void(infra::MemoryRange<uint16_t>)>& onDone)
+    void AdcDmaMultiChannelStmBase::Measure(const infra::Function<void(Samples)>& onDone)
     {
         this->onDone = onDone;
 

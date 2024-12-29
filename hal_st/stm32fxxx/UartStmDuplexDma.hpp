@@ -1,9 +1,18 @@
 #ifndef HAL_UART_STM_DUPLEX_DMA_HPP
 #define HAL_UART_STM_DUPLEX_DMA_HPP
 
+#include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
+#include "hal_st/stm32fxxx/GpioStm.hpp"
+#include "hal_st/stm32fxxx/UartStm.hpp"
 #include "hal_st/stm32fxxx/UartStmDma.hpp"
+#include "infra/util/ByteRange.hpp"
+#include "infra/util/Function.hpp"
+#include "infra/util/MemoryRange.hpp"
+#include "infra/util/WithStorage.hpp"
+#include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 
 namespace hal
@@ -38,6 +47,12 @@ namespace hal
         void Invoke() override;
 
     private:
+        volatile void* receiveRegister =
+#if defined(USART_RDR_RDR)
+            &peripheralUart[uartIndex]->RDR;
+#else
+            &peripheralUart[uartIndex]->DR;
+#endif
         infra::MemoryRange<uint8_t> rxBuffer;
         hal::CircularReceiveDmaChannel receiveDmaChannel;
         std::atomic<size_t> lastReceivedPosition{};

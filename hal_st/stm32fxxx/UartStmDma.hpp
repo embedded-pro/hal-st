@@ -1,9 +1,11 @@
 #ifndef HAL_UART_STM_DMA_HPP
 #define HAL_UART_STM_DMA_HPP
 
-#include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
+#include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/UartStm.hpp"
+#include "infra/util/Function.hpp"
+#include "infra/util/MemoryRange.hpp"
 #include <cstdint>
 
 namespace hal
@@ -20,14 +22,18 @@ namespace hal
         UartStmDma(DmaStm::TransmitStream& transmitStream, uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, LpUart lpUart, const Config& config = Config());
         UartStmDma(DmaStm::TransmitStream& transmitStream, uint8_t oneBasedIndex, GpioPinStm& uartTx, GpioPinStm& uartRx, GpioPinStm& uartRts, GpioPinStm& uartCts, LpUart lpUart, const Config& config = Config());
 #endif
-        ~UartStmDma();
 
         void SendData(infra::MemoryRange<const uint8_t> data, infra::Function<void()> actionOnCompletion = infra::emptyFunction) override;
-        void ReceiveData(infra::Function<void(infra::ConstByteRange data)> dataReceived) override;
 
     private:
         void TransferComplete();
 
+        volatile void* transmitRegister =
+#if defined(USART_TDR_TDR)
+            &uartArray[uartIndex]->TDR;
+#else
+            &uartArray[uartIndex]->DR;
+#endif
         TransmitDmaChannel transmitDmaChannel;
         infra::Function<void()> transferDataComplete;
     };
