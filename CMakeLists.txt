@@ -25,8 +25,8 @@ if (HALST_STANDALONE)
 
     FetchContent_Declare(
         emil
-        GIT_REPOSITORY https://gitlab.com/embedded-library/infrastructure/embedded-infra-lib.git
-        GIT_TAG        dc2b87ee100366b4141012d0c86680cf2c7a311b # unreleased
+        GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
+        GIT_TAG        3a172983dcfe206c6d4c7109175022597966dbdd # unreleased
     )
     FetchContent_MakeAvailable(emil)
 
