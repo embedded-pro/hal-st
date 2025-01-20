@@ -14,6 +14,9 @@ jobs:
   analysis:
     name: OSSF Scorecards
     runs-on: ubuntu-latest
+    env:
+      GIT_USERNAME: git
+      GIT_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
     permissions:
       security-events: write
       id-token: write
