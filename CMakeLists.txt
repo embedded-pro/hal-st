@@ -26,7 +26,7 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        3a172983dcfe206c6d4c7109175022597966dbdd # unreleased
+        GIT_TAG        5b201c62a0befb376e4dd691424b900d009fa867 # unreleased
     )
     FetchContent_MakeAvailable(emil)
 
@@ -34,14 +34,14 @@ if (HALST_STANDALONE)
         FetchContent_Declare(
             cucumber-cpp-runner
             GIT_REPOSITORY https://github.com/philips-software/amp-cucumber-cpp-runner.git
-            GIT_TAG        70c424e53f532f520d96a303b6586272d3efc5f5 # unreleased
+            GIT_TAG        08d653fe47d31d7e070195f7536d4f32e03180e6 # unreleased
         )
 
         FetchContent_MakeAvailable(cucumber-cpp-runner)
     endif()
 endif()
 
-project(hal_st LANGUAGES C CXX ASM VERSION 3.0.0) # x-release-please-version
+project(hal_st LANGUAGES C CXX ASM VERSION 4.0.0) # x-release-please-version
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
