@@ -39,25 +39,21 @@ namespace
 {
     hal::UsbSpeed ToSpeed(uint32_t speed)
     {
-        using enum hal::UsbSpeed;
-
         if (speed == HCD_DEVICE_SPEED_FULL)
-            return  full;
+            return  hal::UsbSpeed::full;
 
         if (speed == HCD_DEVICE_SPEED_HIGH)
-            return high;
+            return hal::UsbSpeed::high;
 
-        return low;
+        return hal::UsbSpeed::low;
     }
 
     uint8_t ToSpeed(hal::UsbSpeed speed)
     {
-        using enum hal::UsbSpeed;
-
-        if (speed == full)
+        if (speed == hal::UsbSpeed::full)
             return HCD_DEVICE_SPEED_FULL;
 
-        if (speed == high)
+        if (speed == hal::UsbSpeed::high)
             return HCD_DEVICE_SPEED_HIGH;
 
         return HCD_DEVICE_SPEED_LOW;
@@ -65,15 +61,13 @@ namespace
 
     uint8_t ToEndPointType(hal::UsbEndPointType type)
     {
-        using enum hal::UsbEndPointType;
-
-        if (type == bulk)
+        if (type == hal::UsbEndPointType::bulk)
             return EP_TYPE_BULK;
 
-        if (type == control)
+        if (type == hal::UsbEndPointType::control)
             return EP_TYPE_CTRL;
 
-        if (type == interrupt)
+        if (type == hal::UsbEndPointType::interrupt)
             return EP_TYPE_INTR;
 
         return EP_TYPE_ISOC;
@@ -81,9 +75,7 @@ namespace
 
     uint8_t ToToken(hal::UsbHostLinkLayer::Pid token)
     {
-        using enum hal::UsbHostLinkLayer::Pid;
-
-        if (token == data)
+        if (token == hal::UsbHostLinkLayer::Pid::data)
             return 1;
         else
             return 0;
@@ -91,18 +83,16 @@ namespace
 
     hal::UsbHostLinkLayer::UsbRequestBlockState ToUrbState(uint8_t state)
     {
-        using enum hal::UsbHostLinkLayer::UsbRequestBlockState;
-
         if (state == URB_DONE)
-            return success;
+            return hal::UsbHostLinkLayer::UsbRequestBlockState::success;
 
         if (state == URB_STALL)
-            return stall;
+            return hal::UsbHostLinkLayer::UsbRequestBlockState::stall;
 
         if (state == URB_NOTREADY)
-            return notReady;
+            return hal::UsbHostLinkLayer::UsbRequestBlockState::notReady;
 
-        return error;
+        return hal::UsbHostLinkLayer::UsbRequestBlockState::error;
     }
 
     constexpr std::array<unsigned int, 2> peripheralUSBArray =
