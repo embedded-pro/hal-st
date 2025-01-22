@@ -1,5 +1,5 @@
-#ifndef HAL_USB_LINK_LAYER_STM_HPP
-#define HAL_USB_LINK_LAYER_STM_HPP
+#ifndef HAL_USB_DEVICE_LINK_LAYER_STM_HPP
+#define HAL_USB_DEVICE_LINK_LAYER_STM_HPP
 
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
@@ -11,15 +11,13 @@
 
 namespace hal
 {
-    class UsbDevice;
-
-    class UsbLinkLayerStm
-        : public UsbLinkLayer
-        , public infra::InterfaceConnector<UsbLinkLayerStm>
+    class UsbDeviceLinkLayerStm
+        : public UsbDeviceLinkLayer
+        , public infra::InterfaceConnector<UsbDeviceLinkLayerStm>
     {
     public:
-        UsbLinkLayerStm(UsbDeviceFactory& deviceFactory, hal::GpioPin& powerSwitch, hal::GpioPin& vbus, hal::GpioPin& overCurrent, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp);
-        ~UsbLinkLayerStm();
+        UsbDeviceLinkLayerStm(UsbDeviceFactory& deviceFactory, hal::GpioPin& powerSwitch, hal::GpioPin& vbus, hal::GpioPin& overCurrent, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp);
+        ~UsbDeviceLinkLayerStm();
 
         void OpenEndPoint(uint8_t ep_addr, UsbEndPointType type, uint16_t ep_mps) override;
         void CloseEndPoint(uint8_t ep_addr) override;
