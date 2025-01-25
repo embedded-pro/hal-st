@@ -1,0 +1,159 @@
+# build.yml
+name: Build Workflows
+
+on:
+  workflow_call:
+    inputs:
+      build_type:
+        required: true
+        type: string
+        description: 'Type of build (host_ubuntu/host/host_clang_msvc/embedded)'
+      os:
+        required: false
+        type: string
+        description: 'Operating system for host build'
+      configuration:
+        required: false
+        type: string
+        description: 'Build configuration for embedded build'
+      gcc_version:
+        required: false
+        type: string
+        description: 'GCC version for embedded build'
+      target:
+        required: false
+        type: string
+        description: 'Target for embedded build'
+      saveCache:
+        required: true
+        type: boolean
+        description: 'Whether to save ccache cache or not'
+
+jobs:
+  host_build_test_ubuntu:
+    if: inputs.build_type == 'host_ubuntu'
+    name: Host Build & Test (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
+        if: github.ref == 'refs/heads/main'
+        with:
+          key: ${{ github.job }}-ubuntu-latest
+          max-size: 2G
+          save: ${{ inputs.saveCache }}
+      - uses: seanmiddleditch/gha-setup-ninja@96bed6edff20d1dd61ecff9b75cc519d516e6401 # v5
+      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        with:
+          configurePreset: "host"
+          buildPreset: "host-Debug-WithPackage"
+          testPreset: "host"
+          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: hal_st
+          path: build/host/hal_st-*-Linux.tar.gz
+          if-no-files-found: error
+      - name: Upload test logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: test-logs
+          path: build/host/Testing/Temporary/
+
+  host_build_test:
+    if: inputs.build_type == 'host'
+    name: Host Build & Test
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
+        if: github.ref == 'refs/heads/main'
+        with:
+          key: ${{ github.job }}-${{ inputs.os }}
+          max-size: 2G
+          save: ${{ inputs.saveCache }}
+      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        with:
+          configurePreset: "host-single-Debug"
+          buildPreset: "host-single-Debug"
+          testPreset: "host-single-Debug"
+          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+      - name: Upload test logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: test-logs
+          path: build/host/Testing/Temporary/
+
+  host_build_clang_msvc:
+    if: inputs.build_type == 'host_clang_msvc'
+    name: Windows Host Build from Devcontainer
+    runs-on: ubuntu-latest
+    container: ghcr.io/philips-software/amp-devcontainer-cpp:5.2.0@sha256:c47fcc83b59fb08f3a3a6e591b18bad49b3862acc35770fca6cec9ad0adb9cb2 # v5.2.0
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        id: cache-winsdk
+        with:
+          path: /winsdk
+          key: cache-winsdk
+      - if: ${{ steps.cache-winsdk.outputs.cache-hit != 'true' }}
+        run: xwin --accept-license --manifest-version 17 splat --preserve-ms-arch-notation --include-debug-libs && mv .xwin-cache/splat/ /winsdk
+      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
+        if: github.ref == 'refs/heads/main'
+        with:
+          key: ${{ github.job }}
+          max-size: 2G
+          save: ${{ inputs.saveCache }}
+      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        with:
+          configurePreset: "Windows"
+          buildPreset: "Windows-Release"
+          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+
+  embedded_build:
+    if: inputs.build_type == 'embedded'
+    name: Embedded Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install GNU Arm Embedded Toolchain ${{ inputs.gcc_version }}
+        uses: carlosperate/arm-none-eabi-gcc-action@f3be82dce0d93e59bb84bbc1ad67c74068e35507 # v1.10.0
+        with:
+          release: ${{ inputs.gcc_version }}
+      - run: sudo apt-get update && sudo apt-get install ninja-build xsltproc
+      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
+        if: github.ref == 'refs/heads/main'
+        with:
+          key: ${{ inputs.gcc_version }}-${{ inputs.configuration }}-${{ inputs.target }}
+          max-size: 2G
+          save: ${{ inputs.saveCache }}
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: hal_st
+      - run: tar -zxvf hal_st-*.tar.gz
+      - run: mkdir install && mv hal_st-*/* install/
+      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
+        with:
+          configurePreset: ${{ inputs.target }}
+          buildPreset: ${{ inputs.target }}-${{ inputs.configuration }}
+          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"

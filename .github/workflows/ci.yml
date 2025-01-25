@@ -1,4 +1,3 @@
----
 name: Continuous Integration
 
 on:
@@ -13,108 +12,51 @@ permissions:
 jobs:
   host_build_test_ubuntu:
     name: Host Build & Test (ubuntu-latest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure Git
-        run: |
-          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN  }}@github.com/".insteadOf "https://github.com/"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
-        with:
-          key: ${{ github.job }}-ubuntu-latest
-      - uses: seanmiddleditch/gha-setup-ninja@96bed6edff20d1dd61ecff9b75cc519d516e6401 # v5
-      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
-        with:
-          configurePreset: "host"
-          buildPreset: "host-Debug-WithPackage"
-          testPreset: "host"
-          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
-      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: hal_st
-          path: build/host/hal_st-*-Linux.tar.gz
-          if-no-files-found: error
-      - name: Upload test logs
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: test-logs
-          path: build/host/Testing/Temporary/
+    uses: ./.github/workflows/build.yml
+    with:
+      build_type: host_ubuntu
+      saveCache: ${{ github.event_name != 'pull_request' }}
+    secrets: inherit
+
   host_build_test:
     name: Host Build & Test
-    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-    steps:
-      - name: Configure Git
-        run: |
-          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN  }}@github.com/".insteadOf "https://github.com/"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
-        with:
-          key: ${{ github.job }}-${{ matrix.os }}
-      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
-        with:
-          configurePreset: "host-single-Debug"
-          buildPreset: "host-single-Debug"
-          testPreset: "host-single-Debug"
-          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
-      - name: Upload test logs
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: test-logs
-          path: build/host/Testing/Temporary/
+    uses: ./.github/workflows/build.yml
+    with:
+      build_type: host
+      os: ${{ matrix.os }}
+      saveCache: ${{ github.event_name != 'pull_request' }}
+    secrets: inherit
+
   host_build_clang_msvc:
     name: Windows Host Build from Devcontainer
-    runs-on: [ubuntu-latest]
-    container: ghcr.io/philips-software/amp-devcontainer-cpp:5.2.0@sha256:c47fcc83b59fb08f3a3a6e591b18bad49b3862acc35770fca6cec9ad0adb9cb2 # v5.2.0
-    steps:
-      - name: Configure Git
-        run: |
-          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN  }}@github.com/".insteadOf "https://github.com/"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        id: cache-winsdk
-        with:
-          path: /winsdk
-          key: cache-winsdk
-      - if: ${{ steps.cache-winsdk.outputs.cache-hit != 'true' }}
-        run: xwin --accept-license --manifest-version 17 splat --preserve-ms-arch-notation --include-debug-libs && mv .xwin-cache/splat/ /winsdk
-      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
-        with:
-          key: ${{ github.job }}
-      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
-        with:
-          configurePreset: "Windows"
-          buildPreset: "Windows-Release"
-          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+    uses: ./.github/workflows/build.yml
+    with:
+      build_type: host_clang_msvc
+      saveCache: ${{ github.event_name != 'pull_request' }}
+    secrets: inherit
+
   embedded_build:
     name: Embedded Build
-    runs-on: ubuntu-latest
     needs: [host_build_test_ubuntu]
     strategy:
       matrix:
         configuration: ["RelWithDebInfo"]
         gcc: ["10.3-2021.10"]
-        target:
-          [
-            "stm32wb55",
-            "stm32wba52",
-            "stm32g070",
-            "stm32g431",
-            "stm32f407",
-            "stm32f429",
-            "stm32f746",
-            "stm32f767",
-            "stm32h563",
-            "stm32h573"
-          ]
+        target: [
+          "stm32wb55", 
+          "stm32wba52", 
+          "stm32g070", 
+          "stm32g431", 
+          "stm32f407", 
+          "stm32f429", 
+          "stm32f746", 
+          "stm32f767", 
+          "stm32h563", 
+          "stm32h573"
+        ]
         include:
           - gcc: "8-2019-q3"
             configuration: "RelWithDebInfo"
@@ -122,28 +64,11 @@ jobs:
           - gcc: "9-2020-q2"
             configuration: "RelWithDebInfo"
             target: "stm32f767"
-    steps:
-      - name: Configure Git
-        run: |
-          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN  }}@github.com/".insteadOf "https://github.com/"
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-      - name: Install GNU Arm Embedded Toolchain ${{ matrix.gcc }}
-        uses: carlosperate/arm-none-eabi-gcc-action@f3be82dce0d93e59bb84bbc1ad67c74068e35507 # v1.10.0
-        with:
-          release: ${{ matrix.gcc }}
-      - run: sudo apt-get update && sudo apt-get install ninja-build xsltproc
-      - uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
-        with:
-          key: ${{ matrix.gcc }}-${{ matrix.configuration }}-${{ matrix.target }}
-      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          name: hal_st
-      - run: tar -zxvf hal_st-*.tar.gz
-      - run: mkdir install && mv hal_st-*/* install/
-      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
-        with:
-          configurePreset: ${{ matrix.target }}
-          buildPreset: ${{ matrix.target }}-${{ matrix.configuration }}
-          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+    uses: ./.github/workflows/build.yml
+    with:
+      build_type: embedded
+      configuration: ${{ matrix.configuration }}
+      gcc_version: ${{ matrix.gcc }}
+      target: ${{ matrix.target }}
+      saveCache: ${{ github.event_name != 'pull_request' }}
+    secrets: inherit
