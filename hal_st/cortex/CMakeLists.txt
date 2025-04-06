@@ -12,6 +12,8 @@ target_link_libraries(hal_st.cortex PUBLIC
 )
 
 target_sources(hal_st.cortex PRIVATE
+    DataWatchpointAndTrace.hpp
+    DataWatchpointAndTrace.cpp
     InterruptCortex.cpp
     InterruptCortex.hpp
 )
