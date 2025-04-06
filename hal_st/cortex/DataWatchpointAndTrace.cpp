@@ -1,5 +1,7 @@
 #include "hal_st/cortex/DataWatchpointAndTrace.hpp"
 
+#if defined(__CORTEX_M) && (__CORTEX_M == 4)
+
 namespace hal
 {
     DataWatchPointAndTrace::DataWatchPointAndTrace()
@@ -26,3 +28,5 @@ namespace hal
         return cycles;
     }
 }
+
+#endif

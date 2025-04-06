@@ -3,6 +3,8 @@
 #include DEVICE_HEADER
 #include "infra/util/InterfaceConnector.hpp"
 
+#if defined(__CORTEX_M) && (__CORTEX_M == 4)
+
 namespace hal
 {
     class DataWatchPointAndTrace
@@ -16,3 +18,5 @@ namespace hal
         uint32_t Stop() const;
     };
 }
+
+#endif
