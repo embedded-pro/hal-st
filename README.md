@@ -1,17 +1,19 @@
-# amp-hal-st
+# hal-st
 
-[![Linting & Formatting](https://github.com/philips-software/amp-hal-st/actions/workflows/linting-formatting.yml/badge.svg)](https://github.com/philips-software/amp-hal-st/actions/workflows/linting-formatting.yml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/philips-software/amp-hal-st/badge)](https://api.securityscorecards.dev/projects/github.com/philips-software/amp-hal-st)
+[![Linting & Formatting](https://github.com/embedded-pro/hal-st/actions/workflows/linting-formatting.yml/badge.svg)](https://github.com/embedded-pro/hal-st/actions/workflows/linting-formatting.yml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/embedded-pro/hal-st/badge)](https://api.securityscorecards.dev/projects/github.com/embedded-pro/hal-st)
 
-**Description**: amp-hal-st is a HAL (Hardware Abstraction Layer) implementation for a range of [ST](https://st.com) ARM Cortex-based micro-controllers. amp-hal-st implements the interfaces defined as part of [EmbeddedInfraLib].
+**Description**: hal-st is a HAL (Hardware Abstraction Layer) implementation for a range of [ST](https://st.com) ARM Cortex-based micro-controllers. hal-st implements the interfaces defined as part of [EmbeddedInfraLib].
+
+> **Note**: This repository is a copy of the original [amp-hal-st](https://github.com/philips-software/amp-hal-st) repository.
 
 ## Dependencies
 
-amp-hal-st requires:
+hal-st requires:
 - [EmbeddedInfraLib].
 
 ## How to build the software
 
-amp-hal-st cannot be built by-itself, it must be built as part of a larger project. This paragraph describes how to add amp-hal-st to a CMake build-system, using [EmbeddedInfraLib].
+hal-st cannot be built by-itself, it must be built as part of a larger project. This paragraph describes how to add hal-st to a CMake build-system, using [EmbeddedInfraLib].
 
 > CMakeLists.txt
 
@@ -24,13 +26,13 @@ include(FetchContent)
 
 FetchContent_Declare(
     emil
-    GIT_REPOSITORY https://github.com/philips-software/embeddedinfralib.git
+    GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
     GIT_TAG        main
 )
 
 FetchContent_Declare(
     halst
-    GIT_REPOSITORY https://github.com/philips-software/amp-hal-st.git
+    GIT_REPOSITORY https://github.com/embedded-pro/hal-st.git
     GIT_TAG        main
 )
 
@@ -50,7 +52,7 @@ halst_target_default_init(myprogram)
 
 ## How to test the software
 
-Due to the nature of amp-hal-st: a HAL implementation, there are no included automated tests. Testing should be done in-context on the target hardware.
+Due to the nature of hal-st: a HAL implementation, there are no included automated tests. Testing should be done in-context on the target hardware.
 
 ## Community
 
@@ -66,6 +68,6 @@ Please refer to our [contributing](CONTRIBUTING.md) guide when you want to contr
 
 ## License
 
-amp-hal-st is licensed under the [MIT](https://choosealicense.com/licenses/mit/) [license](LICENSE) except the files and/or directories named in the [notice](NOTICE) file.
+hal-st is licensed under the [MIT](https://choosealicense.com/licenses/mit/) [license](LICENSE) except the files and/or directories named in the [notice](NOTICE) file.
 
-[EmbeddedInfraLib]: https://github.com/philips-software/embeddedinfralib
+[EmbeddedInfraLib]: https://github.com/embedded-pro/embedded-infra-lib
