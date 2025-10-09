@@ -13,11 +13,14 @@ target_link_libraries(hal_st.stm32fxxx PUBLIC
     services.util
     st.hal_driver
     hal_st.cortex
+    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:hal_st.stm32_wpan>
 )
 
 target_sources(hal_st.stm32fxxx PRIVATE
     AnalogToDigitalPinStm.cpp
     AnalogToDigitalPinStm.hpp
+    AdcTimerTriggeredBase.cpp
+    AdcTimerTriggeredBase.hpp
     BackupRamStm.cpp
     BackupRamStm.hpp
     CanStm.cpp
@@ -44,11 +47,14 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU},stm32wb55>:DefaultClockNucleoWB55RG.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32wba52>:DefaultClockNucleoWBA52CG.cpp>
     $<$<STREQUAL:${TARGET_MCU},stm32wba52>:DefaultClockNucleoWBA52CG.hpp>
+    $<$<STREQUAL:${TARGET_MCU},stm32wba65>:DefaultClockNucleoWBA65RI.cpp>
+    $<$<STREQUAL:${TARGET_MCU},stm32wba65>:DefaultClockNucleoWBA65RI.hpp>
     DigitalToAnalogPinStm.cpp
     DigitalToAnalogPinStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:DmaStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:DmaStm.hpp>
-    EthernetMacStm.cpp
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>>:EthernetMacStm.cpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:EthernetMacH5xxStm.cpp>
     EthernetMacStm.hpp
     EthernetSmiStm.cpp
     EthernetSmiStm.hpp
@@ -56,6 +62,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
+    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashInternalStmBle.cpp>
+    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashInternalStmBle.hpp>
     GpioStm.cpp
     GpioStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
@@ -68,6 +76,10 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:QuadSpiStmDma.hpp>
     LowPowerStrategyStm.cpp
     LowPowerStrategyStm.hpp
+    LpTimerStm.cpp
+    LpTimerStm.hpp
+    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
     ResetStm.cpp
@@ -88,6 +100,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     SystemTickStm.hpp
     SystemTickTimerService.cpp
     SystemTickTimerService.hpp
+    TimerPwmStm.cpp
+    TimerPwmStm.hpp
     TimerStm.cpp
     TimerStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:UartStm.cpp>
@@ -121,6 +135,16 @@ if (TARGET_MCU IN_LIST AdcDmaMcus OR TARGET_MCU_FAMILY IN_LIST AdcDmaMcuFamilies
                                             AdcDmaStm.hpp
                                             AdcDmaMultiChannelStm.cpp
                                             AdcDmaMultiChannelStm.hpp
+    )
+endif()
+
+list(APPEND ActiveTamperMcuFamilies stm32h5xx)
+
+if (TARGET_MCU_FAMILY IN_LIST ActiveTamperMcuFamilies)
+    target_sources(hal_st.stm32fxxx PRIVATE RtcStm.cpp
+                                            RtcStm.hpp
+                                            TamperStm.cpp
+                                            TamperStm.hpp
     )
 endif()
 
@@ -162,6 +186,9 @@ if (TARGET_MCU_VENDOR STREQUAL st)
     elseif (TARGET_MCU STREQUAL stm32wba52)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBA52x_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA52CGUx.xml")
+    elseif (TARGET_MCU STREQUAL stm32wba65)
+        set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBA6_gpio_v1_0_Modes.xml")
+        set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA65RIVx.xml")
     elseif (TARGET_MCU STREQUAL stm32h563)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32H56x_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32H563ZITx.xml")
@@ -172,7 +199,13 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         message(FATAL_ERROR "Unknown TARGET_MCU \"${TARGET_MCU}\". Please configure HALST_XML_GPIO and HALST_XML_STM32.")
     endif()
 
-    generate_xslt(hal_st.stm32fxxx generated/stm32fxxx/PinoutTableDefaultStructure.xml GeneratePinoutTableStructure.xsl PinoutTableItems.xml
+    if (HALST_XML_PINOUT_TABLE_ITEMS)
+        set(pinout_table_items "${CMAKE_SOURCE_DIR}/${HALST_XML_PINOUT_TABLE_ITEMS}")
+    else()
+        set(pinout_table_items "${CMAKE_CURRENT_SOURCE_DIR}/PinoutTableItems.xml")
+    endif()
+
+    generate_xslt(hal_st.stm32fxxx generated/stm32fxxx/PinoutTableDefaultStructure.xml GeneratePinoutTableStructure.xsl ${pinout_table_items}
         --stringparam gpio-document ${gpio_xml} --stringparam mcu-document ${mcu_xml})
     generate_xslt(hal_st.stm32fxxx generated/stm32fxxx/PinoutTableDefault.cpp GeneratePinoutTableCpp.xsl "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PinoutTableDefaultStructure.xml")
     generate_xslt(hal_st.stm32fxxx generated/stm32fxxx/PinoutTableDefault.hpp GeneratePinoutTableHpp.xsl "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PinoutTableDefaultStructure.xml")
