@@ -2,12 +2,12 @@
 #define HAL_ST_ADC_DMA_MULTI_CHANNEL_HPP
 
 #include "hal/interfaces/AdcMultiChannel.hpp"
+#include "hal_st/stm32fxxx/AdcTimerTriggeredBase.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
-#include "infra/util/AutoResetFunction.hpp"
-#include <array>
-#include <cstddef>
+#include "hal_st/stm32fxxx/TimerStm.hpp"
+#include <variant>
 
 namespace hal
 {
