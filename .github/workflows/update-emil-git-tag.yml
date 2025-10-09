@@ -1,5 +1,5 @@
 ---
-name: Update amp-embedded-infra-lib Git Tag
+name: Update embedded-pro/embedded-infra-lib Git Tag
 
 on:
   schedule:
@@ -64,10 +64,10 @@ jobs:
         if: ${{ steps.pull_head.outputs.current_hash != steps.pull_head.outputs.latest_hash }}
         with:
           token: ${{ steps.token.outputs.token }}
-          commit-message: "chore: update amp-embedded-infra-lib hash to ${{ steps.pull_head.outputs.latest_hash }}"
-          title: "chore: update amp-embedded-infra-lib hash to ${{ steps.pull_head.outputs.latest_hash }}"
+          commit-message: "chore: update embedded-pro/embedded-infra-lib hash to ${{ steps.pull_head.outputs.latest_hash }}"
+          title: "chore: update embedded-pro/embedded-infra-lib hash to ${{ steps.pull_head.outputs.latest_hash }}"
           body: |
-            commits on amp-embedded-infra-lib:
+            commits on embedded-pro/embedded-infra-lib:
 
             ```
             ${{ steps.pull_head.outputs.git_log }}
