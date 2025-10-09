@@ -1,5 +1,6 @@
 #include "hal_st/middlewares/ble_middleware/GapPeripheralSt.hpp"
-#include "infra/event/EventDispatcherWithWeakPtr.hpp"
+#include "infra/event/EventDispatcher.hpp"
+#include "services/ble/Gap.hpp"
 
 namespace
 {
@@ -14,16 +15,16 @@ namespace hal
     GapPeripheralSt::GapPeripheralSt(hal::HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer, const Configuration& configuration)
         : GapSt(hciEventSource, bondStorageSynchronizer, configuration)
     {
-        Initialize(configuration.gapService);
+        Initialize(configuration);
     }
 
     services::GapAddress GapPeripheralSt::GetAddress() const
     {
         services::GapAddress address;
         /* Use last peer addres to get current RPA */
-        [[maybe_unused]] auto status = hci_le_read_local_resolvable_address(connectionContext.peerAddressType, connectionContext.peerAddress.data(), address.address.data());
+        [[maybe_unused]] auto status = hci_le_read_local_resolvable_address(static_cast<uint8_t>(connectionContext.peerAddressType), connectionContext.peerAddress.data(), address.address.data());
 
-        address.type = services::GapDeviceAddressType::publicAddress;
+        address.type = services::GapDeviceAddressType::randomAddress;
 
         assert(status == BLE_STATUS_SUCCESS);
 
@@ -93,10 +94,17 @@ namespace hal
         UpdateResolvingList();
 
         tBleStatus ret = BLE_STATUS_INVALID_PARAMS;
+
         if (allowPairing)
-            ret = aci_gap_set_discoverable(advTypeSt, multiplier, multiplier, GAP_RESOLVABLE_PRIVATE_ADDR, NO_WHITE_LIST_USE, 0, NULL, 0, NULL, 0, 0);
+        {
+            StartedAdvertising("aci_gap_set_discoverable");
+            ret = aci_gap_set_discoverable(advTypeSt, multiplier, multiplier, ownAddressType, NO_WHITE_LIST_USE, 0, NULL, 0, NULL, 0, 0);
+        }
         else
-            ret = aci_gap_set_undirected_connectable(multiplier, multiplier, GAP_RESOLVABLE_PRIVATE_ADDR, WHITE_LIST_FOR_ALL);
+        {
+            StartedAdvertising("aci_gap_set_undirected_connectable");
+            ret = aci_gap_set_undirected_connectable(multiplier, multiplier, ownAddressType, WHITE_LIST_FOR_ALL);
+        }
 
         UpdateAdvertisementData();
 
@@ -115,6 +123,13 @@ namespace hal
         }
     }
 
+    void GapPeripheralSt::SetConnectionParameters(const services::GapConnectionParameters& connParam)
+    {
+        aci_l2cap_connection_parameter_update_req(connectionContext.connectionHandle,
+            connParam.minConnIntMultiplier, connParam.maxConnIntMultiplier,
+            connParam.slaveLatency, connParam.supervisorTimeoutMs);
+    }
+
     void GapPeripheralSt::AllowPairing(bool allow)
     {
         allowPairing = allow;
@@ -128,19 +143,21 @@ namespace hal
         std::array<Bonded_Device_Entry_t, maxNumberOfBonds> bondedDevices;
         aci_gap_get_bonded_devices(&numberOfBondedAddress, bondedDevices.data());
 
+        ReceivedNumberOfBondedAddresses(numberOfBondedAddress);
+
         if (numberOfBondedAddress == 0)
         {
             aci_gap_add_devices_to_resolving_list(1, &dummyPeer, 1);
 
             std::copy(std::begin(dummyPeer.Peer_Identity_Address), std::end(dummyPeer.Peer_Identity_Address), connectionContext.peerAddress.begin());
-            connectionContext.peerAddressType = dummyPeer.Peer_Identity_Address_Type;
+            connectionContext.peerAddressType = static_cast<services::GapDeviceAddressType>(dummyPeer.Peer_Identity_Address_Type);
         }
         else
         {
             aci_gap_add_devices_to_resolving_list(numberOfBondedAddress, reinterpret_cast<const Whitelist_Identity_Entry_t*>(bondedDevices.begin()), 1);
 
             std::copy(std::begin(bondedDevices[numberOfBondedAddress - 1].Address), std::end(bondedDevices[numberOfBondedAddress - 1].Address), connectionContext.peerAddress.begin());
-            connectionContext.peerAddressType = bondedDevices[numberOfBondedAddress - 1].Address_Type;
+            connectionContext.peerAddressType = static_cast<services::GapDeviceAddressType>(bondedDevices[numberOfBondedAddress - 1].Address_Type);
 
             for (uint8_t i = 0; i < numberOfBondedAddress; i++)
                 hci_le_set_privacy_mode(bondedDevices[i].Address_Type, bondedDevices[i].Address, HCI_PRIV_MODE_DEVICE);
@@ -150,42 +167,32 @@ namespace hal
     void GapPeripheralSt::ClearResolvingList()
     {
         aci_gap_configure_whitelist();
-
         aci_gap_add_devices_to_resolving_list(0, nullptr, 1);
     }
 
-    void GapPeripheralSt::HandleHciDisconnectEvent(hci_event_pckt& eventPacket)
+    void GapPeripheralSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
     {
-        GapSt::HandleHciDisconnectEvent(eventPacket);
+        GapSt::HandleHciDisconnectEvent(event);
         UpdateState(services::GapState::standby);
     }
 
-    void GapPeripheralSt::HandleHciLeEnhancedConnectionCompleteEvent(evt_le_meta_event* metaEvent)
+    void GapPeripheralSt::HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event)
     {
-        GapSt::HandleHciLeEnhancedConnectionCompleteEvent(metaEvent);
-
-        RequestConnectionParameterUpdate();
+        GapSt::HandleHciLeEnhancedConnectionCompleteEvent(event);
 
         UpdateState(services::GapState::connected);
     }
 
-    void GapPeripheralSt::RequestConnectionParameterUpdate()
-    {
-        aci_l2cap_connection_parameter_update_req(connectionContext.connectionHandle,
-            connectionParameters.minConnIntMultiplier, connectionParameters.maxConnIntMultiplier,
-            connectionParameters.slaveLatency, connectionParameters.supervisorTimeoutMs);
-    }
-
-    void GapPeripheralSt::Initialize(const GapService& gapService)
+    void GapPeripheralSt::Initialize(const Configuration& configuration)
     {
         uint16_t gapServiceHandle, gapDevNameCharHandle, gapAppearanceCharHandle;
 
-        aci_gap_init(GAP_PERIPHERAL_ROLE, PRIVACY_ENABLED, gapService.deviceName.size(), &gapServiceHandle, &gapDevNameCharHandle, &gapAppearanceCharHandle);
-        aci_gatt_update_char_value(gapServiceHandle, gapDevNameCharHandle, 0, gapService.deviceName.size(), reinterpret_cast<const uint8_t*>(gapService.deviceName.data()));
-        aci_gatt_update_char_value(gapServiceHandle, gapAppearanceCharHandle, 0, sizeof(gapService.appearance), reinterpret_cast<const uint8_t*>(&gapService.appearance));
+        aci_gap_init(GAP_PERIPHERAL_ROLE, configuration.privacy ? PRIVACY_ENABLED : PRIVACY_DISABLED, configuration.gapService.deviceName.size(), &gapServiceHandle, &gapDevNameCharHandle, &gapAppearanceCharHandle);
+        aci_gatt_update_char_value(gapServiceHandle, gapDevNameCharHandle, 0, configuration.gapService.deviceName.size(), reinterpret_cast<const uint8_t*>(configuration.gapService.deviceName.data()));
+        aci_gatt_update_char_value(gapServiceHandle, gapAppearanceCharHandle, 0, sizeof(configuration.gapService.appearance), reinterpret_cast<const uint8_t*>(&configuration.gapService.appearance));
 
-        SetIoCapabilities(services::GapPairing::IoCapabilities::none);
-        SetSecurityMode(services::GapPairing::SecurityMode::mode1, services::GapPairing::SecurityLevel::level1);
+        SetIoCapabilities(configuration.security.ioCapabilities);
+        SetSecurityMode(configuration.security.securityMode, configuration.security.securityLevel);
 
         hci_le_write_suggested_default_data_length(services::GapConnectionParameters::connectionInitialMaxTxOctets, services::GapConnectionParameters::connectionInitialMaxTxTime);
         hci_le_set_default_phy(allPhys, speed2Mbps, speed2Mbps);
