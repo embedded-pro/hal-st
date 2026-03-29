@@ -9,7 +9,7 @@ target_include_directories(hal_st.synchronous_stm32fxxx PUBLIC
 target_link_libraries(hal_st.synchronous_stm32fxxx PUBLIC
     hal.synchronous_interfaces
     hal_st.stm32fxxx
-    services.util
+    services.crypto
 )
 
 target_sources(hal_st.synchronous_stm32fxxx PRIVATE

@@ -6,7 +6,7 @@
 #include "integration_test/tester/ForwardingEchoToTested.hpp"
 #include "integration_test/tester/Tester.hpp"
 #include "services/tracer/GlobalTracer.hpp"
-#include "services/util/DebugLed.hpp"
+#include "services/peripheral/DebugLed.hpp"
 
 // Tester    Tested Function
 // ------    ------ --------

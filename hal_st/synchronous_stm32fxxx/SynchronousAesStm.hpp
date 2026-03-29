@@ -3,7 +3,7 @@
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/util/ByteRange.hpp"
-#include "services/util/Aes.hpp"
+#include "services/crypto/Aes.hpp"
 
 #if defined(HAS_PERIPHERAL_AES)
 

@@ -7,7 +7,7 @@
 #include "infra/util/ProxyCreator.hpp"
 #include "integration_test/logic/Flash.hpp"
 #include "integration_test/logic/Peripheral.hpp"
-#include "services/util/EchoOnSesame.hpp"
+#include "services/echo/EchoOnSesame.hpp"
 
 namespace application
 {
