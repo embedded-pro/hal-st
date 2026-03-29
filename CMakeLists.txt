@@ -73,7 +73,9 @@ if (HALST_STANDALONE)
     add_subdirectory(integration_test)
 endif()
 add_subdirectory(services)
-add_subdirectory(examples)
+if (HALST_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 emil_clangformat_directories(hal_st DIRECTORIES .)
 
