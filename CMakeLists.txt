@@ -73,7 +73,7 @@ if (HALST_STANDALONE)
     add_subdirectory(integration_test)
 endif()
 add_subdirectory(services)
-if (HALST_BUILD_EXAMPLES)
+if (HALST_BUILD_EXAMPLES OR HALST_BUILD_EXAMPLES_FREERTOS)
     add_subdirectory(examples)
 endif()
 
