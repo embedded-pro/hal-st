@@ -16,6 +16,7 @@ target_compile_definitions(examples_st.helloworld_nucleo64 PUBLIC
 
 target_link_libraries(examples_st.helloworld_nucleo64 PRIVATE
     services.util
+    services.peripheral
     hal_st.instantiations
 )
 
@@ -39,6 +40,7 @@ target_compile_definitions(examples_st.helloworld_nucleo144 PUBLIC
 
 target_link_libraries(examples_st.helloworld_nucleo144 PRIVATE
     services.util
+    services.peripheral
     hal_st.instantiations
 )
 

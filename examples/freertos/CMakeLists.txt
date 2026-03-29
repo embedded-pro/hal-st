@@ -3,6 +3,7 @@ emil_build_for(examples_st.freertos_nucleo144 TARGET_MCU_VENDOR st PREREQUISITE_
 
 target_link_libraries(examples_st.freertos_nucleo144 PRIVATE
     hal_st.instantiations
+    services.peripheral
     osal.thread
     osal.freertos_system_time
 )

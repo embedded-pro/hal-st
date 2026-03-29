@@ -10,7 +10,8 @@ target_include_directories(hal_st.stm32fxxx PUBLIC
 target_link_libraries(hal_st.stm32fxxx PUBLIC
     hal.interfaces
     infra.timer
-    services.util
+    services.crypto
+    services.flash
     st.hal_driver
     hal_st.cortex
     $<$<STREQUAL:${TARGET_MCU},stm32wb55>:hal_st.stm32_wpan>

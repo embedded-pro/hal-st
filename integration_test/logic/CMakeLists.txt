@@ -24,6 +24,7 @@ target_sources(integration_test.logic PRIVATE
 
 target_link_libraries(integration_test.logic PUBLIC
     services.util
+    services.peripheral
     protobuf.echo
 )
 

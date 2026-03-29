@@ -15,9 +15,9 @@
 #include "hal_st/synchronous_stm32fxxx/SynchronousRandomDataGeneratorStm.hpp"
 #include "infra/stream/ByteInputStream.hpp"
 #include "infra/syntax/ProtoParser.hpp"
-#include "services/util/DebugLed.hpp"
-#include "services/util/EchoInstantiation.hpp"
-#include "services/util/EchoInstantiationSecured.hpp"
+#include "services/peripheral/DebugLed.hpp"
+#include "services/echo/EchoInstantiation.hpp"
+#include "services/echo/EchoInstantiationSecured.hpp"
 
 namespace application
 {

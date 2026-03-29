@@ -4,7 +4,7 @@
 #include "osal/Osal.hpp"
 #include "osal/freertos/LowPowerStrategyFreeRtos.hpp"
 #include "osal/freertos_system_time/TimerServiceFreeRtos.hpp"
-#include "services/util/DebugLed.hpp"
+#include "services/peripheral/DebugLed.hpp"
 #include <chrono>
 #include <thread>
 

@@ -5,7 +5,7 @@
 #include "hal_st/cortex/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/FlashInternalStm.hpp"
 #include "hal_st/stm32fxxx/WatchDogStm.hpp"
-#include "services/util/FlashAlign.hpp"
+#include "services/flash/FlashAlign.hpp"
 #include <cstdint>
 
 namespace hal

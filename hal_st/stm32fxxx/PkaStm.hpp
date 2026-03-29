@@ -4,7 +4,7 @@
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal_st/cortex/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
-#include "services/util/EllipticCurve.hpp"
+#include "services/crypto/EllipticCurve.hpp"
 
 #if defined(HAS_PERIPHERAL_PKA)
 

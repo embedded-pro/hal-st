@@ -2,7 +2,7 @@
 #define HAL_FLASH_INTERNAL_STM_DETAIL_HPP
 
 #include DEVICE_HEADER
-#include "services/util/FlashAlign.hpp"
+#include "services/flash/FlashAlign.hpp"
 #include <cstdint>
 
 namespace hal
