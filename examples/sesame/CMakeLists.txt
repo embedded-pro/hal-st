@@ -14,6 +14,7 @@ macro(add_sesame_example target_name)
 
     target_link_libraries(${target_name} PRIVATE
         services.util
+        services.peripheral
         hal_st.instantiations
     )
 

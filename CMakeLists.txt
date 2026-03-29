@@ -28,6 +28,11 @@ if (HALST_STANDALONE)
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
         GIT_TAG        06931dbb0464cd357833ac95c35d9f03c13e3ada # Unreleased
     )
+
+    add_definitions(-DEMIL_ENABLE_TRACING=1)
+
+    set(EMIL_ENABLE_DOCKER_TOOLS Off CACHE BOOL "" FORCE)
+
     FetchContent_MakeAvailable(emil)
 
     if (EMIL_HOST_BUILD)
