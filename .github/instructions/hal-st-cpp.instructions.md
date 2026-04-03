@@ -4,7 +4,7 @@ applyTo: "**/*.{hpp,cpp,h,c}"
 
 # hal-st C++ Coding Rules
 
-These rules apply to all source files in the **hal-st** repository — an `embedded-infra-lib` Hardware Abstraction Layer for STM32 ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, WB, WBA families).
+These rules define the target conventions for the **hal-st** repository — an `embedded-infra-lib` Hardware Abstraction Layer for STM32 ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, WB, WBA families). Follow them for all new source files and whenever modifying existing files, unless legacy constraints in untouched code require otherwise.
 
 ## Memory Management — Absolute Restrictions
 
@@ -13,9 +13,8 @@ These rules apply to all source files in the **hal-st** repository — an `embed
   - `infra::BoundedVector` instead of `std::vector`
   - `infra::BoundedDeque` instead of `std::deque`
   - `infra::BoundedString` instead of `std::string`
-- **All peripheral handles** (`xxx_HandleTypeDef`) must be **non-static member variables**, zero-initialized inline:
-  ```cpp
-  UART_HandleTypeDef uartHandle{};   // member, zero-initialized
+- **Peripheral handles** (`xxx_HandleTypeDef`) must be **non-static member variables**. For new or modified drivers, value-initialize them inline with `{}`; existing drivers do not need to be changed solely to enforce this style:
+  
   ```
 - **No recursion** in driver code — stack depth must be statically bounded
 - Callbacks stored in `infra::AutoResetFunction<void()>` (one-shot) or `infra::Function<void()>` (persistent)
@@ -23,12 +22,12 @@ These rules apply to all source files in the **hal-st** repository — an `embed
 ## STM32 HAL Library API
 
 - Use only `HAL_*` and `LL_*` functions; **never write to hardware registers via magic offsets**
-- Include the correct device header using the `DEVICE_HEADER` macro, not a family-specific path:
+- For new or migrated code, include the correct device header using the `DEVICE_HEADER` macro instead of adding a new family-specific include; some existing drivers still use direct family headers and should be updated only as part of targeted migration work:
   ```cpp
   #include DEVICE_HEADER   // resolves to stm32f4xx.h, stm32g0xx.h, etc.
   ```
 - `HAL_FOO_Init` in constructor, `HAL_FOO_DeInit` + clock disable in destructor
-- HAL callbacks registered with `HAL_FOO_RegisterCallback` where the HAL supports registration; avoid overriding weak global weak callback symbols
+- HAL callbacks registered with `HAL_FOO_RegisterCallback` where the HAL supports registration; avoid overriding global weak callback symbols
 - Clock enable macros: `__HAL_RCC_XXX_CLK_ENABLE()` / `__HAL_RCC_XXX_CLK_DISABLE()`
 - Use `__HAL_RCC_XXX_FORCE_RESET()` + `__HAL_RCC_XXX_RELEASE_RESET()` during destruction
 
@@ -107,7 +106,7 @@ Use the appropriate `hal_st` DMA wrappers (`TransmitDmaChannel`, `ReceiveDmaChan
 - PascalCase for types and methods; camelCase for member variables and local variables
 - `const` on all non-mutating member functions
 - `constexpr` for compile-time constants; `static constexpr` for class-level constants
-- `#pragma once` as the only include guard
+- For new or modified header files, prefer `#pragma once`; existing `#ifndef`/`#define` include guards in legacy headers may remain unless you are already updating that file
 
 ## C++ Language Rules
 

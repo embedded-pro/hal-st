@@ -62,8 +62,8 @@ Describe the required `HAL_*` calls in order:
 1. Enable peripheral clock (e.g., `__HAL_RCC_USARTx_CLK_ENABLE()`)
 2. Configure `fooHandle.Instance`, `fooHandle.Init.*`
 3. Call `HAL_FOO_Init(&fooHandle)`
-4. Enable NVIC interrupt via `HAL_NVIC_SetPriority` / `HAL_NVIC_EnableIRQ`
-5. Describe any HAL callback registration needed (e.g., `HAL_UART_RegisterCallback`)
+4. If interrupts are needed, describe wiring the IRQ through the project's `InterruptHandler` / `DispatchedInterruptHandler` abstraction (including priority/dispatch setup there as appropriate), rather than planning direct `HAL_NVIC_SetPriority` / `HAL_NVIC_EnableIRQ` calls
+5. Describe any HAL callback registration needed (e.g., `HAL_UART_RegisterCallback`) and how callbacks connect to the interrupt abstraction
 
 ### 5. DMA Plan (if applicable)
 - State the DMA architecture: **stream-based** (F4/F7, uses `DmaChannelId::stream`) or **channel-based** (G0/G4/WB/WBA/H5, uses `DmaChannelId::channel`)
