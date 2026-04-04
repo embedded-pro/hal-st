@@ -5,7 +5,7 @@
 #include "generated/echo/TracingTesting.pb.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/UartStmDuplexDma.hpp"
-#include "protobuf/echo/ServiceForwarder.hpp"
+#include "services/echo_core/ServiceForwarder.hpp"
 #include "services/tracer/GlobalTracer.hpp"
 #include "services/tracer/TracingEchoInstantiation.hpp"
 

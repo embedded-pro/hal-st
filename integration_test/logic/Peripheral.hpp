@@ -60,7 +60,7 @@ namespace application
     template<class Constructed, class... Args>
     infra::SharedPtr<void> Peripheral<Constructed, Args...>::Construct()
     {
-        return std::apply(&infra::SharedOptional<Constructed>::template Emplace<services::Echo&, Args...>, std::tuple_cat(std::tuple<infra::SharedOptional<Constructed>&>(constructed), args));
+        return std::apply([this](auto&&... a) { return constructed.Emplace(std::forward<decltype(a)>(a)...); }, args);
     }
 }
 

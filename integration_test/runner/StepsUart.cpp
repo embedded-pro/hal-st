@@ -36,7 +36,7 @@ STEP("uart peripherals are enabled")
 {
     EXPECT_TRUE(infra::WaitUntilDone([&](const infra::Function<void()>& done)
         {
-            context.Emplace<UartObserver>(context.Get<services::Echo>());
+            context.emplace<UartObserver>(context.Get<services::Echo>());
 
             context.Get<testing::TesterProxy>().RequestSend([&]()
                 {
@@ -63,15 +63,15 @@ STEP("uart peripherals are enabled")
             return context.Get<application::TestedObserver>().ReceivedPong();
         }));
 
-    context.Emplace<testing::UartTesterProxy>(context.Get<services::Echo>());
-    context.Emplace<testing::UartTestedProxy>(context.Get<services::Echo>());
+    context.emplace<testing::UartTesterProxy>(context.Get<services::Echo>());
+    context.emplace<testing::UartTestedProxy>(context.Get<services::Echo>());
 }
 
 STEP("uart duplex dma peripherals are enabled")
 {
     EXPECT_TRUE(infra::WaitUntilDone([&](const infra::Function<void()>& done)
         {
-            context.Emplace<UartObserver>(context.Get<services::Echo>());
+            context.emplace<UartObserver>(context.Get<services::Echo>());
 
             context.Get<testing::TesterProxy>().RequestSend([&]()
                 {
@@ -98,8 +98,8 @@ STEP("uart duplex dma peripherals are enabled")
             return context.Get<application::TestedObserver>().ReceivedPong();
         }));
 
-    context.Emplace<testing::UartTesterProxy>(context.Get<services::Echo>());
-    context.Emplace<testing::UartTestedProxy>(context.Get<services::Echo>());
+    context.emplace<testing::UartTesterProxy>(context.Get<services::Echo>());
+    context.emplace<testing::UartTestedProxy>(context.Get<services::Echo>());
 }
 
 STEP("the tester sends UART data")

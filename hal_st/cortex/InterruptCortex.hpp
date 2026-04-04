@@ -7,6 +7,7 @@
 #include "infra/util/MemoryRange.hpp"
 #include "infra/util/WithStorage.hpp"
 #include <array>
+#include <optional>
 
 namespace hal
 {
@@ -38,7 +39,7 @@ namespace hal
         void ClearPending();
 
     private:
-        infra::Optional<IRQn_Type> irq;
+        std::optional<IRQn_Type> irq;
     };
 
     class InterruptTable

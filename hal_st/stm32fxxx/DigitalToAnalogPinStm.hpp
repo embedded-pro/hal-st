@@ -4,7 +4,7 @@
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/DigitalToAnalogPin.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
-#include "infra/util/Optional.hpp"
+#include <optional>
 #include <cstdint>
 
 #include DEVICE_HEADER
@@ -44,7 +44,7 @@ namespace hal
     private:
         void Configure();
 
-        infra::Optional<AnalogPinStm> pin;
+        std::optional<AnalogPinStm> pin;
         DacStm& dac;
         uint32_t channel;
 

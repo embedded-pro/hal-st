@@ -8,7 +8,7 @@
 #include "hal_st/cortex/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/InterfaceConnector.hpp"
-#include "infra/util/Variant.hpp"
+#include <variant>
 
 #ifdef HAS_PERIPHERAL_USB
 
@@ -139,10 +139,10 @@ namespace hal
         static constexpr std::size_t numberOfChannels = 11;
 
         uint8_t usbIndex;
-        infra::Variant<InternalPhy, ExternalPhy> pins;
+        std::variant<InternalPhy, ExternalPhy> pins;
         HCD_HandleTypeDef hcd;
         std::array<channelCallbacks, numberOfChannels> channelCallbacks;
-        std::array<infra::Optional<ImmediateInterruptHandler>, 4> immediateInterruptHandler;
+        std::array<std::optional<ImmediateInterruptHandler>, 4> immediateInterruptHandler;
         std::array<uint8_t, maxReceptionBufferSize> receptionBuffer  __attribute__((aligned(4)));
     };
 }

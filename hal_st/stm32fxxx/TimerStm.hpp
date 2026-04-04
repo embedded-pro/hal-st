@@ -5,7 +5,7 @@
 #include "hal/interfaces/Gpio.hpp"
 #include "hal_st/cortex/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
-#include "infra/util/Optional.hpp"
+#include <optional>
 #include <atomic>
 #include DEVICE_HEADER
 
@@ -44,7 +44,7 @@ namespace hal
         struct Config
         {
             CounterMode counterMode;
-            infra::Optional<Trigger> trigger;
+            std::optional<Trigger> trigger;
         };
 
     protected:

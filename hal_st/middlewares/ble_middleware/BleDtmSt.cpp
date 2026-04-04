@@ -1,5 +1,5 @@
 #include "hal_st/middlewares/ble_middleware/BleDtmSt.hpp"
-#include "infra/util/Optional.hpp"
+#include <optional>
 
 extern "C"
 {
@@ -48,13 +48,13 @@ namespace hal
         return false;
     }
 
-    infra::Optional<uint16_t> BleDtmSt::StopTest()
+    std::optional<uint16_t> BleDtmSt::StopTest()
     {
         uint16_t numberOfPackets = 0;
 
         if (hci_le_test_end(&numberOfPackets) == BLE_STATUS_SUCCESS)
-            return infra::MakeOptional(numberOfPackets);
+            return std:: make_optional(numberOfPackets);
 
-        return infra::none;
+        return std::nullopt;
     }
 }

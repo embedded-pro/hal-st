@@ -2,8 +2,8 @@
 #include "infra/util/test_helper/MockCallback.hpp"
 #include "infra/util/test_helper/MockHelpers.hpp"
 #include "integration_test/logic/Flash.hpp"
-#include "protobuf/echo/test_doubles/EchoMock.hpp"
-#include "protobuf/echo/test_doubles/EchoSingleLoopback.hpp"
+#include "services/echo_core/test_doubles/EchoMock.hpp"
+#include "services/echo_core/test_doubles/EchoSingleLoopback.hpp"
 #include "gtest/gtest.h"
 
 namespace

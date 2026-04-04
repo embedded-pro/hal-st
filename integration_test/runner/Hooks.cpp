@@ -16,7 +16,7 @@ HOOK_BEFORE_ALL()
     auto networkAdapter = std::make_shared<main_::NetworkAdapter>();
     context.SetShared(std::shared_ptr<infra::EventDispatcherWithWeakPtrWorker>(networkAdapter, &networkAdapter->EventDispatcher()));
     context.SetShared(std::shared_ptr<services::ConnectionFactoryWithNameResolver>(networkAdapter, &networkAdapter->ConnectionFactoryWithNameResolver()));
-    context.Emplace<hal::TimerServiceGeneric>();
+    context.emplace<hal::TimerServiceGeneric>();
 
     try
     {
@@ -28,10 +28,10 @@ HOOK_BEFORE_ALL()
         throw;
     }
 
-    context.Emplace<testing::TesterProxy>(context.Get<services::Echo>());
-    context.Emplace<testing::TestedProxy>(context.Get<services::Echo>());
-    context.Emplace<application::TesterObserver>(context.Get<services::Echo>());
-    context.Emplace<application::TestedObserver>(context.Get<services::Echo>());
+    context.emplace<testing::TesterProxy>(context.Get<services::Echo>());
+    context.emplace<testing::TestedProxy>(context.Get<services::Echo>());
+    context.emplace<application::TesterObserver>(context.Get<services::Echo>());
+    context.emplace<application::TestedObserver>(context.Get<services::Echo>());
 }
 
 HOOK_BEFORE_SCENARIO()
