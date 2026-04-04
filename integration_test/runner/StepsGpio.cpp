@@ -46,7 +46,7 @@ STEP("gpio peripherals are enabled")
 {
     EXPECT_TRUE(infra::WaitUntilDone([&](const infra::Function<void()>& done)
         {
-            context.emplace<GpioObserver>(context.Get<services::Echo>());
+            context.Emplace<GpioObserver>(context.Get<services::Echo>());
 
             context.Get<testing::TesterProxy>().RequestSend([&]()
                 {
@@ -73,8 +73,8 @@ STEP("gpio peripherals are enabled")
             return context.Get<application::TestedObserver>().ReceivedPong();
         }));
 
-    context.emplace<testing::GpioTesterProxy>(context.Get<services::Echo>());
-    context.emplace<testing::GpioTestedProxy>(context.Get<services::Echo>());
+    context.Emplace<testing::GpioTesterProxy>(context.Get<services::Echo>());
+    context.Emplace<testing::GpioTestedProxy>(context.Get<services::Echo>());
 }
 
 STEP("the tester sets its output pin (high|low)", (std::string state))
