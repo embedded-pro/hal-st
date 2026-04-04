@@ -204,14 +204,14 @@ namespace hal
 {
     UsbHostLinkLayerStm::UsbHostLinkLayerStm(Type usbType, hal::GpioPinStm& id, hal::GpioPinStm& dm, hal::GpioPinStm& dp, const Config& config)
         : usbIndex(static_cast<uint8_t>(usbType))
-        , pins{ infra::InPlaceType<InternalPhy>(), usbType, id, dm, dp }
+        , pins{ std::in_place_type<InternalPhy>, usbType, id, dm, dp }
     {
         Initialize(HCD_PHY_EMBEDDED, config);
     }
 
     UsbHostLinkLayerStm::UsbHostLinkLayerStm(Type usbType, Ulpi pins, const Config& config)
         : usbIndex(static_cast<uint8_t>(usbType))
-        , pins{ infra::InPlaceType<ExternalPhy>(), pins }
+        , pins{ std::in_place_type<ExternalPhy>, pins }
     {
         Initialize(HCD_PHY_ULPI, config);
     }
@@ -245,7 +245,7 @@ namespace hal
     void UsbHostLinkLayerStm::CreateInterruptDispatched()
     {
         for (std::size_t i = 0; i < peripheralUSBIrq[usbIndex].size(); i++)
-            immediateInterruptHandler[i].Emplace(peripheralUSBIrq[usbIndex][i], [this]()
+            immediateInterruptHandler[i].emplace(peripheralUSBIrq[usbIndex][i], [this]()
                 {
                     NakInterruptControl nakInterruptControl{ hcd };
                     HAL_HCD_IRQHandler(&hcd);
@@ -255,7 +255,7 @@ namespace hal
     void UsbHostLinkLayerStm::DestroyInterruptDispatched()
     {
         for (auto& handler : immediateInterruptHandler)
-            handler = infra::none;
+            handler = std::nullopt;
     }
 
     UsbSpeed UsbHostLinkLayerStm::Speed()

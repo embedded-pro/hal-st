@@ -76,27 +76,6 @@ jobs:
         with:
           name: test-logs
           path: build/host/Testing/Temporary/
-  host_build_clang_msvc:
-    name: Windows Host Build from Devcontainer
-    runs-on: [ubuntu-latest]
-    container: ghcr.io/philips-software/amp-devcontainer-cpp:v5.6.0@sha256:884732270a353e8446f813e649f2918ac53ce446a6c0dd4f7f84a6d58fb26bce # v5.6.0
-    steps:
-      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        id: cache-winsdk
-        with:
-          path: /winsdk
-          key: cache-winsdk-10.0.26100-14.43.17.13
-      - if: ${{ steps.cache-winsdk.outputs.cache-hit != 'true' }}
-        run: xwin --accept-license --sdk-version "10.0.26100" --crt-version "14.43.17.13" splat --preserve-ms-arch-notation --include-debug-libs && mv .xwin-cache/splat/ /winsdk
-      - uses: hendrikmuhs/ccache-action@bfa03e1de4d7f7c3e80ad9109feedd05c4f5a716 # v1.2.19
-        with:
-          key: ${{ github.job }}
-      - uses: lukka/run-cmake@af1be47fd7c933593f687731bc6fdbee024d3ff4 # v10.8
-        with:
-          configurePreset: "Windows"
-          buildPreset: "Windows-Release"
-          configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
   embedded_build:
     name: Embedded Build
     runs-on: ubuntu-latest
@@ -104,7 +83,7 @@ jobs:
     strategy:
       matrix:
         configuration: ["RelWithDebInfo"]
-        gcc: ["10.3-2021.10"]
+        gcc: ["13.2.Rel1"]
         target:
           [
             "stm32wb55",

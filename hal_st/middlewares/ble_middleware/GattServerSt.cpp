@@ -4,9 +4,9 @@ namespace
 {
     uint8_t UuidToType(const services::AttAttribute::Uuid& uuid)
     {
-        if (uuid.Is<services::AttAttribute::Uuid16>())
+        if (std::holds_alternative<services::AttAttribute::Uuid16>(uuid))
             return 0x01;
-        else if (uuid.Is<services::AttAttribute::Uuid128>())
+        else if (std::holds_alternative<services::AttAttribute::Uuid128>(uuid))
             return 0x02;
 
         std::abort(); // Unsupported uuid type
@@ -15,10 +15,10 @@ namespace
     template<class UuidType>
     const auto* ConvertUuid(const services::AttAttribute::Uuid& uuid)
     {
-        if (uuid.Is<services::AttAttribute::Uuid16>())
-            return reinterpret_cast<const UuidType*>(&uuid.Get<services::AttAttribute::Uuid16>());
-        else if (uuid.Is<services::AttAttribute::Uuid128>())
-            return reinterpret_cast<const UuidType*>(&uuid.Get<services::AttAttribute::Uuid128>());
+        if (std::holds_alternative<services::AttAttribute::Uuid16>(uuid))
+            return reinterpret_cast<const UuidType*>(&std::get<services::AttAttribute::Uuid16>(uuid));
+        else if (std::holds_alternative<services::AttAttribute::Uuid128>(uuid))
+            return reinterpret_cast<const UuidType*>(&std::get<services::AttAttribute::Uuid128>(uuid));
 
         std::abort(); // Unsupported uuid type
     }

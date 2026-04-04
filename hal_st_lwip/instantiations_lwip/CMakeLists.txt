@@ -13,7 +13,7 @@ target_link_libraries(hal_st.instantiations_lwip PUBLIC
     infra.event
     infra.timer
     lwip.lwip_cpp
-    services.network
+    services.network.dns
     hal_st.stm32fxxx
 )
 

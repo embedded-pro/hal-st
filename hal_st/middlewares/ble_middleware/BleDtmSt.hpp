@@ -2,7 +2,7 @@
 #define HAL_ST_DTM_ST_HPP
 
 #include "hal/interfaces/BleDtm.hpp"
-#include "infra/util/Optional.hpp"
+#include <optional>
 #include <cstdint>
 
 namespace hal
@@ -17,7 +17,7 @@ namespace hal
         bool SetTxPowerLevel(uint8_t txPower) override;
         bool StartRxTest(uint8_t frequency, uint8_t phy) override;
         bool StartTxTest(uint8_t frequency, uint8_t dataLength, uint8_t packetPayload, uint8_t phy) override;
-        infra::Optional<uint16_t> StopTest() override;
+        std::optional<uint16_t> StopTest() override;
 
     private:
         struct ParameterLimits

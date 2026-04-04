@@ -4,7 +4,7 @@
 #include "hal_st/stm32fxxx/EthernetSmiStm.hpp"
 #include "hal_st_lwip/instantiations_lwip/EthernetSmiObserver.hpp"
 #include "lwip/lwip_cpp/LightweightIp.hpp"
-#include "services/network/LlmnrResponder.hpp"
+#include "services/network/dns/LlmnrResponder.hpp"
 
 namespace
 {
@@ -48,25 +48,25 @@ namespace main_
                 : llmnrResponder(lightweightIp, lightweightIp, lightweightIp, hostName)
             {
                 if (connectedCreator != nullptr)
-                    connected.Emplace(*connectedCreator, lightweightIp);
+                    connected.emplace(*connectedCreator, lightweightIp);
             }
 
             void Stop(const infra::Function<void()>& onDone) override
             {
-                if (connected != infra::none)
+                if (connected != std::nullopt)
                     (*connected)->Stop(onDone);
                 else
-                    onDone;
+                    onDone();
             }
 
             services::LlmnrResponder llmnrResponder;
-            infra::Optional<infra::ProxyCreator<services::Stoppable, void(services::LightweightIp& lightweightIp)>> connected;
+            std::optional<infra::ProxyCreator<services::Stoppable, void(services::LightweightIp& lightweightIp)>> connected;
         };
 
         infra::CreatorBase<services::Stoppable, void(services::LightweightIp& lightweightIp)>* connectedCreator = nullptr;
-        infra::Creator<services::Stoppable, Connected, void(services::LightweightIp& lightweightIp)> connected{ [this](infra::Optional<Connected>& value, services::LightweightIp& lightweightIp)
+        infra::Creator<services::Stoppable, Connected, void(services::LightweightIp& lightweightIp)> connected{ [this](std::optional<Connected>& value, services::LightweightIp& lightweightIp)
             {
-                value.Emplace(lightweightIp, hostName, connectedCreator);
+                value.emplace(lightweightIp, hostName, connectedCreator);
             } };
     };
 

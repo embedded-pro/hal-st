@@ -19,8 +19,8 @@ namespace hal
     {
         if (flowControl != HwFlowControl::hwControlDisable)
         {
-            this->uartRts.Emplace(uartRts, PinConfigTypeStm::uartRts, aUartIndex);
-            this->uartCts.Emplace(uartCts, PinConfigTypeStm::uartCts, aUartIndex);
+            this->uartRts.emplace(uartRts, PinConfigTypeStm::uartRts, aUartIndex);
+            this->uartCts.emplace(uartCts, PinConfigTypeStm::uartCts, aUartIndex);
         }
         Register(peripheralUartIrq[uartIndex]);
         EnableClockUart(uartIndex);
@@ -146,7 +146,7 @@ namespace hal
         EnableClockUart(aUartIndex - 1);
 
         if (flowControl != HwFlowControl::hwControlDisable)
-            this->uartRts.Emplace(uartRts, PinConfigTypeStm::uartRts, aUartIndex);
+            this->uartRts.emplace(uartRts, PinConfigTypeStm::uartRts, aUartIndex);
 
         UartStmHalInit(flowControl, baudrate);
     }
@@ -163,7 +163,7 @@ namespace hal
         EnableClockLpuart(aUartIndex - 1);
 
         if (flowControl != HwFlowControl::hwControlDisable)
-            this->uartRts.Emplace(uartRts, PinConfigTypeStm::lpuartRts, aUartIndex);
+            this->uartRts.emplace(uartRts, PinConfigTypeStm::lpuartRts, aUartIndex);
 
         UartStmHalInit(flowControl, baudrate);
     }
