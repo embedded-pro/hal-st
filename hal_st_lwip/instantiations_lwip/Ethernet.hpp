@@ -56,7 +56,7 @@ namespace main_
                 if (connected != std::nullopt)
                     (*connected)->Stop(onDone);
                 else
-                    onDone;
+                    onDone();
             }
 
             services::LlmnrResponder llmnrResponder;
