@@ -17,6 +17,7 @@ target_link_libraries(integration_test.runner PRIVATE
     cucumber_cpp.library
     integration_test.logic
     hal.generic
+    services.echo_instantiations
     gtest
     gmock
     services.network_instantiations

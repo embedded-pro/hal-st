@@ -9,6 +9,7 @@ target_link_libraries(integration_test.flasher PRIVATE
     args
     integration_test.logic
     hal.generic
+    services.echo_instantiations
     services.network_instantiations
 )
 

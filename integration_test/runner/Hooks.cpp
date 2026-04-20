@@ -5,7 +5,7 @@
 #include "integration_test/logic/Tested.hpp"
 #include "integration_test/logic/Tester.hpp"
 #include "integration_test/runner/FixtureEcho.hpp"
-#include "services/network_instantiations/EchoInstantiation.hpp"
+#include "services/echo_instantiations/EchoInstantiationOnNetwork.hpp"
 #include "services/network_instantiations/NetworkAdapter.hpp"
 #include "services/tracer/GlobalTracer.hpp"
 #include "gtest/gtest.h"

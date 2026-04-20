@@ -5,7 +5,7 @@
 #include "hal/generic/FileSystemGeneric.hpp"
 #include "hal/generic/TimerServiceGeneric.hpp"
 #include "integration_test/logic/Flash.hpp"
-#include "services/network_instantiations/EchoInstantiation.hpp"
+#include "services/echo_instantiations/EchoInstantiationOnNetwork.hpp"
 #include "services/network_instantiations/NetworkAdapter.hpp"
 #include "services/tracer/GlobalTracer.hpp"
 #include "services/tracer/TracerOnIoOutputInfrastructure.hpp"
