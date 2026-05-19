@@ -1,7 +1,6 @@
 #ifndef HAL_ST_TIMER_PWM_ST_HPP
 #define HAL_ST_TIMER_PWM_ST_HPP
 
-#include "hal/interfaces/PulseWidthModulation.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/TimerStm.hpp"
 #include "infra/util/MemoryRange.hpp"
@@ -63,15 +62,14 @@ namespace hal
     };
 
     class PwmChannelGpio
-        : public PulseWidthModulation
     {
     public:
         PwmChannelGpio(uint8_t timerOneBasedIndex, uint8_t channelOneBasedIndex, TIM_HandleTypeDef& handle, GpioPinStm& pin);
 
-        void SetDuty(uint8_t dutyPercent) override;
-        void SetPulse(uint32_t pulseOn, uint32_t period) override;
-        void Start() override;
-        void Stop() override;
+        void SetDuty(uint8_t dutyPercent);
+        void SetPulse(uint32_t pulseOn, uint32_t period);
+        void Start();
+        void Stop();
 
     private:
         uint8_t timerIndex;
