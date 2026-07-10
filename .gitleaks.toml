@@ -1,0 +1,10 @@
+title = "secret scan config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated KiCad footprint cache — datasheet URLs, not secrets"
+paths = [
+  '''integration_test/pcb/integration_test_board/fp-info-cache''',
+]

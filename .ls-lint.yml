@@ -12,3 +12,4 @@ ignore:
   - hal_st/stm32fxxx/DefaultClock*
   - megalinter-reports
   - st
+  - .megalinter_github_conf
