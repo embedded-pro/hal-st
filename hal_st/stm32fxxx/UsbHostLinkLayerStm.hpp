@@ -5,7 +5,7 @@
 #include "infra/util/AutoResetFunction.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/UsbLinkLayer.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include <variant>
@@ -23,7 +23,7 @@ namespace hal
             bool externalVBus{ true };
             bool useDma{ false };
             uint32_t speed{ HCD_SPEED_HIGH };
-            InterruptPriority priority{ InterruptPriority::Normal };
+            cortex::InterruptPriority priority{ cortex::InterruptPriority::normal };
         };
     }
 
@@ -142,7 +142,7 @@ namespace hal
         std::variant<InternalPhy, ExternalPhy> pins;
         HCD_HandleTypeDef hcd;
         std::array<channelCallbacks, numberOfChannels> channelCallbacks;
-        std::array<std::optional<ImmediateInterruptHandler>, 4> immediateInterruptHandler;
+        std::array<std::optional<cortex::ImmediateInterruptHandler>, 4> immediateInterruptHandler;
         std::array<uint8_t, maxReceptionBufferSize> receptionBuffer  __attribute__((aligned(4)));
     };
 }

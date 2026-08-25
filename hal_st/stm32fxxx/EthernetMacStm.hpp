@@ -4,7 +4,7 @@
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/Ethernet.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include <array>
 
 #if defined(HAS_PERIPHERAL_ETHERNET)
@@ -75,7 +75,7 @@ namespace hal
     private:
         EthernetSmi& ethernetSmi;
         MacAddress macAddress;
-        DispatchedInterruptHandler interrupt;
+        cortex::DispatchedInterruptHandler interrupt;
 
         ReceiveDescriptors receiveDescriptors;
         SendDescriptors sendDescriptors;

@@ -1,6 +1,6 @@
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal/interfaces/Gpio.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/BitLogic.hpp"
 #include "infra/util/Function.hpp"

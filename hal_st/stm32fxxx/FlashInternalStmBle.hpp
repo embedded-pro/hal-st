@@ -2,7 +2,7 @@
 #ifndef HAL_FLASH_INTERNAL_STM_BLE_HPP
 #define HAL_FLASH_INTERNAL_STM_BLE_HPP
 
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/FlashInternalStm.hpp"
 #include "hal_st/stm32fxxx/WatchDogStm.hpp"
 #include "services/flash/FlashAlign.hpp"
@@ -49,8 +49,8 @@ namespace hal
         static constexpr uint32_t hwBlockFlashReqByCpu2 = 7;
         infra::ConstByteRange flashMemory;
         WatchDogStm& watchdog;
-        ImmediateInterruptHandler hwSemInterruptHandler;
-        ImmediateInterruptHandler nmiHandler;
+        cortex::ImmediateInterruptHandler hwSemInterruptHandler;
+        cortex::ImmediateInterruptHandler nmiHandler;
         infra::Function<void()> onHwSemaphoreAvailable;
 
         services::FlashAlign::WithAlignment<sizeof(uint64_t)> flashAlign;

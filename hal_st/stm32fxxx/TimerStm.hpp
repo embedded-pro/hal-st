@@ -3,7 +3,7 @@
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/Gpio.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
 #include <optional>
 #include <atomic>
@@ -87,7 +87,7 @@ namespace hal
         void Stop();
 
     private:
-        ImmediateInterruptHandler interruptHandler;
+        cortex::ImmediateInterruptHandler interruptHandler;
         infra::Function<void()> onIrq;
         InterruptType type;
         std::atomic_bool scheduled{};

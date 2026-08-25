@@ -2,7 +2,7 @@
 #define HAL_ANALOG_TO_DIGITAL_PIN_STM_HPP
 
 #include "hal/interfaces/AnalogToDigitalPin.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/Function.hpp"
@@ -94,7 +94,7 @@ namespace hal
 
         uint8_t index;
         ADC_HandleTypeDef handle{};
-        DispatchedInterruptHandler interruptHandler;
+        cortex::DispatchedInterruptHandler interruptHandler;
         uint16_t sample;
         infra::AutoResetFunction<void(infra::MemoryRange<uint16_t>)> onDone;
     };

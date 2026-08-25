@@ -3,7 +3,7 @@
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/SerialCommunication.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/Function.hpp"
@@ -25,7 +25,7 @@ namespace hal
         {
             uint32_t baudrate{ 115200 };
             uint32_t parity{ USART_PARITY_NONE };
-            InterruptPriority priority{ InterruptPriority::Normal };
+            cortex::InterruptPriority priority{ cortex::InterruptPriority::normal };
 
 #if defined(UART_ADVFEATURE_SWAP_INIT)
             bool swapTxRx{ false };
@@ -35,7 +35,7 @@ namespace hal
 
     class UartStm
         : public SerialCommunication
-        , private InterruptHandler
+        , private cortex::InterruptHandler
     {
     public:
         using Config = detail::UartStmConfig;

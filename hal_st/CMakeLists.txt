@@ -1,6 +1,5 @@
-add_subdirectory(cortex)
 add_subdirectory(stm32fxxx)
 add_subdirectory(synchronous_stm32fxxx)
 add_subdirectory(middlewares)
 add_subdirectory(instantiations)
-add_subdirectory(default_init)
+add_subdirectory(bringup)

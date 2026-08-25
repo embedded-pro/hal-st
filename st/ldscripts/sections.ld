@@ -122,6 +122,7 @@ SECTIONS
     } >RAM
 
     PROVIDE(__end__ = _end_noinit);
+    PROVIDE(end = _end_noinit);
 
     MAPPING_TABLE (NOLOAD) : { *(MAPPING_TABLE) } >RAM_SHARED
     MB_MEM1 (NOLOAD)       : { *(MB_MEM1) } >RAM_SHARED

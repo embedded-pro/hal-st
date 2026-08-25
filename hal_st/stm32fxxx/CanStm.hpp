@@ -4,7 +4,7 @@
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/Can.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 
 #if defined(HAS_PERIPHERAL_CAN)
@@ -44,9 +44,9 @@ namespace hal
         infra::Function<void(bool success)> onMessageSent;
         infra::Function<void(Id id, const Message& data)> onMessageReceived;
 
-        DispatchedInterruptHandler canTxInterruptDispatcher;
-        DispatchedInterruptHandler canRxInterruptDispatcher;
-        DispatchedInterruptHandler canErrorInterruptDispatcher;
+        cortex::DispatchedInterruptHandler canTxInterruptDispatcher;
+        cortex::DispatchedInterruptHandler canRxInterruptDispatcher;
+        cortex::DispatchedInterruptHandler canErrorInterruptDispatcher;
     };
 }
 

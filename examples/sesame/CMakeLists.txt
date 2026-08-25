@@ -19,7 +19,7 @@ macro(add_sesame_example target_name)
     )
 
     halst_target_default_linker_scripts(${target_name})
-    halst_target_default_init(${target_name})
+    halst_target_bringup(${target_name})
 
     emil_generate_artifacts(TARGET ${target_name} HEX)
 

@@ -4,6 +4,7 @@ ls:
   .cpp: PascalCase
 
 ignore:
+  - .claude
   - .devcontainer
   - .git
   - .github

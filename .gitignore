@@ -7,3 +7,4 @@ out/
 megalinter-reports/
 install/
 .megalinter_github_conf
+.claude/scheduled_tasks.lock

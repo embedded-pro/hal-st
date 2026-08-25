@@ -9,6 +9,6 @@ target_link_libraries(examples_st.freertos_nucleo144 PRIVATE
 )
 
 halst_target_default_linker_scripts(examples_st.freertos_nucleo144)
-halst_target_default_init(examples_st.freertos_nucleo144)
+halst_target_bringup(examples_st.freertos_nucleo144)
 
 emil_generate_artifacts(TARGET examples_st.freertos_nucleo144 LST MAP BIN HEX)

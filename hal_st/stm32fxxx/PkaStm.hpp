@@ -2,7 +2,7 @@
 #define HAL_PKA_STM_HPP
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
 #include "services/crypto/EllipticCurve.hpp"
 
@@ -12,7 +12,7 @@ namespace hal
 {
     class PkaStm
         : public services::EllipticCurveOperations
-        , protected hal::DispatchedInterruptHandler
+        , protected hal::cortex::DispatchedInterruptHandler
     {
     public:
         PkaStm();

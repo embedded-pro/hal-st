@@ -38,7 +38,7 @@ int main()
     // Configure your clock here
     // ConfigureDefaultClockNucleo767ZI();
 
-    static hal::InterruptTable::WithStorage<128> interruptTable;
+    static hal::cortex::InterruptTable::WithStorage<128> interruptTable;
     static hal::GpioStm gpio{ hal::pinoutTableDefaultStm, hal::analogTableDefaultStm };
     static hal::TimerServiceFreeRtos timerService;
     static hal::LowPowerStrategyFreeRtos lowPowerStrategy;

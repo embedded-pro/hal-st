@@ -2,7 +2,7 @@
 #define HAL_WATCHDOG_STM_HPP
 
 #include DEVICE_HEADER
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/timer/Timer.hpp"
 #include <atomic>
 
@@ -33,7 +33,7 @@ namespace hal
     private:
         void Feed();
 
-        ImmediateInterruptHandler interruptRegistration;
+        cortex::ImmediateInterruptHandler interruptRegistration;
         infra::TimerRepeating feedingTimer;
         WWDG_HandleTypeDef handle;
         std::atomic<uint32_t> delay{ 0 };

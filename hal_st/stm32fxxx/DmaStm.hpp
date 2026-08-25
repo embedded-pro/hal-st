@@ -1,7 +1,7 @@
 #ifndef HAL_DMA_STM_HPP
 #define HAL_DMA_STM_HPP
 
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/Function.hpp"
 #include "infra/util/MemoryRange.hpp"
@@ -211,8 +211,8 @@ namespace hal
 
             Stream& stream;
 
-            std::variant<DispatchedInterruptHandler, ImmediateInterruptHandler> interruptHandler;
-            InterruptHandler* interruptHandlerHandle;
+            std::variant<cortex::DispatchedInterruptHandler, cortex::ImmediateInterruptHandler> interruptHandler;
+            cortex::InterruptHandler* interruptHandlerHandle;
 
             infra::Function<void()> transferFullComplete;
         };
@@ -229,7 +229,7 @@ namespace hal
 
             Stream& stream;
 
-            ImmediateInterruptHandler immediateInterruptHandler;
+            cortex::ImmediateInterruptHandler immediateInterruptHandler;
 
             infra::Function<void()> transferHalfComplete;
             infra::Function<void()> transferFullComplete;
