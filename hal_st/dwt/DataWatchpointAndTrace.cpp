@@ -1,4 +1,4 @@
-#include "hal_st/cortex/DataWatchpointAndTrace.hpp"
+#include "hal_st/dwt/DataWatchpointAndTrace.hpp"
 
 #if defined(__CORTEX_M) && (__CORTEX_M == 4)
 

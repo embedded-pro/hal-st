@@ -2,7 +2,7 @@
 #define HAL_SPI_MASTER_STM_HPP
 
 #include "hal/interfaces/Spi.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 
@@ -44,7 +44,7 @@ namespace hal
         infra::AutoResetFunction<void()> onDone;
         ChipSelectConfigurator* chipSelectConfigurator = nullptr;
         CommunicationConfigurator* communicationConfigurator = nullptr;
-        std::optional<ImmediateInterruptHandler> spiInterruptRegistration;
+        std::optional<cortex::ImmediateInterruptHandler> spiInterruptRegistration;
         infra::ConstByteRange sendData;
         infra::ByteRange receiveData;
         bool sending;

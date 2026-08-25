@@ -1,7 +1,7 @@
 #ifndef HAL_TAMPER_STM_HPP
 #define HAL_TAMPER_STM_HPP
 
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/RtcStm.hpp"
 #include "infra/util/Function.hpp"
 #include DEVICE_HEADER
@@ -21,7 +21,7 @@ namespace hal
         const uint8_t tamperInIndex;
         const uint8_t tamperOutIndex;
         infra::Function<void()> onTamperIrq;
-        ImmediateInterruptHandler interruptHandler;
+        cortex::ImmediateInterruptHandler interruptHandler;
     };
 }
 #endif // HAL_TAMPER_STM_HPP

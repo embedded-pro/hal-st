@@ -2,7 +2,7 @@
 #define HAL_GPIO_STM_HPP
 
 #include "hal/interfaces/Gpio.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include "infra/util/MemoryRange.hpp"
@@ -312,30 +312,30 @@ namespace hal
         std::array<uint32_t, 11> assignedPins;
 
 #if defined(STM32F0) || defined(STM32G0)
-        ImmediateInterruptHandler interruptDispatcher0_1;
-        ImmediateInterruptHandler interruptDispatcher2_3;
-        ImmediateInterruptHandler interruptDispatcher4_15;
+        cortex::ImmediateInterruptHandler interruptDispatcher0_1;
+        cortex::ImmediateInterruptHandler interruptDispatcher2_3;
+        cortex::ImmediateInterruptHandler interruptDispatcher4_15;
 #else
-        ImmediateInterruptHandler interruptDispatcher0;
-        ImmediateInterruptHandler interruptDispatcher1;
-        ImmediateInterruptHandler interruptDispatcher2;
-        ImmediateInterruptHandler interruptDispatcher3;
-        ImmediateInterruptHandler interruptDispatcher4;
+        cortex::ImmediateInterruptHandler interruptDispatcher0;
+        cortex::ImmediateInterruptHandler interruptDispatcher1;
+        cortex::ImmediateInterruptHandler interruptDispatcher2;
+        cortex::ImmediateInterruptHandler interruptDispatcher3;
+        cortex::ImmediateInterruptHandler interruptDispatcher4;
 #if defined(STM32WBA) || defined(STM32H5)
-        ImmediateInterruptHandler interruptDispatcher5;
-        ImmediateInterruptHandler interruptDispatcher6;
-        ImmediateInterruptHandler interruptDispatcher7;
-        ImmediateInterruptHandler interruptDispatcher8;
-        ImmediateInterruptHandler interruptDispatcher9;
-        ImmediateInterruptHandler interruptDispatcher10;
-        ImmediateInterruptHandler interruptDispatcher11;
-        ImmediateInterruptHandler interruptDispatcher12;
-        ImmediateInterruptHandler interruptDispatcher13;
-        ImmediateInterruptHandler interruptDispatcher14;
-        ImmediateInterruptHandler interruptDispatcher15;
+        cortex::ImmediateInterruptHandler interruptDispatcher5;
+        cortex::ImmediateInterruptHandler interruptDispatcher6;
+        cortex::ImmediateInterruptHandler interruptDispatcher7;
+        cortex::ImmediateInterruptHandler interruptDispatcher8;
+        cortex::ImmediateInterruptHandler interruptDispatcher9;
+        cortex::ImmediateInterruptHandler interruptDispatcher10;
+        cortex::ImmediateInterruptHandler interruptDispatcher11;
+        cortex::ImmediateInterruptHandler interruptDispatcher12;
+        cortex::ImmediateInterruptHandler interruptDispatcher13;
+        cortex::ImmediateInterruptHandler interruptDispatcher14;
+        cortex::ImmediateInterruptHandler interruptDispatcher15;
 #else
-        ImmediateInterruptHandler interruptDispatcher9_5;
-        ImmediateInterruptHandler interruptDispatcher15_10;
+        cortex::ImmediateInterruptHandler interruptDispatcher9_5;
+        cortex::ImmediateInterruptHandler interruptDispatcher15_10;
 #endif
 #endif
     };

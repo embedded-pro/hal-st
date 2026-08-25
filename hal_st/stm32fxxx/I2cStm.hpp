@@ -3,7 +3,7 @@
 
 #include DEVICE_HEADER
 #include "hal/interfaces/I2c.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 
@@ -49,8 +49,8 @@ namespace hal
         hal::PeripheralPinStm scl;
         hal::PeripheralPinStm sda;
 
-        ImmediateInterruptHandler evInterruptHandler;
-        DispatchedInterruptHandler erInterruptHandler;
+        cortex::ImmediateInterruptHandler evInterruptHandler;
+        cortex::DispatchedInterruptHandler erInterruptHandler;
 
         I2C_HandleTypeDef i2cHandle;
 

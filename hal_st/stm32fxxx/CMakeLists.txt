@@ -13,7 +13,7 @@ target_link_libraries(hal_st.stm32fxxx PUBLIC
     services.crypto
     services.flash
     st.hal_driver
-    hal_st.cortex
+    hal.cortex_m
     $<$<STREQUAL:${TARGET_MCU},stm32wb55>:hal_st.stm32_wpan>
 )
 

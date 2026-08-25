@@ -1,7 +1,7 @@
 #ifndef HAL_ST_SYSTEM_TICK_TIMER_SERVICE_HPP
 #define HAL_ST_SYSTEM_TICK_TIMER_SERVICE_HPP
 
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/timer/TickOnInterruptTimerService.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/InterfaceConnector.hpp"
@@ -13,7 +13,7 @@ namespace hal
     class SystemTickTimerService
         : public infra::InterfaceConnector<SystemTickTimerService>
         , public infra::TickOnInterruptTimerService
-        , private InterruptHandler
+        , private cortex::InterruptHandler
     {
     public:
         SystemTickTimerService(infra::Duration tickDuration = std::chrono::milliseconds(1), uint32_t id = infra::systemTimerServiceId);

@@ -26,13 +26,14 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        9c3d4c32bba0123abdc0013b8b9d5aea26e1f103  # Unreleased
+        GIT_TAG        321a369d9ef75a41b212c38578aba774bd47bfb0  # Unreleased
     )
 
     add_definitions(-DEMIL_ENABLE_TRACING=1)
 
     set(EMIL_ENABLE_DOCKER_TOOLS Off CACHE BOOL "" FORCE)
     set(EMIL_BUILD_ECHO_COMPILERS On CACHE BOOL "" FORCE)
+    set(EMIL_BUILD_CORTEX_M On CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable(emil)
 

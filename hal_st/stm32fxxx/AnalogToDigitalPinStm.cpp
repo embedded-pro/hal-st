@@ -1,6 +1,6 @@
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/Function.hpp"

@@ -18,7 +18,7 @@ target_link_libraries(examples_st.blink_nucleo144 PRIVATE
 )
 
 halst_target_default_linker_scripts(examples_st.blink_nucleo144)
-halst_target_default_init(examples_st.blink_nucleo144)
+halst_target_bringup(examples_st.blink_nucleo144)
 
 emil_generate_artifacts(TARGET examples_st.blink_nucleo144 LST MAP BIN HEX)
 
@@ -48,6 +48,6 @@ target_link_libraries(examples_st.blink_nucleo64 PRIVATE
 )
 
 halst_target_default_linker_scripts(examples_st.blink_nucleo64)
-halst_target_default_init(examples_st.blink_nucleo64)
+halst_target_bringup(examples_st.blink_nucleo64)
 
 emil_generate_artifacts(TARGET examples_st.blink_nucleo64 LST MAP BIN HEX)

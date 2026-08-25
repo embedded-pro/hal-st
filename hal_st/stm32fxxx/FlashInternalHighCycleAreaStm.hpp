@@ -4,7 +4,7 @@
 
 #include DEVICE_HEADER
 #include "hal/interfaces/Flash.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include <cstdint>
 
@@ -42,7 +42,7 @@ namespace hal
         WithIrqHandler(uint32_t bank = FLASH_BANK_2);
 
     private:
-        hal::ImmediateInterruptHandler nmi;
+        hal::cortex::ImmediateInterruptHandler nmi;
     };
 }
 

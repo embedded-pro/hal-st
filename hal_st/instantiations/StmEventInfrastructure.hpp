@@ -24,7 +24,7 @@ namespace main_
 
         void Run();
 
-        hal::InterruptTable::WithStorage<DefaultInterruptTableSize()> interruptTable;
+        hal::cortex::InterruptTable::WithStorage<DefaultInterruptTableSize()> interruptTable;
         infra::EventDispatcherWithWeakPtr::WithSize<50> eventDispatcher;
         hal::GpioStm gpio;
 
@@ -37,7 +37,7 @@ namespace main_
 
         void Run();
 
-        hal::InterruptTable::WithStorage<DefaultInterruptTableSize()> interruptTable;
+        hal::cortex::InterruptTable::WithStorage<DefaultInterruptTableSize()> interruptTable;
         hal::LowPowerStrategyStm lowPowerStrategy;
         infra::LowPowerEventDispatcher::WithSize<50> eventDispatcher;
         hal::GpioStm gpio;

@@ -2,7 +2,7 @@
 #define HAL_RANDOM_DATA_GENERATOR_STM_HPP
 
 #include "hal/interfaces/RandomDataGenerator.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 
 #if defined(HAS_PERIPHERAL_RNG)
 
@@ -10,7 +10,7 @@ namespace hal
 {
     class RandomDataGeneratorStm
         : public RandomDataGenerator
-        , private InterruptHandler
+        , private cortex::InterruptHandler
     {
     public:
         RandomDataGeneratorStm();

@@ -3,7 +3,7 @@
 
 #include "hal/synchronous_interfaces/SynchronousSerialCommunication.hpp"
 #include "hal/synchronous_interfaces/TimeKeeper.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/WithStorage.hpp"
 #include <atomic>
@@ -18,7 +18,7 @@ namespace hal
 #endif
     class SynchronousUartStm
         : public SynchronousSerialCommunication
-        , private InterruptHandler
+        , private cortex::InterruptHandler
     {
     public:
         enum HwFlowControl : uint32_t

@@ -1,5 +1,5 @@
 #include "hal_st/stm32fxxx/DmaStm.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/ByteRange.hpp"
 #include <optional>
 
@@ -878,11 +878,11 @@ namespace hal
 
     DmaStm::StreamInterruptHandler::StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Dispatched)
         : stream{ stream }
-        , interruptHandler{ std::in_place_type<DispatchedInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
+        , interruptHandler{ std::in_place_type<cortex::DispatchedInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
             {
                 OnInterrupt();
             } }
-        , interruptHandlerHandle{ &std::get<DispatchedInterruptHandler>(interruptHandler) }
+        , interruptHandlerHandle{ &std::get<cortex::DispatchedInterruptHandler>(interruptHandler) }
         , transferFullComplete{ transferFullComplete }
     {
         stream.DisableCircularMode();
@@ -891,11 +891,11 @@ namespace hal
 
     DmaStm::StreamInterruptHandler::StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Immediate)
         : stream{ stream }
-        , interruptHandler{ std::in_place_type<ImmediateInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
+        , interruptHandler{ std::in_place_type<cortex::ImmediateInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
             {
                 OnInterrupt();
             } }
-        , interruptHandlerHandle{ &std::get<ImmediateInterruptHandler>(interruptHandler) }
+        , interruptHandlerHandle{ &std::get<cortex::ImmediateInterruptHandler>(interruptHandler) }
         , transferFullComplete{ transferFullComplete }
     {
         stream.DisableCircularMode();

@@ -84,7 +84,7 @@ namespace
 namespace hal
 {
     PkaStm::PkaStm()
-        : DispatchedInterruptHandler(peripheralPkaIrq[pkaIndex], [this]()
+        : cortex::DispatchedInterruptHandler(peripheralPkaIrq[pkaIndex], [this]()
               {
                   // Workaround: PKA triggers two interrupts: one when the operation is done and another one when the peripheral is released.
                   if (!(peripheralPka[pkaIndex]->SR & pkaInterruptStatusFlags))

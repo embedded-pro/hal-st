@@ -3,7 +3,7 @@
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/QuadSpi.hpp"
-#include "hal_st/cortex/InterruptCortex.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
@@ -53,7 +53,7 @@ namespace hal
         infra::AutoResetFunction<void()> onDone;
 
         hal::TransceiverDmaChannel dmaStream;
-        DispatchedInterruptHandler interruptHandler;
+        cortex::DispatchedInterruptHandler interruptHandler;
     };
 }
 
