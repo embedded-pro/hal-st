@@ -43,7 +43,6 @@ namespace hal
         void FullReceiveComplete();
         void ReceiveComplete(size_t currentPosition);
 
-        // Implementation cortex::InterruptHandler
         void Invoke() override;
 
     private:
