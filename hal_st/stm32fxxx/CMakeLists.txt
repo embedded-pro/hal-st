@@ -83,8 +83,6 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
-    ResetStm.cpp
-    ResetStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
