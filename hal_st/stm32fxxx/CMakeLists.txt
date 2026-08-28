@@ -83,8 +83,6 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
-    ResetStm.cpp
-    ResetStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
@@ -97,8 +95,6 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiMasterStmDma.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiSlaveStmDma.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiSlaveStmDma.hpp>
-    SystemTickStm.cpp
-    SystemTickStm.hpp
     SystemTickTimerService.cpp
     SystemTickTimerService.hpp
     TimerPwmStm.cpp

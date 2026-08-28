@@ -1,4 +1,5 @@
 #include "hal_st/stm32fxxx/SystemTickTimerService.hpp"
+#include "hal/cortex_m/SystemTick.hpp"
 #include "infra/timer/TickOnInterruptTimerService.hpp"
 #include "infra/timer/Timer.hpp"
 #include <chrono>
@@ -19,9 +20,7 @@ namespace hal
 
     void SystemTickTimerService::Reset()
     {
-        SysTick->LOAD = SystemCoreClock / (1000000000 / std::chrono::duration_cast<std::chrono::nanoseconds>(TickOnInterruptTimerService::Resolution()).count()) - 1UL;
-        SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
-        SysTick->VAL = 0;
+        cortex::SystemTick(SystemCoreClock, TickOnInterruptTimerService::Resolution()).Enable();
     }
 
     infra::TimePoint SystemTickTimerService::Now() const
