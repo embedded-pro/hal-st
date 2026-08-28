@@ -23,6 +23,4 @@ target_sources(hal_st.instantiations PRIVATE
     StmEventInfrastructure.hpp
     StmTracerInfrastructure.cpp
     StmTracerInfrastructure.hpp
-    TracingResetStm.cpp
-    TracingResetStm.hpp
 )

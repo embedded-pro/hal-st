@@ -31,6 +31,4 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SynchronousUartStm.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32f7xx>:SynchronousQuadSpiStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32f7xx>:SynchronousQuadSpiStm.hpp>
-    TimeKeeperStm.cpp
-    TimeKeeperStm.hpp
 )
