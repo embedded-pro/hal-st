@@ -1,10 +1,13 @@
 #ifndef HAL_ST_STM_EVENT_INFRASTRUCTURE_HPP
 #define HAL_ST_STM_EVENT_INFRASTRUCTURE_HPP
 
+#include "hal/cortex_m/InterruptCortex.hpp"
+#include "hal/cortex_m/LowPowerStrategyCortex.hpp"
+#include "hal/cortex_m/SystemTickTimerService.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
-#include "hal_st/stm32fxxx/LowPowerStrategyStm.hpp"
-#include "hal_st/stm32fxxx/SystemTickTimerService.hpp"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
+#include "infra/event/LowPowerEventDispatcher.hpp"
+#include <chrono>
 #include <cstddef>
 
 namespace main_
@@ -28,7 +31,7 @@ namespace main_
         infra::EventDispatcherWithWeakPtr::WithSize<50> eventDispatcher;
         hal::GpioStm gpio;
 
-        hal::SystemTickTimerService systemTick;
+        hal::cortex::SystemTickTimerService systemTick;
     };
 
     struct LowPowerStmEventInfrastructure
@@ -38,11 +41,11 @@ namespace main_
         void Run();
 
         hal::cortex::InterruptTable::WithStorage<DefaultInterruptTableSize()> interruptTable;
-        hal::LowPowerStrategyStm lowPowerStrategy;
+        hal::cortex::LowPowerStrategyCortex lowPowerStrategy;
         infra::LowPowerEventDispatcher::WithSize<50> eventDispatcher;
         hal::GpioStm gpio;
 
-        hal::SystemTickTimerService systemTick;
+        hal::cortex::SystemTickTimerService systemTick;
     };
 }
 
