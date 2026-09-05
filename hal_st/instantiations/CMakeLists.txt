@@ -9,6 +9,7 @@ target_include_directories(hal_st.instantiations PUBLIC
 target_link_libraries(hal_st.instantiations PUBLIC
     hal_st.stm32fxxx
     hal_st.synchronous_stm32fxxx
+    hal.cortex_m
     infra.event
     infra.timer
     services.tracer
