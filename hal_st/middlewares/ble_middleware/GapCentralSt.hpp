@@ -5,6 +5,7 @@
 #include "hal_st/middlewares/ble_middleware/GapSt.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/AutoResetFunction.hpp"
+#include "services/ble/GapCentral.hpp"
 
 namespace hal
 {

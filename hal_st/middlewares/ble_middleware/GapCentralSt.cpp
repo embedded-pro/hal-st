@@ -4,7 +4,7 @@
 #include "hal_st/middlewares/ble_middleware/GapSt.hpp"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
 #include "infra/util/Function.hpp"
-#include "services/ble/Gap.hpp"
+#include "services/ble/GapCentral.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -55,7 +55,7 @@ namespace hal
             {
                 infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
                     {
-                        observer.StateChanged(services::GapState::standby);
+                        observer.StateChanged(services::GapCentralState::standby);
                     });
             });
     }
@@ -72,7 +72,7 @@ namespace hal
 
         infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
             {
-                observer.StateChanged(services::GapState::initiating);
+                observer.StateChanged(services::GapCentralState::initiating);
             });
 
         initiatingStateTimer.Start(initiatingTimeout, [this]()
@@ -107,7 +107,7 @@ namespace hal
             aci_gap_start_general_discovery_proc(leScanInterval, leScanWindow, ownAddressType, filterDuplicatesEnabled);
             infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
                 {
-                    observer.StateChanged(services::GapState::scanning);
+                    observer.StateChanged(services::GapCentralState::scanning);
                 });
         }
     }
@@ -135,7 +135,7 @@ namespace hal
 
         infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
             {
-                observer.StateChanged(services::GapState::standby);
+                observer.StateChanged(services::GapCentralState::standby);
             });
     }
 
@@ -161,7 +161,7 @@ namespace hal
 
     void GapCentralSt::UpdateStateOnConnectionComplete(uint8_t status)
     {
-        services::GapState state = status == BLE_STATUS_SUCCESS ? services::GapState::connected : services::GapState::standby;
+        services::GapCentralState state = status == BLE_STATUS_SUCCESS ? services::GapCentralState::connected : services::GapCentralState::standby;
 
         infra::Subject<services::GapCentralObserver>::NotifyObservers([state](services::GapCentralObserver& observer)
             {
@@ -233,7 +233,7 @@ namespace hal
 
         infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
             {
-                observer.StateChanged(services::GapState::standby);
+                observer.StateChanged(services::GapCentralState::standby);
             });
     }
 
@@ -242,7 +242,7 @@ namespace hal
         if (!initiatingStateTimer.Armed())
             infra::Subject<services::GapCentralObserver>::NotifyObservers([](services::GapCentralObserver& observer)
                 {
-                    observer.StateChanged(services::GapState::standby);
+                    observer.StateChanged(services::GapCentralState::standby);
                 });
     }
 

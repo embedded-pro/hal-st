@@ -1,6 +1,6 @@
 #include "hal_st/middlewares/ble_middleware/GapPeripheralSt.hpp"
 #include "infra/event/EventDispatcher.hpp"
-#include "services/ble/Gap.hpp"
+#include "services/ble/GapPeripheral.hpp"
 
 namespace
 {
@@ -73,7 +73,7 @@ namespace hal
         hci_le_set_scan_response_data(scanResponseData.size(), scanResponseData.begin());
     }
 
-    void GapPeripheralSt::UpdateState(services::GapState newState)
+    void GapPeripheralSt::UpdateState(services::GapPeripheralState newState)
     {
         state = newState;
         infra::EventDispatcher::Instance().Schedule([this]()
@@ -109,7 +109,7 @@ namespace hal
         UpdateAdvertisementData();
 
         if (ret == BLE_STATUS_SUCCESS)
-            UpdateState(services::GapState::advertising);
+            UpdateState(services::GapPeripheralState::advertising);
     }
 
     void GapPeripheralSt::Standby()
@@ -119,7 +119,7 @@ namespace hal
         else
         {
             aci_gap_set_non_discoverable();
-            UpdateState(services::GapState::standby);
+            UpdateState(services::GapPeripheralState::standby);
         }
     }
 
@@ -173,14 +173,14 @@ namespace hal
     void GapPeripheralSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
     {
         GapSt::HandleHciDisconnectEvent(event);
-        UpdateState(services::GapState::standby);
+        UpdateState(services::GapPeripheralState::standby);
     }
 
     void GapPeripheralSt::HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event)
     {
         GapSt::HandleHciLeEnhancedConnectionCompleteEvent(event);
 
-        UpdateState(services::GapState::connected);
+        UpdateState(services::GapPeripheralState::connected);
     }
 
     void GapPeripheralSt::Initialize(const Configuration& configuration)

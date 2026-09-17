@@ -7,7 +7,7 @@
 #include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/BoundedVector.hpp"
 #include "infra/util/Function.hpp"
-#include "services/ble/GattClient.hpp"
+#include "services/ble/GattClientConnection.hpp"
 
 namespace hal
 {

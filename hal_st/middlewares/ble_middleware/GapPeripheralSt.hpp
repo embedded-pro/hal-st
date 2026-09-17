@@ -3,6 +3,7 @@
 
 #include "hal_st/middlewares/ble_middleware/GapSt.hpp"
 #include "infra/util/BoundedVector.hpp"
+#include "services/ble/GapPeripheral.hpp"
 
 namespace hal
 {
@@ -34,17 +35,17 @@ namespace hal
 
     private:
         void UpdateAdvertisementData();
-        void UpdateState(services::GapState newstate);
+        void UpdateState(services::GapPeripheralState newstate);
         void UpdateResolvingList();
         void ClearResolvingList();
         void Initialize(const Configuration& configuration);
 
     private:
-        services::GapState state = services::GapState::standby;
+        services::GapPeripheralState state = services::GapPeripheralState::standby;
         bool allowPairing = true;
 
-        infra::BoundedVector<uint8_t>::WithMaxSize<maxAdvertisementDataSize> advertisementData;
-        infra::BoundedVector<uint8_t>::WithMaxSize<maxScanResponseDataSize> scanResponseData;
+        infra::BoundedVector<uint8_t>::WithMaxSize<services::gapMaxAdvertisementDataSize> advertisementData;
+        infra::BoundedVector<uint8_t>::WithMaxSize<services::gapMaxScanResponseDataSize> scanResponseData;
 
         virtual void StartedAdvertising(infra::BoundedConstString functionName) {};
         virtual void ReceivedNumberOfBondedAddresses(uint8_t numberOfBondedAddresses) {};

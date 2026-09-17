@@ -3,7 +3,7 @@
 #include "ble_gap_aci.h"
 #include "ble_types.h"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
-#include "services/ble/Gap.hpp"
+#include "services/ble/GapPairing.hpp"
 
 namespace hal
 {
