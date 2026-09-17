@@ -4,6 +4,7 @@
 #include "ble/ble.h"
 #include "ble_defs.h"
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/BoundedString.hpp"
 #include "services/ble/BondStorageSynchronizer.hpp"
@@ -100,6 +101,7 @@ namespace hal
         virtual void HandleGapProcedureCompleteEvent(const aci_gap_proc_complete_event_rp0& event) {};
         virtual void HandleGattCompleteEvent(const aci_gatt_proc_complete_event_rp0& event) {};
         virtual void HandleL2capConnectionUpdateRequestEvent(const aci_l2cap_connection_update_req_event_rp0& event) {};
+        virtual void HandleL2capConnectionUpdateResponseEvent(const aci_l2cap_connection_update_resp_event_rp0& event) {};
         virtual void HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event);
 
         [[nodiscard]] virtual SecureConnection SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
@@ -107,7 +109,15 @@ namespace hal
 
         void SetAddress(const MacAddress& address, services::GapDeviceAddressType addressType) const;
 
-        void Complete(PairingCompletion& completion, services::GapPairingResult result);
+        template<class Completion, class Result>
+        static void Complete(Completion& completion, Result result)
+        {
+            infra::EventDispatcher::Instance().Schedule([&completion, result]()
+                {
+                    if (completion)
+                        completion(result);
+                });
+        }
 
     private:
         // Implementation of HciEventSink

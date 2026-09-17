@@ -317,15 +317,6 @@ namespace hal
         return 0;
     }
 
-    void GapSt::Complete(PairingCompletion& completion, services::GapPairingResult result)
-    {
-        infra::EventDispatcher::Instance().Schedule([&completion, result]()
-            {
-                if (completion)
-                    completion(result);
-            });
-    }
-
     void GapSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
     {
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
@@ -512,6 +503,9 @@ namespace hal
                 break;
             case ACI_L2CAP_CONNECTION_UPDATE_REQ_VSEVT_CODE:
                 HandleL2capConnectionUpdateRequestEvent(*reinterpret_cast<const aci_l2cap_connection_update_req_event_rp0*>(event.data));
+                break;
+            case ACI_L2CAP_CONNECTION_UPDATE_RESP_VSEVT_CODE:
+                HandleL2capConnectionUpdateResponseEvent(*reinterpret_cast<const aci_l2cap_connection_update_resp_event_rp0*>(event.data));
                 break;
             case ACI_ATT_EXCHANGE_MTU_RESP_VSEVT_CODE:
                 HandleMtuExchangeResponseEvent(*reinterpret_cast<const aci_att_exchange_mtu_resp_event_rp0*>(event.data));
