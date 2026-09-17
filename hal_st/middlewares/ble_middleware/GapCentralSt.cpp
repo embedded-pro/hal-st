@@ -269,11 +269,11 @@ namespace hal
             });
     }
 
-    GapSt::SecureConnection GapCentralSt::SecurityLevelToSecureConnection(services::GapPairing::SecurityLevel level) const
+    GapSt::SecureConnection GapCentralSt::SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const
     {
-        if (level == services::GapPairing::SecurityLevel::level1)
+        if (modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode1Level1)
             return SecureConnection::notSupported;
-        else if (level == services::GapPairing::SecurityLevel::level4)
+        else if (modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode1Level4)
             return SecureConnection::mandatory;
 
         return SecureConnection::optional;
@@ -287,8 +287,8 @@ namespace hal
         aci_gatt_update_char_value(gapServiceHandle, gapDevNameCharHandle, 0, configuration.gapService.deviceName.size(), reinterpret_cast<const uint8_t*>(configuration.gapService.deviceName.data()));
         aci_gatt_update_char_value(gapServiceHandle, gapAppearanceCharHandle, 0, sizeof(configuration.gapService.appearance), reinterpret_cast<const uint8_t*>(&configuration.gapService.appearance));
 
-        SetIoCapabilities(configuration.security.ioCapabilities);
-        SetSecurityMode(configuration.security.securityMode, configuration.security.securityLevel);
+        SetIoCapabilities(configuration.security.ioCapabilities, [](services::GapPairingResult) {});
+        SetSecurityMode(configuration.security.modeAndLevel, [](services::GapPairingResult) {});
         hci_le_set_default_phy(allPhys, speed2Mbps, speed2Mbps);
     }
 

@@ -191,8 +191,8 @@ namespace hal
         aci_gatt_update_char_value(gapServiceHandle, gapDevNameCharHandle, 0, configuration.gapService.deviceName.size(), reinterpret_cast<const uint8_t*>(configuration.gapService.deviceName.data()));
         aci_gatt_update_char_value(gapServiceHandle, gapAppearanceCharHandle, 0, sizeof(configuration.gapService.appearance), reinterpret_cast<const uint8_t*>(&configuration.gapService.appearance));
 
-        SetIoCapabilities(configuration.security.ioCapabilities);
-        SetSecurityMode(configuration.security.securityMode, configuration.security.securityLevel);
+        SetIoCapabilities(configuration.security.ioCapabilities, [](services::GapPairingResult) {});
+        SetSecurityMode(configuration.security.modeAndLevel, [](services::GapPairingResult) {});
 
         hci_le_write_suggested_default_data_length(services::GapConnectionParameters::connectionInitialMaxTxOctets, services::GapConnectionParameters::connectionInitialMaxTxTime);
         hci_le_set_default_phy(allPhys, speed2Mbps, speed2Mbps);

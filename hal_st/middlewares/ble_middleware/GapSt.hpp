@@ -4,17 +4,18 @@
 #include "ble/ble.h"
 #include "ble_defs.h"
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
+#include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/BoundedString.hpp"
 #include "services/ble/BondStorageSynchronizer.hpp"
 #include "services/ble/GapBonding.hpp"
 #include "services/ble/GapPairing.hpp"
 #include "services/ble/GattTypes.hpp"
+#include <optional>
 
 namespace hal
 {
     class GapSt
-        : public services::AttMtuExchange
-        , public services::GapBonding
+        : public services::GapBonding
         , public services::GapPairing
         , private HciEventSink
     {
@@ -34,13 +35,12 @@ namespace hal
         struct Security
         {
             services::GapPairing::IoCapabilities ioCapabilities;
-            services::GapPairing::SecurityMode securityMode;
-            services::GapPairing::SecurityLevel securityLevel;
+            services::GapPairing::SecurityModeAndLevel modeAndLevel;
         };
 
-        static constexpr Security justWorks{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityMode::mode1, services::GapPairing::SecurityLevel::level1 };
-        static constexpr Security encrypted{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityMode::mode1, services::GapPairing::SecurityLevel::level2 };
-        static constexpr Security outOfBand{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityMode::mode1, services::GapPairing::SecurityLevel::level4 };
+        static constexpr Security justWorks{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityModeAndLevel::mode1Level1 };
+        static constexpr Security encrypted{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityModeAndLevel::mode1Level2 };
+        static constexpr Security outOfBand{ services::GapPairing::IoCapabilities::none, services::GapPairing::SecurityModeAndLevel::mode1Level4 };
 
         struct Configuration
         {
@@ -52,25 +52,26 @@ namespace hal
             bool privacy;
         };
 
-        // Implementation of AttMtuExchange
-        uint16_t EffectiveMaxAttMtuSize() const override;
-        void MtuExchange() override;
+        uint16_t EffectiveMaxAttMtuSize() const;
+        void MtuExchange();
 
         // Implementation of GapBonding
-        void RemoveAllBonds() override;
-        void RemoveOldestBond() override;
         std::size_t GetMaxNumberOfBonds() const override;
         std::size_t GetNumberOfBonds() const override;
-        bool IsDeviceBonded(MacAddress address, services::GapDeviceAddressType addressType) const override;
+        bool IsDeviceBonded(const services::GapAddress& address) const override;
+        std::optional<services::GapBondStrength> BondStrength(const services::GapAddress& address) const override;
+        services::GapRequestStatus RemoveAllBonds(const infra::Function<void()>& onDone) override;
+        services::GapRequestStatus RemoveOldestBond(const infra::Function<void()>& onDone) override;
 
         // Implementation of GapPairing
-        void PairAndBond() override;
-        void SetSecurityMode(services::GapPairing::SecurityMode mode, services::GapPairing::SecurityLevel level) override;
-        void SetIoCapabilities(services::GapPairing::IoCapabilities caps) override;
-        void AuthenticateWithPasskey(uint32_t passkey) override;
-        void NumericComparisonConfirm(bool accept) override;
-        void GenerateOutOfBandData() override;
-        void SetOutOfBandData(const services::GapOutOfBandData& outOfBandData) override;
+        services::GapRequestStatus PairAndBond(const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus SetSecurityMode(services::GapPairing::SecurityModeAndLevel modeAndLevel, const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus SetSecureConnectionsOnly(bool enabled, const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus SetIoCapabilities(services::GapPairing::IoCapabilities caps, const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus GenerateOutOfBandData(const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus SetOutOfBandData(const services::GapOutOfBandData& outOfBandData, const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus AuthenticateWithPasskey(uint32_t passkey, const infra::Function<void(services::GapPairingResult)>& onDone) override;
+        services::GapRequestStatus NumericComparisonConfirm(bool accept, const infra::Function<void(services::GapPairingResult)>& onDone) override;
 
     protected:
         enum class SecureConnection : uint8_t
@@ -79,6 +80,8 @@ namespace hal
             optional = 1,
             mandatory
         };
+
+        using PairingCompletion = infra::AutoResetFunction<void(services::GapPairingResult)>;
 
         GapSt(HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer, const Configuration& configuration);
 
@@ -99,10 +102,12 @@ namespace hal
         virtual void HandleL2capConnectionUpdateRequestEvent(const aci_l2cap_connection_update_req_event_rp0& event) {};
         virtual void HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event);
 
-        [[nodiscard]] virtual SecureConnection SecurityLevelToSecureConnection(services::GapPairing::SecurityLevel level) const;
-        [[nodiscard]] virtual uint8_t SecurityLevelToMITM(services::GapPairing::SecurityLevel level) const;
+        [[nodiscard]] virtual SecureConnection SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
+        [[nodiscard]] virtual uint8_t SecurityModeAndLevelToMitm(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
 
         void SetAddress(const MacAddress& address, services::GapDeviceAddressType addressType) const;
+
+        void Complete(PairingCompletion& completion, services::GapPairingResult result);
 
     private:
         // Implementation of HciEventSink
@@ -115,6 +120,8 @@ namespace hal
         void SetConnectionContext(uint16_t connectionHandle, services::GapDeviceAddressType peerAddressType, const uint8_t* peerAddress);
         void UpdateNrBonds();
 
+        tBleStatus ApplyAuthenticationRequirement() const;
+
     protected:
         struct ConnectionContext
         {
@@ -125,7 +132,7 @@ namespace hal
 
         ConnectionContext connectionContext;
         uint8_t ownAddressType;
-        services::GapPairing::SecurityLevel securityLevel;
+        services::GapPairing::SecurityModeAndLevel modeAndLevel;
 
         const uint16_t invalidConnection = 0xffff;
 
@@ -136,13 +143,24 @@ namespace hal
 
         const uint8_t ioCapability = IO_CAP_NO_INPUT_NO_OUTPUT;
         const uint8_t bondingMode = BONDING;
-        const uint8_t secureConnectionSupport = 0x01; /* Secure Connections Pairing supported but optional */
         const uint8_t keypressNotificationSupport = KEYPRESS_SUPPORTED;
         static constexpr uint8_t maxNumberOfBonds = 10;
 
+        // Both bounds are set to the maximum, so a completed pairing always has a 128 bit key.
+        static constexpr uint8_t encryptionKeySize = 16;
+
     private:
         services::BondStorageSynchronizer& bondStorageSynchronizer;
-        uint16_t maxAttMtu = defaultMaxAttMtuSize;
+        uint16_t maxAttMtu = services::attDefaultMaxMtuSize;
+        bool secureConnectionsOnly = false;
+
+        PairingCompletion onPairAndBondDone;
+        PairingCompletion onSetSecurityModeDone;
+        PairingCompletion onSetSecureConnectionsOnlyDone;
+        PairingCompletion onSetIoCapabilitiesDone;
+        PairingCompletion onGenerateOutOfBandDataDone;
+        PairingCompletion onSetOutOfBandDataDone;
+        infra::AutoResetFunction<void()> onRemoveAllBondsDone;
     };
 }
 

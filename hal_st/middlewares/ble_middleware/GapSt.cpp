@@ -9,35 +9,83 @@ namespace hal
 {
     namespace
     {
-        constexpr services::GapPairingObserver::PairingErrorType ParserPairingFailure(uint8_t status, uint8_t error)
+        // The reason codes ST reports in ACI_GAP_PAIRING_COMPLETE_EVENT are the Pairing Failed
+        // reason codes of the Security Manager. ST names only a part of them, and names those
+        // differently on WB and WBA, so the values are taken from the specification instead.
+        // Bluetooth Core Specification, Volume 3, Part H, section 3.5.5, Table 3.7
+        enum class PairingFailedReason : uint8_t
         {
+            passkeyEntryFailed = 0x01u,
+            oobNotAvailable = 0x02u,
+            authenticationRequirements = 0x03u,
+            confirmValueFailed = 0x04u,
+            pairingNotSupported = 0x05u,
+            encryptionKeySize = 0x06u,
+            commandNotSupported = 0x07u,
+            unspecifiedReason = 0x08u,
+            repeatedAttempts = 0x09u,
+            invalidParameters = 0x0au,
+            dhKeyCheckFailed = 0x0bu,
+            numericComparisonFailed = 0x0cu,
+            brEdrPairingInProgress = 0x0du,
+            crossTransportKeyDerivationNotAllowed = 0x0eu,
+            keyRejected = 0x0fu
+        };
+
+        constexpr services::GapPairingResult ParsePairingResult(uint8_t status, uint8_t reason)
+        {
+            if (status == SMP_PAIRING_STATUS_SUCCESS)
+                return services::GapPairingResult::success;
             if (status == SMP_PAIRING_STATUS_SMP_TIMEOUT)
-                return services::GapPairingObserver::PairingErrorType::timeout;
-            else if (status == SMP_PAIRING_STATUS_ENCRYPT_FAILED)
-                return services::GapPairingObserver::PairingErrorType::encryptionFailed;
-            else
-                switch (error)
-                {
-                    case PAIRING_NOT_SUPPORTED:
-                        return services::GapPairingObserver::PairingErrorType::pairingNotSupported;
-                    case AUTH_REQ_CANNOT_BE_MET:
-                        return services::GapPairingObserver::PairingErrorType::authenticationRequirementsNotMet;
-                    case INSUFF_ENCRYPTION_KEY_SIZE:
-                        return services::GapPairingObserver::PairingErrorType::insufficientEncryptionKeySize;
-                    case CONFIRM_VALUE_FAILED:
-                        return services::GapPairingObserver::PairingErrorType::passkeyEntryFailed;
-                    case SMP_SC_NUMCOMPARISON_FAILED:
-                        return services::GapPairingObserver::PairingErrorType::numericComparisonFailed;
-                    default:
-                        return services::GapPairingObserver::PairingErrorType::unknown;
-                }
+                return services::GapPairingResult::timeout;
+            if (status == SMP_PAIRING_STATUS_ENCRYPT_FAILED)
+                return services::GapPairingResult::encryptionFailed;
+
+            switch (static_cast<PairingFailedReason>(reason))
+            {
+                case PairingFailedReason::passkeyEntryFailed:
+                    return services::GapPairingResult::passkeyEntryFailed;
+                case PairingFailedReason::oobNotAvailable:
+                    return services::GapPairingResult::oobNotAvailable;
+                case PairingFailedReason::authenticationRequirements:
+                    return services::GapPairingResult::authenticationRequirementsNotMet;
+                case PairingFailedReason::confirmValueFailed:
+                    return services::GapPairingResult::confirmValueFailed;
+                case PairingFailedReason::pairingNotSupported:
+                    return services::GapPairingResult::pairingNotSupported;
+                case PairingFailedReason::encryptionKeySize:
+                    return services::GapPairingResult::insufficientEncryptionKeySize;
+                case PairingFailedReason::commandNotSupported:
+                    return services::GapPairingResult::commandNotSupported;
+                case PairingFailedReason::repeatedAttempts:
+                    return services::GapPairingResult::repeatedAttempts;
+                case PairingFailedReason::invalidParameters:
+                    return services::GapPairingResult::invalidParameters;
+                case PairingFailedReason::dhKeyCheckFailed:
+                    return services::GapPairingResult::dhKeyCheckFailed;
+                case PairingFailedReason::numericComparisonFailed:
+                    return services::GapPairingResult::numericComparisonFailed;
+                case PairingFailedReason::brEdrPairingInProgress:
+                    return services::GapPairingResult::brEdrPairingInProgress;
+                case PairingFailedReason::crossTransportKeyDerivationNotAllowed:
+                    return services::GapPairingResult::crossTransportKeyDerivationNotAllowed;
+                case PairingFailedReason::keyRejected:
+                    return services::GapPairingResult::keyRejected;
+                default:
+                    return services::GapPairingResult::unknown;
+            }
+        }
+
+        constexpr services::GapPairingResult ResultOf(tBleStatus status)
+        {
+            return status == BLE_STATUS_SUCCESS ? services::GapPairingResult::success : services::GapPairingResult::unknown;
         }
     }
 
     GapSt::GapSt(hal::HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer, const Configuration& configuration)
         : HciEventSink(hciEventSource)
         , ownAddressType(configuration.privacy ? GAP_RESOLVABLE_PRIVATE_ADDR : GAP_PUBLIC_ADDR)
-        , securityLevel(configuration.security.securityLevel)
+        , modeAndLevel(configuration.security.modeAndLevel)
         , bondStorageSynchronizer(bondStorageSynchronizer)
     {
         connectionContext.connectionHandle = GapSt::invalidConnection;
@@ -73,17 +121,6 @@ namespace hal
         assert(status == BLE_STATUS_SUCCESS);
     }
 
-    void GapSt::RemoveAllBonds()
-    {
-        bondStorageSynchronizer.RemoveAllBonds();
-        UpdateNrBonds();
-    }
-
-    void GapSt::RemoveOldestBond()
-    {
-        std::abort();
-    }
-
     std::size_t GapSt::GetMaxNumberOfBonds() const
     {
         return bondStorageSynchronizer.GetMaxNumberOfBonds();
@@ -99,90 +136,144 @@ namespace hal
         return numberOfBondedAddress;
     }
 
-    bool GapSt::IsDeviceBonded(MacAddress address, services::GapDeviceAddressType addressType) const
+    bool GapSt::IsDeviceBonded(const services::GapAddress& address) const
     {
-        return aci_gap_is_device_bonded(static_cast<uint8_t>(addressType), address.data()) == BLE_STATUS_SUCCESS;
+        return aci_gap_is_device_bonded(static_cast<uint8_t>(address.type), address.address.data()) == BLE_STATUS_SUCCESS;
     }
 
-    void GapSt::PairAndBond()
+    std::optional<services::GapBondStrength> GapSt::BondStrength(const services::GapAddress& address) const
     {
-        really_assert(connectionContext.connectionHandle != GapSt::invalidConnection);
+        // ACI_GAP_GET_SECURITY_LEVEL reports the security of a link, so the strength of a bond is
+        // only available while its peer is connected.
+        if (connectionContext.connectionHandle == invalidConnection || address.address != connectionContext.peerAddress || address.type != connectionContext.peerAddressType)
+            return std::nullopt;
 
-        aci_gap_send_pairing_req(connectionContext.connectionHandle, NO_BONDING);
+        uint8_t securityMode = 0;
+        uint8_t securityLevel = 0;
+
+        if (aci_gap_get_security_level(connectionContext.connectionHandle, &securityMode, &securityLevel) != BLE_STATUS_SUCCESS)
+            return std::nullopt;
+
+        // Level 2 is unauthenticated pairing with encryption, level 3 adds authentication and level 4
+        // additionally requires LE Secure Connections. The controller reports the level only, so a
+        // level below 4 is reported as legacy pairing.
+        // Bluetooth Core Specification, Volume 3, Part C, section 10.2.1
+        return services::GapBondStrength{ securityLevel >= 4, securityLevel >= 3, static_cast<uint8_t>(securityLevel >= 2 ? encryptionKeySize : 0) };
     }
 
-    GapSt::SecureConnection GapSt::SecurityLevelToSecureConnection(services::GapPairing::SecurityLevel level) const
+    services::GapRequestStatus GapSt::RemoveAllBonds(const infra::Function<void()>& onDone)
     {
-        return (level == services::GapPairing::SecurityLevel::level4) ? SecureConnection::mandatory : SecureConnection::optional;
+        if (onRemoveAllBondsDone)
+            return services::GapRequestStatus::busy;
+
+        bondStorageSynchronizer.RemoveAllBonds();
+        UpdateNrBonds();
+
+        onRemoveAllBondsDone = onDone;
+        infra::EventDispatcher::Instance().Schedule([this]()
+            {
+                if (onRemoveAllBondsDone)
+                    onRemoveAllBondsDone();
+            });
+
+        return services::GapRequestStatus::accepted;
     }
 
-    uint8_t GapSt::SecurityLevelToMITM(services::GapPairing::SecurityLevel level) const
+    services::GapRequestStatus GapSt::RemoveOldestBond(const infra::Function<void()>& onDone)
     {
-        return 0;
+        return services::GapRequestStatus::notSupported;
     }
 
-    void GapSt::SetSecurityMode(services::GapPairing::SecurityMode mode, services::GapPairing::SecurityLevel level)
+    services::GapRequestStatus GapSt::PairAndBond(const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        assert(mode == services::GapPairing::SecurityMode::mode1);
+        if (connectionContext.connectionHandle == GapSt::invalidConnection)
+            return services::GapRequestStatus::invalidState;
 
-        SecureConnection secureConnectionSupport = SecurityLevelToSecureConnection(level);
-        uint8_t mitmMode = SecurityLevelToMITM(level);
+        if (onPairAndBondDone)
+            return services::GapRequestStatus::busy;
 
-        aci_gap_set_authentication_requirement(bondingMode, mitmMode, static_cast<uint8_t>(secureConnectionSupport), keypressNotificationSupport, 16, 16, 0, 111111, GAP_PUBLIC_ADDR);
+        if (aci_gap_send_pairing_req(connectionContext.connectionHandle, NO_BONDING) != BLE_STATUS_SUCCESS)
+            return services::GapRequestStatus::invalidState;
+
+        onPairAndBondDone = onDone;
+
+        return services::GapRequestStatus::accepted;
     }
 
-    void GapSt::SetIoCapabilities(services::GapPairing::IoCapabilities caps)
+    services::GapRequestStatus GapSt::SetSecurityMode(services::GapPairing::SecurityModeAndLevel modeAndLevel, const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        really_assert(caps == IoCapabilities::none);
+        if (modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode2Level1 || modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode2Level2)
+            return services::GapRequestStatus::notSupported;
 
-        tBleStatus status = BLE_STATUS_FAILED;
+        if (onSetSecurityModeDone)
+            return services::GapRequestStatus::busy;
 
-        switch (caps)
-        {
-            case services::GapPairing::IoCapabilities::display:
-                status = aci_gap_set_io_capability(0);
-                break;
-            case services::GapPairing::IoCapabilities::displayYesNo:
-                status = aci_gap_set_io_capability(1);
-                break;
-            case services::GapPairing::IoCapabilities::keyboard:
-                status = aci_gap_set_io_capability(2);
-                break;
-            case services::GapPairing::IoCapabilities::none:
-                status = aci_gap_set_io_capability(3);
-                break;
-            case services::GapPairing::IoCapabilities::keyboardDisplay:
-                status = aci_gap_set_io_capability(4);
-                break;
-            default:
-                std::abort();
-                break;
-        }
+        this->modeAndLevel = modeAndLevel;
+        auto status = ApplyAuthenticationRequirement();
 
-        assert(status == BLE_STATUS_SUCCESS);
+        onSetSecurityModeDone = onDone;
+        Complete(onSetSecurityModeDone, ResultOf(status));
+
+        return services::GapRequestStatus::accepted;
     }
 
-    void GapSt::AuthenticateWithPasskey(uint32_t passkey)
+    services::GapRequestStatus GapSt::SetSecureConnectionsOnly(bool enabled, const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        std::abort();
+        if (onSetSecureConnectionsOnlyDone)
+            return services::GapRequestStatus::busy;
+
+        secureConnectionsOnly = enabled;
+        auto status = ApplyAuthenticationRequirement();
+
+        onSetSecureConnectionsOnlyDone = onDone;
+        Complete(onSetSecureConnectionsOnlyDone, ResultOf(status));
+
+        return services::GapRequestStatus::accepted;
     }
 
-    void GapSt::NumericComparisonConfirm(bool accept)
+    services::GapRequestStatus GapSt::SetIoCapabilities(services::GapPairing::IoCapabilities caps, const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        std::abort();
+        // This port drives pairing without user interaction; the other capabilities would need the
+        // passkey and numeric comparison procedures, which report notSupported below.
+        if (caps != services::GapPairing::IoCapabilities::none)
+            return services::GapRequestStatus::notSupported;
+
+        if (onSetIoCapabilitiesDone)
+            return services::GapRequestStatus::busy;
+
+        // IoCapabilities carries the IO Capability values of Vol 3, Part H, section 3.3.1, which are
+        // the values ACI_GAP_SET_IO_CAPABILITY takes.
+        auto status = aci_gap_set_io_capability(static_cast<uint8_t>(caps));
+
+        onSetIoCapabilitiesDone = onDone;
+        Complete(onSetIoCapabilitiesDone, ResultOf(status));
+
+        return services::GapRequestStatus::accepted;
     }
 
-    void GapSt::GenerateOutOfBandData()
+    services::GapRequestStatus GapSt::GenerateOutOfBandData(const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        really_assert(securityLevel == services::GapPairing::SecurityLevel::level4);
+        if (modeAndLevel != services::GapPairing::SecurityModeAndLevel::mode1Level4)
+            return services::GapRequestStatus::invalidState;
 
-        auto status = hci_le_read_local_p256_public_key();
-        really_assert(status == BLE_STATUS_SUCCESS);
+        if (onGenerateOutOfBandDataDone)
+            return services::GapRequestStatus::busy;
+
+        if (hci_le_read_local_p256_public_key() != BLE_STATUS_SUCCESS)
+            return services::GapRequestStatus::invalidState;
+
+        onGenerateOutOfBandDataDone = onDone;
+
+        return services::GapRequestStatus::accepted;
     }
 
-    void GapSt::SetOutOfBandData(const services::GapOutOfBandData& outOfBandData)
+    services::GapRequestStatus GapSt::SetOutOfBandData(const services::GapOutOfBandData& outOfBandData, const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        really_assert(securityLevel == services::GapPairing::SecurityLevel::level4);
+        if (modeAndLevel != services::GapPairing::SecurityModeAndLevel::mode1Level4)
+            return services::GapRequestStatus::invalidState;
+
+        if (onSetOutOfBandDataDone)
+            return services::GapRequestStatus::busy;
 
         enum OobDataType
         {
@@ -192,11 +283,47 @@ namespace hal
 
         uint8_t peerAddress = outOfBandData.addressType == services::GapDeviceAddressType::publicAddress ? GAP_PUBLIC_ADDR : GAP_STATIC_RANDOM_ADDR;
 
-        auto result = aci_gap_set_oob_data(OOB_DEVICE_TYPE_REMOTE, peerAddress, outOfBandData.macAddress.data(), static_cast<uint8_t>(OobDataType::random), static_cast<uint8_t>(outOfBandData.randomData.size()), outOfBandData.randomData.begin());
-        really_assert(result == BLE_STATUS_SUCCESS);
+        auto status = aci_gap_set_oob_data(OOB_DEVICE_TYPE_REMOTE, peerAddress, outOfBandData.macAddress.data(), static_cast<uint8_t>(OobDataType::random), static_cast<uint8_t>(outOfBandData.randomData.size()), outOfBandData.randomData.begin());
 
-        result = aci_gap_set_oob_data(OOB_DEVICE_TYPE_REMOTE, peerAddress, outOfBandData.macAddress.data(), static_cast<uint8_t>(OobDataType::confirm), static_cast<uint8_t>(outOfBandData.confirmData.size()), outOfBandData.confirmData.begin());
-        really_assert(result == BLE_STATUS_SUCCESS);
+        if (status == BLE_STATUS_SUCCESS)
+            status = aci_gap_set_oob_data(OOB_DEVICE_TYPE_REMOTE, peerAddress, outOfBandData.macAddress.data(), static_cast<uint8_t>(OobDataType::confirm), static_cast<uint8_t>(outOfBandData.confirmData.size()), outOfBandData.confirmData.begin());
+
+        if (status != BLE_STATUS_SUCCESS)
+            return services::GapRequestStatus::invalidParameter;
+
+        onSetOutOfBandDataDone = onDone;
+        Complete(onSetOutOfBandDataDone, services::GapPairingResult::success);
+
+        return services::GapRequestStatus::accepted;
+    }
+
+    services::GapRequestStatus GapSt::AuthenticateWithPasskey(uint32_t passkey, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        return services::GapRequestStatus::notSupported;
+    }
+
+    services::GapRequestStatus GapSt::NumericComparisonConfirm(bool accept, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        return services::GapRequestStatus::notSupported;
+    }
+
+    GapSt::SecureConnection GapSt::SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const
+    {
+        return (modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode1Level4) ? SecureConnection::mandatory : SecureConnection::optional;
+    }
+
+    uint8_t GapSt::SecurityModeAndLevelToMitm(services::GapPairing::SecurityModeAndLevel modeAndLevel) const
+    {
+        return 0;
+    }
+
+    void GapSt::Complete(PairingCompletion& completion, services::GapPairingResult result)
+    {
+        infra::EventDispatcher::Instance().Schedule([&completion, result]()
+            {
+                if (completion)
+                    completion(result);
+            });
     }
 
     void GapSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
@@ -228,18 +355,15 @@ namespace hal
     {
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
         maxAttMtu = event.Server_RX_MTU;
-
-        AttMtuExchange::NotifyObservers([](auto& observer)
-            {
-                observer.ExchangedMaxAttMtuSize();
-            });
     }
 
     void GapSt::HandlePairingCompleteEvent(const aci_gap_pairing_complete_event_rp0& event)
     {
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
 
-        if (IsDeviceBonded(connectionContext.peerAddress, connectionContext.peerAddressType))
+        services::GapAddress peer{ connectionContext.peerAddress, connectionContext.peerAddressType };
+
+        if (IsDeviceBonded(peer))
         {
             hal::MacAddress address = connectionContext.peerAddress;
             aci_gap_resolve_private_addr(connectionContext.peerAddress.data(), address.data());
@@ -247,16 +371,25 @@ namespace hal
             UpdateNrBonds();
         }
 
-        if (event.Status == SMP_PAIRING_STATUS_SUCCESS)
-            GapPairing::NotifyObservers([](auto& observer)
+        auto result = ParsePairingResult(event.Status, event.Reason);
+
+        if (result == services::GapPairingResult::success)
+        {
+            auto strength = BondStrength(peer).value_or(services::GapBondStrength{ false, false, 0 });
+
+            GapPairing::NotifyObservers([&strength](auto& observer)
                 {
-                    observer.PairingSuccessfullyCompleted();
+                    observer.PairingSuccessfullyCompleted(strength);
                 });
+        }
         else
-            GapPairing::NotifyObservers([&event](auto& observer)
+            GapPairing::NotifyObservers([result](auto& observer)
                 {
-                    observer.PairingFailed(ParserPairingFailure(event.Status, event.Reason));
+                    observer.PairingFailed(result);
                 });
+
+        if (onPairAndBondDone)
+            onPairAndBondDone(result);
     }
 
     void GapSt::HandleHciLeReadLocalP256PublicKeyCompleteEvent(const hci_le_read_local_p256_public_key_complete_event_rp0& event)
@@ -293,6 +426,9 @@ namespace hal
             {
                 observer.OutOfBandDataGenerated(outOfBandData);
             });
+
+        if (onGenerateOutOfBandDataDone)
+            onGenerateOutOfBandDataDone(services::GapPairingResult::success);
     }
 
     void GapSt::SetAddress(const hal::MacAddress& address, services::GapDeviceAddressType addressType) const
@@ -301,6 +437,13 @@ namespace hal
         uint8_t length = addressType == services::GapDeviceAddressType::publicAddress ? CONFIG_DATA_PUBADDR_LEN : CONFIG_DATA_RANDOM_ADDRESS_LEN;
 
         aci_hal_write_config_data(offset, length, address.data());
+    }
+
+    tBleStatus GapSt::ApplyAuthenticationRequirement() const
+    {
+        auto secureConnection = secureConnectionsOnly ? SecureConnection::mandatory : SecurityModeAndLevelToSecureConnection(modeAndLevel);
+
+        return aci_gap_set_authentication_requirement(bondingMode, SecurityModeAndLevelToMitm(modeAndLevel), static_cast<uint8_t>(secureConnection), keypressNotificationSupport, encryptionKeySize, encryptionKeySize, 0, 111111, GAP_PUBLIC_ADDR);
     }
 
     void GapSt::HciEvent(hci_event_pckt& event)
@@ -380,7 +523,7 @@ namespace hal
 
     void GapSt::SetConnectionContext(uint16_t connectionHandle, services::GapDeviceAddressType peerAddressType, const uint8_t* peerAddress)
     {
-        maxAttMtu = defaultMaxAttMtuSize;
+        maxAttMtu = services::attDefaultMaxMtuSize;
         connectionContext.connectionHandle = connectionHandle;
         connectionContext.peerAddressType = peerAddressType;
         std::copy_n(peerAddress, connectionContext.peerAddress.size(), std::begin(connectionContext.peerAddress));
