@@ -1,9 +1,11 @@
 #include "hal_st/middlewares/ble_middleware/SystemTransportLayerWb.hpp"
 #include "hci_tl.h"
+#include "hw.h"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
 #include "interface/patterns/ble_thread/tl/tl.h"
 #include "shci.h"
 #include "shci_tl.h"
+#include "stm32wbxx_ll_exti.h"
 #include "stm32wbxx_ll_system.h"
 #include <atomic>
 
@@ -96,6 +98,13 @@ namespace
             return SHCI_C2_BLE_INIT_CFG_BLE_LS_CLK_LSE;
     }
 
+    // CPU1 is woken from low power by the IPCC and semaphore lines, which the reset state of
+    // EXTI leaves masked. Without them a transport layer that works while CPU1 is awake stalls
+    // as soon as it sleeps.
+    // RM0434: EXTI line 36 is IPCC, line 38 is HSEM, both CPU1 wakeup.
+    constexpr uint32_t ipccWakeupLine = LL_EXTI_LINE_36;
+    constexpr uint32_t semaphoreWakeupLine = LL_EXTI_LINE_38;
+
     void ShciCore2Init(const hal::SystemTransportLayerWb::Configuration& configuration)
     {
         really_assert(configuration.numberOfLinks != 0);
@@ -163,9 +172,19 @@ namespace hal
         , bondStorageSynchronizerCreator(bondStorageSynchronizerCreator)
         , configuration(configuration)
         , onInitialized(onInitialized)
+        , ipccReceiveInterrupt(IPCC_C1_RX_IRQn, []()
+              {
+                  HW_IPCC_Rx_Handler();
+              })
+        , ipccTransmitInterrupt(IPCC_C1_TX_IRQn, []()
+              {
+                  HW_IPCC_Tx_Handler();
+              })
     {
         really_assert(configuration.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && configuration.maxAttMtuSize <= 251);
         // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
+
+        LL_EXTI_EnableIT_32_63(ipccWakeupLine | semaphoreWakeupLine);
 
         TL_Init();
         ShciInit();

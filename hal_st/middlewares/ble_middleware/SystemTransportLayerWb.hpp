@@ -2,6 +2,7 @@
 #define HAL_ST_SYSTEM_TRANSPORT_LAYER_WB_HPP
 
 #include "ble/ble.h"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
 #include "infra/util/Function.hpp"
 #include "infra/util/InterfaceConnector.hpp"
@@ -79,6 +80,12 @@ namespace hal
         infra::DelayedProxyCreator<services::BondStorageSynchronizer, void()> bondStorageSynchronizerCreator;
         Configuration configuration;
         infra::AutoResetFunction<void(services::BondStorageSynchronizer&)> onInitialized;
+
+        // The mailbox is driven from the two IPCC vectors. They are members so that they are
+        // registered before the constructor body starts the transport layer, which makes CPU2
+        // raise them straight away.
+        hal::cortex::ImmediateInterruptHandler ipccReceiveInterrupt;
+        hal::cortex::ImmediateInterruptHandler ipccTransmitInterrupt;
     };
 }
 
