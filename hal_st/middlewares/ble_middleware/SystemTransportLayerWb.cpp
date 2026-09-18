@@ -98,6 +98,8 @@ namespace
 
     void ShciCore2Init(const hal::SystemTransportLayerWb::Configuration& configuration)
     {
+        really_assert(configuration.numberOfLinks != 0);
+
         const uint8_t prepareWriteListSize = BLE_PREP_WRITE_X_ATT(configuration.maxAttMtuSize);
         const uint8_t numberOfBleMemoryBlocks = BLE_MBLOCKS_CALC(prepareWriteListSize, configuration.maxAttMtuSize, configuration.numberOfLinks);
         const uint8_t bleStackOptions = (SHCI_C2_BLE_INIT_OPTIONS_LL_HOST | SHCI_C2_BLE_INIT_OPTIONS_WITH_SVC_CHANGE_DESC | SHCI_C2_BLE_INIT_OPTIONS_DEVICE_NAME_RO | SHCI_C2_BLE_INIT_OPTIONS_NO_EXT_ADV | SHCI_C2_BLE_INIT_OPTIONS_NO_CS_ALGO2 |

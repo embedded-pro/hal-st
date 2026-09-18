@@ -18,14 +18,18 @@ namespace
     // Bluetooth Core Specification, Volume 4, Part E, section 7.8.28
     constexpr uint8_t standardModulationIndex = 0x00u;
 
-    services::DirectTestMode::Result ResultOf(tBleStatus status)
+    // The command carries out the procedure, so a controller that refuses it has refused the
+    // request: the status answers the call and onDone is never reached.
+    services::DirectTestMode::RequestStatus RequestStatusOf(tBleStatus status)
     {
         if (status == BLE_STATUS_SUCCESS)
-            return services::DirectTestMode::Result::success;
+            return services::DirectTestMode::RequestStatus::accepted;
         if (status == BLE_STATUS_INVALID_PARAMS)
-            return services::DirectTestMode::Result::invalidParameter;
+            return services::DirectTestMode::RequestStatus::invalidParameter;
+        if (status == BLE_STATUS_BUSY || status == BLE_STATUS_INSUFFICIENT_RESOURCES)
+            return services::DirectTestMode::RequestStatus::busy;
 
-        return services::DirectTestMode::Result::controllerError;
+        return services::DirectTestMode::RequestStatus::invalidState;
     }
 
     template<class Completion, class... Results>
@@ -70,10 +74,13 @@ namespace hal
         if (onStartReceiverTestDone)
             return RequestStatus::busy;
 
-        auto status = hci_le_receiver_test_v2(channel, infra::enum_cast(phy), standardModulationIndex);
+        auto status = RequestStatusOf(hci_le_receiver_test_v2(channel, infra::enum_cast(phy), standardModulationIndex));
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onStartReceiverTestDone = onDone;
-        Complete(onStartReceiverTestDone, ResultOf(status));
+        Complete(onStartReceiverTestDone, Result::success);
 
         return RequestStatus::accepted;
     }
@@ -86,10 +93,13 @@ namespace hal
         if (onStartTransmitterTestDone)
             return RequestStatus::busy;
 
-        auto status = hci_le_transmitter_test_v2(channel, dataLength, infra::enum_cast(payload), infra::enum_cast(phy));
+        auto status = RequestStatusOf(hci_le_transmitter_test_v2(channel, dataLength, infra::enum_cast(payload), infra::enum_cast(phy)));
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onStartTransmitterTestDone = onDone;
-        Complete(onStartTransmitterTestDone, ResultOf(status));
+        Complete(onStartTransmitterTestDone, Result::success);
 
         return RequestStatus::accepted;
     }
@@ -100,10 +110,13 @@ namespace hal
             return RequestStatus::busy;
 
         uint16_t numberOfPackets = 0;
-        auto status = hci_le_test_end(&numberOfPackets);
+        auto status = RequestStatusOf(hci_le_test_end(&numberOfPackets));
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onEndTestDone = onDone;
-        Complete(onEndTestDone, ResultOf(status), status == BLE_STATUS_SUCCESS ? numberOfPackets : uint16_t{ 0 });
+        Complete(onEndTestDone, Result::success, numberOfPackets);
 
         return RequestStatus::accepted;
     }
@@ -116,10 +129,13 @@ namespace hal
         if (onStartUnmodulatedCarrierDone)
             return RequestStatus::busy;
 
-        auto status = aci_hal_tone_start(channel, offset);
+        auto status = RequestStatusOf(aci_hal_tone_start(channel, offset));
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onStartUnmodulatedCarrierDone = onDone;
-        Complete(onStartUnmodulatedCarrierDone, ResultOf(status));
+        Complete(onStartUnmodulatedCarrierDone, Result::success);
 
         return RequestStatus::accepted;
     }
@@ -129,10 +145,13 @@ namespace hal
         if (onStopUnmodulatedCarrierDone)
             return RequestStatus::busy;
 
-        auto status = aci_hal_tone_stop();
+        auto status = RequestStatusOf(aci_hal_tone_stop());
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onStopUnmodulatedCarrierDone = onDone;
-        Complete(onStopUnmodulatedCarrierDone, ResultOf(status));
+        Complete(onStopUnmodulatedCarrierDone, Result::success);
 
         return RequestStatus::accepted;
     }
@@ -144,10 +163,13 @@ namespace hal
             return RequestStatus::busy;
 
         constexpr uint8_t standardPower = 0x00u;
-        auto status = aci_hal_set_tx_power_level(standardPower, NearestPaLevel(txPower));
+        auto status = RequestStatusOf(aci_hal_set_tx_power_level(standardPower, NearestPaLevel(txPower)));
+
+        if (status != RequestStatus::accepted)
+            return status;
 
         onSetTransmitPowerLevelDone = onDone;
-        Complete(onSetTransmitPowerLevelDone, ResultOf(status));
+        Complete(onSetTransmitPowerLevelDone, Result::success);
 
         return RequestStatus::accepted;
 #else

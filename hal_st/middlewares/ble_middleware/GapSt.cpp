@@ -4,6 +4,7 @@
 #include "ble_types.h"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
 #include "services/ble/GapPairing.hpp"
+#include <utility>
 
 namespace hal
 {
@@ -76,9 +77,16 @@ namespace hal
             }
         }
 
-        constexpr services::GapPairingResult ResultOf(tBleStatus status)
+        // The command carries out the procedure, so a controller that refuses it has refused the
+        // request: the status answers the call and onDone is never reached.
+        constexpr services::GapRequestStatus RequestStatusOf(tBleStatus status)
         {
-            return status == BLE_STATUS_SUCCESS ? services::GapPairingResult::success : services::GapPairingResult::unknown;
+            if (status == BLE_STATUS_SUCCESS)
+                return services::GapRequestStatus::accepted;
+            if (status == BLE_STATUS_INVALID_PARAMS)
+                return services::GapRequestStatus::invalidParameter;
+
+            return services::GapRequestStatus::invalidState;
         }
     }
 
@@ -197,11 +205,17 @@ namespace hal
         if (onSetSecurityModeDone)
             return services::GapRequestStatus::busy;
 
-        this->modeAndLevel = modeAndLevel;
-        auto status = ApplyAuthenticationRequirement();
+        auto previous = std::exchange(this->modeAndLevel, modeAndLevel);
+        auto status = RequestStatusOf(ApplyAuthenticationRequirement());
+
+        if (status != services::GapRequestStatus::accepted)
+        {
+            this->modeAndLevel = previous;
+            return status;
+        }
 
         onSetSecurityModeDone = onDone;
-        Complete(onSetSecurityModeDone, ResultOf(status));
+        Complete(onSetSecurityModeDone, services::GapPairingResult::success);
 
         return services::GapRequestStatus::accepted;
     }
@@ -211,11 +225,17 @@ namespace hal
         if (onSetSecureConnectionsOnlyDone)
             return services::GapRequestStatus::busy;
 
-        secureConnectionsOnly = enabled;
-        auto status = ApplyAuthenticationRequirement();
+        auto previous = std::exchange(secureConnectionsOnly, enabled);
+        auto status = RequestStatusOf(ApplyAuthenticationRequirement());
+
+        if (status != services::GapRequestStatus::accepted)
+        {
+            secureConnectionsOnly = previous;
+            return status;
+        }
 
         onSetSecureConnectionsOnlyDone = onDone;
-        Complete(onSetSecureConnectionsOnlyDone, ResultOf(status));
+        Complete(onSetSecureConnectionsOnlyDone, services::GapPairingResult::success);
 
         return services::GapRequestStatus::accepted;
     }
@@ -232,10 +252,13 @@ namespace hal
 
         // IoCapabilities carries the IO Capability values of Vol 3, Part H, section 3.3.1, which are
         // the values ACI_GAP_SET_IO_CAPABILITY takes.
-        auto status = aci_gap_set_io_capability(static_cast<uint8_t>(caps));
+        auto status = RequestStatusOf(aci_gap_set_io_capability(static_cast<uint8_t>(caps)));
+
+        if (status != services::GapRequestStatus::accepted)
+            return status;
 
         onSetIoCapabilitiesDone = onDone;
-        Complete(onSetIoCapabilitiesDone, ResultOf(status));
+        Complete(onSetIoCapabilitiesDone, services::GapPairingResult::success);
 
         return services::GapRequestStatus::accepted;
     }

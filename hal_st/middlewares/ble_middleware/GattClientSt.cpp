@@ -3,6 +3,8 @@
 #include "infra/stream/InputStream.hpp"
 #include "infra/util/Endian.hpp"
 #include <algorithm>
+#include <limits>
+#include <utility>
 
 extern "C"
 {
@@ -177,6 +179,7 @@ namespace hal
 
         operation = Operation::readLong;
         readLongValue = &value;
+        readLongOverflowed = false;
         onReadDone = onDone;
 
         return services::GattRequestStatus::accepted;
@@ -184,10 +187,15 @@ namespace hal
 
     services::GattRequestStatus GattClientConnectionSt::WriteLong(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone)
     {
+        // ACI_GATT_WRITE_LONG_CHAR_VALUE carries the length in an 8 bit parameter, so a larger
+        // value would be written truncated.
+        if (data.size() > std::numeric_limits<uint8_t>::max())
+            return services::GattRequestStatus::invalidParameter;
+
         return Start(Operation::writeLong, [this, handle, data]
             {
                 constexpr uint16_t fromTheStart = 0;
-                return aci_gatt_write_long_char_value(connectionHandle, handle, fromTheStart, data.size(), data.cbegin());
+                return aci_gatt_write_long_char_value(connectionHandle, handle, fromTheStart, static_cast<uint8_t>(data.size()), data.cbegin());
             },
             onDone);
     }
@@ -209,9 +217,13 @@ namespace hal
 
         if (completed == Operation::readLong)
         {
-            auto value = readLongValue;
-            readLongValue = nullptr;
+            auto value = std::exchange(readLongValue, nullptr);
 
+            if (std::exchange(readLongOverflowed, false) && result == services::GattResult::success)
+                result = services::GattResult::insufficientResources;
+
+            // 'value' holds as much as was read, which the reported range views, whether the whole
+            // value fitted or not.
             if (onReadDone)
                 onReadDone(result, value != nullptr ? infra::ConstByteRange(infra::MakeRange(*value)) : infra::ConstByteRange());
         }
@@ -228,6 +240,12 @@ namespace hal
 
     void GattClientConnectionSt::ReadResponse(infra::ConstByteRange data)
     {
+        // The Read Long procedure opens with a Read Request, so its first part arrives here rather
+        // than as a blob.
+        // Bluetooth Core Specification, Volume 3, Part G, section 4.8.3
+        if (operation == Operation::readLong)
+            return Accumulate(data);
+
         if (operation != Operation::read)
             return;
 
@@ -239,17 +257,23 @@ namespace hal
 
     void GattClientConnectionSt::ReadBlobResponse(infra::ConstByteRange data)
     {
-        if (operation != Operation::readLong || readLongValue == nullptr)
+        if (operation == Operation::readLong)
+            Accumulate(data);
+    }
+
+    void GattClientConnectionSt::Accumulate(infra::ConstByteRange data)
+    {
+        if (readLongValue == nullptr)
             return;
 
-        if (readLongValue->max_size() - readLongValue->size() < data.size())
-        {
-            readLongValue->insert(readLongValue->end(), data.begin(), data.begin() + (readLongValue->max_size() - readLongValue->size()));
-            operation = Operation::none;
-            readLongValue = nullptr;
+        auto room = readLongValue->max_size() - readLongValue->size();
 
-            if (onReadDone)
-                onReadDone(services::GattResult::insufficientResources, infra::ConstByteRange());
+        if (room < data.size())
+        {
+            // The controller runs the procedure to its end whatever is done here, so the connection
+            // stays occupied until it reports complete; the outcome is remembered until then.
+            readLongValue->insert(readLongValue->end(), data.begin(), data.begin() + room);
+            readLongOverflowed = true;
 
             return;
         }
@@ -378,6 +402,7 @@ namespace hal
     {
         auto completed = std::exchange(operation, Operation::none);
         readLongValue = nullptr;
+        readLongOverflowed = false;
         connectionHandle = invalidConnection;
 
         if (completed == Operation::read || completed == Operation::readLong)

@@ -30,11 +30,14 @@ namespace hal
         services::Tracer& tracer;
     };
 
+    // GattClientConnectionSt also serves the long operations, so a decorator that only forwarded
+    // GattClientConnection would take ReadLong and WriteLong away from whoever it is put in front of.
     class TracingGattClientConnection
         : public services::GattClientConnectionDecorator
+        , public services::GattClientLongOperations
     {
     public:
-        TracingGattClientConnection(services::GattClientConnection& connection, services::Tracer& tracer);
+        TracingGattClientConnection(services::GattClientConnection& connection, services::GattClientLongOperations& longOperations, services::Tracer& tracer);
 
         using services::GattClientConnectionDecorator::DiscoverCharacteristics;
         using services::GattClientConnectionDecorator::DiscoverDescriptors;
@@ -54,6 +57,10 @@ namespace hal
         services::GattRequestStatus EnableIndication(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone) override;
         services::GattRequestStatus DisableIndication(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone) override;
 
+        // Implementation of services::GattClientLongOperations
+        services::GattRequestStatus ReadLong(services::AttAttribute::Handle handle, infra::BoundedVector<uint8_t>& value, const infra::Function<void(services::GattResult, infra::ConstByteRange)>& onDone) override;
+        services::GattRequestStatus WriteLong(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone) override;
+
         // Implementation of services::GattClientConnectionObserver
         void ServiceDiscovered(const services::GattService& service) override;
         void IncludedServiceDiscovered(const services::GattIncludedService& includedService) override;
@@ -69,6 +76,7 @@ namespace hal
         services::GattRequestStatus TraceRequest(infra::BoundedConstString procedure, services::GattRequestStatus status) const;
 
     private:
+        services::GattClientLongOperations& longOperations;
         services::Tracer& tracer;
     };
 }

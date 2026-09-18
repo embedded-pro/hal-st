@@ -198,8 +198,11 @@ namespace hal
 
         auto ret = GapSt::SetAddress(address.address, address.type);
 
+        if (ret != BLE_STATUS_SUCCESS)
+            return RequestStatusOf(ret);
+
         onSetAddressDone = onDone;
-        Complete(onSetAddressDone, ResultOf(ret));
+        Complete(onSetAddressDone, Result::success);
 
         return services::GapRequestStatus::accepted;
     }

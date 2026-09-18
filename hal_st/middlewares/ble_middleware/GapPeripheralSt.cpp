@@ -43,6 +43,13 @@ namespace
 
         return services::GapPeripheral::Result::controllerError;
     }
+
+    // The command carries out the procedure, so a controller that refuses it has refused the
+    // request: the status answers the call and onDone is never reached.
+    services::GapRequestStatus RequestStatusOf(tBleStatus status)
+    {
+        return status == BLE_STATUS_INVALID_PARAMS ? services::GapRequestStatus::invalidParameter : services::GapRequestStatus::invalidState;
+    }
 }
 
 namespace hal
@@ -173,13 +180,14 @@ namespace hal
             ret = aci_gap_set_undirected_connectable(parameters.interval, parameters.interval, ownAddressType, WHITE_LIST_FOR_ALL);
         }
 
-        UpdateAdvertisementData();
+        if (ret != BLE_STATUS_SUCCESS)
+            return RequestStatusOf(ret);
 
-        if (ret == BLE_STATUS_SUCCESS)
-            UpdateState(services::GapPeripheralState::advertising);
+        UpdateAdvertisementData();
+        UpdateState(services::GapPeripheralState::advertising);
 
         onAdvertiseDone = onDone;
-        Complete(onAdvertiseDone, ResultOf(ret));
+        Complete(onAdvertiseDone, Result::success);
 
         return services::GapRequestStatus::accepted;
     }
@@ -199,11 +207,13 @@ namespace hal
         StartedAdvertising("aci_gap_set_direct_connectable");
         auto ret = aci_gap_set_direct_connectable(ownAddressType, ConvertDirectedAdvertisementType(type), peerAddressType, peer.address.data(), multiplier, multiplier);
 
-        if (ret == BLE_STATUS_SUCCESS)
-            UpdateState(services::GapPeripheralState::advertising);
+        if (ret != BLE_STATUS_SUCCESS)
+            return RequestStatusOf(ret);
+
+        UpdateState(services::GapPeripheralState::advertising);
 
         onAdvertiseDirectedDone = onDone;
-        Complete(onAdvertiseDirectedDone, ResultOf(ret));
+        Complete(onAdvertiseDirectedDone, Result::success);
 
         return services::GapRequestStatus::accepted;
     }
@@ -228,11 +238,13 @@ namespace hal
 
         auto ret = aci_gap_set_non_discoverable();
 
-        if (ret == BLE_STATUS_SUCCESS)
-            UpdateState(services::GapPeripheralState::standby);
+        if (ret != BLE_STATUS_SUCCESS)
+            return RequestStatusOf(ret);
+
+        UpdateState(services::GapPeripheralState::standby);
 
         onStandbyDone = onDone;
-        Complete(onStandbyDone, ResultOf(ret));
+        Complete(onStandbyDone, Result::success);
 
         return services::GapRequestStatus::accepted;
     }

@@ -96,6 +96,7 @@ namespace hal
         }
 
         services::GattRequestStatus Started(Operation operation, tBleStatus status, const infra::Function<void(services::GattResult)>& onDone);
+        void Accumulate(infra::ConstByteRange data);
         services::GattRequestStatus WriteClientCharacteristicConfiguration(services::AttAttribute::Handle valueHandle, services::GattDescriptor::ClientCharacteristicConfiguration::CharacteristicValue value, const infra::Function<void(services::GattResult)>& onDone);
         static void ReadUuid(infra::DataInputStream& stream, bool isUuid16, services::AttAttribute::Uuid& type);
 
@@ -105,6 +106,7 @@ namespace hal
 
         Operation operation = Operation::none;
         infra::BoundedVector<uint8_t>* readLongValue = nullptr;
+        bool readLongOverflowed = false;
 
         infra::AutoResetFunction<void(services::GattResult)> onOperationDone;
         infra::AutoResetFunction<void(services::GattResult, infra::ConstByteRange)> onReadDone;

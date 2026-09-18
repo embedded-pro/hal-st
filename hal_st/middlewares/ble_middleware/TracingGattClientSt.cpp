@@ -52,8 +52,9 @@ namespace hal
         tracer.Trace() << "TracingGattClientSt::ConnectionReleased, handle: 0x" << infra::hex << event.Connection_Handle << ", connections: " << NumberOfConnections() << "/" << MaxNumberOfConnections();
     }
 
-    TracingGattClientConnection::TracingGattClientConnection(services::GattClientConnection& connection, services::Tracer& tracer)
+    TracingGattClientConnection::TracingGattClientConnection(services::GattClientConnection& connection, services::GattClientLongOperations& longOperations, services::Tracer& tracer)
         : services::GattClientConnectionDecorator(connection)
+        , longOperations(longOperations)
         , tracer(tracer)
     {}
 
@@ -131,6 +132,18 @@ namespace hal
     {
         tracer.Trace() << "TracingGattClientConnection::DisableIndication [0x" << infra::hex << handle << "]";
         return TraceRequest("DisableIndication", services::GattClientConnectionDecorator::DisableIndication(handle, onDone));
+    }
+
+    services::GattRequestStatus TracingGattClientConnection::ReadLong(services::AttAttribute::Handle handle, infra::BoundedVector<uint8_t>& value, const infra::Function<void(services::GattResult, infra::ConstByteRange)>& onDone)
+    {
+        tracer.Trace() << "TracingGattClientConnection::ReadLong [0x" << infra::hex << handle << "] into " << value.max_size() << " bytes";
+        return TraceRequest("ReadLong", longOperations.ReadLong(handle, value, onDone));
+    }
+
+    services::GattRequestStatus TracingGattClientConnection::WriteLong(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone)
+    {
+        tracer.Trace() << "TracingGattClientConnection::WriteLong [0x" << infra::hex << handle << "] " << data.size() << " bytes";
+        return TraceRequest("WriteLong", longOperations.WriteLong(handle, data, onDone));
     }
 
     void TracingGattClientConnection::ServiceDiscovered(const services::GattService& service)
