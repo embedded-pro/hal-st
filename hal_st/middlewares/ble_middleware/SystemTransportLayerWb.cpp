@@ -33,6 +33,19 @@ extern "C"
                 });
     }
 
+    // Override the weak aliases to Default_Handler in the startup file. These carry every BLE
+    // event and HCI packet, so they go straight to the mailbox rather than through the
+    // InterruptTable. HW_IPCC_Init enables both lines in the NVIC.
+    void IPCC_C1_RX_IRQHandler()
+    {
+        HW_IPCC_Rx_Handler();
+    }
+
+    void IPCC_C1_TX_IRQHandler()
+    {
+        HW_IPCC_Tx_Handler();
+    }
+
     void shci_notify_asynch_evt(void* data)
     {
         static std::atomic_bool notificationScheduled{ false };
@@ -172,14 +185,6 @@ namespace hal
         , bondStorageSynchronizerCreator(bondStorageSynchronizerCreator)
         , configuration(configuration)
         , onInitialized(onInitialized)
-        , ipccReceiveInterrupt(IPCC_C1_RX_IRQn, []()
-              {
-                  HW_IPCC_Rx_Handler();
-              })
-        , ipccTransmitInterrupt(IPCC_C1_TX_IRQn, []()
-              {
-                  HW_IPCC_Tx_Handler();
-              })
     {
         really_assert(configuration.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && configuration.maxAttMtuSize <= 251);
         // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
