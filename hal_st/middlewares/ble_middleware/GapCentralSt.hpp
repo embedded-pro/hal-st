@@ -24,6 +24,8 @@ namespace hal
         services::GapRequestStatus CancelConnect(const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus Disconnect(const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus SetAddress(const services::GapAddress& address, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus SetDataLength(const services::GapDataLength& dataLength, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy, const infra::Function<void(Result)>& onDone) override;
         using services::GapCentral::StartDeviceDiscovery;
         services::GapRequestStatus StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus StopDeviceDiscovery(const infra::Function<void(Result)>& onDone) override;
@@ -52,7 +54,6 @@ namespace hal
         void HandleGapDirectConnectionProcedureCompleteEvent();
 
         void HandleAdvertisingReport(const Advertising_Report_t& advertisingReport);
-        void SetDataLength();
         void UpdateStateOnConnectionComplete(uint8_t status);
         void HandleConnectionCompleteCommon(uint8_t status);
         void Initialize(const Configuration& configuration);
@@ -65,6 +66,9 @@ namespace hal
 
         bool discovering = false;
         services::GapConnectionParameters connectionParameters;
+        services::GapDataLength requestedDataLength{};
+        services::GapPhy requestedTxPhy = services::GapPhy::le1M;
+        services::GapPhy requestedRxPhy = services::GapPhy::le1M;
 
         Result connectFailureResult = Result::connectionFailed;
 
@@ -77,6 +81,8 @@ namespace hal
         CentralCompletion onStartDeviceDiscoveryDone;
         CentralCompletion onStopDeviceDiscoveryDone;
         CentralCompletion onUpdateConnectionParametersDone;
+        CentralCompletion onSetDataLengthDone;
+        CentralCompletion onSetPhyDone;
     };
 }
 
