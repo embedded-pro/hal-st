@@ -46,7 +46,7 @@ extern "C"
 
 namespace
 {
-    const uint32_t bleBondsStorageLength = 507;
+    const uint32_t bleBondsStorageLength = hal::SystemTransportLayerWb::bondBlobSize / sizeof(uint32_t);
     const uint8_t bleEventQueueLength = 0x05;
     const uint8_t tlBleMaxEventPayloadSize = 0xFF;
     const uint16_t bleEventFrameSize = TL_EVT_HDR_SIZE + tlBleMaxEventPayloadSize;

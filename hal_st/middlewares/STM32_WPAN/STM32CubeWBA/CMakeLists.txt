@@ -77,6 +77,7 @@ set_target_properties(hal_st.stm32_wpan_stm32wbaxx.stack_basic PROPERTIES IMPORT
 add_library(hal_st.stm32_wpan_stm32wbaxx.libs INTERFACE)
 target_link_libraries(hal_st.stm32_wpan_stm32wbaxx.libs INTERFACE
     $<$<STREQUAL:${TARGET_MCU},stm32wba52>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic>
+    $<$<STREQUAL:${TARGET_MCU},stm32wba55>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic>
     $<$<STREQUAL:${TARGET_MCU},stm32wba65>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic_wba6>
     hal_st.stm32_wpan_stm32wbaxx.stack_basic
 )

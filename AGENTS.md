@@ -16,7 +16,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `st/` — CMSIS headers, STM32 HAL driver sources (per family), `hal_conf/`, `ldscripts/`
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`
+- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`
 
 ## Memory — no heap
 
@@ -63,7 +63,7 @@ cmake --preset host && cmake --build --preset host-Debug   # host tooling/build 
 cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
 ```
 
-Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba65`, `stm32h563`, `stm32h573`.
+Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`.
 
 ## Assistant behavior — be terse
 
