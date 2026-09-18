@@ -1,3 +1,5 @@
+add_subdirectory(ble_central)
+add_subdirectory(ble_peripheral)
 add_subdirectory(blink)
 add_subdirectory(freertos)
 add_subdirectory(helloworld)

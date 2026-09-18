@@ -9,6 +9,7 @@ option(HALST_BUILD_TESTS "Enable building the tests" Off)
 option(HALST_INCLUDE_DEFAULT_INIT "Include default initialization code; turn off when providing custom initialization" ON)
 option(HALST_BUILD_EXAMPLES "Enable build of the examples" OFF)
 option(HALST_BUILD_EXAMPLES_FREERTOS "Enable build of the FreeRTOS example" OFF)
+option(HALST_BUILD_EXAMPLES_BLE_WBA "Enable build of the BLE examples for STM32WBA; needs the WBA link layer platform port, which hal-st does not provide yet" OFF)
 set(HALST_XML_GPIO "" CACHE STRING "XML GPIO table")
 set(HALST_XML_STM32 "" CACHE STRING "XML STM32 table")
 
@@ -26,7 +27,7 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        99c41b8d2a4fc3bb529d21bf0ac3756b1dcb4f68  # Unreleased
+        GIT_TAG        1a31d45ad7c6bb0f33aac5ad3b42bc7157f02fb9  # Unreleased
     )
 
     add_definitions(-DEMIL_ENABLE_TRACING=1)

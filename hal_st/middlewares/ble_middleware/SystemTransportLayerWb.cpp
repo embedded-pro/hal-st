@@ -1,9 +1,12 @@
 #include "hal_st/middlewares/ble_middleware/SystemTransportLayerWb.hpp"
 #include "hci_tl.h"
+#include "hw.h"
 #include "infra/event/EventDispatcherWithWeakPtr.hpp"
 #include "interface/patterns/ble_thread/tl/tl.h"
 #include "shci.h"
 #include "shci_tl.h"
+#include "stm32wbxx_ll_exti.h"
+#include "stm32wbxx_ll_rcc.h"
 #include "stm32wbxx_ll_system.h"
 #include <atomic>
 
@@ -31,6 +34,17 @@ extern "C"
                 });
     }
 
+    // Override the startup file's weak aliases to Default_Handler; HW_IPCC_Init enables both in the NVIC.
+    void IPCC_C1_RX_IRQHandler()
+    {
+        HW_IPCC_Rx_Handler();
+    }
+
+    void IPCC_C1_TX_IRQHandler()
+    {
+        HW_IPCC_Tx_Handler();
+    }
+
     void shci_notify_asynch_evt(void* data)
     {
         static std::atomic_bool notificationScheduled{ false };
@@ -46,7 +60,7 @@ extern "C"
 
 namespace
 {
-    const uint32_t bleBondsStorageLength = 507;
+    const uint32_t bleBondsStorageLength = hal::SystemTransportLayerWb::bondBlobSize / sizeof(uint32_t);
     const uint8_t bleEventQueueLength = 0x05;
     const uint8_t tlBleMaxEventPayloadSize = 0xFF;
     const uint16_t bleEventFrameSize = TL_EVT_HDR_SIZE + tlBleMaxEventPayloadSize;
@@ -94,6 +108,19 @@ namespace
             return SHCI_C2_BLE_INIT_CFG_BLE_LS_CLK_HSE_1024;
         else
             return SHCI_C2_BLE_INIT_CFG_BLE_LS_CLK_LSE;
+    }
+
+    // RM0434: EXTI 36 is IPCC, 38 is HSEM, both CPU1 wakeup. Masked out of reset, so CPU1 would
+    // not wake once it sleeps.
+    constexpr uint32_t ipccWakeupLine = LL_EXTI_LINE_36;
+    constexpr uint32_t semaphoreWakeupLine = LL_EXTI_LINE_38;
+
+    uint32_t RfWakeupClockSource(hal::SystemTransportLayerWb::RfWakeupClock rfWakeupClock)
+    {
+        if (rfWakeupClock == hal::SystemTransportLayerWb::RfWakeupClock::highSpeedExternal)
+            return LL_RCC_RFWKP_CLKSOURCE_HSE_DIV1024;
+        else
+            return LL_RCC_RFWKP_CLKSOURCE_LSE;
     }
 
     void ShciCore2Init(const hal::SystemTransportLayerWb::Configuration& configuration)
@@ -166,6 +193,14 @@ namespace hal
     {
         really_assert(configuration.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && configuration.maxAttMtuSize <= 251);
         // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
+
+        // The application owns the clock tree and a mismatch is silent: CPU2 comes up and then
+        // keeps poor time against a clock RCC is not supplying.
+        really_assert(LL_RCC_HSE_IsReady());
+        really_assert(LL_RCC_GetRFWKPClockSource() == RfWakeupClockSource(configuration.rfWakeupClock));
+        really_assert(configuration.rfWakeupClock != RfWakeupClock::lowSpeedExternal || LL_RCC_LSE_IsReady());
+
+        LL_EXTI_EnableIT_32_63(ipccWakeupLine | semaphoreWakeupLine);
 
         TL_Init();
         ShciInit();

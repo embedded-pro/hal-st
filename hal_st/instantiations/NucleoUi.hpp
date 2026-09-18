@@ -58,6 +58,17 @@ namespace main_
         hal::GpioPinStm ledBlue{ hal::Port::B, 4 };
     };
 
+    // UM3390: MB1801 reference board with STM32WBA55CG
+    struct Nucleo64WBA55Ui
+    {
+        hal::GpioPinStm buttonOne{ hal::Port::C, 13, hal::Drive::Default, hal::Speed::Default, hal::WeakPull::Up };
+        hal::GpioPinStm buttonTwo{ hal::Port::B, 6, hal::Drive::Default, hal::Speed::Default, hal::WeakPull::Up };
+        hal::GpioPinStm buttonThree{ hal::Port::B, 7, hal::Drive::Default, hal::Speed::Default, hal::WeakPull::Up };
+        hal::GpioPinStm ledRed{ hal::Port::B, 8 };
+        hal::GpioPinStm ledGreen{ hal::Port::A, 9 };
+        hal::GpioPinStm ledBlue{ hal::Port::B, 4 };
+    };
+
 #if defined(GPIOD)
     // UM3448: MB2130 reference board with STM32WBA65RI
     struct Nucleo64WBA6Ui

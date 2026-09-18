@@ -20,6 +20,7 @@ void ConfigureDefaultClockNucleoWB55RG()
 {
     RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
     RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+    RCC_PeriphCLKInitTypeDef RCC_PeriphCLKInitStruct = { 0 };
 
     /** Configure LSE Drive Capability
      */
@@ -57,4 +58,10 @@ void ConfigureDefaultClockNucleoWB55RG()
     RCC_ClkInitStruct.AHBCLK4Divider = RCC_SYSCLK_DIV1;
 
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3);
+
+    /** Select the RF wakeup clock, which RCC leaves unselected out of reset; the radio sleeps against it.
+     */
+    RCC_PeriphCLKInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RFWAKEUP;
+    RCC_PeriphCLKInitStruct.RFWakeUpClockSelection = RCC_RFWKPCLKSOURCE_LSE;
+    HAL_RCCEx_PeriphCLKConfig(&RCC_PeriphCLKInitStruct);
 }

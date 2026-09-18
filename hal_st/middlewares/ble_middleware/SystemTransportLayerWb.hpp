@@ -8,6 +8,7 @@
 #include "infra/util/ProxyCreator.hpp"
 #include "services/ble/BondBlobPersistence.hpp"
 #include "services/ble/BondStorageSynchronizer.hpp"
+#include <cstddef>
 
 namespace hal
 {
@@ -28,6 +29,9 @@ namespace hal
             RfWakeupClock rfWakeupClock;
             uint8_t numberOfLinks;
         };
+
+        // Fixed by the stack; the ConfigurationStore entry passed to the constructor must match.
+        static constexpr std::size_t bondBlobSize = 507 * sizeof(uint32_t);
 
         struct Version
         {

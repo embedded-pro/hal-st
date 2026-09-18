@@ -165,6 +165,19 @@
       }
     },
     {
+      "name": "stm32wba55",
+      "displayName": "stm32wba55",
+      "description": "Build for stm32wba55",
+      "inherits": "stm32",
+      "toolchainFile": "${sourceDir}/build/${presetName}/_deps/emil-src/cmake/toolchain-arm-gcc-m33-fpv5-sp-d16.cmake",
+      "cacheVariables": {
+        "TARGET_CORTEX": "m33",
+        "TARGET_MCU_FAMILY": "stm32wbaxx",
+        "TARGET_MCU": "stm32wba55",
+        "TARGET_MCU_VARIANT": "stm32wba55cg"
+      }
+    },
+    {
       "name": "stm32wba65",
       "displayName": "stm32wba65",
       "description": "Build for stm32wba65",
@@ -285,6 +298,16 @@
       "name": "stm32wba52-Debug",
       "configuration": "Debug",
       "configurePreset": "stm32wba52"
+    },
+    {
+      "name": "stm32wba55-RelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "configurePreset": "stm32wba55"
+    },
+    {
+      "name": "stm32wba55-Debug",
+      "configuration": "Debug",
+      "configurePreset": "stm32wba55"
     },
     {
       "name": "stm32wba65-RelWithDebInfo",
