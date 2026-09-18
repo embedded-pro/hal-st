@@ -13,9 +13,9 @@
  *            PLL_M                          = 4
  *            PLL_N                          = 25
  *            PLL_P                          = 2
- *            PLL_Q                          = 1
+ *            PLL_Q                          = 2
  *            PLL_R                          = 2
- *            Flash Latency(WS)              = 4
+ *            Flash Latency(WS)              = 3
  */
 void ConfigureDefaultClockNucleoWBA55CG()
 {

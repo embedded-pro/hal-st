@@ -221,7 +221,7 @@ namespace application
         {
             terminal.AddCommand({ { "advertise", "adv", "start connectable undirected advertising" }, [this](const auto& params)
                 {
-                    Report("Advertise", gapPeripheral.Advertise(services::GapAdvertisementType::advInd, advertisementIntervalMultiplier, Done("Advertise")));
+                    StartAdvertising();
                 } });
 
             terminal.AddCommand({ { "standby", "sb", "stop advertising" }, [this](const auto& params)
@@ -233,6 +233,7 @@ namespace application
                 {
                     deviceName.assign(params.substr(0, std::min(params.size(), deviceName.max_size())));
                     UpdateAdvertisementData();
+                    RestartAdvertisingIfActive();
                 } });
 
             terminal.AddCommand({ { "address", "addr", "show the public and identity address" }, [this](const auto& params)
@@ -348,6 +349,26 @@ namespace application
                     batteryService.BatteryLevelChanged(static_cast<uint8_t>(level));
                     tracer.Trace() << "battery level " << level << "%";
                 } });
+        }
+
+        void StartAdvertising()
+        {
+            Report("Advertise", gapPeripheral.Advertise(services::GapAdvertisementType::advInd, advertisementIntervalMultiplier, Done("Advertise")));
+        }
+
+        // GapPeripheralSt keeps the advertisement data in a cache that only Advertise programs
+        // into the controller, so data set while advertising reaches the air on a restart and not
+        // before. Standby would drop a live link, so only advertising restarts.
+        void RestartAdvertisingIfActive()
+        {
+            if (state != services::GapPeripheralState::advertising)
+                return;
+
+            Report("Standby", gapPeripheral.Standby([this](auto result)
+                                  {
+                                      Report("Standby", result);
+                                      StartAdvertising();
+                                  }));
         }
 
         void UpdateAdvertisementData()

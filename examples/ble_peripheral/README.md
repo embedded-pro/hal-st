@@ -30,13 +30,13 @@ alias.
 
 ### GAP
 
-| Command       | Alias  | Description                                                          |
-|---------------|--------|----------------------------------------------------------------------|
-| `advertise`   | `adv`  | Start connectable undirected advertising                             |
-| `standby`     | `sb`   | Stop advertising                                                     |
-| `name <name>` | `n`    | Set the advertised device name and re-publish the advertisement data |
-| `address`     | `addr` | Show the public and identity address                                 |
-| `state`       | `st`   | Show the link state, the pipe state and the bond count               |
+| Command       | Alias  | Description                                                            |
+|---------------|--------|------------------------------------------------------------------------|
+| `advertise`   | `adv`  | Start connectable undirected advertising                               |
+| `standby`     | `sb`   | Stop advertising                                                       |
+| `name <name>` | `n`    | Set the advertised device name, restarting advertising if it is active |
+| `address`     | `addr` | Show the public and identity address                                   |
+| `state`       | `st`   | Show the link state, the pipe state and the bond count                 |
 
 ### Security
 
