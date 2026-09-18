@@ -63,12 +63,6 @@ namespace hal
         GapPeripheralSt::HandleBondLostEvent();
     }
 
-    void TracingGapPeripheralSt::HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event)
-    {
-        tracer.Trace() << "GapPeripheralSt::HandleMtuExchangeResponseEvent Server_RX_MTU = " << event.Server_RX_MTU;
-        GapPeripheralSt::HandleMtuExchangeResponseEvent(event);
-    }
-
     void TracingGapPeripheralSt::StartedAdvertising(infra::BoundedConstString functionName)
     {
         tracer.Trace() << "ST BLE Peripheral advertising with " << functionName;

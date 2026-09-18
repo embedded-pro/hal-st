@@ -1,5 +1,47 @@
 #include "hal_st/middlewares/ble_middleware/TracingGapCentralSt.hpp"
 
+namespace infra
+{
+    TextOutputStream& operator<<(TextOutputStream& stream, const services::GapRequestStatus& status)
+    {
+        switch (status)
+        {
+            case services::GapRequestStatus::accepted:
+                return stream << "accepted";
+            case services::GapRequestStatus::invalidState:
+                return stream << "invalidState";
+            case services::GapRequestStatus::invalidParameter:
+                return stream << "invalidParameter";
+            case services::GapRequestStatus::busy:
+                return stream << "busy";
+            default:
+                return stream << "notSupported";
+        }
+    }
+
+    TextOutputStream& operator<<(TextOutputStream& stream, const services::GapPairingResult& result)
+    {
+        return stream << "0x" << infra::hex << infra::enum_cast(result);
+    }
+
+    TextOutputStream& operator<<(TextOutputStream& stream, const services::GapCentral::Result& result)
+    {
+        switch (result)
+        {
+            case services::GapCentral::Result::success:
+                return stream << "success";
+            case services::GapCentral::Result::cancelled:
+                return stream << "cancelled";
+            case services::GapCentral::Result::timeout:
+                return stream << "timeout";
+            case services::GapCentral::Result::connectionFailed:
+                return stream << "connectionFailed";
+            default:
+                return stream << "controllerError";
+        }
+    }
+}
+
 namespace hal
 {
     TracingGapCentralSt::TracingGapCentralSt(hal::HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer, const Configuration& configuration, services::Tracer& tracer)
@@ -7,65 +49,109 @@ namespace hal
         , tracer(tracer)
     {}
 
-    void TracingGapCentralSt::Connect(hal::MacAddress macAddress, services::GapDeviceAddressType addressType, infra::Duration initiatingTimeout)
+    void TracingGapCentralSt::TraceRequest(infra::BoundedConstString procedure, services::GapRequestStatus status) const
+    {
+        tracer.Trace() << "TracingGapCentralSt::" << procedure << " -> " << status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::Connect(const services::GapAddress& peer, const services::GapConnectionParameters& parameters, infra::Duration initiatingTimeout, const infra::Function<void(Result)>& onDone)
     {
         tracer.Trace() << "TracingGapCentralSt::Connect, MAC address: "
-                       << infra::AsMacAddress(macAddress)
+                       << infra::AsMacAddress(peer.address)
                        << ", type: "
-                       << addressType
+                       << peer.type
                        << ", initiating timeout (ms): "
                        << std::chrono::duration_cast<std::chrono::milliseconds>(initiatingTimeout).count();
-        GapCentralSt::Connect(macAddress, addressType, initiatingTimeout);
+
+        onConnectDone = onDone;
+
+        auto status = GapCentralSt::Connect(peer, parameters, initiatingTimeout, [this](Result result)
+            {
+                tracer.Trace() << "TracingGapCentralSt::Connect done -> " << result;
+
+                if (onConnectDone)
+                    onConnectDone(result);
+            });
+
+        if (status != services::GapRequestStatus::accepted)
+            onConnectDone = nullptr;
+
+        TraceRequest("Connect", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::Disconnect()
+    services::GapRequestStatus TracingGapCentralSt::UpdateConnectionParameters(const services::GapConnectionParameters& parameters, const infra::Function<void(Result)>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::Disconnect";
-        GapCentralSt::Disconnect();
+        tracer.Trace() << "TracingGapCentralSt::UpdateConnectionParameters";
+        tracer.Trace() << "\tInterval            : " << parameters.minConnectionInterval << " .. " << parameters.maxConnectionInterval;
+        tracer.Trace() << "\tPeripheral latency  : " << parameters.peripheralLatency;
+        tracer.Trace() << "\tSupervision timeout : " << parameters.supervisionTimeout;
+
+        auto status = GapCentralSt::UpdateConnectionParameters(parameters, onDone);
+        TraceRequest("UpdateConnectionParameters", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::SetAddress(hal::MacAddress macAddress, services::GapDeviceAddressType addressType)
+    services::GapRequestStatus TracingGapCentralSt::CancelConnect(const infra::Function<void(Result)>& onDone)
+    {
+        auto status = GapCentralSt::CancelConnect(onDone);
+        TraceRequest("CancelConnect", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::Disconnect(const infra::Function<void(Result)>& onDone)
+    {
+        auto status = GapCentralSt::Disconnect(onDone);
+        TraceRequest("Disconnect", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::SetAddress(const services::GapAddress& address, const infra::Function<void(Result)>& onDone)
     {
         tracer.Trace() << "TracingGapCentralSt::SetAddress, MAC address: "
-                       << infra::AsMacAddress(macAddress)
+                       << infra::AsMacAddress(address.address)
                        << ", type: "
-                       << addressType;
-        GapCentralSt::SetAddress(macAddress, addressType);
+                       << address.type;
+
+        auto status = GapCentralSt::SetAddress(address, onDone);
+        TraceRequest("SetAddress", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::StartDeviceDiscovery()
+    services::GapRequestStatus TracingGapCentralSt::StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::StartDeviceDiscovery";
-        GapCentralSt::StartDeviceDiscovery();
+        tracer.Trace() << "TracingGapCentralSt::StartDeviceDiscovery, interval: " << parameters.interval << ", window: " << parameters.window;
+
+        auto status = GapCentralSt::StartDeviceDiscovery(parameters, onDone);
+        TraceRequest("StartDeviceDiscovery", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::StopDeviceDiscovery()
+    services::GapRequestStatus TracingGapCentralSt::StopDeviceDiscovery(const infra::Function<void(Result)>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::StopDeviceDiscovery";
-        GapCentralSt::StopDeviceDiscovery();
+        auto status = GapCentralSt::StopDeviceDiscovery(onDone);
+        TraceRequest("StopDeviceDiscovery", status);
+
+        return status;
     }
 
-    std::optional<hal::MacAddress> TracingGapCentralSt::ResolvePrivateAddress(hal::MacAddress address) const
+    std::optional<services::GapAddress> TracingGapCentralSt::ResolvePrivateAddress(hal::MacAddress address) const
     {
-        auto resolvedMac = GapCentralSt::ResolvePrivateAddress(address);
+        auto resolved = GapCentralSt::ResolvePrivateAddress(address);
         tracer.Trace() << "TracingGapCentralSt::ResolvePrivateAddress, MAC address: " << infra::AsMacAddress(address);
-        if (resolvedMac)
-            tracer.Continue() << ", resolved MAC address " << infra::AsMacAddress(*resolvedMac);
+
+        if (resolved)
+            tracer.Continue() << ", resolved MAC address " << infra::AsMacAddress(resolved->address) << " type " << resolved->type;
         else
             tracer.Continue() << ", could not resolve MAC address";
-        return resolvedMac;
-    }
 
-    void TracingGapCentralSt::RemoveAllBonds()
-    {
-        tracer.Trace() << "TracingGapCentralSt::RemoveAllBonds";
-        GapCentralSt::RemoveAllBonds();
-    }
-
-    void TracingGapCentralSt::RemoveOldestBond()
-    {
-        tracer.Trace() << "TracingGapCentralSt::RemoveOldestBond";
-        GapCentralSt::RemoveOldestBond();
+        return resolved;
     }
 
     std::size_t TracingGapCentralSt::GetMaxNumberOfBonds() const
@@ -80,41 +166,103 @@ namespace hal
         return GapCentralSt::GetNumberOfBonds();
     }
 
-    bool TracingGapCentralSt::IsDeviceBonded(hal::MacAddress address, services::GapDeviceAddressType addressType) const
+    bool TracingGapCentralSt::IsDeviceBonded(const services::GapAddress& address) const
     {
-        auto ret = GapCentralSt::IsDeviceBonded(address, addressType);
-        tracer.Trace() << "TracingGapCentralSt::IsDeviceBonded " << infra::AsMacAddress(address) << " -> " << (ret ? "true" : "false");
+        auto ret = GapCentralSt::IsDeviceBonded(address);
+        tracer.Trace() << "TracingGapCentralSt::IsDeviceBonded " << infra::AsMacAddress(address.address) << " -> " << (ret ? "true" : "false");
+
         return ret;
     }
 
-    void TracingGapCentralSt::PairAndBond()
+    std::optional<services::GapBondStrength> TracingGapCentralSt::BondStrength(const services::GapAddress& address) const
     {
-        tracer.Trace() << "TracingGapCentralSt::PairAndBond";
-        GapCentralSt::PairAndBond();
+        auto strength = GapCentralSt::BondStrength(address);
+        tracer.Trace() << "TracingGapCentralSt::BondStrength " << infra::AsMacAddress(address.address);
+
+        if (strength)
+            tracer.Continue() << " -> secure connections " << (strength->secureConnections ? "yes" : "no")
+                              << ", authenticated " << (strength->authenticated ? "yes" : "no")
+                              << ", key size " << strength->encryptionKeySize;
+        else
+            tracer.Continue() << " -> unknown";
+
+        return strength;
     }
 
-    void TracingGapCentralSt::SetSecurityMode(SecurityMode mode, SecurityLevel level)
+    services::GapRequestStatus TracingGapCentralSt::RemoveAllBonds(const infra::Function<void()>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::SetSecurityMode";
-        GapCentralSt::SetSecurityMode(mode, level);
+        auto status = GapCentralSt::RemoveAllBonds(onDone);
+        TraceRequest("RemoveAllBonds", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::SetIoCapabilities(services::GapPairing::IoCapabilities caps)
+    services::GapRequestStatus TracingGapCentralSt::RemoveOldestBond(const infra::Function<void()>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::SetIoCapabilities";
-        GapCentralSt::SetIoCapabilities(caps);
+        auto status = GapCentralSt::RemoveOldestBond(onDone);
+        TraceRequest("RemoveOldestBond", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::AuthenticateWithPasskey(uint32_t passkey)
+    services::GapRequestStatus TracingGapCentralSt::PairAndBond(const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::AuthenticateWithPasskey";
-        GapCentralSt::AuthenticateWithPasskey(passkey);
+        onPairAndBondDone = onDone;
+
+        auto status = GapCentralSt::PairAndBond([this](services::GapPairingResult result)
+            {
+                tracer.Trace() << "TracingGapCentralSt::PairAndBond done -> " << result;
+
+                if (onPairAndBondDone)
+                    onPairAndBondDone(result);
+            });
+
+        if (status != services::GapRequestStatus::accepted)
+            onPairAndBondDone = nullptr;
+
+        TraceRequest("PairAndBond", status);
+
+        return status;
     }
 
-    void TracingGapCentralSt::NumericComparisonConfirm(bool accept)
+    services::GapRequestStatus TracingGapCentralSt::SetSecurityMode(services::GapPairing::SecurityModeAndLevel modeAndLevel, const infra::Function<void(services::GapPairingResult)>& onDone)
     {
-        tracer.Trace() << "TracingGapCentralSt::NumericComparisonConfirm";
-        GapCentralSt::NumericComparisonConfirm(accept);
+        auto status = GapCentralSt::SetSecurityMode(modeAndLevel, onDone);
+        TraceRequest("SetSecurityMode", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::SetSecureConnectionsOnly(bool enabled, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        auto status = GapCentralSt::SetSecureConnectionsOnly(enabled, onDone);
+        TraceRequest("SetSecureConnectionsOnly", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::SetIoCapabilities(services::GapPairing::IoCapabilities caps, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        auto status = GapCentralSt::SetIoCapabilities(caps, onDone);
+        TraceRequest("SetIoCapabilities", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::AuthenticateWithPasskey(uint32_t passkey, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        auto status = GapCentralSt::AuthenticateWithPasskey(passkey, onDone);
+        TraceRequest("AuthenticateWithPasskey", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::NumericComparisonConfirm(bool accept, const infra::Function<void(services::GapPairingResult)>& onDone)
+    {
+        auto status = GapCentralSt::NumericComparisonConfirm(accept, onDone);
+        TraceRequest("NumericComparisonConfirm", status);
+
+        return status;
     }
 
     void TracingGapCentralSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
@@ -206,18 +354,18 @@ namespace hal
         tracer.Trace() << "\tL2CAP length        : " << event.L2CAP_Length;
         tracer.Trace() << "\tInterval min        : " << event.Interval_Min;
         tracer.Trace() << "\tInterval max        : " << event.Interval_Max;
-        tracer.Trace() << "\tSlave latency       : " << latency;
+        tracer.Trace() << "\tPeripheral latency  : " << latency;
 
         GapCentralSt::HandleL2capConnectionUpdateRequestEvent(event);
     }
 
-    void TracingGapCentralSt::HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event)
+    void TracingGapCentralSt::HandleL2capConnectionUpdateResponseEvent(const aci_l2cap_connection_update_resp_event_rp0& event)
     {
-        tracer.Trace() << "TracingGapCentralSt::HandleMtuExchangeResponseEvent";
+        tracer.Trace() << "TracingGapCentralSt::HandleL2capConnectionUpdateResponseEvent";
         tracer.Trace() << "\tConnection handle   : 0x" << infra::hex << event.Connection_Handle;
-        tracer.Trace() << "\tServer TX MTU       : " << event.Server_RX_MTU;
+        tracer.Trace() << "\tResult              : 0x" << infra::hex << event.Result;
 
-        GapCentralSt::HandleMtuExchangeResponseEvent(event);
+        GapCentralSt::HandleL2capConnectionUpdateResponseEvent(event);
     }
 
     void TracingGapCentralSt::HandlePairingCompleteEvent(const aci_gap_pairing_complete_event_rp0& event)

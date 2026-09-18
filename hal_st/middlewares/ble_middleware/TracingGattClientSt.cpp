@@ -1,116 +1,177 @@
 #include "hal_st/middlewares/ble_middleware/TracingGattClientSt.hpp"
 
+namespace infra
+{
+    TextOutputStream& operator<<(TextOutputStream& stream, const services::GattRequestStatus& status)
+    {
+        switch (status)
+        {
+            case services::GattRequestStatus::accepted:
+                return stream << "accepted";
+            case services::GattRequestStatus::invalidState:
+                return stream << "invalidState";
+            case services::GattRequestStatus::invalidParameter:
+                return stream << "invalidParameter";
+            case services::GattRequestStatus::busy:
+                return stream << "busy";
+            default:
+                return stream << "notSupported";
+        }
+    }
+
+    TextOutputStream& operator<<(TextOutputStream& stream, const services::GattResult& result)
+    {
+        switch (result)
+        {
+            case services::GattResult::success:
+                return stream << "success";
+            case services::GattResult::disconnected:
+                return stream << "disconnected";
+            case services::GattResult::timeout:
+                return stream << "timeout";
+            default:
+                return stream << "error 0x" << infra::hex << infra::enum_cast(result);
+        }
+    }
+}
+
 namespace hal
 {
-    TracingGattClientSt::TracingGattClientSt(hal::HciEventSource& hciEventSource, services::Tracer& tracer)
-        : GattClientSt(hciEventSource)
+    void TracingGattClientSt::HandleConnectionComplete(uint8_t status, uint16_t connectionHandle)
+    {
+        GattClientSt::HandleConnectionComplete(status, connectionHandle);
+
+        if (status == BLE_STATUS_SUCCESS)
+            tracer.Trace() << "TracingGattClientSt::ConnectionEstablished, handle: 0x" << infra::hex << connectionHandle << ", connections: " << NumberOfConnections() << "/" << MaxNumberOfConnections();
+    }
+
+    void TracingGattClientSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
+    {
+        GattClientSt::HandleHciDisconnectEvent(event);
+
+        tracer.Trace() << "TracingGattClientSt::ConnectionReleased, handle: 0x" << infra::hex << event.Connection_Handle << ", connections: " << NumberOfConnections() << "/" << MaxNumberOfConnections();
+    }
+
+    TracingGattClientConnection::TracingGattClientConnection(services::GattClientConnection& connection, services::Tracer& tracer)
+        : services::GattClientConnectionDecorator(connection)
         , tracer(tracer)
+    {}
+
+    services::GattRequestStatus TracingGattClientConnection::TraceRequest(infra::BoundedConstString procedure, services::GattRequestStatus status) const
     {
-        tracer.Trace() << "TracingGattClientSt::TracingGattClientSt()";
+        tracer.Trace() << "TracingGattClientConnection::" << procedure << " -> " << status;
+        return status;
     }
 
-    void TracingGattClientSt::StartServiceDiscovery()
+    services::GattRequestStatus TracingGattClientConnection::ExchangeMtu(const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::StartServiceDiscovery";
-        GattClientSt::StartServiceDiscovery();
+        return TraceRequest("ExchangeMtu", services::GattClientConnectionDecorator::ExchangeMtu(onDone));
     }
 
-    void TracingGattClientSt::StartCharacteristicDiscovery(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle)
+    services::GattRequestStatus TracingGattClientConnection::DiscoverServices(const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::StartCharacteristicDiscovery";
-        GattClientSt::StartCharacteristicDiscovery(handle, endHandle);
+        return TraceRequest("DiscoverServices", services::GattClientConnectionDecorator::DiscoverServices(onDone));
     }
 
-    void TracingGattClientSt::StartDescriptorDiscovery(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle)
+    services::GattRequestStatus TracingGattClientConnection::DiscoverCharacteristics(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::StartDescriptorDiscovery";
-        GattClientSt::StartDescriptorDiscovery(handle, endHandle);
+        tracer.Trace() << "TracingGattClientConnection::DiscoverCharacteristics [0x" << infra::hex << handle << ", 0x" << infra::hex << endHandle << "]";
+        return TraceRequest("DiscoverCharacteristics", services::GattClientConnectionDecorator::DiscoverCharacteristics(handle, endHandle, onDone));
     }
 
-    void TracingGattClientSt::Read(services::AttAttribute::Handle handle, const infra::Function<void(const infra::ConstByteRange&)>& onResponse, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::DiscoverDescriptors(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::Read, Value Handle: " << infra::hex << handle;
-        GattClientSt::Read(handle, onResponse, onDone);
+        tracer.Trace() << "TracingGattClientConnection::DiscoverDescriptors [0x" << infra::hex << handle << ", 0x" << infra::hex << endHandle << "]";
+        return TraceRequest("DiscoverDescriptors", services::GattClientConnectionDecorator::DiscoverDescriptors(handle, endHandle, onDone));
     }
 
-    void TracingGattClientSt::Write(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::DiscoverIncludedServices(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::Write, Value Handle: " << infra::hex << handle << ", data: " << infra::AsHex(data);
-        GattClientSt::Write(handle, data, onDone);
+        tracer.Trace() << "TracingGattClientConnection::DiscoverIncludedServices [0x" << infra::hex << handle << ", 0x" << infra::hex << endHandle << "]";
+        return TraceRequest("DiscoverIncludedServices", services::GattClientConnectionDecorator::DiscoverIncludedServices(handle, endHandle, onDone));
     }
 
-    void TracingGattClientSt::WriteWithoutResponse(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::OperationStatus)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::Read(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult, infra::ConstByteRange)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::WriteWithoutResponse, Value Handle: " << infra::hex << handle << ", data: " << infra::AsHex(data);
-        GattClientSt::WriteWithoutResponse(handle, data, onDone);
+        tracer.Trace() << "TracingGattClientConnection::Read [0x" << infra::hex << handle << "]";
+        return TraceRequest("Read", services::GattClientConnectionDecorator::Read(handle, onDone));
     }
 
-    void TracingGattClientSt::EnableNotification(services::AttAttribute::Handle handle, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::Write(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::EnableNotification, Handle: " << infra::hex << (handle + 1);
-        GattClientSt::EnableNotification(handle, onDone);
+        tracer.Trace() << "TracingGattClientConnection::Write [0x" << infra::hex << handle << "] 0x" << infra::AsHex(data);
+        return TraceRequest("Write", services::GattClientConnectionDecorator::Write(handle, data, onDone));
     }
 
-    void TracingGattClientSt::DisableNotification(services::AttAttribute::Handle handle, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::WriteWithoutResponse(services::AttAttribute::Handle handle, infra::ConstByteRange data)
     {
-        tracer.Trace() << "TracingGattClientSt::DisableNotification, Handle: " << infra::hex << (handle + 1);
-        GattClientSt::DisableNotification(handle, onDone);
+        tracer.Trace() << "TracingGattClientConnection::WriteWithoutResponse [0x" << infra::hex << handle << "] 0x" << infra::AsHex(data);
+        return TraceRequest("WriteWithoutResponse", services::GattClientConnectionDecorator::WriteWithoutResponse(handle, data));
     }
 
-    void TracingGattClientSt::EnableIndication(services::AttAttribute::Handle handle, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::EnableNotification(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::EnableIndication, Handle: " << infra::hex << (handle + 1);
-        GattClientSt::EnableIndication(handle, onDone);
+        tracer.Trace() << "TracingGattClientConnection::EnableNotification [0x" << infra::hex << handle << "]";
+        return TraceRequest("EnableNotification", services::GattClientConnectionDecorator::EnableNotification(handle, onDone));
     }
 
-    void TracingGattClientSt::DisableIndication(services::AttAttribute::Handle handle, const infra::Function<void(uint8_t)>& onDone)
+    services::GattRequestStatus TracingGattClientConnection::DisableNotification(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        tracer.Trace() << "TracingGattClientSt::DisableIndication, Handle: " << infra::hex << (handle + 1);
-        GattClientSt::DisableIndication(handle, onDone);
+        tracer.Trace() << "TracingGattClientConnection::DisableNotification [0x" << infra::hex << handle << "]";
+        return TraceRequest("DisableNotification", services::GattClientConnectionDecorator::DisableNotification(handle, onDone));
     }
 
-    void TracingGattClientSt::HandleGattIndicationEvent(const aci_gatt_indication_event_rp0& event)
+    services::GattRequestStatus TracingGattClientConnection::EnableIndication(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        infra::ConstByteRange data(&event.Attribute_Value[0], &event.Attribute_Value[0] + event.Attribute_Value_Length);
-
-        tracer.Trace() << "TracingGattClientSt::Indication received, handle: " << infra::hex << event.Attribute_Handle << ", data: " << infra::AsHex(data);
-
-        GattClientSt::HandleGattIndicationEvent(event);
+        tracer.Trace() << "TracingGattClientConnection::EnableIndication [0x" << infra::hex << handle << "]";
+        return TraceRequest("EnableIndication", services::GattClientConnectionDecorator::EnableIndication(handle, onDone));
     }
 
-    void TracingGattClientSt::HandleGattNotificationEvent(const aci_gatt_notification_event_rp0& event)
+    services::GattRequestStatus TracingGattClientConnection::DisableIndication(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        infra::ConstByteRange data(&event.Attribute_Value[0], &event.Attribute_Value[0] + event.Attribute_Value_Length);
-
-        tracer.Trace() << "TracingGattClientSt::Notification received, handle: " << infra::hex << event.Attribute_Handle << ", data: " << infra::AsHex(data);
-
-        GattClientSt::HandleGattNotificationEvent(event);
+        tracer.Trace() << "TracingGattClientConnection::DisableIndication [0x" << infra::hex << handle << "]";
+        return TraceRequest("DisableIndication", services::GattClientConnectionDecorator::DisableIndication(handle, onDone));
     }
 
-    void TracingGattClientSt::HandleGattCompleteResponse(const aci_gatt_proc_complete_event_rp0& event)
+    void TracingGattClientConnection::ServiceDiscovered(const services::GattService& service)
     {
-        tracer.Trace() << "TracingGattClientSt::GATT complete response, handle: 0x" << infra::hex << event.Connection_Handle << ", status: 0x" << event.Error_Code;
-
-        GattClientSt::HandleGattCompleteResponse(event);
+        tracer.Trace() << "TracingGattClientConnection::ServiceDiscovered " << service.Type() << " [0x" << infra::hex << service.Handle() << ", 0x" << infra::hex << service.EndHandle() << "]";
+        services::GattClientConnectionDecorator::ServiceDiscovered(service);
     }
 
-    void TracingGattClientSt::HandleServiceDiscovered(infra::DataInputStream& stream, bool isUuid16)
+    void TracingGattClientConnection::IncludedServiceDiscovered(const services::GattIncludedService& includedService)
     {
-        infra::ByteInputStream tracingStream(stream.PeekContiguousRange(0), infra::softFail);
+        tracer.Trace() << "TracingGattClientConnection::IncludedServiceDiscovered " << includedService.Type() << " [0x" << infra::hex << includedService.ServiceHandle() << ", 0x" << infra::hex << includedService.ServiceEndHandle() << "]";
+        services::GattClientConnectionDecorator::IncludedServiceDiscovered(includedService);
+    }
 
-        while (!tracingStream.Empty())
-        {
-            Atttributes attributes;
+    void TracingGattClientConnection::CharacteristicDiscovered(const services::GattCharacteristic& characteristic)
+    {
+        tracer.Trace() << "TracingGattClientConnection::CharacteristicDiscovered " << characteristic.Type() << " [0x" << infra::hex << characteristic.Handle() << "] value [0x" << infra::hex << characteristic.ValueHandle() << "] " << characteristic.Properties();
+        services::GattClientConnectionDecorator::CharacteristicDiscovered(characteristic);
+    }
 
-            tracingStream >> attributes.startHandle >> attributes.endHandle;
+    void TracingGattClientConnection::DescriptorDiscovered(const services::GattDescriptor& descriptor)
+    {
+        tracer.Trace() << "TracingGattClientConnection::DescriptorDiscovered " << descriptor.Type() << " [0x" << infra::hex << descriptor.Handle() << "]";
+        services::GattClientConnectionDecorator::DescriptorDiscovered(descriptor);
+    }
 
-            HandleUuidFromDiscovery(tracingStream, isUuid16, attributes.type);
+    void TracingGattClientConnection::MtuChanged(uint16_t mtu)
+    {
+        tracer.Trace() << "TracingGattClientConnection::MtuChanged " << mtu;
+        services::GattClientConnectionDecorator::MtuChanged(mtu);
+    }
 
-            really_assert(!tracingStream.Failed());
+    void TracingGattClientConnection::NotificationReceived(services::AttAttribute::Handle handle, infra::ConstByteRange data)
+    {
+        tracer.Trace() << "TracingGattClientConnection::NotificationReceived [0x" << infra::hex << handle << "] 0x" << infra::AsHex(data);
+        services::GattClientConnectionDecorator::NotificationReceived(handle, data);
+    }
 
-            tracer.Trace() << "TracingGattClientSt::Service discovered, type: " << attributes.type << ", startHandle: 0x" << infra::hex << attributes.startHandle << ", endHandle: 0x" << infra::hex << attributes.endHandle;
-        }
-
-        GattClientSt::HandleServiceDiscovered(stream, isUuid16);
+    void TracingGattClientConnection::IndicationReceived(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void()>& onDone)
+    {
+        tracer.Trace() << "TracingGattClientConnection::IndicationReceived [0x" << infra::hex << handle << "] 0x" << infra::AsHex(data);
+        services::GattClientConnectionDecorator::IndicationReceived(handle, data, onDone);
     }
 }
