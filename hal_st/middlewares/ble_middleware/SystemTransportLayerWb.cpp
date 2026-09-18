@@ -98,9 +98,10 @@ namespace
 
     void ShciCore2Init(const hal::SystemTransportLayerWb::Configuration& configuration)
     {
-        const uint8_t maxNumberOfBleLinks = 0x01;
+        really_assert(configuration.numberOfLinks != 0);
+
         const uint8_t prepareWriteListSize = BLE_PREP_WRITE_X_ATT(configuration.maxAttMtuSize);
-        const uint8_t numberOfBleMemoryBlocks = BLE_MBLOCKS_CALC(prepareWriteListSize, configuration.maxAttMtuSize, maxNumberOfBleLinks);
+        const uint8_t numberOfBleMemoryBlocks = BLE_MBLOCKS_CALC(prepareWriteListSize, configuration.maxAttMtuSize, configuration.numberOfLinks);
         const uint8_t bleStackOptions = (SHCI_C2_BLE_INIT_OPTIONS_LL_HOST | SHCI_C2_BLE_INIT_OPTIONS_WITH_SVC_CHANGE_DESC | SHCI_C2_BLE_INIT_OPTIONS_DEVICE_NAME_RO | SHCI_C2_BLE_INIT_OPTIONS_NO_EXT_ADV | SHCI_C2_BLE_INIT_OPTIONS_NO_CS_ALGO2 |
                                          SHCI_C2_BLE_INIT_OPTIONS_FULL_GATTDB_NVM | SHCI_C2_BLE_INIT_OPTIONS_GATT_CACHING_NOTUSED | SHCI_C2_BLE_INIT_OPTIONS_POWER_CLASS_2_3 | SHCI_C2_BLE_INIT_OPTIONS_APPEARANCE_READONLY | SHCI_C2_BLE_INIT_OPTIONS_ENHANCED_ATT_NOTSUPPORTED);
 
@@ -126,7 +127,7 @@ namespace
                 0x44,  // Maximum number of GATT Attributes
                 0x08,  // Maximum number of Services that can be stored in the GATT database
                 0x540, // Size of the storage area for Attribute values
-                maxNumberOfBleLinks,
+                configuration.numberOfLinks,
                 0x01, // Enable or disable the Extended Packet length feature
                 prepareWriteListSize,
                 numberOfBleMemoryBlocks,

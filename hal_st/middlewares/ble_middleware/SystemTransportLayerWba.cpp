@@ -38,16 +38,7 @@ extern "C"
 
 namespace
 {
-    const uint8_t maxNumberOfBleLinks = 0x01;
-    const uint8_t numAttrRecord = 0x44;
-    const uint8_t numAttrServ = 0x08;
-    const uint16_t attrValueArrSize = 0x540;
     const uint8_t maxNumberOfConnectionOrientedChannels = 32;
-    const std::size_t mblockCount = (BLE_MBLOCKS_CALC(BLE_DEFAULT_PREP_WRITE_LIST_SIZE, 251, maxNumberOfBleLinks) + 0x15);
-    const std::size_t bufferSize = BLE_TOTAL_BUFFER_SIZE(maxNumberOfBleLinks, mblockCount);
-    const std::size_t gattBufferSize = BLE_TOTAL_BUFFER_SIZE_GATT(numAttrRecord, numAttrServ, attrValueArrSize);
-    std::array<uint32_t, DIVC(bufferSize, 4)> bleBuffer;
-    std::array<uint32_t, DIVC(gattBufferSize, 4)> bleGattBuffer;
     const uint8_t bleStackOptions = 0;
 
     constexpr uint8_t PrepareWriteListSize(uint16_t maxAttMtuSize)
@@ -58,20 +49,20 @@ namespace
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(uint16_t maxAttMtuSize)
+    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize)
     {
-        really_assert(maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && maxAttMtuSize <= 251);
-        // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
+        really_assert(maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && maxAttMtuSize <= maxAttMtuSizeLimit);
+        really_assert(numberOfLinks != 0);
 
         BleStack_init_t bleStackInitParameters = {
-            reinterpret_cast<uint8_t*>(bleBuffer.begin()),
-            bufferSize,
-            reinterpret_cast<uint8_t*>(bleGattBuffer.begin()),
-            gattBufferSize,
-            numAttrRecord,
-            numAttrServ,
-            attrValueArrSize,
-            maxNumberOfBleLinks,
+            reinterpret_cast<uint8_t*>(stackBuffer.begin()),
+            stackBuffer.size() * sizeof(uint32_t),
+            reinterpret_cast<uint8_t*>(gattBuffer.begin()),
+            gattBuffer.size() * sizeof(uint32_t),
+            numberOfAttributeRecords,
+            numberOfAttributeServices,
+            attributeValueArraySize,
+            numberOfLinks,
             PrepareWriteListSize(maxAttMtuSize),
             mblockCount,
             maxAttMtuSize,

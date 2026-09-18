@@ -1,4 +1,5 @@
 #include "hal_st/middlewares/ble_middleware/GattServerSt.hpp"
+#include <limits>
 
 namespace
 {
@@ -48,10 +49,18 @@ namespace hal
     void GattServerSt::AddService(services::GattServerService& service)
     {
         constexpr uint8_t gattPrimaryService = 0x01;
-        uint8_t attributeCount = service.GetAttributeCount();
+        auto attributeCount = service.GetAttributeCount();
+
+        // ACI_GATT_ADD_SERVICE reserves the record count in an 8 bit parameter, so a larger service
+        // would be given a range it does not fit in.
+        if (attributeCount > std::numeric_limits<uint8_t>::max())
+        {
+            ReportError(BLE_STATUS_INVALID_PARAMS);
+            return;
+        }
 
         auto result = aci_gatt_add_service(UuidToType(service.Type()), ConvertUuid<Service_UUID_t>(service.Type()),
-            gattPrimaryService, attributeCount, &service.Handle());
+            gattPrimaryService, static_cast<uint8_t>(attributeCount), &service.Handle());
 
         if (result != BLE_STATUS_SUCCESS)
             ReportError(result);
@@ -67,7 +76,7 @@ namespace hal
         services.push_front(service);
     }
 
-    services::GattServerCharacteristicOperations::UpdateStatus GattServerSt::Update(const services::GattServerCharacteristicOperationsObserver& characteristic, infra::ConstByteRange data) const
+    services::GattRequestStatus GattServerSt::Update(const services::GattServerCharacteristicOperationsObserver& characteristic, infra::ConstByteRange data) const
     {
         constexpr uint8_t valueOffset = 0;
         auto result = aci_gatt_update_char_value(characteristic.ServiceHandle(),
@@ -80,11 +89,13 @@ namespace hal
             ReportError(result);
 
         if (result == BLE_STATUS_SUCCESS)
-            return UpdateStatus::success;
+            return services::GattRequestStatus::accepted;
         else if (result == BLE_STATUS_INSUFFICIENT_RESOURCES)
-            return UpdateStatus::retry;
+            return services::GattRequestStatus::busy;
+        else if (result == BLE_STATUS_INVALID_PARAMS)
+            return services::GattRequestStatus::invalidParameter;
         else
-            return UpdateStatus::error;
+            return services::GattRequestStatus::invalidState;
     }
 
     void GattServerSt::HciEvent(hci_event_pckt& event)

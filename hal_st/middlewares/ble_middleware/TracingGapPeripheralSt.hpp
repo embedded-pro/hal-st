@@ -21,7 +21,6 @@ namespace hal
         void HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event) override;
         void HandlePairingCompleteEvent(const aci_gap_pairing_complete_event_rp0& event) override;
         void HandleBondLostEvent() override;
-        void HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event) override;
 
     private:
         void StartedAdvertising(infra::BoundedConstString functionName) override;
