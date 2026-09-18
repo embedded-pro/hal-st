@@ -303,7 +303,12 @@ namespace hal
 
     uint8_t GapSt::SecurityModeAndLevelToMitm(services::GapPairing::SecurityModeAndLevel modeAndLevel) const
     {
-        return 0;
+        // Levels 3 and 4 are authenticated, and authentication is what MITM protection during
+        // pairing provides. Asking for it without the means to satisfy it, which with these IO
+        // capabilities means out of band data, fails the pairing rather than completing it with a
+        // bond weaker than the level asked for.
+        // Bluetooth Core Specification, Volume 3, Part C, section 10.2.1
+        return modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode1Level3 || modeAndLevel == services::GapPairing::SecurityModeAndLevel::mode1Level4 ? 1 : 0;
     }
 
     void GapSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)

@@ -49,27 +49,47 @@ namespace hal
 
     services::GattRequestStatus GattClientConnectionSt::ExchangeMtu(const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::exchangeMtu, aci_gatt_exchange_config(connectionHandle), onDone);
+        return Start(Operation::exchangeMtu, [this]
+            {
+                return aci_gatt_exchange_config(connectionHandle);
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::DiscoverServices(const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::discoverServices, aci_gatt_disc_all_primary_services(connectionHandle), onDone);
+        return Start(Operation::discoverServices, [this]
+            {
+                return aci_gatt_disc_all_primary_services(connectionHandle);
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::DiscoverCharacteristics(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::discoverCharacteristics, aci_gatt_disc_all_char_of_service(connectionHandle, handle, endHandle), onDone);
+        return Start(Operation::discoverCharacteristics, [this, handle, endHandle]
+            {
+                return aci_gatt_disc_all_char_of_service(connectionHandle, handle, endHandle);
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::DiscoverDescriptors(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::discoverDescriptors, aci_gatt_disc_all_char_desc(connectionHandle, handle, endHandle), onDone);
+        return Start(Operation::discoverDescriptors, [this, handle, endHandle]
+            {
+                return aci_gatt_disc_all_char_desc(connectionHandle, handle, endHandle);
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::DiscoverIncludedServices(services::AttAttribute::Handle handle, services::AttAttribute::Handle endHandle, const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::discoverIncludedServices, aci_gatt_find_included_services(connectionHandle, handle, endHandle), onDone);
+        return Start(Operation::discoverIncludedServices, [this, handle, endHandle]
+            {
+                return aci_gatt_find_included_services(connectionHandle, handle, endHandle);
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::Read(services::AttAttribute::Handle handle, const infra::Function<void(services::GattResult, infra::ConstByteRange)>& onDone)
@@ -90,7 +110,11 @@ namespace hal
 
     services::GattRequestStatus GattClientConnectionSt::Write(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone)
     {
-        return StartWrite(Operation::write, aci_gatt_write_char_value(connectionHandle, handle, data.size(), data.cbegin()), onDone);
+        return Start(Operation::write, [this, handle, data]
+            {
+                return aci_gatt_write_char_value(connectionHandle, handle, data.size(), data.cbegin());
+            },
+            onDone);
     }
 
     services::GattRequestStatus GattClientConnectionSt::WriteWithoutResponse(services::AttAttribute::Handle handle, infra::ConstByteRange data)
@@ -160,8 +184,12 @@ namespace hal
 
     services::GattRequestStatus GattClientConnectionSt::WriteLong(services::AttAttribute::Handle handle, infra::ConstByteRange data, const infra::Function<void(services::GattResult)>& onDone)
     {
-        constexpr uint16_t fromTheStart = 0;
-        return StartWrite(Operation::writeLong, aci_gatt_write_long_char_value(connectionHandle, handle, fromTheStart, data.size(), data.cbegin()), onDone);
+        return Start(Operation::writeLong, [this, handle, data]
+            {
+                constexpr uint16_t fromTheStart = 0;
+                return aci_gatt_write_long_char_value(connectionHandle, handle, fromTheStart, data.size(), data.cbegin());
+            },
+            onDone);
     }
 
     void GattClientConnectionSt::MtuExchanged(uint16_t mtu)
@@ -361,11 +389,8 @@ namespace hal
             onOperationDone(services::GattResult::disconnected);
     }
 
-    services::GattRequestStatus GattClientConnectionSt::StartWrite(Operation operation, tBleStatus status, const infra::Function<void(services::GattResult)>& onDone)
+    services::GattRequestStatus GattClientConnectionSt::Started(Operation operation, tBleStatus status, const infra::Function<void(services::GattResult)>& onDone)
     {
-        if (this->operation != Operation::none)
-            return services::GattRequestStatus::busy;
-
         auto requestStatus = RequestStatusOf(status);
 
         if (requestStatus != services::GattRequestStatus::accepted)
@@ -379,13 +404,11 @@ namespace hal
 
     services::GattRequestStatus GattClientConnectionSt::WriteClientCharacteristicConfiguration(services::AttAttribute::Handle valueHandle, services::GattDescriptor::ClientCharacteristicConfiguration::CharacteristicValue value, const infra::Function<void(services::GattResult)>& onDone)
     {
-        if (operation != Operation::none)
-            return services::GattRequestStatus::busy;
-
-        auto configuration = infra::ToLittleEndian(static_cast<uint16_t>(value));
-
-        return StartWrite(Operation::writeDescriptor,
-            aci_gatt_write_char_desc(connectionHandle, valueHandle + clientCharacteristicConfigurationOffset, sizeof(configuration), reinterpret_cast<const uint8_t*>(&configuration)),
+        return Start(Operation::writeDescriptor, [this, valueHandle, value]
+            {
+                auto configuration = infra::ToLittleEndian(static_cast<uint16_t>(value));
+                return aci_gatt_write_char_desc(connectionHandle, valueHandle + clientCharacteristicConfigurationOffset, sizeof(configuration), reinterpret_cast<const uint8_t*>(&configuration));
+            },
             onDone);
     }
 

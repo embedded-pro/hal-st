@@ -286,14 +286,16 @@ namespace hal
 
     void GapCentralSt::HandleHciLeConnectionCompleteEvent(const hci_le_connection_complete_event_rp0& event)
     {
-        HandleConnectionCompleteCommon(event.Status);
+        // The connection context is established first, so that a completion callback reaching for
+        // the connection it was told about finds it.
         GapSt::HandleHciLeConnectionCompleteEvent(event);
+        HandleConnectionCompleteCommon(event.Status);
     }
 
     void GapCentralSt::HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event)
     {
-        HandleConnectionCompleteCommon(event.Status);
         GapSt::HandleHciLeEnhancedConnectionCompleteEvent(event);
+        HandleConnectionCompleteCommon(event.Status);
     }
 
     void GapCentralSt::HandleHciLeConnectionUpdateCompleteEvent(const hci_le_connection_update_complete_event_rp0& event)

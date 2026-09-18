@@ -84,7 +84,18 @@ namespace hal
             writeDescriptor
         };
 
-        services::GattRequestStatus StartWrite(Operation operation, tBleStatus status, const infra::Function<void(services::GattResult)>& onDone);
+        // The command is issued only once the connection is known to be free, so a refused request
+        // does not put a second ATT procedure on the link before reporting busy.
+        template<class IssueCommand>
+        services::GattRequestStatus Start(Operation operation, IssueCommand issue, const infra::Function<void(services::GattResult)>& onDone)
+        {
+            if (this->operation != Operation::none)
+                return services::GattRequestStatus::busy;
+
+            return Started(operation, issue(), onDone);
+        }
+
+        services::GattRequestStatus Started(Operation operation, tBleStatus status, const infra::Function<void(services::GattResult)>& onDone);
         services::GattRequestStatus WriteClientCharacteristicConfiguration(services::AttAttribute::Handle valueHandle, services::GattDescriptor::ClientCharacteristicConfiguration::CharacteristicValue value, const infra::Function<void(services::GattResult)>& onDone);
         static void ReadUuid(infra::DataInputStream& stream, bool isUuid16, services::AttAttribute::Uuid& type);
 
