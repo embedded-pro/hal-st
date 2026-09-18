@@ -422,12 +422,12 @@ namespace hal
             onGenerateOutOfBandDataDone(services::GapPairingResult::success);
     }
 
-    void GapSt::SetAddress(const hal::MacAddress& address, services::GapDeviceAddressType addressType) const
+    tBleStatus GapSt::SetAddress(const hal::MacAddress& address, services::GapDeviceAddressType addressType) const
     {
         uint8_t offset = addressType == services::GapDeviceAddressType::publicAddress ? CONFIG_DATA_PUBADDR_OFFSET : CONFIG_DATA_RANDOM_ADDRESS_OFFSET;
         uint8_t length = addressType == services::GapDeviceAddressType::publicAddress ? CONFIG_DATA_PUBADDR_LEN : CONFIG_DATA_RANDOM_ADDRESS_LEN;
 
-        aci_hal_write_config_data(offset, length, address.data());
+        return aci_hal_write_config_data(offset, length, address.data());
     }
 
     tBleStatus GapSt::ApplyAuthenticationRequirement() const

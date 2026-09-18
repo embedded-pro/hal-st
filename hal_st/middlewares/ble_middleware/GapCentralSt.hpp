@@ -17,16 +17,19 @@ namespace hal
         GapCentralSt(hal::HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer, const Configuration& configuration);
 
         // Implementation of services::GapCentral
-        void Connect(hal::MacAddress macAddress, services::GapDeviceAddressType addressType, infra::Duration initiatingTimeout) override;
-        void CancelConnect() override;
-        void Disconnect() override;
-        void SetAddress(hal::MacAddress macAddress, services::GapDeviceAddressType addressType) override;
-        void StartDeviceDiscovery() override;
-        void StopDeviceDiscovery() override;
-        std::optional<hal::MacAddress> ResolvePrivateAddress(hal::MacAddress address) const override;
+        std::optional<services::GapAddress> ResolvePrivateAddress(hal::MacAddress address) const override;
+        using services::GapCentral::Connect;
+        services::GapRequestStatus Connect(const services::GapAddress& peer, const services::GapConnectionParameters& parameters, infra::Duration initiatingTimeout, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus UpdateConnectionParameters(const services::GapConnectionParameters& parameters, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus CancelConnect(const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus Disconnect(const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus SetAddress(const services::GapAddress& address, const infra::Function<void(Result)>& onDone) override;
+        using services::GapCentral::StartDeviceDiscovery;
+        services::GapRequestStatus StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus StopDeviceDiscovery(const infra::Function<void(Result)>& onDone) override;
 
         // Implementation of GapPairing
-        void AllowPairing(bool allow) override;
+        services::GapRequestStatus AllowPairing(bool allow, const infra::Function<void(services::GapPairingResult)>& onDone) override;
 
     protected:
         [[nodiscard]] SecureConnection SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const override;
@@ -35,6 +38,7 @@ namespace hal
         void HandleHciLeAdvertisingReportEvent(const hci_le_advertising_report_event_rp0& event) override;
         void HandleHciLeConnectionCompleteEvent(const hci_le_connection_complete_event_rp0& event) override;
         void HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event) override;
+        void HandleHciLeConnectionUpdateCompleteEvent(const hci_le_connection_update_complete_event_rp0& event) override;
         void HandleHciLeDataLengthChangeEvent(const hci_le_data_length_change_event_rp0& event) override;
         void HandleHciLePhyUpdateCompleteEvent(const hci_le_phy_update_complete_event_rp0& event) override;
         void HandleGapProcedureCompleteEvent(const aci_gap_proc_complete_event_rp0& event) override;
@@ -42,20 +46,18 @@ namespace hal
         void HandleL2capConnectionUpdateRequestEvent(const aci_l2cap_connection_update_req_event_rp0& event) override;
 
     private:
-        void HandleGapDiscoveryProcedureEvent();
+        using CentralCompletion = infra::AutoResetFunction<void(Result)>;
+
+        void HandleGapDiscoveryProcedureEvent(uint8_t status);
         void HandleGapDirectConnectionProcedureCompleteEvent();
 
         void HandleAdvertisingReport(const Advertising_Report_t& advertisingReport);
         void SetDataLength();
-        void Initialize(const GapService& gapService);
         void UpdateStateOnConnectionComplete(uint8_t status);
         void HandleConnectionCompleteCommon(uint8_t status);
-        void HandleOobDataGeneration();
         void Initialize(const Configuration& configuration);
 
     private:
-        static const services::GapConnectionParameters connectionUpdateParameters;
-
         // Create connection parameters
         const uint16_t leScanInterval = 0x320;
         const uint16_t leScanWindow = 0x320;
@@ -68,7 +70,19 @@ namespace hal
 
         bool discovering = false;
         services::GapConnectionParameters connectionParameters;
+
+        // Why an initiating procedure that ends without a connection ended.
+        Result connectFailureResult = Result::connectionFailed;
+
         infra::TimerSingleShot initiatingStateTimer;
+
+        CentralCompletion onConnectDone;
+        CentralCompletion onCancelConnectDone;
+        CentralCompletion onDisconnectDone;
+        CentralCompletion onSetAddressDone;
+        CentralCompletion onStartDeviceDiscoveryDone;
+        CentralCompletion onStopDeviceDiscoveryDone;
+        CentralCompletion onUpdateConnectionParametersDone;
     };
 }
 

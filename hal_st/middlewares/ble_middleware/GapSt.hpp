@@ -107,7 +107,7 @@ namespace hal
         [[nodiscard]] virtual SecureConnection SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
         [[nodiscard]] virtual uint8_t SecurityModeAndLevelToMitm(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
 
-        void SetAddress(const MacAddress& address, services::GapDeviceAddressType addressType) const;
+        tBleStatus SetAddress(const MacAddress& address, services::GapDeviceAddressType addressType) const;
 
         template<class Completion, class Result>
         static void Complete(Completion& completion, Result result)
