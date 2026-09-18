@@ -121,6 +121,11 @@
     <pin name="Channel2"><input name="TIM:_CH2"/></pin>
     <pin name="Channel3"><input name="TIM:_CH3"/></pin>
     <pin name="Channel4"><input name="TIM:_CH4"/></pin>
+    <pin name="Channel1N"><input name="TIM:_CH1N"/></pin>
+    <pin name="Channel2N"><input name="TIM:_CH2N"/></pin>
+    <pin name="Channel3N"><input name="TIM:_CH3N"/></pin>
+    <pin name="Break"><input name="TIM:_BKIN"/></pin>
+    <pin name="Break2"><input name="TIM:_BKIN2"/></pin>
   </peripheral>
   <peripheral name="LpTimer">
     <pin name="Channel1"><input name="LPTIM:_CH1"/></pin>

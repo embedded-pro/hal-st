@@ -74,6 +74,11 @@ namespace hal
         timerChannel2,
         timerChannel3,
         timerChannel4,
+        timerChannel1N,
+        timerChannel2N,
+        timerChannel3N,
+        timerBreak,
+        timerBreak2,
         lpTimerChannel1,
         lpTimerChannel2
     };
