@@ -66,7 +66,7 @@ alias.
 
 With `ble_peripheral` on one board and `ble_central` on the other, each on its own terminal:
 
-```
+```text
 peripheral> security 4
 peripheral> advertise
 
