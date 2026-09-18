@@ -63,8 +63,6 @@ namespace hal
 
         const uint8_t remoteUserTerminatedConnection = 0x13;
 
-        const uint8_t commandDisallowed = 0x0c;
-
         bool discovering = false;
         services::GapConnectionParameters connectionParameters;
 

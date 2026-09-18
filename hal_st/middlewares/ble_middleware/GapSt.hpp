@@ -143,10 +143,7 @@ namespace hal
         const uint16_t invalidConnection = 0xffff;
 
         const uint8_t allPhys = 0;
-        const uint8_t speed1Mbps = 0x1;
         const uint8_t speed2Mbps = 0x2;
-
-        const uint8_t ioCapability = IO_CAP_NO_INPUT_NO_OUTPUT;
         const uint8_t bondingMode = BONDING;
         const uint8_t keypressNotificationSupport = KEYPRESS_SUPPORTED;
         static constexpr uint8_t maxNumberOfBonds = 10;

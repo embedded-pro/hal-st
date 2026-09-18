@@ -24,7 +24,6 @@ namespace hal
     const uint16_t maxConnectionEventLength = 0x280; // 400 ms
 
     const uint8_t filterDuplicatesEnabled = 1;
-    const uint8_t acceptParameters = 1;
     const uint8_t rejectParameters = 0;
 
     namespace
