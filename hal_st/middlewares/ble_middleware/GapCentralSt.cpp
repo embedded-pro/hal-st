@@ -26,8 +26,8 @@ namespace hal
     const uint8_t filterDuplicatesEnabled = 1;
     const uint8_t rejectParameters = 0;
 
-    // ALL_PHYS with both bits clear means the host states a preference for both directions;
-    // PHY_options is meaningful for LE Coded only, which the STM32WB does not support.
+    // ALL_PHYS with both bits clear states a preference for both directions; PHY_options is
+    // meaningful for LE Coded only.
     // Bluetooth Core Specification, Volume 4, Part E, section 7.8.49
     const uint8_t preferBothDirections = 0;
     const uint16_t noPhyOptions = 0;
@@ -44,9 +44,9 @@ namespace hal
             return static_cast<services::GapDeviceAddressType>(addressType);
         }
 
-        // The PHY bit field of the LE Set PHY command and the PHY value of the LE PHY Update
-        // Complete event, Bluetooth Core Specification, Volume 4, Part E, sections 7.8.49
-        // and 7.7.65.12.
+        // The command takes a bit field and the event reports an enumerated value, so LE Coded is
+        // 0x4 in one and 0x3 in the other.
+        // Bluetooth Core Specification, Volume 4, Part E, sections 7.8.49 and 7.7.65.12
         uint8_t ToPhyBit(services::GapPhy phy)
         {
             switch (phy)
@@ -334,8 +334,8 @@ namespace hal
     {
         GapSt::HandleHciDisconnectEvent(event);
 
-        // The link is gone, so its procedures will never report; completing them here keeps the
-        // next connection from finding them busy.
+        // The link is gone, so its procedures will never report; the next connection would find
+        // them busy.
         if (onSetDataLengthDone)
             onSetDataLengthDone(Result::controllerError);
 
