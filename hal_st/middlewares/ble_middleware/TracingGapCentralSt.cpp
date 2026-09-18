@@ -123,6 +123,26 @@ namespace hal
         return status;
     }
 
+    services::GapRequestStatus TracingGapCentralSt::SetDataLength(const services::GapDataLength& dataLength)
+    {
+        tracer.Trace() << "TracingGapCentralSt::SetDataLength, max TX octets: " << dataLength.maxTxOctets << ", max TX time: " << dataLength.maxTxTime;
+
+        auto status = GapCentralSt::SetDataLength(dataLength);
+        TraceRequest("SetDataLength", status);
+
+        return status;
+    }
+
+    services::GapRequestStatus TracingGapCentralSt::SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy)
+    {
+        tracer.Trace() << "TracingGapCentralSt::SetPhy, TX phy: " << txPhy << ", RX phy: " << rxPhy;
+
+        auto status = GapCentralSt::SetPhy(txPhy, rxPhy);
+        TraceRequest("SetPhy", status);
+
+        return status;
+    }
+
     services::GapRequestStatus TracingGapCentralSt::StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone)
     {
         tracer.Trace() << "TracingGapCentralSt::StartDeviceDiscovery, interval: " << parameters.interval << ", window: " << parameters.window;

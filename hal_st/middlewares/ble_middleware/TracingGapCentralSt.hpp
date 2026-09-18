@@ -19,6 +19,8 @@ namespace hal
         services::GapRequestStatus CancelConnect(const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus Disconnect(const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus SetAddress(const services::GapAddress& address, const infra::Function<void(Result)>& onDone) override;
+        services::GapRequestStatus SetDataLength(const services::GapDataLength& dataLength) override;
+        services::GapRequestStatus SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy) override;
         using GapCentralSt::StartDeviceDiscovery;
         services::GapRequestStatus StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone) override;
         services::GapRequestStatus StopDeviceDiscovery(const infra::Function<void(Result)>& onDone) override;

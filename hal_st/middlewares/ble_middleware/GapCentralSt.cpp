@@ -26,6 +26,12 @@ namespace hal
     const uint8_t filterDuplicatesEnabled = 1;
     const uint8_t rejectParameters = 0;
 
+    // ALL_PHYS with both bits clear states a preference for both directions; PHY_options is
+    // meaningful for LE Coded only.
+    // Bluetooth Core Specification, Volume 4, Part E, section 7.8.49
+    const uint8_t preferBothDirections = 0;
+    const uint16_t noPhyOptions = 0;
+
     namespace
     {
         services::GapAdvertisingEventType ToAdvertisingEventType(uint8_t eventType)
@@ -38,10 +44,33 @@ namespace hal
             return static_cast<services::GapDeviceAddressType>(addressType);
         }
 
-        bool IsTxDataLengthConfigured(const hci_le_data_length_change_event_rp0& dataLengthChangeEvent)
+        // The command takes a bit field and the event reports an enumerated value, so LE Coded is
+        // 0x4 in one and 0x3 in the other.
+        // Bluetooth Core Specification, Volume 4, Part E, sections 7.8.49 and 7.7.65.12
+        uint8_t ToPhyBit(services::GapPhy phy)
         {
-            return dataLengthChangeEvent.MaxTxOctets == services::GapDataLength::initialMaxTxOctets &&
-                   dataLengthChangeEvent.MaxTxTime == services::GapDataLength::InitialMaxTxTime(services::GapPhy::le1M);
+            switch (phy)
+            {
+                case services::GapPhy::le2M:
+                    return 0x2;
+                case services::GapPhy::leCoded:
+                    return 0x4;
+                default:
+                    return 0x1;
+            }
+        }
+
+        services::GapPhy FromPhyValue(uint8_t phy)
+        {
+            switch (phy)
+            {
+                case 0x2:
+                    return services::GapPhy::le2M;
+                case 0x3:
+                    return services::GapPhy::leCoded;
+                default:
+                    return services::GapPhy::le1M;
+            }
         }
 
         services::GapCentral::Result ResultOf(tBleStatus status)
@@ -206,6 +235,26 @@ namespace hal
         return services::GapRequestStatus::accepted;
     }
 
+    services::GapRequestStatus GapCentralSt::SetDataLength(const services::GapDataLength& dataLength)
+    {
+        if (connectionContext.connectionHandle == GapSt::invalidConnection)
+            return services::GapRequestStatus::invalidState;
+
+        auto ret = hci_le_set_data_length(connectionContext.connectionHandle, dataLength.maxTxOctets, dataLength.maxTxTime);
+
+        return ret == BLE_STATUS_SUCCESS ? services::GapRequestStatus::accepted : RequestStatusOf(ret);
+    }
+
+    services::GapRequestStatus GapCentralSt::SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy)
+    {
+        if (connectionContext.connectionHandle == GapSt::invalidConnection)
+            return services::GapRequestStatus::invalidState;
+
+        auto ret = hci_le_set_phy(connectionContext.connectionHandle, preferBothDirections, ToPhyBit(txPhy), ToPhyBit(rxPhy), noPhyOptions);
+
+        return ret == BLE_STATUS_SUCCESS ? services::GapRequestStatus::accepted : RequestStatusOf(ret);
+    }
+
     services::GapRequestStatus GapCentralSt::StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone)
     {
         // The general discovery procedure sends scan requests, so it always scans actively.
@@ -358,13 +407,12 @@ namespace hal
 
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
 
-        if (!IsTxDataLengthConfigured(event))
-        {
-            infra::EventDispatcherWithWeakPtr::Instance().Schedule([this]()
-                {
-                    SetDataLength();
-                });
-        }
+        services::GapDataLength dataLength{ event.MaxTxOctets, event.MaxTxTime };
+
+        infra::Subject<services::GapCentralObserver>::NotifyObservers([&dataLength](auto& observer)
+            {
+                observer.DataLengthChanged(dataLength);
+            });
     }
 
     void GapCentralSt::HandleHciLePhyUpdateCompleteEvent(const hci_le_phy_update_complete_event_rp0& event)
@@ -372,6 +420,18 @@ namespace hal
         GapSt::HandleHciLePhyUpdateCompleteEvent(event);
 
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
+
+        // A failed update leaves the link on the PHY it already had, which is no change to report.
+        if (event.Status != BLE_STATUS_SUCCESS)
+            return;
+
+        auto txPhy = FromPhyValue(event.TX_PHY);
+        auto rxPhy = FromPhyValue(event.RX_PHY);
+
+        infra::Subject<services::GapCentralObserver>::NotifyObservers([txPhy, rxPhy](auto& observer)
+            {
+                observer.PhyUpdated(txPhy, rxPhy);
+            });
     }
 
     void GapCentralSt::HandleGapDiscoveryProcedureEvent(uint8_t status)
@@ -404,12 +464,6 @@ namespace hal
             {
                 observer.StateChanged(services::GapCentralState::standby);
             });
-    }
-
-    void GapCentralSt::SetDataLength()
-    {
-        auto status = hci_le_set_data_length(this->connectionContext.connectionHandle, services::GapDataLength::initialMaxTxOctets, services::GapDataLength::InitialMaxTxTime(services::GapPhy::le1M));
-        assert(status == BLE_STATUS_SUCCESS);
     }
 
     void GapCentralSt::HandleAdvertisingReport(const Advertising_Report_t& advertisingReport)
@@ -449,7 +503,6 @@ namespace hal
 
         SetIoCapabilities(configuration.security.ioCapabilities, [](services::GapPairingResult) {});
         SetSecurityMode(configuration.security.modeAndLevel, [](services::GapPairingResult) {});
-        hci_le_set_default_phy(allPhys, speed2Mbps, speed2Mbps);
     }
 
     void GapCentralSt::HandleConnectionCompleteCommon(uint8_t status)
@@ -457,17 +510,7 @@ namespace hal
         UpdateStateOnConnectionComplete(status);
         initiatingStateTimer.Cancel();
 
-        if (status == BLE_STATUS_SUCCESS)
-        {
-            infra::EventDispatcherWithWeakPtr::Instance().Schedule([this]()
-                {
-                    SetDataLength();
-                });
-
-            if (onConnectDone)
-                onConnectDone(Result::success);
-        }
-        else if (onConnectDone)
-            onConnectDone(Result::connectionFailed);
+        if (onConnectDone)
+            onConnectDone(status == BLE_STATUS_SUCCESS ? Result::success : Result::connectionFailed);
     }
 }
