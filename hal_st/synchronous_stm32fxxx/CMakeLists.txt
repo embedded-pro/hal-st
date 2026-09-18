@@ -21,6 +21,10 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>>:SynchronousFlashInternalStm.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousHardwareSemaphoreStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousHardwareSemaphoreStm.hpp>
+    SynchronousPwmStm.cpp
+    SynchronousPwmStm.hpp
+    SynchronousQuadratureEncoderStm.cpp
+    SynchronousQuadratureEncoderStm.hpp
     SynchronousRandomDataGeneratorStm.cpp
     SynchronousRandomDataGeneratorStm.hpp
     SynchronousSpiMasterStm.cpp
