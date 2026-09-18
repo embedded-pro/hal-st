@@ -37,8 +37,7 @@ namespace
     constexpr uint16_t maxAttMtuSize = 251;
     constexpr uint32_t maxNumberOfBonds = 10;
 
-    // Index into the controller's transmit power table rather than a value in dBm; 0x18 is the
-    // 0 dBm entry on both the WB and the WBA tables.
+    // ST power table index, not dBm; 0x18 is the 0 dBm entry.
     constexpr uint8_t txPowerLevel = 0x18;
 
     const hal::MacAddress deviceAddress{ 0x0a, 0x00, 0x00, 0xe1, 0x80, 0x02 };
@@ -63,8 +62,6 @@ namespace
 
 namespace application
 {
-    // Bonds that only have to outlive the session: the example keeps the GAP terminal commands
-    // self-contained instead of standing a ConfigurationStore on flash up next to them.
     class VolatileBondStorage
         : public services::BondStorage
     {
@@ -122,9 +119,7 @@ namespace application
         infra::BoundedVector<hal::MacAddress>::WithMaxSize<maxNumberOfBonds> addresses;
     };
 
-    // GattServerSt reports writes to a characteristic value and nothing else, while the Nordic
-    // UART profile has to be told when a peer subscribes and what MTU the link settled on. Both
-    // arrive as events the port has to decode, which is what this server adds.
+    // GattServerSt reports characteristic writes only; the profile also needs the CCCD write and the MTU.
     class NordicUartGattServer
         : public hal::TracingGattServerSt
     {
@@ -207,8 +202,7 @@ namespace application
         }
 
     private:
-        // infra::Function's default storage is two pointers, so the completion may capture this
-        // and the request name and nothing more.
+        // infra::Function's default storage is two pointers, so capture this and a pointer only.
         auto Done(const char* request)
         {
             return [this, request](auto result)
@@ -356,9 +350,7 @@ namespace application
             Report("Advertise", gapPeripheral.Advertise(services::GapAdvertisementType::advInd, advertisementIntervalMultiplier, Done("Advertise")));
         }
 
-        // GapPeripheralSt keeps the advertisement data in a cache that only Advertise programs
-        // into the controller, so data set while advertising reaches the air on a restart and not
-        // before. Standby would drop a live link, so only advertising restarts.
+        // SetAdvertisementData only caches; Advertise programs the controller. Standby would drop a live link.
         void RestartAdvertisingIfActive()
         {
             if (state != services::GapPeripheralState::advertising)
@@ -474,8 +466,7 @@ namespace application
         bool sending = false;
     };
 
-    // Everything that can only be built once the controller is up, which on WB is after CPU2
-    // reports itself ready.
+    // Built once the controller is up, which on WB is after CPU2 reports ready.
     class BlePeripheral
     {
     public:

@@ -30,8 +30,7 @@ namespace hal
             uint8_t numberOfLinks;
         };
 
-        // The blob CPU2 mirrors its bond database into. Its size is fixed by the stack, and the
-        // ConfigurationStore entry handed to the constructor has to match it exactly.
+        // Fixed by the stack; the ConfigurationStore entry passed to the constructor must match.
         static constexpr std::size_t bondBlobSize = 507 * sizeof(uint32_t);
 
         struct Version

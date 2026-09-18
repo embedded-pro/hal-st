@@ -34,9 +34,7 @@ extern "C"
                 });
     }
 
-    // Override the weak aliases to Default_Handler in the startup file. These carry every BLE
-    // event and HCI packet, so they go straight to the mailbox rather than through the
-    // InterruptTable. HW_IPCC_Init enables both lines in the NVIC.
+    // Override the startup file's weak aliases to Default_Handler; HW_IPCC_Init enables both in the NVIC.
     void IPCC_C1_RX_IRQHandler()
     {
         HW_IPCC_Rx_Handler();
@@ -112,10 +110,8 @@ namespace
             return SHCI_C2_BLE_INIT_CFG_BLE_LS_CLK_LSE;
     }
 
-    // CPU1 is woken from low power by the IPCC and semaphore lines, which the reset state of
-    // EXTI leaves masked. Without them a transport layer that works while CPU1 is awake stalls
-    // as soon as it sleeps.
-    // RM0434: EXTI line 36 is IPCC, line 38 is HSEM, both CPU1 wakeup.
+    // RM0434: EXTI 36 is IPCC, 38 is HSEM, both CPU1 wakeup. Masked out of reset, so CPU1 would
+    // not wake once it sleeps.
     constexpr uint32_t ipccWakeupLine = LL_EXTI_LINE_36;
     constexpr uint32_t semaphoreWakeupLine = LL_EXTI_LINE_38;
 
@@ -198,10 +194,8 @@ namespace hal
         really_assert(configuration.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && configuration.maxAttMtuSize <= 251);
         // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
 
-        // The clocks the radio runs on are the application's to configure, and getting them wrong
-        // is not reported by anything downstream: CPU2 comes up and then keeps poor time. The
-        // radio is fed from HSE and has no alternative, and CPU2 is told below which clock its
-        // sleep timer runs on, so RCC has to be supplying that same one.
+        // The application owns the clock tree and a mismatch is silent: CPU2 comes up and then
+        // keeps poor time against a clock RCC is not supplying.
         really_assert(LL_RCC_HSE_IsReady());
         really_assert(LL_RCC_GetRFWKPClockSource() == RfWakeupClockSource(configuration.rfWakeupClock));
         really_assert(configuration.rfWakeupClock != RfWakeupClock::lowSpeedExternal || LL_RCC_LSE_IsReady());

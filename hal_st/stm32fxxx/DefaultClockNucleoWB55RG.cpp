@@ -59,9 +59,7 @@ void ConfigureDefaultClockNucleoWB55RG()
 
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3);
 
-    /** Select the RF wakeup clock, which RCC leaves unselected out of reset. The radio sleeps
-     * against it, and a BLE stack told to expect a source that RCC does not supply drifts off
-     * its connection events rather than failing outright.
+    /** Select the RF wakeup clock, which RCC leaves unselected out of reset; the radio sleeps against it.
      */
     RCC_PeriphCLKInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RFWAKEUP;
     RCC_PeriphCLKInitStruct.RFWakeUpClockSelection = RCC_RFWKPCLKSOURCE_LSE;
