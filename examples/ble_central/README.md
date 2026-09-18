@@ -9,9 +9,9 @@ gives a link that can be driven from both ends.
 
 ## Targets
 
-| Board | Preset | Status |
-|---|---|---|
-| NUCLEO-WB55RG | `stm32wb55` | Built by default |
+| Board          | Preset       | Status                                                              |
+|----------------|--------------|---------------------------------------------------------------------|
+| NUCLEO-WB55RG  | `stm32wb55`  | Built by default                                                    |
 | NUCLEO-WBA55CG | `stm32wba55` | Needs `HALST_BUILD_EXAMPLES_BLE_WBA=On` — see [STM32WBA](#stm32wba) |
 
 ```bash
@@ -30,37 +30,37 @@ alias.
 
 ### Discovery and the link
 
-| Command | Alias | Description |
-|---|---|---|
-| `scan` | `sc` | Start active device discovery; each report is traced with address, type, event type, RSSI and name |
-| `stopscan` | `ss` | Stop device discovery |
-| `connect <aa:bb:cc:dd:ee:ff> <type>` | `c` | Connect to a peer; type 0 public, 1 random |
-| `cancel` | `ca` | Cancel an outstanding connection attempt |
-| `disconnect` | `dc` | Disconnect the current link |
-| `connectionparameters <min> <max> <latency> <timeout>` | `cp` | Update the connection parameters; intervals in units of 1.25 ms, timeout in units of 10 ms |
-| `phy <tx> <rx>` | `ph` | Request a PHY; 0 for 1M, 1 for 2M, 2 for coded |
-| `datalength` | `dl` | Request the maximum data length for LE 2M |
-| `mtu` | `m` | Exchange the ATT MTU |
-| `state` | `st` | Show the link state, the pipe state and the bond count |
+| Command                                                | Alias | Description                                                                                        |
+|--------------------------------------------------------|-------|----------------------------------------------------------------------------------------------------|
+| `scan`                                                 | `sc`  | Start active device discovery; each report is traced with address, type, event type, RSSI and name |
+| `stopscan`                                             | `ss`  | Stop device discovery                                                                              |
+| `connect <aa:bb:cc:dd:ee:ff> <type>`                   | `c`   | Connect to a peer; type 0 public, 1 random                                                         |
+| `cancel`                                               | `ca`  | Cancel an outstanding connection attempt                                                           |
+| `disconnect`                                           | `dc`  | Disconnect the current link                                                                        |
+| `connectionparameters <min> <max> <latency> <timeout>` | `cp`  | Update the connection parameters; intervals in units of 1.25 ms, timeout in units of 10 ms         |
+| `phy <tx> <rx>`                                        | `ph`  | Request a PHY; 0 for 1M, 1 for 2M, 2 for coded                                                     |
+| `datalength`                                           | `dl`  | Request the maximum data length for LE 2M                                                          |
+| `mtu`                                                  | `m`   | Exchange the ATT MTU                                                                               |
+| `state`                                                | `st`  | Show the link state, the pipe state and the bond count                                             |
 
 ### Security
 
-| Command | Alias | Description |
-|---|---|---|
-| `security <level>` | `sec` | Security mode 1, level 1 to 4 |
-| `iocapabilities <caps>` | `io` | 0 display, 1 displayYesNo, 2 keyboard, 3 none, 4 keyboardDisplay |
-| `secureconnectionsonly <0\|1>` | `sco` | Require LE Secure Connections for every service |
-| `pair` | `p` | Pair and bond with the connected peer |
-| `passkey <000000-999999>` | `pk` | Answer a passkey request |
-| `numericcomparison <0\|1>` | `nc` | Answer a numeric comparison request |
-| `removebonds` | `rb` | Remove every stored bond |
+| Command                        | Alias | Description                                                      |
+|--------------------------------|-------|------------------------------------------------------------------|
+| `security <level>`             | `sec` | Security mode 1, level 1 to 4                                    |
+| `iocapabilities <caps>`        | `io`  | 0 display, 1 displayYesNo, 2 keyboard, 3 none, 4 keyboardDisplay |
+| `secureconnectionsonly <0\|1>` | `sco` | Require LE Secure Connections for every service                  |
+| `pair`                         | `p`   | Pair and bond with the connected peer                            |
+| `passkey <000000-999999>`      | `pk`  | Answer a passkey request                                         |
+| `numericcomparison <0\|1>`     | `nc`  | Answer a numeric comparison request                              |
+| `removebonds`                  | `rb`  | Remove every stored bond                                         |
 
 ### GATT
 
-| Command | Alias | Description |
-|---|---|---|
-| `discover` | `d` | Discover the Nordic UART service on the connected peer |
-| `send <text>` | `s` | Send text over the Nordic UART service |
+| Command       | Alias | Description                                            |
+|---------------|-------|--------------------------------------------------------|
+| `discover`    | `d`   | Discover the Nordic UART service on the connected peer |
+| `send <text>` | `s`   | Send text over the Nordic UART service                 |
 
 ## Two boards, one link
 

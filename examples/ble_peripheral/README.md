@@ -9,9 +9,9 @@ a link that can be driven from both ends.
 
 ## Targets
 
-| Board | Preset | Status |
-|---|---|---|
-| NUCLEO-WB55RG | `stm32wb55` | Built by default |
+| Board          | Preset       | Status                                                              |
+|----------------|--------------|---------------------------------------------------------------------|
+| NUCLEO-WB55RG  | `stm32wb55`  | Built by default                                                    |
 | NUCLEO-WBA55CG | `stm32wba55` | Needs `HALST_BUILD_EXAMPLES_BLE_WBA=On` — see [STM32WBA](#stm32wba) |
 
 ```bash
@@ -30,35 +30,35 @@ alias.
 
 ### GAP
 
-| Command | Alias | Description |
-|---|---|---|
-| `advertise` | `adv` | Start connectable undirected advertising |
-| `standby` | `sb` | Stop advertising |
-| `name <name>` | `n` | Set the advertised device name and re-publish the advertisement data |
-| `address` | `addr` | Show the public and identity address |
-| `state` | `st` | Show the link state, the pipe state and the bond count |
+| Command       | Alias  | Description                                                          |
+|---------------|--------|----------------------------------------------------------------------|
+| `advertise`   | `adv`  | Start connectable undirected advertising                             |
+| `standby`     | `sb`   | Stop advertising                                                     |
+| `name <name>` | `n`    | Set the advertised device name and re-publish the advertisement data |
+| `address`     | `addr` | Show the public and identity address                                 |
+| `state`       | `st`   | Show the link state, the pipe state and the bond count               |
 
 ### Security
 
-| Command | Alias | Description |
-|---|---|---|
-| `security <level>` | `sec` | Security mode 1, level 1 to 4 |
-| `iocapabilities <caps>` | `io` | 0 display, 1 displayYesNo, 2 keyboard, 3 none, 4 keyboardDisplay |
-| `secureconnectionsonly <0\|1>` | `sco` | Require LE Secure Connections for every service |
-| `allowpairing <0\|1>` | `ap` | Accept or refuse incoming pairing requests |
-| `pair` | `p` | Pair and bond with the connected peer |
-| `passkey <000000-999999>` | `pk` | Answer a passkey request |
-| `numericcomparison <0\|1>` | `nc` | Answer a numeric comparison request |
-| `removebonds` | `rb` | Remove every stored bond |
+| Command                        | Alias | Description                                                      |
+|--------------------------------|-------|------------------------------------------------------------------|
+| `security <level>`             | `sec` | Security mode 1, level 1 to 4                                    |
+| `iocapabilities <caps>`        | `io`  | 0 display, 1 displayYesNo, 2 keyboard, 3 none, 4 keyboardDisplay |
+| `secureconnectionsonly <0\|1>` | `sco` | Require LE Secure Connections for every service                  |
+| `allowpairing <0\|1>`          | `ap`  | Accept or refuse incoming pairing requests                       |
+| `pair`                         | `p`   | Pair and bond with the connected peer                            |
+| `passkey <000000-999999>`      | `pk`  | Answer a passkey request                                         |
+| `numericcomparison <0\|1>`     | `nc`  | Answer a numeric comparison request                              |
+| `removebonds`                  | `rb`  | Remove every stored bond                                         |
 
 Passkey and numeric comparison requests are printed as they arrive, so the sequence is: set the
 level and the IO capabilities, connect, `pair`, then answer whatever the peer asks for.
 
 ### GATT
 
-| Command | Alias | Description |
-|---|---|---|
-| `send <text>` | `s` | Send text over the Nordic UART service |
+| Command           | Alias | Description                                  |
+|-------------------|-------|----------------------------------------------|
+| `send <text>`     | `s`   | Send text over the Nordic UART service       |
 | `battery <0-100>` | `bat` | Set the battery level, notifying subscribers |
 
 ## GATT database
