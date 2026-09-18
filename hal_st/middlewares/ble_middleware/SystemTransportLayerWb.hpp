@@ -26,6 +26,7 @@ namespace hal
         {
             uint16_t maxAttMtuSize;
             RfWakeupClock rfWakeupClock;
+            uint8_t numberOfLinks;
         };
 
         struct Version
