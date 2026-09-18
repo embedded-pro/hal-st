@@ -142,7 +142,6 @@ namespace hal
 
         const uint16_t invalidConnection = 0xffff;
 
-        // Set PHY
         const uint8_t allPhys = 0;
         const uint8_t speed1Mbps = 0x1;
         const uint8_t speed2Mbps = 0x2;

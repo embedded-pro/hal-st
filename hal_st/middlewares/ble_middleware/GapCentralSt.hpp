@@ -58,20 +58,16 @@ namespace hal
         void Initialize(const Configuration& configuration);
 
     private:
-        // Create connection parameters
         const uint16_t leScanInterval = 0x320;
         const uint16_t leScanWindow = 0x320;
 
-        // Terminate connection
         const uint8_t remoteUserTerminatedConnection = 0x13;
 
-        // HCI status
         const uint8_t commandDisallowed = 0x0c;
 
         bool discovering = false;
         services::GapConnectionParameters connectionParameters;
 
-        // Why an initiating procedure that ends without a connection ended.
         Result connectFailureResult = Result::connectionFailed;
 
         infra::TimerSingleShot initiatingStateTimer;

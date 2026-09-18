@@ -20,11 +20,9 @@ namespace hal
         50, // 500 ms
     };
 
-    // Connection Interval parameters
     const uint16_t minConnectionEventLength = 0;
     const uint16_t maxConnectionEventLength = 0x280; // 400 ms
 
-    // Discovery parameters
     const uint8_t filterDuplicatesEnabled = 1;
     const uint8_t acceptParameters = 1;
     const uint8_t rejectParameters = 0;
@@ -252,7 +250,6 @@ namespace hal
         if (ret != BLE_STATUS_SUCCESS)
             return RequestStatusOf(ret);
 
-        // Discovery has stopped once the procedure reports complete.
         onStopDeviceDiscoveryDone = onDone;
 
         return services::GapRequestStatus::accepted;
