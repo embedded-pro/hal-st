@@ -6,6 +6,7 @@
 #include "shci.h"
 #include "shci_tl.h"
 #include "stm32wbxx_ll_exti.h"
+#include "stm32wbxx_ll_rcc.h"
 #include "stm32wbxx_ll_system.h"
 #include <atomic>
 
@@ -118,6 +119,14 @@ namespace
     constexpr uint32_t ipccWakeupLine = LL_EXTI_LINE_36;
     constexpr uint32_t semaphoreWakeupLine = LL_EXTI_LINE_38;
 
+    uint32_t RfWakeupClockSource(hal::SystemTransportLayerWb::RfWakeupClock rfWakeupClock)
+    {
+        if (rfWakeupClock == hal::SystemTransportLayerWb::RfWakeupClock::highSpeedExternal)
+            return LL_RCC_RFWKP_CLKSOURCE_HSE_DIV1024;
+        else
+            return LL_RCC_RFWKP_CLKSOURCE_LSE;
+    }
+
     void ShciCore2Init(const hal::SystemTransportLayerWb::Configuration& configuration)
     {
         really_assert(configuration.numberOfLinks != 0);
@@ -188,6 +197,14 @@ namespace hal
     {
         really_assert(configuration.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && configuration.maxAttMtuSize <= 251);
         // BLE middleware supported maxAttMtuSize = 512. Current usage of library limits maxAttMtuSize to 251 (max HCI buffer size)
+
+        // The clocks the radio runs on are the application's to configure, and getting them wrong
+        // is not reported by anything downstream: CPU2 comes up and then keeps poor time. The
+        // radio is fed from HSE and has no alternative, and CPU2 is told below which clock its
+        // sleep timer runs on, so RCC has to be supplying that same one.
+        really_assert(LL_RCC_HSE_IsReady());
+        really_assert(LL_RCC_GetRFWKPClockSource() == RfWakeupClockSource(configuration.rfWakeupClock));
+        really_assert(configuration.rfWakeupClock != RfWakeupClock::lowSpeedExternal || LL_RCC_LSE_IsReady());
 
         LL_EXTI_EnableIT_32_63(ipccWakeupLine | semaphoreWakeupLine);
 

@@ -564,7 +564,7 @@ int main()
     static hal::TracingSystemTransportLayerWb systemTransportLayer{
         services::ConfigurationStoreAccess<infra::ByteRange>{ configurationStore, bondBlobRange },
         bondStorageSynchronizerCreator,
-        { maxAttMtuSize, hal::SystemTransportLayerWb::RfWakeupClock::highSpeedExternal, numberOfLinks },
+        { maxAttMtuSize, hal::SystemTransportLayerWb::RfWakeupClock::lowSpeedExternal, numberOfLinks },
         [](services::BondStorageSynchronizer& bondStorageSynchronizer)
         {
             blePeripheral.emplace(systemTransportLayer, bondStorageSynchronizer, terminal, tracer);
