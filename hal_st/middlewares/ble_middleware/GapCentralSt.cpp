@@ -60,16 +60,16 @@ namespace hal
             }
         }
 
-        uint8_t ToPhyValue(services::GapPhy phy)
+        services::GapPhy FromPhyValue(uint8_t phy)
         {
             switch (phy)
             {
-                case services::GapPhy::le2M:
-                    return 0x2;
-                case services::GapPhy::leCoded:
-                    return 0x3;
+                case 0x2:
+                    return services::GapPhy::le2M;
+                case 0x3:
+                    return services::GapPhy::leCoded;
                 default:
-                    return 0x1;
+                    return services::GapPhy::le1M;
             }
         }
 
@@ -235,43 +235,24 @@ namespace hal
         return services::GapRequestStatus::accepted;
     }
 
-    services::GapRequestStatus GapCentralSt::SetDataLength(const services::GapDataLength& dataLength, const infra::Function<void(Result)>& onDone)
+    services::GapRequestStatus GapCentralSt::SetDataLength(const services::GapDataLength& dataLength)
     {
         if (connectionContext.connectionHandle == GapSt::invalidConnection)
             return services::GapRequestStatus::invalidState;
-
-        if (onSetDataLengthDone)
-            return services::GapRequestStatus::busy;
 
         auto ret = hci_le_set_data_length(connectionContext.connectionHandle, dataLength.maxTxOctets, dataLength.maxTxTime);
 
-        if (ret != BLE_STATUS_SUCCESS)
-            return RequestStatusOf(ret);
-
-        requestedDataLength = dataLength;
-        onSetDataLengthDone = onDone;
-
-        return services::GapRequestStatus::accepted;
+        return ret == BLE_STATUS_SUCCESS ? services::GapRequestStatus::accepted : RequestStatusOf(ret);
     }
 
-    services::GapRequestStatus GapCentralSt::SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy, const infra::Function<void(Result)>& onDone)
+    services::GapRequestStatus GapCentralSt::SetPhy(services::GapPhy txPhy, services::GapPhy rxPhy)
     {
         if (connectionContext.connectionHandle == GapSt::invalidConnection)
             return services::GapRequestStatus::invalidState;
 
-        if (onSetPhyDone)
-            return services::GapRequestStatus::busy;
-
         auto ret = hci_le_set_phy(connectionContext.connectionHandle, preferBothDirections, ToPhyBit(txPhy), ToPhyBit(rxPhy), noPhyOptions);
 
-        if (ret != BLE_STATUS_SUCCESS)
-            return RequestStatusOf(ret);
-
-        requestedTxPhy = txPhy;
-        requestedRxPhy = rxPhy;
-        onSetPhyDone = onDone;
-
-        return services::GapRequestStatus::accepted;
+        return ret == BLE_STATUS_SUCCESS ? services::GapRequestStatus::accepted : RequestStatusOf(ret);
     }
 
     services::GapRequestStatus GapCentralSt::StartDeviceDiscovery(const services::GapScanParameters& parameters, const infra::Function<void(Result)>& onDone)
@@ -333,14 +314,6 @@ namespace hal
     void GapCentralSt::HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event)
     {
         GapSt::HandleHciDisconnectEvent(event);
-
-        // The link is gone, so its procedures will never report; the next connection would find
-        // them busy.
-        if (onSetDataLengthDone)
-            onSetDataLengthDone(Result::controllerError);
-
-        if (onSetPhyDone)
-            onSetPhyDone(Result::controllerError);
 
         infra::Subject<services::GapCentralObserver>::NotifyObservers([](auto& observer)
             {
@@ -434,8 +407,12 @@ namespace hal
 
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
 
-        if (onSetDataLengthDone)
-            onSetDataLengthDone(services::GapDataLength{ event.MaxTxOctets, event.MaxTxTime } == requestedDataLength ? Result::success : Result::controllerError);
+        services::GapDataLength dataLength{ event.MaxTxOctets, event.MaxTxTime };
+
+        infra::Subject<services::GapCentralObserver>::NotifyObservers([&dataLength](auto& observer)
+            {
+                observer.DataLengthChanged(dataLength);
+            });
     }
 
     void GapCentralSt::HandleHciLePhyUpdateCompleteEvent(const hci_le_phy_update_complete_event_rp0& event)
@@ -444,8 +421,17 @@ namespace hal
 
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
 
-        if (onSetPhyDone)
-            onSetPhyDone(event.Status == BLE_STATUS_SUCCESS && event.TX_PHY == ToPhyValue(requestedTxPhy) && event.RX_PHY == ToPhyValue(requestedRxPhy) ? Result::success : Result::controllerError);
+        // A failed update leaves the link on the PHY it already had, which is no change to report.
+        if (event.Status != BLE_STATUS_SUCCESS)
+            return;
+
+        auto txPhy = FromPhyValue(event.TX_PHY);
+        auto rxPhy = FromPhyValue(event.RX_PHY);
+
+        infra::Subject<services::GapCentralObserver>::NotifyObservers([txPhy, rxPhy](auto& observer)
+            {
+                observer.PhyUpdated(txPhy, rxPhy);
+            });
     }
 
     void GapCentralSt::HandleGapDiscoveryProcedureEvent(uint8_t status)
