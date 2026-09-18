@@ -53,9 +53,6 @@ namespace hal
             bool privacy;
         };
 
-        uint16_t EffectiveMaxAttMtuSize() const;
-        void MtuExchange();
-
         // Implementation of GapBonding
         std::size_t GetMaxNumberOfBonds() const override;
         std::size_t GetNumberOfBonds() const override;
@@ -102,7 +99,6 @@ namespace hal
         virtual void HandleGattCompleteEvent(const aci_gatt_proc_complete_event_rp0& event) {};
         virtual void HandleL2capConnectionUpdateRequestEvent(const aci_l2cap_connection_update_req_event_rp0& event) {};
         virtual void HandleL2capConnectionUpdateResponseEvent(const aci_l2cap_connection_update_resp_event_rp0& event) {};
-        virtual void HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event);
 
         [[nodiscard]] virtual SecureConnection SecurityModeAndLevelToSecureConnection(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
         [[nodiscard]] virtual uint8_t SecurityModeAndLevelToMitm(services::GapPairing::SecurityModeAndLevel modeAndLevel) const;
@@ -161,7 +157,6 @@ namespace hal
 
     private:
         services::BondStorageSynchronizer& bondStorageSynchronizer;
-        uint16_t maxAttMtu = services::attDefaultMaxMtuSize;
         bool secureConnectionsOnly = false;
 
         PairingCompletion onPairAndBondDone;

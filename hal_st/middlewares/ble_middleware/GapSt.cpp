@@ -110,17 +110,6 @@ namespace hal
         SVCCTL_Init();
     }
 
-    uint16_t GapSt::EffectiveMaxAttMtuSize() const
-    {
-        return maxAttMtu;
-    }
-
-    void GapSt::MtuExchange()
-    {
-        auto status = aci_gatt_exchange_config(this->connectionContext.connectionHandle);
-        assert(status == BLE_STATUS_SUCCESS);
-    }
-
     std::size_t GapSt::GetMaxNumberOfBonds() const
     {
         return bondStorageSynchronizer.GetMaxNumberOfBonds();
@@ -342,12 +331,6 @@ namespace hal
         aci_gap_allow_rebond(connectionContext.connectionHandle);
     }
 
-    void GapSt::HandleMtuExchangeResponseEvent(const aci_att_exchange_mtu_resp_event_rp0& event)
-    {
-        really_assert(event.Connection_Handle == connectionContext.connectionHandle);
-        maxAttMtu = event.Server_RX_MTU;
-    }
-
     void GapSt::HandlePairingCompleteEvent(const aci_gap_pairing_complete_event_rp0& event)
     {
         really_assert(event.Connection_Handle == connectionContext.connectionHandle);
@@ -507,9 +490,6 @@ namespace hal
             case ACI_L2CAP_CONNECTION_UPDATE_RESP_VSEVT_CODE:
                 HandleL2capConnectionUpdateResponseEvent(*reinterpret_cast<const aci_l2cap_connection_update_resp_event_rp0*>(event.data));
                 break;
-            case ACI_ATT_EXCHANGE_MTU_RESP_VSEVT_CODE:
-                HandleMtuExchangeResponseEvent(*reinterpret_cast<const aci_att_exchange_mtu_resp_event_rp0*>(event.data));
-                break;
             default:
                 break;
         }
@@ -517,7 +497,6 @@ namespace hal
 
     void GapSt::SetConnectionContext(uint16_t connectionHandle, services::GapDeviceAddressType peerAddressType, const uint8_t* peerAddress)
     {
-        maxAttMtu = services::attDefaultMaxMtuSize;
         connectionContext.connectionHandle = connectionHandle;
         connectionContext.peerAddressType = peerAddressType;
         std::copy_n(peerAddress, connectionContext.peerAddress.size(), std::begin(connectionContext.peerAddress));
