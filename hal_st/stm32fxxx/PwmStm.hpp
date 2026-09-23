@@ -108,7 +108,7 @@ namespace hal
         ~PwmStmBase();
 
         void SetBaseFrequencyImpl(Hertz baseFrequency);
-        void StartImpl(infra::MemoryRange<const FractionalPercent> dutyCycles);
+        void StartImpl(infra::MemoryRange<const DutyCycle> dutyCycles);
         void StopImpl();
 
     private:
@@ -121,7 +121,7 @@ namespace hal
             PeripheralPinStm pin;
             std::optional<PeripheralPinStm> complementaryPin;
 
-            FractionalPercent dutyCycle{ 0.0f };
+            DutyCycle dutyCycle{};
         };
 
         void ConfigureTimeBase();
@@ -129,7 +129,7 @@ namespace hal
         void ConfigureChannel(const Channel& channel, const ChannelConfig& config);
         void ConfigureBreakAndDeadTime();
         void ConfigureBreakInputSource();
-        void SetDutyCycle(Channel& channel, FractionalPercent dutyCycle);
+        void SetDutyCycle(Channel& channel, DutyCycle dutyCycle);
         uint32_t TimerClockFrequency() const;
         uint32_t MaximumCompare() const;
 
@@ -155,10 +155,10 @@ namespace hal
         PwmStm(uint8_t timerOneBasedIndex, infra::MemoryRange<const ChannelConfig> channels, GpioPinStm& breakPin, const Config& config = Config());
 
         void SetBaseFrequency(Hertz baseFrequency) override;
-        void Start(FractionalPercent globalDutyCycle) override;
-        void Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2) override;
-        void Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2, FractionalPercent dutyCycle3) override;
-        void Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2, FractionalPercent dutyCycle3, FractionalPercent dutyCycle4) override;
+        void Start(DutyCycle globalDutyCycle) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3, DutyCycle dutyCycle4) override;
         void Stop() override;
     };
 }
