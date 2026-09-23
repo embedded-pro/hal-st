@@ -18,25 +18,25 @@ namespace hal
         SetBaseFrequencyImpl(baseFrequency);
     }
 
-    void SynchronousPwmStm::Start(Percent globalDutyCycle)
+    void SynchronousPwmStm::Start(FractionalPercent globalDutyCycle)
     {
         const std::array dutyCycles{ globalDutyCycle };
         StartImpl(dutyCycles);
     }
 
-    void SynchronousPwmStm::Start(Percent dutyCycle1, Percent dutyCycle2)
+    void SynchronousPwmStm::Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2 };
         StartImpl(dutyCycles);
     }
 
-    void SynchronousPwmStm::Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3)
+    void SynchronousPwmStm::Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2, FractionalPercent dutyCycle3)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2, dutyCycle3 };
         StartImpl(dutyCycles);
     }
 
-    void SynchronousPwmStm::Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3, Percent dutyCycle4)
+    void SynchronousPwmStm::Start(FractionalPercent dutyCycle1, FractionalPercent dutyCycle2, FractionalPercent dutyCycle3, FractionalPercent dutyCycle4)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2, dutyCycle3, dutyCycle4 };
         StartImpl(dutyCycles);
