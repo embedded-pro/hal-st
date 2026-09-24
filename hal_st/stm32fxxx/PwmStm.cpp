@@ -394,9 +394,9 @@ namespace hal
             SetDutyCycle(channel, channel.dutyCycle);
     }
 
-    void PwmStmBase::SetDutyCycle(Channel& channel, Percent dutyCycle)
+    void PwmStmBase::SetDutyCycle(Channel& channel, DutyCycle dutyCycle)
     {
-        really_assert(dutyCycle.Value() <= 100);
+        really_assert(dutyCycle.IsValid());
         really_assert(handle.Init.Period != 0);
 
         channel.dutyCycle = dutyCycle;
@@ -404,12 +404,12 @@ namespace hal
         // Clamped rather than taken modulo: at the widest period the full-duty value is one
         // past what the compare register holds, and would otherwise wrap to no output at all.
         const auto period = static_cast<uint64_t>(handle.Init.Period) + 1;
-        const auto compare = std::min<uint64_t>(period * dutyCycle.Value() / 100, MaximumCompare());
+        const auto compare = std::min<uint64_t>(dutyCycle.ToCounts(period), MaximumCompare());
 
         __HAL_TIM_SET_COMPARE(&handle, TimerChannel(channel.index), static_cast<uint32_t>(compare));
     }
 
-    void PwmStmBase::StartImpl(infra::MemoryRange<const Percent> dutyCycles)
+    void PwmStmBase::StartImpl(infra::MemoryRange<const DutyCycle> dutyCycles)
     {
         really_assert(dutyCycles.size() == channels.size());
         really_assert(handle.Init.Period != 0);
@@ -475,25 +475,25 @@ namespace hal
         SetBaseFrequencyImpl(baseFrequency);
     }
 
-    void PwmStm::Start(Percent globalDutyCycle)
+    void PwmStm::Start(DutyCycle globalDutyCycle)
     {
         const std::array dutyCycles{ globalDutyCycle };
         StartImpl(dutyCycles);
     }
 
-    void PwmStm::Start(Percent dutyCycle1, Percent dutyCycle2)
+    void PwmStm::Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2 };
         StartImpl(dutyCycles);
     }
 
-    void PwmStm::Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3)
+    void PwmStm::Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2, dutyCycle3 };
         StartImpl(dutyCycles);
     }
 
-    void PwmStm::Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3, Percent dutyCycle4)
+    void PwmStm::Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3, DutyCycle dutyCycle4)
     {
         const std::array dutyCycles{ dutyCycle1, dutyCycle2, dutyCycle3, dutyCycle4 };
         StartImpl(dutyCycles);

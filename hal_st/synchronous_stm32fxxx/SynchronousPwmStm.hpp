@@ -20,10 +20,10 @@ namespace hal
         SynchronousPwmStm(uint8_t timerOneBasedIndex, infra::MemoryRange<const ChannelConfig> channels, GpioPinStm& breakPin, const Config& config = Config());
 
         void SetBaseFrequency(Hertz baseFrequency) override;
-        void Start(Percent globalDutyCycle) override;
-        void Start(Percent dutyCycle1, Percent dutyCycle2) override;
-        void Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3) override;
-        void Start(Percent dutyCycle1, Percent dutyCycle2, Percent dutyCycle3, Percent dutyCycle4) override;
+        void Start(DutyCycle globalDutyCycle) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3) override;
+        void Start(DutyCycle dutyCycle1, DutyCycle dutyCycle2, DutyCycle dutyCycle3, DutyCycle dutyCycle4) override;
         void Stop() override;
     };
 }
