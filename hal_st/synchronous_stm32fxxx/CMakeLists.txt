@@ -23,6 +23,8 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousHardwareSemaphoreStm.hpp>
     SynchronousPwmStm.cpp
     SynchronousPwmStm.hpp
+    SynchronousQuadratureEncoderLpTimStm.cpp
+    SynchronousQuadratureEncoderLpTimStm.hpp
     SynchronousQuadratureEncoderStm.cpp
     SynchronousQuadratureEncoderStm.hpp
     SynchronousRandomDataGeneratorStm.cpp

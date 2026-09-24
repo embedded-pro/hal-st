@@ -130,6 +130,8 @@
   <peripheral name="LpTimer">
     <pin name="Channel1"><input name="LPTIM:_CH1"/></pin>
     <pin name="Channel2"><input name="LPTIM:_CH2"/></pin>
+    <pin name="Input1"><input name="LPTIM:_IN1"/></pin>
+    <pin name="Input2"><input name="LPTIM:_IN2"/></pin>
   </peripheral>
   <peripheral name="Fmc">
     <pin name="" speed="High">
