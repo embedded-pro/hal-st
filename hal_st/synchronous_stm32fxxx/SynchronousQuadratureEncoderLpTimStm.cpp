@@ -69,9 +69,9 @@ namespace hal
 
     uint32_t SynchronousQuadratureEncoderLpTimStm::Position()
     {
-        const auto counter = Counter();
+        const auto counter = StableCounter();
 
-        if (config.reverse)
+        if (config.reverseForMirroredMounting)
             return counter == 0 ? 0 : config.resolution - counter;
 
         return counter;
@@ -84,7 +84,7 @@ namespace hal
 
     SynchronousQuadratureEncoderLpTimStm::MotionDirection SynchronousQuadratureEncoderLpTimStm::Direction()
     {
-        return CountingDown() != config.reverse ? MotionDirection::reverse : MotionDirection::forward;
+        return CountingDown() != config.reverseForMirroredMounting ? MotionDirection::reverse : MotionDirection::forward;
     }
 
     uint32_t SynchronousQuadratureEncoderLpTimStm::Speed()
@@ -92,9 +92,7 @@ namespace hal
         return speed;
     }
 
-    // The counter may be read while it is being updated; the reference manual prescribes
-    // reading until two consecutive values agree.
-    uint32_t SynchronousQuadratureEncoderLpTimStm::Counter() const
+    uint32_t SynchronousQuadratureEncoderLpTimStm::StableCounter() const
     {
         uint32_t previous = HAL_LPTIM_ReadCounter(&handle);
         uint32_t current = HAL_LPTIM_ReadCounter(&handle);
@@ -108,25 +106,20 @@ namespace hal
         return current;
     }
 
-    // The timer flags a change of direction rather than holding the direction itself. With
-    // both flags raised since the last look the direction changed back again, so the last
-    // known direction still holds.
     bool SynchronousQuadratureEncoderLpTimStm::CountingDown()
     {
         const bool turnedDown = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_DOWN);
         const bool turnedUp = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_UP);
 
         if (turnedDown != turnedUp)
-            counterCountingDown = turnedDown;
+            lastKnownCountingDown = turnedDown;
 
         if (turnedDown || turnedUp)
             __HAL_LPTIM_CLEAR_FLAG(&handle, LPTIM_FLAG_UP | LPTIM_FLAG_DOWN);
 
-        return counterCountingDown;
+        return lastKnownCountingDown;
     }
 
-    // Taken in the direction the counter is running, so a wrap at the resolution boundary
-    // reads as a small step rather than a revolution the other way.
     uint32_t SynchronousQuadratureEncoderLpTimStm::CountsSince(uint32_t previous, uint32_t current, bool countingDown) const
     {
         if (countingDown)

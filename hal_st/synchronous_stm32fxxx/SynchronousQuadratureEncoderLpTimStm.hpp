@@ -13,10 +13,6 @@
 
 namespace hal
 {
-    // Quadrature decoding in a low-power timer's encoder mode, for parts whose general-purpose
-    // timers are spent elsewhere. The counter is 16 bits, clocked from the timer's internal
-    // kernel clock, and wraps at the configured resolution. Unlike the timer encoder there is no
-    // per-phase polarity: a mirrored wheel is handled by reversing the count instead.
     class SynchronousQuadratureEncoderLpTimStm
         : public SynchronousQuadratureEncoder
     {
@@ -41,21 +37,15 @@ namespace hal
                 eightSamples = LPTIM_CLOCKSAMPLETIME_8TRANSITIONS,
             };
 
-            // Counts before the counter wraps; four times the encoder's line count when
-            // decoding x4. The counter runs 0..resolution-1 and resolution must fit 16 bits.
             uint32_t resolution{ 4096 };
             DecodeMode decodeMode{ DecodeMode::x4OnBothEdges };
             Filter filter{ Filter::none };
 
-            // Reports position and direction as if the phases were swapped, so that a
-            // mirrored wheel still counts up moving forward.
-            bool reverse{ false };
+            bool reverseForMirroredMounting{ false };
 
             std::optional<std::chrono::microseconds> speedSamplePeriod;
         };
 
-        // Input1 and input2 are the timer's IN1 and IN2 pins. Pass dummyPinStm as index when
-        // the encoder has no index channel.
         SynchronousQuadratureEncoderLpTimStm(uint8_t lpTimerOneBasedIndex, GpioPinStm& input1, GpioPinStm& input2, GpioPinStm& index, const Config& config = Config());
         SynchronousQuadratureEncoderLpTimStm(const SynchronousQuadratureEncoderLpTimStm& other) = delete;
         SynchronousQuadratureEncoderLpTimStm& operator=(const SynchronousQuadratureEncoderLpTimStm& other) = delete;
@@ -71,7 +61,7 @@ namespace hal
         bool IndexAsserted() const;
 
     private:
-        uint32_t Counter() const;
+        uint32_t StableCounter() const;
         bool CountingDown();
         void SampleSpeed();
         uint32_t CountsSince(uint32_t previous, uint32_t current, bool countingDown) const;
@@ -85,7 +75,7 @@ namespace hal
         GpioPinStm& index;
         bool indexEnabled{ false };
 
-        bool counterCountingDown{ false };
+        bool lastKnownCountingDown{ false };
 
         std::optional<infra::TimerRepeating> speedTimer;
         uint32_t previousPosition{ 0 };
