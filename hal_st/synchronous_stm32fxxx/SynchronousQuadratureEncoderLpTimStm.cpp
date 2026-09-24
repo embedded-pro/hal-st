@@ -35,7 +35,12 @@ namespace hal
         handle.Init.UltraLowPowerClock.Polarity = static_cast<uint32_t>(config.decodeMode);
         handle.Init.UltraLowPowerClock.SampleTime = static_cast<uint32_t>(config.filter);
         handle.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
+#if defined(STM32WB)
         handle.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
+#else
+        handle.Init.Period = config.resolution - 1;
+        handle.Init.RepetitionCounter = 0;
+#endif
         handle.Init.UpdateMode = LPTIM_UPDATE_IMMEDIATE;
         handle.Init.CounterSource = LPTIM_COUNTERSOURCE_INTERNAL;
         handle.Init.Input1Source = LPTIM_INPUT1SOURCE_GPIO;
@@ -44,7 +49,11 @@ namespace hal
         auto result = HAL_LPTIM_Init(&handle);
         really_assert(result == HAL_OK);
 
+#if defined(STM32WB)
         result = HAL_LPTIM_Encoder_Start(&handle, config.resolution - 1);
+#else
+        result = HAL_LPTIM_Encoder_Start(&handle);
+#endif
         really_assert(result == HAL_OK);
 
         __HAL_LPTIM_CLEAR_FLAG(&handle, LPTIM_FLAG_UP | LPTIM_FLAG_DOWN);
