@@ -80,7 +80,9 @@ namespace hal
         timerBreak,
         timerBreak2,
         lpTimerChannel1,
-        lpTimerChannel2
+        lpTimerChannel2,
+        lpTimerInput1,
+        lpTimerInput2
     };
 
     enum class Type : uint8_t
