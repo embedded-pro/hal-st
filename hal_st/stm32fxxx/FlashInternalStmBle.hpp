@@ -14,12 +14,31 @@ namespace hal
         : public FlashHomogeneousInternalStm
     {
     public:
-        FlashInternalStmBle(uint32_t numberOfSectors, uint32_t sizeOfEachSector, infra::ConstByteRange flashMemory, WatchDogStm& watchdog);
+        enum class WirelessStack : uint8_t
+        {
+            running,
+            starting
+        };
+
+        FlashInternalStmBle(uint32_t numberOfSectors, uint32_t sizeOfEachSector, infra::ConstByteRange flashMemory, WatchDogStm& watchdog, WirelessStack wirelessStack = WirelessStack::running);
 
         void WriteBuffer(infra::ConstByteRange buffer, uint32_t address, infra::Function<void()> onDone) override;
         void EraseSectors(uint32_t beginIndex, uint32_t endIndex, infra::Function<void()> onDone) override;
 
+        void WirelessStackReady();
+
     private:
+        enum class HeldOperation : uint8_t
+        {
+            none,
+            write,
+            erase
+        };
+
+        void StartWrite(infra::ConstByteRange buffer, uint32_t address);
+        void StartErase(uint32_t beginIndex, uint32_t endIndex);
+        void StartHeldOperation();
+
         enum class FlashOperation
         {
             write,
@@ -60,6 +79,11 @@ namespace hal
         uint32_t currentEraseIndex;
         uint32_t endEraseIndex;
         infra::Function<void()> onEraseDone;
+
+        bool wirelessStackReady = false;
+        HeldOperation heldOperation = HeldOperation::none;
+        infra::ConstByteRange heldBuffer;
+        uint32_t heldAddress = 0;
     };
 }
 

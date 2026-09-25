@@ -4,10 +4,11 @@
 #include "st/STM32WBxx_HAL_Driver/Inc/stm32wbxx_hal_def.h"
 #include "stm32wbxx_ll_hsem.h"
 #include <cstdint>
+#include <utility>
 
 namespace hal
 {
-    FlashInternalStmBle::FlashInternalStmBle(uint32_t numberOfSectors, uint32_t sizeOfEachSector, infra::ConstByteRange flashMemory, WatchDogStm& watchdog)
+    FlashInternalStmBle::FlashInternalStmBle(uint32_t numberOfSectors, uint32_t sizeOfEachSector, infra::ConstByteRange flashMemory, WatchDogStm& watchdog, WirelessStack wirelessStack)
         : FlashHomogeneousInternalStm(numberOfSectors, sizeOfEachSector, flashMemory)
         , flashMemory(flashMemory)
         , watchdog(watchdog)
@@ -20,23 +21,67 @@ namespace hal
                   EccErrorHandler();
               })
     {
+        if (wirelessStack == WirelessStack::running)
+            WirelessStackReady();
+    }
+
+    void FlashInternalStmBle::WirelessStackReady()
+    {
+        really_assert(!wirelessStackReady);
+
         SHCI_C2_SetFlashActivityControl(FLASH_ACTIVITY_CONTROL_SEM7);
+        wirelessStackReady = true;
+        StartHeldOperation();
     }
 
     void FlashInternalStmBle::WriteBuffer(infra::ConstByteRange buffer, uint32_t address, infra::Function<void()> onDone)
     {
         onWriteDone = onDone;
 
-        HAL_FLASH_Unlock();
-        flashAlign.Align(address, buffer);
-        chunkToWrite = flashAlign.First();
-        TryWrite();
+        if (wirelessStackReady)
+            StartWrite(buffer, address);
+        else
+        {
+            heldOperation = HeldOperation::write;
+            heldBuffer = buffer;
+            heldAddress = address;
+        }
     }
 
     void FlashInternalStmBle::EraseSectors(uint32_t beginIndex, uint32_t endIndex, infra::Function<void()> onDone)
     {
         onEraseDone = onDone;
 
+        if (wirelessStackReady)
+            StartErase(beginIndex, endIndex);
+        else
+        {
+            heldOperation = HeldOperation::erase;
+            currentEraseIndex = beginIndex;
+            endEraseIndex = endIndex;
+        }
+    }
+
+    void FlashInternalStmBle::StartHeldOperation()
+    {
+        const auto operation = std::exchange(heldOperation, HeldOperation::none);
+
+        if (operation == HeldOperation::write)
+            StartWrite(heldBuffer, heldAddress);
+        else if (operation == HeldOperation::erase)
+            StartErase(currentEraseIndex, endEraseIndex);
+    }
+
+    void FlashInternalStmBle::StartWrite(infra::ConstByteRange buffer, uint32_t address)
+    {
+        HAL_FLASH_Unlock();
+        flashAlign.Align(address, buffer);
+        chunkToWrite = flashAlign.First();
+        TryWrite();
+    }
+
+    void FlashInternalStmBle::StartErase(uint32_t beginIndex, uint32_t endIndex)
+    {
         HAL_FLASH_Unlock();
         SHCI_C2_FLASH_EraseActivity(ERASE_ACTIVITY_ON);
         currentEraseIndex = beginIndex;
