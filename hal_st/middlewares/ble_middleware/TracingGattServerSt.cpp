@@ -42,6 +42,13 @@ namespace hal
         GattServerSt::HandleGattAttributeModified(event);
     }
 
+    void TracingGattServerSt::HandleAttExchangeMtuResponse(const aci_att_exchange_mtu_resp_event_rp0& event)
+    {
+        tracer.Trace() << "GattServerSt::HandleAttExchangeMtuResponse [" << event.Connection_Handle << "] MTU " << event.Server_RX_MTU;
+
+        GattServerSt::HandleAttExchangeMtuResponse(event);
+    }
+
     void TracingGattServerSt::ReportError(tBleStatus status) const
     {
         tracer.Trace() << "GattServerSt::ReportError " << status;
