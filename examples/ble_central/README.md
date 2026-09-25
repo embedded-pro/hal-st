@@ -93,27 +93,28 @@ product would put in their place.
 
 ## STM32WBA
 
-The example builds and links for `stm32wba55`, but the BLE stack does not run on it yet. On WBA
-the host stack and link layer run on the application core as ST's prebuilt archives, and they
-call back into a platform port that the application provides. hal-st provides that port in
-`hal_st/middlewares/ble_middleware`:
+The example builds and links for `stm32wba55`. On WBA the host stack and link layer run on the
+application core as ST's prebuilt archives, and they call back into a platform port that the
+application provides. hal-st provides that port in `hal_st/middlewares/ble_middleware`:
 
 - **`BleStackProcessWba.cpp`** runs the link layer background process and the host stack from
   the event dispatcher, which takes the place of ST's sequencer.
 - **`BleWrapWba.c`** compiles ST's ACI/HCI wrappers so that each command schedules the host stack.
+- **`LinkLayerPlatformWba.cpp`** is the link layer's platform: radio clocks, the radio and
+  software low interrupts, interrupt masking, random numbers and the link layer configuration.
 - **`PowerTableWba.cpp`** holds ST's TX power tables.
-- **`LinkLayerPlatformWba.cpp`** is still stubs. It holds `LINKLAYER_PLAT_*`,
-  `LINKLAYER_DEBUG_SIGNAL_*`, `ll_sys_reset` and `ll_sys_config_params`, and none of them touches
-  the hardware yet.
 - **`BlePlatformWba.cpp`** is still stubs. It holds `BLEPLAT_*`: NVM stores nothing, RNG, AES and
   CMAC return zeros, and PKA and timers report an error.
 
-The stubs are replaced step by step, in this order:
+`SystemTransportLayerWba` takes a `LinkLayerPlatformWba::Config` with the radio sleep timer clock
+(LSE by default, which the NUCLEO-WBA55CG has), its accuracy and the TX power table. The link layer
+takes over the `RADIO` and `HASH` interrupt vectors.
 
-1. The link-layer platform (clocks and radio interrupts).
-2. RNG, AES and timers.
-3. PKA.
-4. NVM for bond persistence.
+The remaining stubs are replaced step by step, in this order:
+
+1. RNG, AES and timers.
+2. PKA.
+3. NVM for bond persistence.
 
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.

@@ -2,6 +2,7 @@
 #define HAL_ST_SYSTEM_TRANSPORT_LAYER_WBA_HPP
 
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
+#include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
 #include "infra/util/BoundedDeque.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/InterfaceConnector.hpp"
@@ -47,8 +48,8 @@ namespace hal
         using WithLinks = infra::WithStorage<SystemTransportLayerWba, Storage<NumberOfLinks>>;
 
         template<uint8_t NumberOfLinks>
-        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, uint16_t maxAttMtuSize)
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize)
+        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig = LinkLayerPlatformWba::Config())
+            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
         {}
 
         // Implementation of HciEventSource
@@ -59,11 +60,13 @@ namespace hal
         bool QueueEvent(infra::ConstByteRange packet);
 
     private:
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize);
+        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
 
         void ProcessQueuedEvent();
 
     private:
+        LinkLayerPlatformWba linkLayerPlatform;
+
         static constexpr std::size_t maxEventPacketSize = 3 + 255;
         static constexpr std::size_t maxQueuedEvents = 4;
 

@@ -61,6 +61,7 @@ target_include_directories(hal_st.ble_middleware_wba_platform PUBLIC
 
 target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
     hal_st.stm32_wpan_stm32wbaxx
+    hal_st.synchronous_stm32fxxx
     infra.event
     infra.util
 )
@@ -75,5 +76,6 @@ target_sources(hal_st.ble_middleware_wba_platform PRIVATE
     BleStackProcessWba.hpp
     BleWrapWba.c
     LinkLayerPlatformWba.cpp
+    LinkLayerPlatformWba.hpp
     PowerTableWba.cpp
 )
