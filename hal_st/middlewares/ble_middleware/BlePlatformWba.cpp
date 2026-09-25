@@ -65,6 +65,10 @@ namespace hal
             slot.timer.Cancel();
             slot.id = std::nullopt;
         }
+
+        diffieHellman = std::nullopt;
+        pka = std::nullopt;
+        ++pkaOperation;
     }
 
     // The stack passes key, input and output least significant byte first, the reverse of AES's byte order
@@ -259,8 +263,11 @@ namespace hal
     // The PKA reports from within its own callback, so it is released once that has returned
     void BlePlatformWba::CompletePkaOperation()
     {
-        infra::EventDispatcher::Instance().Schedule([this]()
+        infra::EventDispatcher::Instance().Schedule([this, operation = pkaOperation]()
             {
+                if (operation != pkaOperation)
+                    return;
+
                 diffieHellman = std::nullopt;
                 pka = std::nullopt;
 

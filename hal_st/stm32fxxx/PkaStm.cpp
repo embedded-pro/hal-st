@@ -194,6 +194,7 @@ namespace hal
         auto destination = infra::MemoryRange<volatile uint32_t>(&peripheralPka[pkaIndex]->RAM[index], &peripheralPka[pkaIndex]->RAM[index] + words);
         CopyToPkaRam(destination, source);
         peripheralPka[pkaIndex]->RAM[index + words] = 0;
+        peripheralPka[pkaIndex]->RAM[index + words + 1] = 0;
     }
 
     uint32_t PkaStm::ReadOutput(uint32_t index) const

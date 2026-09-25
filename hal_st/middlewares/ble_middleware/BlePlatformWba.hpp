@@ -73,6 +73,7 @@ namespace hal
 
         std::optional<infra::ProxyCreator<services::EllipticCurveOperations, void()>> pka;
         std::optional<services::EllipticCurveDiffieHellman> diffieHellman;
+        uint32_t pkaOperation = 0;
         bool diffieHellmanKeyValid = false;
         std::array<uint8_t, keySize> privateKey{};
         std::array<uint8_t, 2 * keySize> publicKey{};
