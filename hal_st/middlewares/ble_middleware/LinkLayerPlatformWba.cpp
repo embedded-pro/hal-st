@@ -117,9 +117,21 @@ namespace hal
             ll_sys_config_BLE_schldr_timings(driftTime, executionTime);
     }
 
+    // Both the link layer, from its interrupts, and the host stack draw from the one generator; taking a word at a
+    // time keeps the radio interrupt's latency to that of a single draw.
     void LinkLayerPlatformWba::GenerateRandomData(infra::ByteRange result)
     {
-        randomDataGenerator->GenerateRandomData(result);
+        while (!result.empty())
+        {
+            auto word = infra::Head(result, sizeof(uint32_t));
+
+            auto primask = __get_PRIMASK();
+            __disable_irq();
+            randomDataGenerator->GenerateRandomData(word);
+            __set_PRIMASK(primask);
+
+            result = infra::DiscardHead(result, word.size());
+        }
     }
 
     void LinkLayerPlatformWba::SetupRadioInterrupt(void (*callback)())

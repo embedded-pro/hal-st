@@ -47,8 +47,9 @@ namespace
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig)
+    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig)
         : linkLayerPlatform(linkLayerConfig)
+        , blePlatform(timers)
     {
         really_assert(maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && maxAttMtuSize <= maxAttMtuSizeLimit);
         really_assert(numberOfLinks != 0);

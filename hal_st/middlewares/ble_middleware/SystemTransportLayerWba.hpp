@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hal_st/middlewares/ble_middleware/BlePlatformWba.hpp"
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
 #include "infra/util/BoundedDeque.hpp"
@@ -41,6 +42,7 @@ namespace hal
 
             std::array<uint32_t, DIVC(stackBufferSize, 4)> stack{};
             std::array<uint32_t, DIVC(gattBufferSize, 4)> gatt{};
+            std::array<BlePlatformWba::TimerSlot, BlePlatformWba::TimersForLinks(NumberOfLinks)> timers;
         };
 
         template<uint8_t NumberOfLinks>
@@ -48,7 +50,7 @@ namespace hal
 
         template<uint8_t NumberOfLinks>
         SystemTransportLayerWba(Storage<NumberOfLinks>& storage, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig = LinkLayerPlatformWba::Config())
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
+            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
         {}
 
         // Implementation of HciEventSource
@@ -59,12 +61,13 @@ namespace hal
         bool QueueEvent(infra::ConstByteRange packet);
 
     private:
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
+        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
 
         void ProcessQueuedEvent();
 
     private:
         LinkLayerPlatformWba linkLayerPlatform;
+        BlePlatformWba blePlatform;
 
         static constexpr std::size_t maxEventPacketSize = 3 + 255;
         static constexpr std::size_t maxQueuedEvents = 4;

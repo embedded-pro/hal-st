@@ -63,6 +63,7 @@ target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
     hal_st.stm32_wpan_stm32wbaxx
     hal_st.synchronous_stm32fxxx
     infra.event
+    infra.timer
     infra.util
 )
 
@@ -72,6 +73,7 @@ target_compile_definitions(hal_st.ble_middleware_wba_platform PRIVATE
 
 target_sources(hal_st.ble_middleware_wba_platform PRIVATE
     BlePlatformWba.cpp
+    BlePlatformWba.hpp
     BleStackProcessWba.cpp
     BleStackProcessWba.hpp
     BleWrapWba.c
