@@ -36,44 +36,51 @@ extern "C"
 
 namespace
 {
-    const uint8_t maxNumberOfConnectionOrientedChannels = 32;
-    const uint8_t bleStackOptions = 0;
+    constexpr uint16_t maxConnectionOrientedChannelPduSize = 248;
+    constexpr uint8_t maxConnectionOrientedChannels = 64;
+    constexpr uint8_t maxConnectionOrientedChannelsAsInitiator = 32;
+    constexpr uint16_t bleStackOptions = 0;
 
     constexpr uint8_t PrepareWriteListSize(uint16_t maxAttMtuSize)
     {
         return static_cast<uint8_t>(BLE_PREP_WRITE_X_ATT(maxAttMtuSize));
     }
+
+    BleStack_init_t StackParameters(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize)
+    {
+        return BleStack_init_t{
+            .bleStartRamAddress = reinterpret_cast<uint8_t*>(stackBuffer.begin()),
+            .total_buffer_size = stackBuffer.size() * sizeof(uint32_t),
+            .bleStartRamAddress_GATT = reinterpret_cast<uint8_t*>(gattBuffer.begin()),
+            .total_buffer_size_GATT = gattBuffer.size() * sizeof(uint32_t),
+            .numAttrRecord = hal::SystemTransportLayerWba::numberOfAttributeRecords,
+            .numAttrServ = hal::SystemTransportLayerWba::numberOfAttributeServices,
+            .attrValueArrSize = hal::SystemTransportLayerWba::attributeValueArraySize,
+            .numOfLinks = numberOfLinks,
+            .prWriteListSize = PrepareWriteListSize(maxAttMtuSize),
+            .mblockCount = mblockCount,
+            .attMtu = maxAttMtuSize,
+            .max_coc_mps = maxConnectionOrientedChannelPduSize,
+            .max_coc_nbr = maxConnectionOrientedChannels,
+            .max_coc_initiator_nbr = maxConnectionOrientedChannelsAsInitiator,
+            .options = bleStackOptions,
+            .debug = 0,
+        };
+    }
 }
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, const StackConfig& config)
+    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, infra::MemoryRange<uint32_t> nvmRecords, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const StackConfig& config)
         : linkLayerPlatform(hardware.randomDataGenerator, config.linkLayer)
         , blePlatform(timers, hardware.aes, hardware.pka)
+        , nvm(nvmRecords, bondBlob)
     {
         really_assert(config.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && config.maxAttMtuSize <= maxAttMtuSizeLimit);
         really_assert(config.numberOfLinks != 0);
 
-        BleStack_init_t bleStackInitParameters = {
-            reinterpret_cast<uint8_t*>(stackBuffer.begin()),
-            stackBuffer.size() * sizeof(uint32_t),
-            reinterpret_cast<uint8_t*>(gattBuffer.begin()),
-            gattBuffer.size() * sizeof(uint32_t),
-            numberOfAttributeRecords,
-            numberOfAttributeServices,
-            attributeValueArraySize,
-            config.numberOfLinks,
-            PrepareWriteListSize(config.maxAttMtuSize),
-            config.mblockCount,
-            config.maxAttMtuSize,
-            248,
-            64,
-            maxNumberOfConnectionOrientedChannels,
-            bleStackOptions,
-            0U
-        };
-
-        really_assert(BleStack_Init(&bleStackInitParameters) == BLE_STATUS_SUCCESS);
+        auto parameters = StackParameters(stackBuffer, gattBuffer, config.numberOfLinks, config.mblockCount, config.maxAttMtuSize);
+        really_assert(BleStack_Init(&parameters) == BLE_STATUS_SUCCESS);
     }
 
     void SystemTransportLayerWba::HciEventHandler(hci_event_pckt& event)

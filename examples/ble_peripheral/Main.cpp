@@ -571,7 +571,10 @@ int main()
     static infra::Creator<services::EllipticCurveOperations, hal::PkaStm, void()> pkaCreator;
     hal::SystemTransportLayerWba::Config systemTransportLayerConfig;
     systemTransportLayerConfig.maxAttMtuSize = maxAttMtuSize;
-    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig };
+    static services::ConfigurationStoreStub configurationStore;
+    static std::array<uint8_t, hal::SystemTransportLayerWba::bondBlobSize> bondBlob{};
+    static infra::ByteRange bondBlobRange{ infra::MakeRange(bondBlob) };
+    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ services::ConfigurationStoreAccess<infra::ByteRange>{ configurationStore, bondBlobRange }, hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig };
 
     static application::VolatileBondStorage volatileBondStorage;
     static hal::BondStorageSt bondStorageSt{ maxNumberOfBonds };

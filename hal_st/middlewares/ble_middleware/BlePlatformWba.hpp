@@ -60,6 +60,8 @@ namespace hal
 
         void AppendCmacBlocks(const services::Aes128Ecb& aes, infra::ConstByteRange input);
         Block EncryptCmacBlock(const services::Aes128Ecb& aes, const Block& input) const;
+        Block LastCmacBlock(const services::Aes128Ecb& aes, infra::ConstByteRange last) const;
+        bool AcquirePka();
         void ExpireTimer(TimerSlot& slot);
         void CompletePkaOperation();
 

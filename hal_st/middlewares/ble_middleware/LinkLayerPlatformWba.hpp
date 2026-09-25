@@ -68,12 +68,16 @@ namespace hal
         void SoftwareLowInterrupt();
 
     private:
+        void ConfigureSchedulerTimings();
         void ConfigureSleepClock() const;
+        void StartSleepClockOscillator() const;
         void ConfigureRandomDataGeneratorClock() const;
         void SelectLinkLayerSleepClock() const;
         uint8_t SleepClockAccuracy() const;
         IRQn_Type SoftwareLowIrq() const;
         void RefillRandomDataPool();
+        void AddToRandomDataPool(infra::MemoryRange<const uint32_t> words);
+        uint32_t TakeRandomWord(std::size_t fallbackIndex);
         void ScheduleRandomDataPoolRefill();
 
     private:

@@ -65,6 +65,8 @@ target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
     infra.event
     infra.timer
     infra.util
+    services.ble
+    services.util
 )
 
 target_compile_definitions(hal_st.ble_middleware_wba_platform PRIVATE
@@ -72,6 +74,8 @@ target_compile_definitions(hal_st.ble_middleware_wba_platform PRIVATE
 )
 
 target_sources(hal_st.ble_middleware_wba_platform PRIVATE
+    BleNvmWba.cpp
+    BleNvmWba.hpp
     BlePlatformWba.cpp
     BlePlatformWba.hpp
     BleStackProcessWba.cpp
