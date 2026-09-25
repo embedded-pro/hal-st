@@ -61,12 +61,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     EthernetMacStm.hpp
     EthernetSmiStm.cpp
     EthernetSmiStm.hpp
+    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashCoordinatedWithWirelessStack.cpp>
+    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashCoordinatedWithWirelessStack.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
-    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashInternalStmBle.cpp>
-    $<$<STREQUAL:${TARGET_MCU},stm32wb55>:FlashInternalStmBle.hpp>
     GpioStm.cpp
     GpioStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
