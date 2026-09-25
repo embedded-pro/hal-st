@@ -8,6 +8,8 @@ extern "C"
 {
 #include "ble_bufsize.h"
 #include "ble_common.h"
+#include "ble_hal_aci.h"
+#include "ble_hci_le.h"
 #include "blestack.h"
 }
 
@@ -83,6 +85,14 @@ namespace hal
         really_assert(BleStack_Init(&parameters) == BLE_STATUS_SUCCESS);
     }
 
+    SystemTransportLayerWba::Version SystemTransportLayerWba::GetVersion() const
+    {
+        Version version{};
+        really_assert(hci_read_local_version_information(&version.hciVersion, &version.hciSubversion, &version.lmpVersion, &version.companyIdentifier, &version.lmpSubversion) == BLE_STATUS_SUCCESS);
+        really_assert(aci_hal_get_fw_build_number(&version.firmwareBuildNumber) == BLE_STATUS_SUCCESS);
+        return version;
+    }
+
     void SystemTransportLayerWba::HciEventHandler(hci_event_pckt& event)
     {
         infra::Subject<HciEventSink>::NotifyObservers([&event](auto& observer)
@@ -97,7 +107,12 @@ namespace hal
 
         if (events.full())
         {
-            eventFlowPaused = true;
+            if (!eventFlowPaused)
+            {
+                eventFlowPaused = true;
+                EventFlowPaused();
+            }
+
             return false;
         }
 
@@ -128,6 +143,7 @@ namespace hal
         {
             eventFlowPaused = false;
             ResumeBleEventFlow();
+            EventFlowResumed();
         }
 
         SVCCTL_UserEvtRx(packet.data());

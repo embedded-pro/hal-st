@@ -4,6 +4,11 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <limits>
+
+#if defined(STM32WBA)
+#include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
+#endif
 
 extern "C"
 {
@@ -42,26 +47,48 @@ namespace
             });
     }
 
-#if defined(STM32WB)
     // PA_Level to output power, in tenths of a dBm, as ACI_HAL_SET_TX_POWER_LEVEL documents it.
     // The values are indicative and depend on the device and its package, so a request is answered
     // with the level whose documented power is nearest.
+#if defined(STM32WB)
     constexpr std::array<int16_t, 32> paLevelPower{ -400, -209, -198, -189, -176, -165, -153, -141,
         -132, -121, -109, -99, -89, -78, -69, -59,
         -50, -40, -32, -25, -18, -13, -9, -5,
         -2, 0, 10, 20, 30, 40, 50, 60 };
 
-    uint8_t NearestPaLevel(int8_t txPower)
+    int16_t PowerCeiling()
+    {
+        return std::numeric_limits<int16_t>::max();
+    }
+#else
+    // STM32WBA_BLE_Wireless_Interface.html, annex "TX Power Level"
+    constexpr std::array<int16_t, 36> paLevelPower{ -204, -204, -204, -204, -204, -204, -194, -183,
+        -173, -164, -154, -143, -133, -123, -114, -104,
+        -95, -84, -75, -65, -54, -45, -35, -24,
+        -15, -3, 9, 23, 28, 39, 48, 56,
+        69, 75, 85, 100 };
+
+    // The selected TX power table caps what the radio produces, so levels above it are not offered
+    int16_t PowerCeiling()
+    {
+        return static_cast<int16_t>(hal::LinkLayerPlatformWba::Instance().MaxTransmitPower() * 10);
+    }
+#endif
+
+    uint8_t NearestPaLevel(int8_t txPower, int16_t ceiling)
     {
         auto wanted = static_cast<int16_t>(txPower * 10);
-        auto nearest = std::min_element(paLevelPower.begin(), paLevelPower.end(), [wanted](auto left, auto right)
+        auto available = std::find_if(paLevelPower.begin(), paLevelPower.end(), [ceiling](auto power)
+            {
+                return power > ceiling;
+            });
+        auto nearest = std::min_element(paLevelPower.begin(), available, [wanted](auto left, auto right)
             {
                 return std::abs(left - wanted) < std::abs(right - wanted);
             });
 
         return static_cast<uint8_t>(std::distance(paLevelPower.begin(), nearest));
     }
-#endif
 }
 
 namespace hal
@@ -158,12 +185,11 @@ namespace hal
 
     services::DirectTestMode::RequestStatus DirectTestModeSt::SetTransmitPowerLevel(int8_t txPower, const infra::Function<void(Result)>& onDone)
     {
-#if defined(STM32WB)
         if (onSetTransmitPowerLevelDone)
             return RequestStatus::busy;
 
         constexpr uint8_t standardPower = 0x00u;
-        auto status = RequestStatusOf(aci_hal_set_tx_power_level(standardPower, NearestPaLevel(txPower)));
+        auto status = RequestStatusOf(aci_hal_set_tx_power_level(standardPower, NearestPaLevel(txPower, PowerCeiling())));
 
         if (status != RequestStatus::accepted)
             return status;
@@ -172,13 +198,5 @@ namespace hal
         Complete(onSetTransmitPowerLevelDone, Result::success);
 
         return RequestStatus::accepted;
-#else
-        // ACI_HAL_SET_TX_POWER_LEVEL takes a PA level rather than a power in dBm, and on WBA the
-        // table relating the two is not in the headers of this middleware: it depends on the
-        // selected power mode and is published separately. Guessing it would report a transmit
-        // power the radio is not producing, which is the one thing a conformance measurement must
-        // be able to trust.
-        return RequestStatus::notSupported;
-#endif
     }
 }

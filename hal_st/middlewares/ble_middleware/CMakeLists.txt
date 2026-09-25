@@ -47,6 +47,8 @@ target_sources(hal_st.ble_middleware PRIVATE
     TracingGattServerSt.hpp
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:TracingSystemTransportLayerWb.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:TracingSystemTransportLayerWb.hpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:TracingSystemTransportLayerWba.cpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:TracingSystemTransportLayerWba.hpp>
 )
 
 add_library(hal_st.ble_middleware_wba_platform STATIC)

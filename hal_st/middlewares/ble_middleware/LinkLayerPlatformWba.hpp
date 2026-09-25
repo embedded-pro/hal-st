@@ -51,6 +51,7 @@ namespace hal
         void ConfigureParameters();
         void Reset();
         void GenerateRandomData(infra::ByteRange result);
+        int8_t MaxTransmitPower() const;
 
         void SetupRadioInterrupt(void (*callback)());
         void SetupSoftwareLowInterrupt(void (*callback)());
