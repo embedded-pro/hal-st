@@ -75,12 +75,31 @@ namespace hal
             : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), infra::MakeRange(storage.nvm), bondBlob, hardware, StackConfig{ config, NumberOfLinks, Storage<NumberOfLinks>::mblockCount })
         {}
 
+        struct Version
+        {
+            uint8_t hciVersion;
+            uint16_t hciSubversion;
+            uint8_t lmpVersion;
+            uint16_t companyIdentifier;
+            uint16_t lmpSubversion;
+            uint16_t firmwareBuildNumber;
+        };
+
+        Version GetVersion() const;
+
         // Implementation of HciEventSource
         void HciEventHandler(hci_event_pckt& event) override;
 
         // Observers may call into the stack, which it forbids while BleStack_Process runs, so events
         // are handed to them afterwards from the event dispatcher.
         bool QueueEvent(infra::ConstByteRange packet);
+
+    protected:
+        virtual void EventFlowPaused()
+        {}
+
+        virtual void EventFlowResumed()
+        {}
 
     private:
         struct StackConfig
