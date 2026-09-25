@@ -15,8 +15,10 @@ namespace main_
         eventDispatcher.Run();
     }
 
-    LowPowerStmEventInfrastructure::LowPowerStmEventInfrastructure(infra::Duration tickDuration)
-        : eventDispatcher(lowPowerStrategy)
+    LowPowerStmEventInfrastructure::LowPowerStmEventInfrastructure(const infra::Function<void()>& restoreClocksAfterStop, infra::Duration tickDuration)
+        : lowPowerMode(restoreClocksAfterStop)
+        , lowPowerStrategy(lowPowerMode, mainClock)
+        , eventDispatcher(lowPowerStrategy)
         , gpio(hal::pinoutTableDefaultStm, hal::analogTableDefaultStm)
         , systemTick(SystemCoreClock, tickDuration)
     {}

@@ -77,6 +77,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     QuadSpiStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:QuadSpiStmDma.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:QuadSpiStmDma.hpp>
+    LowPowerModeStm.cpp
+    LowPowerModeStm.hpp
     LpTimerStm.cpp
     LpTimerStm.hpp
     PwmStm.cpp
