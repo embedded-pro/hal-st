@@ -48,9 +48,25 @@ namespace hal
         template<uint8_t NumberOfLinks>
         using WithLinks = infra::WithStorage<SystemTransportLayerWba, Storage<NumberOfLinks>>;
 
+        struct HardwareDependencies
+        {
+            LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGenerator;
+            BlePlatformWba::AesCreator& aes;
+            BlePlatformWba::PkaCreator& pka;
+        };
+
+        struct Config
+        {
+            constexpr Config()
+            {}
+
+            uint16_t maxAttMtuSize = maxAttMtuSizeLimit;
+            LinkLayerPlatformWba::Config linkLayer;
+        };
+
         template<uint8_t NumberOfLinks>
-        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGeneratorCreator, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig = LinkLayerPlatformWba::Config())
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), randomDataGeneratorCreator, aesCreator, pkaCreator, NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
+        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, const HardwareDependencies& hardware, const Config& config = Config())
+            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), hardware, NumberOfLinks, Storage<NumberOfLinks>::mblockCount, config)
         {}
 
         // Implementation of HciEventSource
@@ -61,7 +77,7 @@ namespace hal
         bool QueueEvent(infra::ConstByteRange packet);
 
     private:
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGeneratorCreator, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
+        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, uint8_t numberOfLinks, uint16_t mblockCount, const Config& config);
 
         void ProcessQueuedEvent();
 

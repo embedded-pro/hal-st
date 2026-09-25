@@ -47,11 +47,11 @@ namespace
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGeneratorCreator, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig)
-        : linkLayerPlatform(randomDataGeneratorCreator, linkLayerConfig)
-        , blePlatform(timers, aesCreator, pkaCreator)
+    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, uint8_t numberOfLinks, uint16_t mblockCount, const Config& config)
+        : linkLayerPlatform(hardware.randomDataGenerator, config.linkLayer)
+        , blePlatform(timers, hardware.aes, hardware.pka)
     {
-        really_assert(maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && maxAttMtuSize <= maxAttMtuSizeLimit);
+        really_assert(config.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && config.maxAttMtuSize <= maxAttMtuSizeLimit);
         really_assert(numberOfLinks != 0);
 
         BleStack_init_t bleStackInitParameters = {
@@ -63,9 +63,9 @@ namespace hal
             numberOfAttributeServices,
             attributeValueArraySize,
             numberOfLinks,
-            PrepareWriteListSize(maxAttMtuSize),
+            PrepareWriteListSize(config.maxAttMtuSize),
             mblockCount,
-            maxAttMtuSize,
+            config.maxAttMtuSize,
             248,
             64,
             maxNumberOfConnectionOrientedChannels,

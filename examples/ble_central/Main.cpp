@@ -558,7 +558,9 @@ int main()
     static infra::Creator<hal::SynchronousRandomDataGenerator, hal::SynchronousRandomDataGeneratorStm, void()> randomDataGeneratorCreator;
     static infra::Creator<services::Aes128Ecb, hal::SynchronousAes128EcbStm, void()> aesCreator;
     static infra::Creator<services::EllipticCurveOperations, hal::PkaStm, void()> pkaCreator;
-    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ randomDataGeneratorCreator, aesCreator, pkaCreator, maxAttMtuSize };
+    hal::SystemTransportLayerWba::Config systemTransportLayerConfig;
+    systemTransportLayerConfig.maxAttMtuSize = maxAttMtuSize;
+    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig };
 
     static application::VolatileBondStorage volatileBondStorage;
     static hal::BondStorageSt bondStorageSt{ maxNumberOfBonds };

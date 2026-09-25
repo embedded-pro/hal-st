@@ -100,16 +100,18 @@ application provides. hal-st provides that port in `hal_st/middlewares/ble_middl
   `infra::TimerSingleShot`. NVM is still a stub that stores nothing, and so is AES-CCM, which the
   basic stack does not use.
 
-`SystemTransportLayerWba` takes creators for the RNG (`hal::SynchronousRandomDataGenerator`), the
-AES (`services::Aes128Ecb`) and the PKA (`services::EllipticCurveOperations`). The platform creates
+`SystemTransportLayerWba` takes its hardware in `SystemTransportLayerWba::HardwareDependencies`:
+creators for the RNG (`hal::SynchronousRandomDataGenerator`), the AES (`services::Aes128Ecb`) and
+the PKA (`services::EllipticCurveOperations`). The platform creates
 each only while it needs it: the RNG while it refills the pool of random words that the link layer
 and the host stack draw from, the AES for one encryption, and the PKA from the start of a key
 operation until its completion. The application can use the same creators in between, but must not
 hold one across a point where the stack may need it; `infra::Creator` asserts on overlapping use.
 
-It also takes a `LinkLayerPlatformWba::Config` with the radio sleep timer clock (LSE by default,
-which the NUCLEO-WBA55CG has), its accuracy, the TX power table and the interrupt the link layer uses
-as its software low interrupt (`HASH_IRQn` by default). The link layer takes over the `RADIO`
+Its `SystemTransportLayerWba::Config` holds the maximum ATT MTU and the link layer's
+`LinkLayerPlatformWba::Config`: the radio sleep timer clock (LSE by default, which the
+NUCLEO-WBA55CG has), its accuracy, the TX power table and the interrupt the link layer uses as its
+software low interrupt (`HASH_IRQn` by default). The link layer takes over the `RADIO`
 vector, and registers the software low interrupt in the interrupt table, so pick one whose peripheral
 the application does not drive by interrupts.
 
