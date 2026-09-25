@@ -2,6 +2,8 @@
 #define HAL_ST_SYSTEM_TRANSPORT_LAYER_WBA_HPP
 
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
+#include "infra/util/BoundedDeque.hpp"
+#include "infra/util/ByteRange.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include "infra/util/WithStorage.hpp"
@@ -52,8 +54,22 @@ namespace hal
         // Implementation of HciEventSource
         void HciEventHandler(hci_event_pckt& event) override;
 
+        // Observers may call into the stack, which it forbids while BleStack_Process runs, so events
+        // are handed to them afterwards from the event dispatcher.
+        bool QueueEvent(infra::ConstByteRange packet);
+
     private:
         SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize);
+
+        void ProcessQueuedEvent();
+
+    private:
+        // Packet type, event code, parameter length and up to 255 bytes of parameters
+        static constexpr std::size_t maxEventPacketSize = 3 + 255;
+        static constexpr std::size_t maxQueuedEvents = 4;
+
+        infra::BoundedDeque<std::array<uint8_t, maxEventPacketSize>>::WithMaxSize<maxQueuedEvents> events;
+        bool eventFlowPaused = false;
     };
 }
 
