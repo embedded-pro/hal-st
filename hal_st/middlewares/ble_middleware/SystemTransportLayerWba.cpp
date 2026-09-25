@@ -1,9 +1,13 @@
 #include "hal_st/middlewares/ble_middleware/SystemTransportLayerWba.hpp"
+#include "hal_st/middlewares/ble_middleware/BleStackProcessWba.hpp"
+#include "infra/event/EventDispatcher.hpp"
+#include <algorithm>
 #include <array>
+
 extern "C"
 {
-#include "ble_common.h"
 #include "ble_bufsize.h"
+#include "ble_common.h"
 #include "blestack.h"
 }
 
@@ -19,16 +23,10 @@ extern "C"
         return SVCCTL_UserEvtFlowEnable;
     }
 
-    tBleStatus ProcessEventPacket(const uint8_t* data)
-    {
-        SVCCTL_UserEvtRx(const_cast<uint8_t *>(data));
-        return BLE_STATUS_SUCCESS;
-    }
-
-    tBleStatus BLECB_Indication(const uint8_t* data, uint16_t, const uint8_t*, uint16_t)
+    tBleStatus BLECB_Indication(const uint8_t* data, uint16_t length, const uint8_t*, uint16_t)
     {
         if (data[0] == HCI_EVENT_PKT_TYPE)
-            return ProcessEventPacket(data);
+            return hal::SystemTransportLayerWba::Instance().QueueEvent(infra::ConstByteRange(data, data + length)) ? BLE_STATUS_SUCCESS : BLE_STATUS_FAILED;
         else if (data[0] == HCI_ACLDATA_PKT_TYPE)
             return BLE_STATUS_SUCCESS;
 
@@ -82,5 +80,47 @@ namespace hal
             {
                 observer.HciEvent(event);
             });
+    }
+
+    bool SystemTransportLayerWba::QueueEvent(infra::ConstByteRange packet)
+    {
+        really_assert(packet.size() <= maxEventPacketSize);
+
+        if (events.full())
+        {
+            eventFlowPaused = true;
+            return false;
+        }
+
+        events.emplace_back();
+        std::copy(packet.begin(), packet.end(), events.back().begin());
+
+        if (events.size() == 1)
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    ProcessQueuedEvent();
+                });
+
+        return true;
+    }
+
+    void SystemTransportLayerWba::ProcessQueuedEvent()
+    {
+        auto packet = events.front();
+        events.pop_front();
+
+        if (!events.empty())
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    ProcessQueuedEvent();
+                });
+
+        if (eventFlowPaused)
+        {
+            eventFlowPaused = false;
+            ResumeBleEventFlow();
+        }
+
+        SVCCTL_UserEvtRx(packet.data());
     }
 }

@@ -96,22 +96,24 @@ product would put in their place.
 The example builds and links for `stm32wba55`, but the BLE stack does not run on it yet. On WBA
 the host stack and link layer run on the application core as ST's prebuilt archives, and they
 call back into a platform port that the application provides. hal-st provides that port in
-`hal_st/middlewares/ble_middleware`, and today it is still made of stubs:
+`hal_st/middlewares/ble_middleware`:
 
-- **`BlePlatformWba.cpp`** holds `BLEPLAT_*`. NVM stores nothing, RNG, AES and CMAC return
-  zeros, and PKA and timers report an error.
-- **`LinkLayerPlatformWba.cpp`** holds `LINKLAYER_PLAT_*`, `LINKLAYER_DEBUG_SIGNAL_*` and the
-  application's `ll_sys_*` hooks. None of them touches the hardware, and nothing drives
-  `ll_sys_bg_process` or `BleStack_Process` yet.
-- **`PowerTableWba.cpp`** holds ST's TX power tables, which are complete.
+- **`BleStackProcessWba.cpp`** runs the link layer background process and the host stack from
+  the event dispatcher, which takes the place of ST's sequencer.
+- **`BleWrapWba.c`** compiles ST's ACI/HCI wrappers so that each command schedules the host stack.
+- **`PowerTableWba.cpp`** holds ST's TX power tables.
+- **`LinkLayerPlatformWba.cpp`** is still stubs. It holds `LINKLAYER_PLAT_*`,
+  `LINKLAYER_DEBUG_SIGNAL_*`, `ll_sys_reset` and `ll_sys_config_params`, and none of them touches
+  the hardware yet.
+- **`BlePlatformWba.cpp`** is still stubs. It holds `BLEPLAT_*`: NVM stores nothing, RNG, AES and
+  CMAC return zeros, and PKA and timers report an error.
 
-These stubs are replaced step by step, in this order:
+The stubs are replaced step by step, in this order:
 
-1. The execution model.
-2. The link-layer platform (clocks and radio interrupts).
-3. RNG, AES and timers.
-4. PKA.
-5. NVM for bond persistence.
+1. The link-layer platform (clocks and radio interrupts).
+2. RNG, AES and timers.
+3. PKA.
+4. NVM for bond persistence.
 
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.

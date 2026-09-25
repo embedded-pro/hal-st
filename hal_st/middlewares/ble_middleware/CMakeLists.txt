@@ -54,13 +54,26 @@ emil_build_for(hal_st.ble_middleware_wba_platform
     TARGET_MCU_FAMILY stm32wbaxx
     PREREQUISITE_BOOL HALST_STANDALONE)
 
+target_include_directories(hal_st.ble_middleware_wba_platform PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/../../..>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+)
+
 target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
     hal_st.stm32_wpan_stm32wbaxx
+    infra.event
     infra.util
+)
+
+target_compile_definitions(hal_st.ble_middleware_wba_platform PRIVATE
+    BLE
 )
 
 target_sources(hal_st.ble_middleware_wba_platform PRIVATE
     BlePlatformWba.cpp
+    BleStackProcessWba.cpp
+    BleStackProcessWba.hpp
+    BleWrapWba.c
     LinkLayerPlatformWba.cpp
     PowerTableWba.cpp
 )
