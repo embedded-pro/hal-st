@@ -29,6 +29,7 @@
 #include "hal_st/stm32fxxx/DefaultClockNucleoWBA55CG.hpp"
 #include "hal_st/stm32fxxx/PkaStm.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
+#include "hal_st/synchronous_stm32fxxx/SynchronousRandomDataGeneratorStm.hpp"
 #endif
 
 unsigned int hse_value = 32'000'000;
@@ -565,9 +566,10 @@ int main()
         tracer
     };
 #elif defined(STM32WBA)
+    static infra::Creator<hal::SynchronousRandomDataGenerator, hal::SynchronousRandomDataGeneratorStm, void()> randomDataGeneratorCreator;
     static infra::Creator<services::Aes128Ecb, hal::SynchronousAes128EcbStm, void()> aesCreator;
     static infra::Creator<services::EllipticCurveOperations, hal::PkaStm, void()> pkaCreator;
-    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ aesCreator, pkaCreator, maxAttMtuSize };
+    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ randomDataGeneratorCreator, aesCreator, pkaCreator, maxAttMtuSize };
 
     static application::VolatileBondStorage volatileBondStorage;
     static hal::BondStorageSt bondStorageSt{ maxNumberOfBonds };

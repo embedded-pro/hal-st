@@ -49,8 +49,8 @@ namespace hal
         using WithLinks = infra::WithStorage<SystemTransportLayerWba, Storage<NumberOfLinks>>;
 
         template<uint8_t NumberOfLinks>
-        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig = LinkLayerPlatformWba::Config())
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), aesCreator, pkaCreator, NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
+        SystemTransportLayerWba(Storage<NumberOfLinks>& storage, LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGeneratorCreator, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig = LinkLayerPlatformWba::Config())
+            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), randomDataGeneratorCreator, aesCreator, pkaCreator, NumberOfLinks, Storage<NumberOfLinks>::mblockCount, maxAttMtuSize, linkLayerConfig)
         {}
 
         // Implementation of HciEventSource
@@ -61,7 +61,7 @@ namespace hal
         bool QueueEvent(infra::ConstByteRange packet);
 
     private:
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
+        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, LinkLayerPlatformWba::RandomDataGeneratorCreator& randomDataGeneratorCreator, BlePlatformWba::AesCreator& aesCreator, BlePlatformWba::PkaCreator& pkaCreator, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize, const LinkLayerPlatformWba::Config& linkLayerConfig);
 
         void ProcessQueuedEvent();
 
