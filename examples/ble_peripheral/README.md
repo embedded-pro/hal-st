@@ -80,7 +80,7 @@ the controller's own bond database, with a `VolatileBondStorage` in place of the
 store a product would use, and hands the BLE NVM blob a `services::ConfigurationStoreStub`.
 
 To make bonds survive a reset, replace both with a `services::ConfigurationStoreImpl` on
-`hal::FlashInternalStmBle` — see [STM32WB55 Internal Flash Usage with BLE](../../hal_st/stm32fxxx/STM32WB55_Internal_Flash_Usage_with_BLE.md)
+`hal::FlashCoordinatedWithWirelessStack` over `hal::FlashHomogeneousInternalStm` — see [STM32WB55 Internal Flash Usage with BLE](../../hal_st/stm32fxxx/STM32WB55_Internal_Flash_Usage_with_BLE.md)
 for why the flash driver on WB55 has to negotiate with the radio coprocessor.
 
 ## STM32WBA

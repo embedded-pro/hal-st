@@ -57,6 +57,23 @@ Some guideline values are:
 |             |                         |                          |                                                                       |
 
 
+## Implementation
+
+`hal::FlashCoordinatedWithWirelessStack` is a `hal::Flash` decorator. It wraps an internal flash driver such as `hal::FlashHomogeneousInternalStm`, which programs the flash, and adds the coordination with CPU2:
+- It splits every write into single doublewords and every erase into single pages. Each piece is one step.
+- It performs each step with interrupts disabled and the watchdog refreshed, and only while it holds Sem7. When CPU2 holds Sem7, it waits for the semaphore to be released.
+- It reports an erase to CPU2 with `SHCI_C2_FLASH_EraseActivity`.
+
+It knows three states of the wireless stack:
+
+| State    | Meaning                                                      | Writes and erases                                                           |
+|----------|--------------------------------------------------------------|-----------------------------------------------------------------------------|
+| stopped  | CPU2 has not been started                                    | Performed; there is no one to notify                                        |
+| starting | CPU2 is booting and does not accept flash coordination yet   | Held until `WirelessStackReady()`, including an operation already under way |
+| running  | `SHCI_C2_SetFlashActivityControl(SEM7)` has been sent        | Performed, and erases reported to CPU2                                      |
+
+Starting in `stopped` lets an application recover configuration from flash before it creates the transport layer, which is needed when that configuration includes the BLE bond record. A configuration store may have to erase a stale page while it recovers. Call `WirelessStackStarting()` just before creating the transport layer, and `WirelessStackReady()` once CPU2 reports ready. Reads are memory mapped and allowed in every state.
+
 ## References
 
 [1] AN5289, How to build wireless applications with STM32WB MCUs, 18.0, https://www.st.com/resource/en/application_note/an5289-how-to-build-wireless-applications-with-stm32wb-mcus-stmicroelectronics.pdf
