@@ -3,8 +3,8 @@
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/interfaces/Flash.hpp"
+#include "hal/interfaces/Watchdog.hpp"
 #include "hal_st/stm32fxxx/FlashInternalStm.hpp"
-#include "hal_st/stm32fxxx/WatchDogStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 #include <cstdint>
 
@@ -21,7 +21,7 @@ namespace hal
             running
         };
 
-        FlashCoordinatedWithWirelessStack(FlashInternalStmBase& flash, WatchDogStm& watchdog, WirelessStack wirelessStack = WirelessStack::running);
+        FlashCoordinatedWithWirelessStack(FlashInternalStmBase& flash, Watchdog& watchdog, WirelessStack wirelessStack = WirelessStack::running);
 
         void WirelessStackStarting();
         void WirelessStackReady();
@@ -45,12 +45,12 @@ namespace hal
         class CriticalSectionScoped
         {
         public:
-            explicit CriticalSectionScoped(WatchDogStm& watchdog);
+            explicit CriticalSectionScoped(Watchdog& watchdog);
             ~CriticalSectionScoped();
 
         private:
             uint32_t primaskBit;
-            WatchDogStm& watchdog;
+            Watchdog& watchdog;
         };
 
         void WriteNextDoubleWord();
@@ -68,7 +68,7 @@ namespace hal
         static constexpr uint32_t doubleWordSize = sizeof(uint64_t);
 
         FlashInternalStmBase& flash;
-        WatchDogStm& watchdog;
+        Watchdog& watchdog;
         WirelessStack wirelessStack;
         cortex::ImmediateInterruptHandler hwSemInterruptHandler;
         cortex::ImmediateInterruptHandler nmiHandler;
