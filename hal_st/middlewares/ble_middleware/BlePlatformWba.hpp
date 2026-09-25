@@ -1,10 +1,12 @@
 #pragma once
 
+#include "hal_st/stm32fxxx/PkaStm.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include "infra/util/MemoryRange.hpp"
+#include "services/crypto/EllipticCurveDiffieHellman.hpp"
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -39,17 +41,34 @@ namespace hal
         bool StartTimer(uint16_t id, uint32_t timeoutMs);
         void StopTimer(uint16_t id);
 
+        // Keys are P-256 integers of 32 bytes, least significant byte first; a public key is x followed by y
+        bool StartPublicKeyGeneration(infra::ConstByteRange privateKey);
+        void ReadPublicKey(infra::ByteRange publicKey) const;
+        bool StartDiffieHellmanKeyGeneration(infra::ConstByteRange privateKey, infra::ConstByteRange peerPublicKey);
+        bool ReadDiffieHellmanKey(infra::ByteRange key) const;
+
     private:
         static constexpr std::size_t blockSize = 16;
         using Block = std::array<uint8_t, blockSize>;
 
+        static constexpr std::size_t keySize = 32;
+
         Block EncryptCmacBlock(const Block& input);
         void ExpireTimer(TimerSlot& slot);
+        void CompletePkaOperation();
 
     private:
         infra::MemoryRange<TimerSlot> timers;
         SynchronousAes128EcbStm aes{ SynchronousAes128EcbStm::Config() };
         Block cmacKey{};
         Block cmacState{};
+
+        PkaStm pka;
+        services::EllipticCurveDiffieHellman diffieHellman{ pka };
+        bool pkaBusy = false;
+        bool diffieHellmanKeyValid = false;
+        std::array<uint8_t, keySize> privateKey{};
+        std::array<uint8_t, 2 * keySize> publicKey{};
+        std::array<uint8_t, keySize> diffieHellmanKey{};
     };
 }

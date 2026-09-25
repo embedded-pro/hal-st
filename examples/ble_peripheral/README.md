@@ -96,17 +96,15 @@ application provides. hal-st provides that port in `hal_st/middlewares/ble_middl
   software low interrupts, interrupt masking, random numbers and the link layer configuration.
 - **`PowerTableWba.cpp`** holds ST's TX power tables.
 - **`BlePlatformWba.cpp`** holds `BLEPLAT_*`: random numbers, AES-ECB and AES-CMAC on the AES
-  peripheral, and the stack's timers on `infra::TimerSingleShot`. NVM and PKA are still stubs: NVM
-  stores nothing and PKA reports an error.
+  peripheral, P-256 key generation and the Diffie-Hellman key on the PKA, and the stack's timers on
+  `infra::TimerSingleShot`. NVM is still a stub that stores nothing, and so is AES-CCM, which the
+  basic stack does not use.
 
 `SystemTransportLayerWba` takes a `LinkLayerPlatformWba::Config` with the radio sleep timer clock
 (LSE by default, which the NUCLEO-WBA55CG has), its accuracy and the TX power table. The link layer
 takes over the `RADIO` and `HASH` interrupt vectors.
 
-The remaining stubs are replaced step by step, in this order:
-
-1. PKA.
-2. NVM for bond persistence.
+The remaining stub is NVM, for bond persistence.
 
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.

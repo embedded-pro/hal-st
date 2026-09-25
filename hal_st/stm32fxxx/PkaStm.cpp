@@ -141,8 +141,8 @@ namespace hal
         WriteOperand(PKA_POINT_CHECK_IN_A_COEFF, curve.absA);
         WriteOperand(PKA_POINT_CHECK_IN_B_COEFF, curve.b);
         WriteOperand(PKA_POINT_CHECK_IN_MOD_GF, curve.p);
-        WriteOperand(PKA_POINT_CHECK_IN_INITIAL_POINT_X, curve.gX);
-        WriteOperand(PKA_POINT_CHECK_IN_INITIAL_POINT_Y, curve.gY);
+        WriteOperand(PKA_POINT_CHECK_IN_INITIAL_POINT_X, x);
+        WriteOperand(PKA_POINT_CHECK_IN_INITIAL_POINT_Y, y);
 #if defined(PKA_POINT_CHECK_IN_MONTGOMERY_PARAM)
         WriteOperand(PKA_POINT_CHECK_IN_MONTGOMERY_PARAM, curve.montgomeryR2);
 #endif
@@ -189,10 +189,11 @@ namespace hal
 
     void PkaStm::WriteOperand(uint32_t index, infra::ConstByteRange operand) const
     {
+        auto words = (operand.size() + sizeof(uint32_t) - 1) / sizeof(uint32_t);
         auto source = infra::ReinterpretCastMemoryRange<const std::byte>(operand);
-        auto destination = infra::MemoryRange<volatile uint32_t>(&peripheralPka[pkaIndex]->RAM[index], &peripheralPka[pkaIndex]->RAM[index] + operand.size());
+        auto destination = infra::MemoryRange<volatile uint32_t>(&peripheralPka[pkaIndex]->RAM[index], &peripheralPka[pkaIndex]->RAM[index] + words);
         CopyToPkaRam(destination, source);
-        peripheralPka[pkaIndex]->RAM[index + operand.size()] = 0;
+        peripheralPka[pkaIndex]->RAM[index + words] = 0;
     }
 
     uint32_t PkaStm::ReadOutput(uint32_t index) const
