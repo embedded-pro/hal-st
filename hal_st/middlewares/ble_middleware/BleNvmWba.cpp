@@ -34,10 +34,29 @@ namespace
         return ((header >> 24) & 0xff) != 0;
     }
 
+    bool Matches(uint32_t header, uint8_t type)
+    {
+        return Valid(header) && Type(header) == type;
+    }
+
     // A record is its header word followed by its data, padded to whole words
     std::size_t Words(std::size_t size)
     {
         return (size + sizeof(uint32_t) + sizeof(uint32_t) - 1) / sizeof(uint32_t);
+    }
+
+    // A discarded record keeps its size so that the records after it can still be found; merging it with a
+    // discarded successor keeps the chain short
+    uint32_t DiscardedHeader(uint32_t header, uint32_t following, std::size_t words)
+    {
+        if (Blank(following))
+            return 0;
+
+        if (Valid(following))
+            return Size(header);
+
+        words += Words(Size(following));
+        return words <= maxMergedRecordWords ? (words - 1) * sizeof(uint32_t) : Size(header);
     }
 
     services::ConfigurationStoreAccess<infra::ByteRange> SizeChecked(services::ConfigurationStoreAccess<infra::ByteRange> persistent, infra::MemoryRange<uint32_t> records)
@@ -64,114 +83,29 @@ namespace hal
         if (data.empty())
             return BLEPLAT_OK;
 
-        auto totalSize = data.size() + extraData.size();
-        auto requiredWords = 1 + Words(totalSize);
-        std::size_t index = 0;
-        std::size_t removed = 0;
+        auto requiredWords = 1 + Words(data.size() + extraData.size());
 
         while (true)
         {
-            index = 0;
-            removed = 0;
-            auto left = records.size();
+            auto layout = Scan();
+            if (!layout)
+                return BLEPLAT_ERROR;
 
-            while (!Blank(records[index]))
-            {
-                auto next = Words(Size(records[index]));
-                if (next >= left)
-                    return BLEPLAT_ERROR;
+            if (requiredWords <= records.size() - layout->end)
+                return Write(*layout, type, data, extraData);
 
-                if (!Valid(records[index]))
-                    removed += next;
-
-                index += next;
-                left -= next;
-            }
-
-            if (requiredWords <= left)
-                break;
-
-            if (removed == 0)
+            if (layout->invalidWords == 0 || !RemoveFirstInvalidRecord())
                 return BLEPLAT_FULL;
-
-            index = 0;
-            left = records.size();
-            while (!Blank(records[index]) && Valid(records[index]))
-            {
-                auto next = Words(Size(records[index]));
-                index += next;
-                left -= next;
-            }
-
-            if (Blank(records[index]))
-                return BLEPLAT_FULL;
-
-            auto next = Words(Size(records[index]));
-            std::copy(records.begin() + index + next, records.begin() + index + left, records.begin() + index);
-            Changed();
         }
-
-        records[index] = validRecord | (static_cast<uint32_t>(type) << 16) | totalSize;
-        auto recordData = RecordData(index);
-        std::copy(data.begin(), data.end(), recordData.begin());
-        std::copy(extraData.begin(), extraData.end(), recordData.begin() + data.size());
-
-        index += Words(totalSize);
-        records[index] = 0;
-        Changed();
-
-        warningLevel = std::min(warningLevel, records.size() + 1 - requiredWords);
-        if (index + 1 - removed > warningLevel)
-            return BLEPLAT_WARN;
-
-        return BLEPLAT_OK;
     }
 
     int BleNvmWba::Get(uint8_t mode, uint8_t type, uint16_t offset, uint8_t* data, uint16_t size)
     {
-        if (mode == BLEPLAT_NVM_FIRST)
-            current = 0;
-        else if (current >= records.size() - 1)
-        {
-            current = 0;
-            return BLEPLAT_EOF;
-        }
+        auto status = Seek(mode, type);
+        if (status != BLEPLAT_OK)
+            return status;
 
-        if (mode != BLEPLAT_NVM_CURRENT)
-        {
-            if (mode == BLEPLAT_NVM_NEXT)
-            {
-                current += Words(Size(records[current]));
-                if (current >= records.size())
-                    return BLEPLAT_ERROR;
-            }
-
-            while (!(Blank(records[current]) || (Valid(records[current]) && Type(records[current]) == type)))
-            {
-                current += Words(Size(records[current]));
-                if (current >= records.size())
-                    return BLEPLAT_ERROR;
-            }
-        }
-
-        if (Blank(records[current]))
-            return BLEPLAT_EOF;
-
-        if (!(Valid(records[current]) && Type(records[current]) == type))
-            return BLEPLAT_ERROR;
-
-        auto remaining = static_cast<int>(Size(records[current])) - static_cast<int>(offset);
-        if (remaining <= 0)
-            return 0;
-
-        auto copySize = std::min<int>(size, remaining);
-        if (!Contained(current, offset + copySize))
-            return BLEPLAT_ERROR;
-
-        if (data != nullptr)
-            std::copy_n(RecordData(current).begin() + offset, copySize, data);
-
-        return copySize;
+        return Read(offset, data, size);
     }
 
     int BleNvmWba::Compare(uint16_t offset, infra::ConstByteRange data) const
@@ -191,43 +125,128 @@ namespace hal
 
     void BleNvmWba::Discard(uint8_t mode)
     {
-        if (mode == BLEPLAT_NVM_CURRENT)
-        {
-            if (current >= records.size() - 1)
-            {
-                current = 0;
-                return;
-            }
+        if (mode == BLEPLAT_NVM_CURRENT && !DiscardCurrent())
+            return;
 
-            if (!Blank(records[current]))
-            {
-                auto next = Words(Size(records[current]));
-                if (current + next >= records.size())
-                    return;
-
-                auto following = records[current + next];
-                if (Blank(following))
-                    records[current] = 0;
-                else
-                {
-                    // An invalid record keeps its size, so that the records after it can still be found;
-                    // merging it with an invalid successor keeps the chain short
-                    uint32_t size = Size(records[current]);
-                    if (!Valid(following))
-                    {
-                        next += Words(Size(following));
-                        if (next <= maxMergedRecordWords)
-                            size = (next - 1) * sizeof(uint32_t);
-                    }
-
-                    records[current] = size;
-                }
-            }
-        }
-        else if (mode == BLEPLAT_NVM_ALL)
+        if (mode == BLEPLAT_NVM_ALL)
             records[0] = 0;
 
         Changed();
+    }
+
+    std::optional<BleNvmWba::Layout> BleNvmWba::Scan() const
+    {
+        Layout layout{ 0, 0 };
+
+        while (!Blank(records[layout.end]))
+        {
+            auto words = Words(Size(records[layout.end]));
+            if (words >= records.size() - layout.end)
+                return std::nullopt;
+
+            if (!Valid(records[layout.end]))
+                layout.invalidWords += words;
+
+            layout.end += words;
+        }
+
+        return layout;
+    }
+
+    bool BleNvmWba::RemoveFirstInvalidRecord()
+    {
+        std::size_t index = 0;
+        while (!Blank(records[index]) && Valid(records[index]))
+            index += Words(Size(records[index]));
+
+        if (Blank(records[index]))
+            return false;
+
+        std::copy(records.begin() + index + Words(Size(records[index])), records.end(), records.begin() + index);
+        Changed();
+        return true;
+    }
+
+    int BleNvmWba::Write(const Layout& layout, uint8_t type, infra::ConstByteRange data, infra::ConstByteRange extraData)
+    {
+        auto size = data.size() + extraData.size();
+        records[layout.end] = validRecord | (static_cast<uint32_t>(type) << 16) | size;
+
+        auto recordData = RecordData(layout.end);
+        std::copy(data.begin(), data.end(), recordData.begin());
+        std::copy(extraData.begin(), extraData.end(), recordData.begin() + data.size());
+
+        auto end = layout.end + Words(size);
+        records[end] = 0;
+        Changed();
+
+        warningLevel = std::min(warningLevel, records.size() - Words(size));
+        return end + 1 - layout.invalidWords > warningLevel ? BLEPLAT_WARN : BLEPLAT_OK;
+    }
+
+    int BleNvmWba::Seek(uint8_t mode, uint8_t type)
+    {
+        if (mode == BLEPLAT_NVM_FIRST)
+            current = 0;
+        else if (current >= records.size() - 1)
+        {
+            current = 0;
+            return BLEPLAT_EOF;
+        }
+
+        if (mode == BLEPLAT_NVM_NEXT && !Advance())
+            return BLEPLAT_ERROR;
+
+        if (mode != BLEPLAT_NVM_CURRENT)
+            while (!Blank(records[current]) && !Matches(records[current], type))
+                if (!Advance())
+                    return BLEPLAT_ERROR;
+
+        if (Blank(records[current]))
+            return BLEPLAT_EOF;
+
+        return Matches(records[current], type) ? BLEPLAT_OK : BLEPLAT_ERROR;
+    }
+
+    bool BleNvmWba::Advance()
+    {
+        current += Words(Size(records[current]));
+        return current < records.size();
+    }
+
+    int BleNvmWba::Read(uint16_t offset, uint8_t* data, uint16_t size) const
+    {
+        auto remaining = static_cast<int>(Size(records[current])) - static_cast<int>(offset);
+        if (remaining <= 0)
+            return 0;
+
+        auto copySize = std::min<int>(size, remaining);
+        if (!Contained(current, offset + copySize))
+            return BLEPLAT_ERROR;
+
+        if (data != nullptr)
+            std::copy_n(RecordData(current).begin() + offset, copySize, data);
+
+        return copySize;
+    }
+
+    bool BleNvmWba::DiscardCurrent()
+    {
+        if (current >= records.size() - 1)
+        {
+            current = 0;
+            return false;
+        }
+
+        if (Blank(records[current]))
+            return true;
+
+        auto words = Words(Size(records[current]));
+        if (current + words >= records.size())
+            return false;
+
+        records[current] = DiscardedHeader(records[current], records[current + words], words);
+        return true;
     }
 
     // After a compaction or a full discard the current position can point into stale data, which ST's

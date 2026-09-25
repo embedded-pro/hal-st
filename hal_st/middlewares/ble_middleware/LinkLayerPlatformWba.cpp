@@ -51,6 +51,27 @@ namespace
         }
     }
 
+    class InterruptsMasked
+    {
+    public:
+        InterruptsMasked()
+            : primask(__get_PRIMASK())
+        {
+            __disable_irq();
+        }
+
+        InterruptsMasked(const InterruptsMasked&) = delete;
+        InterruptsMasked& operator=(const InterruptsMasked&) = delete;
+
+        ~InterruptsMasked()
+        {
+            __set_PRIMASK(primask);
+        }
+
+    private:
+        uint32_t primask;
+    };
+
     uint8_t LinkLayerSleepClockSource(hal::LinkLayerPlatformWba::SleepClockSource source)
     {
         switch (source)
@@ -95,7 +116,11 @@ namespace hal
     {
         SelectLinkLayerSleepClock();
         ll_intf_le_set_sleep_clock_accuracy(SleepClockAccuracy());
+        ConfigureSchedulerTimings();
+    }
 
+    void LinkLayerPlatformWba::ConfigureSchedulerTimings()
+    {
         auto driftTime = defaultDriftTime;
         auto executionTime = defaultExecutionTime;
 
@@ -117,8 +142,7 @@ namespace hal
             ll_sys_config_BLE_schldr_timings(driftTime, executionTime);
     }
 
-    // As ST's HW_RNG_Get, the link layer's interrupts draw from a pool and never wait for the generator. When they
-    // empty it they reuse stale words, as ST does; outside interrupts the pool is refilled on the spot instead.
+    // Outside interrupts an empty pool is refilled on the spot
     void LinkLayerPlatformWba::GenerateRandomData(infra::ByteRange result)
     {
         while (!result.empty())
@@ -126,11 +150,7 @@ namespace hal
             if (randomDataPoolCount == 0 && __get_IPSR() == 0)
                 RefillRandomDataPool();
 
-            auto primask = __get_PRIMASK();
-            __disable_irq();
-            auto word = randomDataPoolCount != 0 ? randomDataPool[--randomDataPoolCount] : ~randomDataPool[result.size() % randomDataPoolSize];
-            __set_PRIMASK(primask);
-
+            auto word = TakeRandomWord(result.size());
             auto bytes = infra::Head(infra::MakeByteRange(word), result.size());
             infra::Copy(bytes, infra::Head(result, bytes.size()));
             result = infra::DiscardHead(result, bytes.size());
@@ -260,6 +280,17 @@ namespace hal
 
     void LinkLayerPlatformWba::ConfigureSleepClock() const
     {
+        StartSleepClockOscillator();
+
+        RCC_PeriphCLKInitTypeDef sleepTimerClock{};
+        sleepTimerClock.PeriphClockSelection = RCC_PERIPHCLK_RADIOST;
+        sleepTimerClock.RadioSlpTimClockSelection = RadioSleepTimerClockSelection(config.sleepClockSource);
+        really_assert(HAL_RCCEx_PeriphCLKConfig(&sleepTimerClock) == HAL_OK);
+    }
+
+    // HSE, divided by 1000, is already running for the radio
+    void LinkLayerPlatformWba::StartSleepClockOscillator() const
+    {
         RCC_OscInitTypeDef oscillator{};
 
         if (config.sleepClockSource == SleepClockSource::lse)
@@ -277,11 +308,6 @@ namespace hal
             oscillator.LSIDiv = RCC_LSI_DIV1;
             really_assert(HAL_RCC_OscConfig(&oscillator) == HAL_OK);
         }
-
-        RCC_PeriphCLKInitTypeDef sleepTimerClock{};
-        sleepTimerClock.PeriphClockSelection = RCC_PERIPHCLK_RADIOST;
-        sleepTimerClock.RadioSlpTimClockSelection = RadioSleepTimerClockSelection(config.sleepClockSource);
-        really_assert(HAL_RCCEx_PeriphCLKConfig(&sleepTimerClock) == HAL_OK);
     }
 
     void LinkLayerPlatformWba::ConfigureRandomDataGeneratorClock() const
@@ -318,26 +344,46 @@ namespace hal
 
     void LinkLayerPlatformWba::RefillRandomDataPool()
     {
-        auto primask = __get_PRIMASK();
-        __disable_irq();
-        auto missing = randomDataPoolSize - randomDataPoolCount;
-        __set_PRIMASK(primask);
+        std::size_t missing = 0;
+        {
+            InterruptsMasked masked;
+            missing = randomDataPoolSize - randomDataPoolCount;
+        }
 
         if (missing == 0)
             return;
 
         std::array<uint32_t, randomDataPoolSize> words;
+        auto generated = infra::Head(infra::MakeRange(words), missing);
 
         {
             infra::ProxyCreator<SynchronousRandomDataGenerator, void()> generator(randomDataGeneratorCreator);
-            generator->GenerateRandomData(infra::ReinterpretCastByteRange(infra::Head(infra::MakeRange(words), missing)));
+            generator->GenerateRandomData(infra::ReinterpretCastByteRange(generated));
         }
 
-        primask = __get_PRIMASK();
-        __disable_irq();
-        while (missing != 0 && randomDataPoolCount != randomDataPoolSize)
-            randomDataPool[randomDataPoolCount++] = words[--missing];
-        __set_PRIMASK(primask);
+        AddToRandomDataPool(generated);
+    }
+
+    void LinkLayerPlatformWba::AddToRandomDataPool(infra::MemoryRange<const uint32_t> words)
+    {
+        InterruptsMasked masked;
+
+        while (!words.empty() && randomDataPoolCount != randomDataPoolSize)
+        {
+            randomDataPool[randomDataPoolCount++] = words.back();
+            words.pop_back();
+        }
+    }
+
+    // As ST's HW_RNG_Get, an interrupt that finds the pool empty reuses a stale word rather than wait for the generator
+    uint32_t LinkLayerPlatformWba::TakeRandomWord(std::size_t fallbackIndex)
+    {
+        InterruptsMasked masked;
+
+        if (randomDataPoolCount != 0)
+            return randomDataPool[--randomDataPoolCount];
+
+        return ~randomDataPool[fallbackIndex % randomDataPoolSize];
     }
 
     void LinkLayerPlatformWba::ScheduleRandomDataPoolRefill()

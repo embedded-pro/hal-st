@@ -49,6 +49,20 @@ namespace
 
         return result;
     }
+
+    void ReverseInto(infra::ConstByteRange from, infra::ByteRange to)
+    {
+        really_assert(from.size() == to.size());
+        std::reverse_copy(from.begin(), from.end(), to.begin());
+    }
+
+    // A public key is x followed by y, each an integer of its own
+    void ReverseCoordinates(infra::ConstByteRange from, infra::ByteRange to)
+    {
+        auto coordinateSize = from.size() / 2;
+        ReverseInto(infra::Head(from, coordinateSize), infra::Head(to, coordinateSize));
+        ReverseInto(infra::Tail(from, coordinateSize), infra::Tail(to, coordinateSize));
+    }
 }
 
 namespace hal
@@ -81,8 +95,8 @@ namespace hal
         Block reversedInput;
         Block result;
 
-        std::reverse_copy(key.begin(), key.end(), reversedKey.begin());
-        std::reverse_copy(input.begin(), input.end(), reversedInput.begin());
+        ReverseInto(key, reversedKey);
+        ReverseInto(input, reversedInput);
 
         {
             infra::ProxyCreator<services::Aes128Ecb, void()> aes(aesCreator);
@@ -90,7 +104,7 @@ namespace hal
             aes->Encrypt(reversedInput, result);
         }
 
-        std::reverse_copy(result.begin(), result.end(), output.begin());
+        ReverseInto(result, output);
     }
 
     void BlePlatformWba::SetCmacKey(infra::ConstByteRange key)
@@ -119,20 +133,7 @@ namespace hal
         infra::ProxyCreator<services::Aes128Ecb, void()> aes(aesCreator);
         AppendCmacBlocks(*aes, infra::DiscardTail(input, lastBlockSize));
 
-        Block lastBlock{};
-        std::copy(input.end() - lastBlockSize, input.end(), lastBlock.begin());
-
-        auto subkey = DoubleCmacSubkey(EncryptCmacBlock(*aes, Block{}));
-        if (lastBlockSize < blockSize)
-        {
-            lastBlock[lastBlockSize] = cmacPadding;
-            subkey = DoubleCmacSubkey(subkey);
-        }
-
-        for (std::size_t index = 0; index != blockSize; ++index)
-            lastBlock[index] ^= cmacState[index] ^ subkey[index];
-
-        auto result = EncryptCmacBlock(*aes, lastBlock);
+        auto result = EncryptCmacBlock(*aes, LastCmacBlock(*aes, infra::Tail(input, lastBlockSize)));
         std::copy(result.begin(), result.end(), tag.begin());
     }
 
@@ -171,11 +172,10 @@ namespace hal
     {
         really_assert(key.size() == keySize);
 
-        if (pka)
+        if (!AcquirePka())
             return false;
 
-        pka.emplace(pkaCreator);
-        std::reverse_copy(key.begin(), key.end(), privateKey.begin());
+        ReverseInto(key, privateKey);
 
         (*pka)->ScalarMultiplication(services::secp256r1, privateKey, {}, {}, [this](infra::ConstByteRange x, infra::ConstByteRange y)
             {
@@ -191,23 +191,20 @@ namespace hal
     {
         really_assert(key.size() == publicKey.size());
 
-        std::reverse_copy(publicKey.begin(), publicKey.begin() + keySize, key.begin());
-        std::reverse_copy(publicKey.begin() + keySize, publicKey.end(), key.begin() + keySize);
+        ReverseCoordinates(publicKey, key);
     }
 
     bool BlePlatformWba::StartDiffieHellmanKeyGeneration(infra::ConstByteRange key, infra::ConstByteRange peerPublicKey)
     {
         really_assert(key.size() == keySize && peerPublicKey.size() == publicKey.size());
 
-        if (pka)
+        if (!AcquirePka())
             return false;
 
-        pka.emplace(pkaCreator);
         diffieHellman.emplace(**pka);
         diffieHellmanKeyValid = false;
-        std::reverse_copy(key.begin(), key.end(), privateKey.begin());
-        std::reverse_copy(peerPublicKey.begin(), peerPublicKey.begin() + keySize, publicKey.begin());
-        std::reverse_copy(peerPublicKey.begin() + keySize, peerPublicKey.end(), publicKey.begin() + keySize);
+        ReverseInto(key, privateKey);
+        ReverseCoordinates(peerPublicKey, publicKey);
 
         diffieHellman->CalculateSharedSecretKey(services::secp256r1, privateKey, publicKey, diffieHellmanKey, [this](bool valid)
             {
@@ -225,7 +222,7 @@ namespace hal
         if (!diffieHellmanKeyValid)
             return false;
 
-        std::reverse_copy(diffieHellmanKey.begin(), diffieHellmanKey.end(), key.begin());
+        ReverseInto(diffieHellmanKey, key);
         return true;
     }
 
@@ -250,6 +247,34 @@ namespace hal
         aes.Encrypt(input, result);
 
         return result;
+    }
+
+    // RFC 4493, section 2.4, steps 3 and 4: the last block is padded when incomplete, and combined with the matching subkey
+    BlePlatformWba::Block BlePlatformWba::LastCmacBlock(const services::Aes128Ecb& aes, infra::ConstByteRange last) const
+    {
+        Block block{};
+        std::copy(last.begin(), last.end(), block.begin());
+
+        auto subkey = DoubleCmacSubkey(EncryptCmacBlock(aes, Block{}));
+        if (last.size() < blockSize)
+        {
+            block[last.size()] = cmacPadding;
+            subkey = DoubleCmacSubkey(subkey);
+        }
+
+        for (std::size_t index = 0; index != blockSize; ++index)
+            block[index] ^= cmacState[index] ^ subkey[index];
+
+        return block;
+    }
+
+    bool BlePlatformWba::AcquirePka()
+    {
+        if (pka)
+            return false;
+
+        pka.emplace(pkaCreator);
+        return true;
     }
 
     void BlePlatformWba::ExpireTimer(TimerSlot& slot)

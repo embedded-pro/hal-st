@@ -6,6 +6,7 @@
 #include "services/ble/BondBlobPersistence.hpp"
 #include "services/util/ConfigurationStore.hpp"
 #include <cstdint>
+#include <optional>
 
 namespace hal
 {
@@ -24,6 +25,19 @@ namespace hal
         void Discard(uint8_t mode);
 
     private:
+        struct Layout
+        {
+            std::size_t end;
+            std::size_t invalidWords;
+        };
+
+        std::optional<Layout> Scan() const;
+        bool RemoveFirstInvalidRecord();
+        int Write(const Layout& layout, uint8_t type, infra::ConstByteRange data, infra::ConstByteRange extraData);
+        int Seek(uint8_t mode, uint8_t type);
+        bool Advance();
+        int Read(uint16_t offset, uint8_t* data, uint16_t size) const;
+        bool DiscardCurrent();
         bool Contained(std::size_t index, std::size_t bytes) const;
         infra::ByteRange RecordData(std::size_t index) const;
         void Changed();
