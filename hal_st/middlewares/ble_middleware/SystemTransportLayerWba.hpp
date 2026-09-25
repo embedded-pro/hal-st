@@ -66,7 +66,7 @@ namespace hal
 
         template<uint8_t NumberOfLinks>
         SystemTransportLayerWba(Storage<NumberOfLinks>& storage, const HardwareDependencies& hardware, const Config& config = Config())
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), hardware, NumberOfLinks, Storage<NumberOfLinks>::mblockCount, config)
+            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), hardware, StackConfig{ config, NumberOfLinks, Storage<NumberOfLinks>::mblockCount })
         {}
 
         // Implementation of HciEventSource
@@ -77,7 +77,14 @@ namespace hal
         bool QueueEvent(infra::ConstByteRange packet);
 
     private:
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, uint8_t numberOfLinks, uint16_t mblockCount, const Config& config);
+        struct StackConfig
+            : Config
+        {
+            uint8_t numberOfLinks;
+            uint16_t mblockCount;
+        };
+
+        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, const StackConfig& config);
 
         void ProcessQueuedEvent();
 

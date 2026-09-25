@@ -47,12 +47,12 @@ namespace
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, uint8_t numberOfLinks, uint16_t mblockCount, const Config& config)
+    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, const HardwareDependencies& hardware, const StackConfig& config)
         : linkLayerPlatform(hardware.randomDataGenerator, config.linkLayer)
         , blePlatform(timers, hardware.aes, hardware.pka)
     {
         really_assert(config.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && config.maxAttMtuSize <= maxAttMtuSizeLimit);
-        really_assert(numberOfLinks != 0);
+        really_assert(config.numberOfLinks != 0);
 
         BleStack_init_t bleStackInitParameters = {
             reinterpret_cast<uint8_t*>(stackBuffer.begin()),
@@ -62,9 +62,9 @@ namespace hal
             numberOfAttributeRecords,
             numberOfAttributeServices,
             attributeValueArraySize,
-            numberOfLinks,
+            config.numberOfLinks,
             PrepareWriteListSize(config.maxAttMtuSize),
-            mblockCount,
+            config.mblockCount,
             config.maxAttMtuSize,
             248,
             64,
