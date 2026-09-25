@@ -1,4 +1,5 @@
 #include "hal_st/middlewares/ble_middleware/BlePlatformWba.hpp"
+#include "hal_st/middlewares/ble_middleware/BleNvmWba.hpp"
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
@@ -284,24 +285,26 @@ extern "C"
         hal::BlePlatformWba::Instance().Reset();
     }
 
-    // NVM and AES-CCM stay stubs; the basic stack does not use AES-CCM.
-    int BLEPLAT_NvmAdd(uint8_t, const uint8_t*, uint16_t, const uint8_t*, uint16_t)
+    int BLEPLAT_NvmAdd(uint8_t type, const uint8_t* data, uint16_t size, const uint8_t* extra_data, uint16_t extra_size)
     {
-        return BLEPLAT_ERROR;
+        auto extraData = extra_data != nullptr ? infra::ConstByteRange(extra_data, extra_data + extra_size) : infra::ConstByteRange();
+        return hal::BleNvmWba::Instance().Add(type, data != nullptr ? infra::ConstByteRange(data, data + size) : infra::ConstByteRange(), extraData);
     }
 
-    int BLEPLAT_NvmGet(uint8_t, uint8_t, uint16_t, uint8_t*, uint16_t)
+    int BLEPLAT_NvmGet(uint8_t mode, uint8_t type, uint16_t offset, uint8_t* data, uint16_t size)
     {
-        return BLEPLAT_EOF;
+        return hal::BleNvmWba::Instance().Get(mode, type, offset, data, size);
     }
 
-    int BLEPLAT_NvmCompare(uint16_t, const uint8_t*, uint16_t)
+    int BLEPLAT_NvmCompare(uint16_t offset, const uint8_t* data, uint16_t size)
     {
-        return BLEPLAT_ERROR;
+        return hal::BleNvmWba::Instance().Compare(offset, infra::ConstByteRange(data, data + size));
     }
 
-    void BLEPLAT_NvmDiscard(uint8_t)
-    {}
+    void BLEPLAT_NvmDiscard(uint8_t mode)
+    {
+        hal::BleNvmWba::Instance().Discard(mode);
+    }
 
     int BLEPLAT_PkaStartP256Key(const uint32_t* local_private_key)
     {
@@ -326,6 +329,7 @@ extern "C"
         return hal::BlePlatformWba::Instance().ReadDiffieHellmanKey(infra::ReinterpretCastByteRange(infra::MemoryRange<uint32_t>(dh_key, dh_key + p256KeyWords))) ? BLEPLAT_OK : BLEPLAT_EOF;
     }
 
+    // The basic stack does not use AES-CCM
     int BLEPLAT_AesCcmCrypt(uint8_t, const uint8_t*, uint8_t, const uint8_t*, uint16_t, const uint8_t*, uint32_t, const uint8_t*, uint8_t, uint8_t*, uint8_t*)
     {
         return BLEPLAT_ERROR;

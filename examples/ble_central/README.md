@@ -104,9 +104,10 @@ application provides. hal-st provides that port in `hal_st/middlewares/ble_middl
   software low interrupts, interrupt masking, random numbers and the link layer configuration.
 - **`PowerTableWba.cpp`** holds ST's TX power tables.
 - **`BlePlatformWba.cpp`** holds `BLEPLAT_*`: random numbers, AES-ECB and AES-CMAC on the AES
-  peripheral, P-256 key generation and the Diffie-Hellman key on the PKA, and the stack's timers on
-  `infra::TimerSingleShot`. NVM is still a stub that stores nothing, and so is AES-CCM, which the
-  basic stack does not use.
+  peripheral, P-256 key generation and the Diffie-Hellman key on the PKA, the stack's timers on
+  `infra::TimerSingleShot`, and its NVM. AES-CCM is a stub, which the basic stack does not use.
+- **`BleNvmWba.cpp`** is the stack's NVM: its security and GATT records, in the record format of
+  ST's `nvm_emul.c`, kept in RAM and written back to a `ConfigurationStore` entry after each change.
 
 `SystemTransportLayerWba` takes its hardware in `SystemTransportLayerWba::HardwareDependencies`:
 creators for the RNG (`hal::SynchronousRandomDataGenerator`), the AES (`services::Aes128Ecb`) and
@@ -123,7 +124,10 @@ software low interrupt (`HASH_IRQn` by default). The link layer takes over the `
 vector, and registers the software low interrupt in the interrupt table, so pick one whose peripheral
 the application does not drive by interrupts.
 
-The remaining stub is NVM, for bond persistence.
+`SystemTransportLayerWba` also takes that `ConfigurationStore` entry, a range of
+`SystemTransportLayerWba::bondBlobSize` bytes, and loads the records from it before the stack
+starts. The example hands it a `services::ConfigurationStoreStub`, so bonds do not survive a reset;
+see [Bonds are not persistent](../ble_peripheral/README.md#bonds-are-not-persistent).
 
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.
