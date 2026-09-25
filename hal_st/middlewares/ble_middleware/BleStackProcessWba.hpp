@@ -3,7 +3,6 @@
 
 namespace hal
 {
-    // Lets the link layer deliver events again after the host refused one, and runs the host stack to take them
     void ResumeBleEventFlow();
 }
 

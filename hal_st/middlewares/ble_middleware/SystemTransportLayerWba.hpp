@@ -64,7 +64,6 @@ namespace hal
         void ProcessQueuedEvent();
 
     private:
-        // Packet type, event code, parameter length and up to 255 bytes of parameters
         static constexpr std::size_t maxEventPacketSize = 3 + 255;
         static constexpr std::size_t maxQueuedEvents = 4;
 

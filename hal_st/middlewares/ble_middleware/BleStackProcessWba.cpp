@@ -17,14 +17,11 @@ extern "C"
 
 namespace
 {
-    // Bluetooth Core Specification, Volume 4, Part E, section 7.7.16; ST reports a lost link layer event with this code
     constexpr uint8_t lostLinkLayerEventHardwareCode = 0x03;
 
     constexpr uint8_t allowAllLinkLayerEvents = 0x0f;
 }
 
-// The event dispatcher takes the place of ST's sequencer: the link layer background process and the
-// host stack each run as a single pending action, however often they are requested.
 extern "C"
 {
     void ll_sys_bg_process_init()
