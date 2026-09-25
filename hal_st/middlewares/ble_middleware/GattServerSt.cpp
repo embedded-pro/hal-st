@@ -112,7 +112,24 @@ namespace hal
                 auto& attributeModifiedEvent = *reinterpret_cast<aci_gatt_attribute_modified_event_rp0*>(coreEvent.data);
                 HandleGattAttributeModified(attributeModifiedEvent);
             }
+            else if (coreEvent.ecode == ACI_ATT_EXCHANGE_MTU_RESP_VSEVT_CODE)
+            {
+                assert(coreEvent.data != nullptr);
+
+                const auto& exchangeMtuResponse = *reinterpret_cast<const aci_att_exchange_mtu_resp_event_rp0*>(coreEvent.data);
+                HandleAttExchangeMtuResponse(exchangeMtuResponse);
+            }
         }
+    }
+
+    void GattServerSt::HandleAttExchangeMtuResponse(const aci_att_exchange_mtu_resp_event_rp0& event)
+    {
+        const auto maxAttMtuSize = event.Server_RX_MTU;
+
+        infra::Subject<services::GattServerObserver>::NotifyObservers([maxAttMtuSize](auto& observer)
+            {
+                observer.MaxAttMtuSizeChanged(maxAttMtuSize);
+            });
     }
 
     void GattServerSt::AddCharacteristic(services::GattServerCharacteristic& characteristic)
