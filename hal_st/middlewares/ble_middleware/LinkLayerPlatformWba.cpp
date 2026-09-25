@@ -1,6 +1,6 @@
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
-#include <algorithm>
 #include DEVICE_HEADER
 #include "stm32wbaxx_ll_pwr.h"
 #include "stm32wbaxx_ll_rcc.h"
@@ -18,7 +18,6 @@ extern "C"
 namespace
 {
     constexpr IRQn_Type radioIrq = RADIO_IRQn;
-    constexpr IRQn_Type softwareLowIrq = HASH_IRQn;
 
     constexpr uint32_t radioActivePriority = 0;
     constexpr uint32_t radioLowPriority = 5;
@@ -68,8 +67,9 @@ namespace
 
 namespace hal
 {
-    LinkLayerPlatformWba::LinkLayerPlatformWba(const Config& config)
+    LinkLayerPlatformWba::LinkLayerPlatformWba(RandomDataGeneratorCreator& randomDataGeneratorCreator, const Config& config)
         : config(config)
+        , randomDataGeneratorCreator(randomDataGeneratorCreator)
     {
         LL_RCC_HSE_Enable();
         while (LL_RCC_HSE_IsReady() == 0)
@@ -81,7 +81,7 @@ namespace hal
 
         ConfigureSleepClock();
         ConfigureRandomDataGeneratorClock();
-        randomDataGenerator.emplace();
+        RefillRandomDataPool();
     }
 
     void LinkLayerPlatformWba::ConfigureParameters()
@@ -117,21 +117,26 @@ namespace hal
             ll_sys_config_BLE_schldr_timings(driftTime, executionTime);
     }
 
-    // Both the link layer, from its interrupts, and the host stack draw from the one generator; taking a word at a
-    // time keeps the radio interrupt's latency to that of a single draw.
+    // As ST's HW_RNG_Get, the link layer's interrupts draw from a pool and never wait for the generator. When they
+    // empty it they reuse stale words, as ST does; outside interrupts the pool is refilled on the spot instead.
     void LinkLayerPlatformWba::GenerateRandomData(infra::ByteRange result)
     {
         while (!result.empty())
         {
-            auto word = infra::Head(result, sizeof(uint32_t));
+            if (randomDataPoolCount == 0 && __get_IPSR() == 0)
+                RefillRandomDataPool();
 
             auto primask = __get_PRIMASK();
             __disable_irq();
-            randomDataGenerator->GenerateRandomData(word);
+            auto word = randomDataPoolCount != 0 ? randomDataPool[--randomDataPoolCount] : ~randomDataPool[result.size() % randomDataPoolSize];
             __set_PRIMASK(primask);
 
-            result = infra::DiscardHead(result, word.size());
+            auto bytes = infra::Head(infra::MakeByteRange(word), result.size());
+            infra::Copy(bytes, infra::Head(result, bytes.size()));
+            result = infra::DiscardHead(result, bytes.size());
         }
+
+        ScheduleRandomDataPoolRefill();
     }
 
     void LinkLayerPlatformWba::SetupRadioInterrupt(void (*callback)())
@@ -141,28 +146,34 @@ namespace hal
         HAL_NVIC_EnableIRQ(radioIrq);
     }
 
+    // The interrupt is pended and re-prioritised on the fly, which the handler does not offer, so that goes through HAL_NVIC
     void LinkLayerPlatformWba::SetupSoftwareLowInterrupt(void (*callback)())
     {
         softwareLowCallback = callback;
-        HAL_NVIC_SetPriority(softwareLowIrq, softwareLowPriority, 0);
-        HAL_NVIC_EnableIRQ(softwareLowIrq);
+
+        if (!softwareLowInterrupt)
+            softwareLowInterrupt.emplace(config.softwareLowInterrupt, [this]()
+                {
+                    SoftwareLowInterrupt();
+                });
+
+        HAL_NVIC_SetPriority(SoftwareLowIrq(), softwareLowPriority, 0);
+        HAL_NVIC_EnableIRQ(SoftwareLowIrq());
     }
 
     void LinkLayerPlatformWba::TriggerSoftwareLowInterrupt(uint8_t priority)
     {
-        if (HAL_NVIC_GetActive(softwareLowIrq) == 0)
-            HAL_NVIC_SetPriority(softwareLowIrq, priority == 0 ? softwareLowPriority : radioLowPriority, 0);
+        if (HAL_NVIC_GetActive(SoftwareLowIrq()) == 0)
+            HAL_NVIC_SetPriority(SoftwareLowIrq(), priority == 0 ? softwareLowPriority : radioLowPriority, 0);
         else if (priority != 0)
             softwareLowPendingAtRadioLowPriority = true;
 
-        HAL_NVIC_SetPendingIRQ(softwareLowIrq);
+        HAL_NVIC_SetPendingIRQ(SoftwareLowIrq());
     }
 
     void LinkLayerPlatformWba::EnableInterrupts()
     {
-        interruptsDisabledCount = std::max<int32_t>(0, interruptsDisabledCount - 1);
-
-        if (interruptsDisabledCount == 0)
+        if (interruptsDisabledCount > 0 && --interruptsDisabledCount == 0)
             __set_PRIMASK(savedPrimask);
     }
 
@@ -181,7 +192,7 @@ namespace hal
             HAL_NVIC_EnableIRQ(radioIrq);
 
         if ((isrType & LL_LOW_ISR_ONLY) != 0 && --softwareLowInterruptDisabledCount == 0)
-            HAL_NVIC_EnableIRQ(softwareLowIrq);
+            HAL_NVIC_EnableIRQ(SoftwareLowIrq());
 
         if ((isrType & SYS_LOW_ISR) != 0 && --systemLowInterruptsDisabledCount == 0)
             __set_BASEPRI(savedBasepri);
@@ -193,7 +204,7 @@ namespace hal
             HAL_NVIC_DisableIRQ(radioIrq);
 
         if ((isrType & LL_LOW_ISR_ONLY) != 0 && ++softwareLowInterruptDisabledCount == 1)
-            HAL_NVIC_DisableIRQ(softwareLowIrq);
+            HAL_NVIC_DisableIRQ(SoftwareLowIrq());
 
         if ((isrType & SYS_LOW_ISR) != 0 && ++systemLowInterruptsDisabledCount == 1)
         {
@@ -236,15 +247,15 @@ namespace hal
 
     void LinkLayerPlatformWba::SoftwareLowInterrupt()
     {
-        HAL_NVIC_DisableIRQ(softwareLowIrq);
+        HAL_NVIC_DisableIRQ(SoftwareLowIrq());
 
         if (softwareLowCallback != nullptr)
             softwareLowCallback();
 
         if (softwareLowPendingAtRadioLowPriority.exchange(false))
-            HAL_NVIC_SetPriority(softwareLowIrq, radioLowPriority, 0);
+            HAL_NVIC_SetPriority(SoftwareLowIrq(), radioLowPriority, 0);
 
-        HAL_NVIC_EnableIRQ(softwareLowIrq);
+        HAL_NVIC_EnableIRQ(SoftwareLowIrq());
     }
 
     void LinkLayerPlatformWba::ConfigureSleepClock() const
@@ -299,20 +310,53 @@ namespace hal
 
         return defaultSleepClockAccuracy;
     }
+
+    IRQn_Type LinkLayerPlatformWba::SoftwareLowIrq() const
+    {
+        return static_cast<IRQn_Type>(config.softwareLowInterrupt);
+    }
+
+    void LinkLayerPlatformWba::RefillRandomDataPool()
+    {
+        auto primask = __get_PRIMASK();
+        __disable_irq();
+        auto missing = randomDataPoolSize - randomDataPoolCount;
+        __set_PRIMASK(primask);
+
+        if (missing == 0)
+            return;
+
+        std::array<uint32_t, randomDataPoolSize> words;
+
+        {
+            infra::ProxyCreator<SynchronousRandomDataGenerator, void()> generator(randomDataGeneratorCreator);
+            generator->GenerateRandomData(infra::ReinterpretCastByteRange(infra::Head(infra::MakeRange(words), missing)));
+        }
+
+        primask = __get_PRIMASK();
+        __disable_irq();
+        while (missing != 0 && randomDataPoolCount != randomDataPoolSize)
+            randomDataPool[randomDataPoolCount++] = words[--missing];
+        __set_PRIMASK(primask);
+    }
+
+    void LinkLayerPlatformWba::ScheduleRandomDataPoolRefill()
+    {
+        if (!randomDataPoolRefillScheduled.exchange(true))
+            infra::EventDispatcher::Instance().Schedule([this]()
+                {
+                    randomDataPoolRefillScheduled = false;
+                    RefillRandomDataPool();
+                });
+    }
 }
 
-// The link layer masks, pends and re-prioritises its interrupts on the fly, which InterruptHandler does not
-// offer, so its vectors are overridden directly and driven through HAL_NVIC, as in ST's reference application.
 extern "C"
 {
+    // The radio interrupt runs at the highest priority, so it is taken directly rather than through the interrupt table
     void RADIO_IRQHandler()
     {
         hal::LinkLayerPlatformWba::Instance().RadioInterrupt();
-    }
-
-    void HASH_IRQHandler()
-    {
-        hal::LinkLayerPlatformWba::Instance().SoftwareLowInterrupt();
     }
 
     void LINKLAYER_PLAT_ClockInit()

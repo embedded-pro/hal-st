@@ -1,6 +1,8 @@
 #include "hal_st/middlewares/ble_middleware/BlePlatformWba.hpp"
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#include "services/crypto/Secp256r1.hpp"
 #include <algorithm>
 #include <chrono>
 #include <functional>
@@ -15,8 +17,7 @@ extern "C"
 
 namespace
 {
-    constexpr std::size_t p256PublicKeyWords = 16;
-    constexpr std::size_t p256DhKeyWords = 8;
+    constexpr std::size_t p256KeyWords = 8;
 
     constexpr uint8_t cmacSubkeyReduction = 0x87;
     constexpr uint8_t cmacPadding = 0x80;
@@ -51,8 +52,10 @@ namespace
 
 namespace hal
 {
-    BlePlatformWba::BlePlatformWba(infra::MemoryRange<TimerSlot> timers)
+    BlePlatformWba::BlePlatformWba(infra::MemoryRange<TimerSlot> timers, AesCreator& aesCreator, PkaCreator& pkaCreator)
         : timers(timers)
+        , aesCreator(aesCreator)
+        , pkaCreator(pkaCreator)
     {}
 
     void BlePlatformWba::Reset()
@@ -62,6 +65,10 @@ namespace hal
             slot.timer.Cancel();
             slot.id = std::nullopt;
         }
+
+        diffieHellman = std::nullopt;
+        pka = std::nullopt;
+        ++pkaOperation;
     }
 
     // The stack passes key, input and output least significant byte first, the reverse of AES's byte order
@@ -76,8 +83,11 @@ namespace hal
         std::reverse_copy(key.begin(), key.end(), reversedKey.begin());
         std::reverse_copy(input.begin(), input.end(), reversedInput.begin());
 
-        aes.SetKey(reversedKey);
-        aes.Encrypt(reversedInput, result);
+        {
+            infra::ProxyCreator<services::Aes128Ecb, void()> aes(aesCreator);
+            aes->SetKey(reversedKey);
+            aes->Encrypt(reversedInput, result);
+        }
 
         std::reverse_copy(result.begin(), result.end(), output.begin());
     }
@@ -92,15 +102,8 @@ namespace hal
 
     void BlePlatformWba::AppendCmac(infra::ConstByteRange input)
     {
-        really_assert(input.size() % blockSize == 0);
-
-        while (!input.empty())
-        {
-            Block block;
-            std::transform(input.begin(), input.begin() + blockSize, cmacState.begin(), block.begin(), std::bit_xor<uint8_t>());
-            cmacState = EncryptCmacBlock(block);
-            input = infra::DiscardHead(input, blockSize);
-        }
+        infra::ProxyCreator<services::Aes128Ecb, void()> aes(aesCreator);
+        AppendCmacBlocks(*aes, input);
     }
 
     // RFC 4493, section 2.4; the last block is held back from AppendCmac because it is combined with a subkey
@@ -112,12 +115,13 @@ namespace hal
         if (!input.empty() && lastBlockSize == 0)
             lastBlockSize = blockSize;
 
-        AppendCmac(infra::DiscardTail(input, lastBlockSize));
+        infra::ProxyCreator<services::Aes128Ecb, void()> aes(aesCreator);
+        AppendCmacBlocks(*aes, infra::DiscardTail(input, lastBlockSize));
 
         Block lastBlock{};
         std::copy(input.end() - lastBlockSize, input.end(), lastBlock.begin());
 
-        auto subkey = DoubleCmacSubkey(EncryptCmacBlock(Block{}));
+        auto subkey = DoubleCmacSubkey(EncryptCmacBlock(*aes, Block{}));
         if (lastBlockSize < blockSize)
         {
             lastBlock[lastBlockSize] = cmacPadding;
@@ -127,7 +131,7 @@ namespace hal
         for (std::size_t index = 0; index != blockSize; ++index)
             lastBlock[index] ^= cmacState[index] ^ subkey[index];
 
-        auto result = EncryptCmacBlock(lastBlock);
+        auto result = EncryptCmacBlock(*aes, lastBlock);
         std::copy(result.begin(), result.end(), tag.begin());
     }
 
@@ -162,7 +166,82 @@ namespace hal
             }
     }
 
-    BlePlatformWba::Block BlePlatformWba::EncryptCmacBlock(const Block& input)
+    bool BlePlatformWba::StartPublicKeyGeneration(infra::ConstByteRange key)
+    {
+        really_assert(key.size() == keySize);
+
+        if (pka)
+            return false;
+
+        pka.emplace(pkaCreator);
+        std::reverse_copy(key.begin(), key.end(), privateKey.begin());
+
+        (*pka)->ScalarMultiplication(services::secp256r1, privateKey, {}, {}, [this](infra::ConstByteRange x, infra::ConstByteRange y)
+            {
+                infra::Copy(x, infra::Head(infra::MakeRange(publicKey), keySize));
+                infra::Copy(y, infra::Tail(infra::MakeRange(publicKey), keySize));
+                CompletePkaOperation();
+            });
+
+        return true;
+    }
+
+    void BlePlatformWba::ReadPublicKey(infra::ByteRange key) const
+    {
+        really_assert(key.size() == publicKey.size());
+
+        std::reverse_copy(publicKey.begin(), publicKey.begin() + keySize, key.begin());
+        std::reverse_copy(publicKey.begin() + keySize, publicKey.end(), key.begin() + keySize);
+    }
+
+    bool BlePlatformWba::StartDiffieHellmanKeyGeneration(infra::ConstByteRange key, infra::ConstByteRange peerPublicKey)
+    {
+        really_assert(key.size() == keySize && peerPublicKey.size() == publicKey.size());
+
+        if (pka)
+            return false;
+
+        pka.emplace(pkaCreator);
+        diffieHellman.emplace(**pka);
+        diffieHellmanKeyValid = false;
+        std::reverse_copy(key.begin(), key.end(), privateKey.begin());
+        std::reverse_copy(peerPublicKey.begin(), peerPublicKey.begin() + keySize, publicKey.begin());
+        std::reverse_copy(peerPublicKey.begin() + keySize, peerPublicKey.end(), publicKey.begin() + keySize);
+
+        diffieHellman->CalculateSharedSecretKey(services::secp256r1, privateKey, publicKey, diffieHellmanKey, [this](bool valid)
+            {
+                diffieHellmanKeyValid = valid;
+                CompletePkaOperation();
+            });
+
+        return true;
+    }
+
+    bool BlePlatformWba::ReadDiffieHellmanKey(infra::ByteRange key) const
+    {
+        really_assert(key.size() == diffieHellmanKey.size());
+
+        if (!diffieHellmanKeyValid)
+            return false;
+
+        std::reverse_copy(diffieHellmanKey.begin(), diffieHellmanKey.end(), key.begin());
+        return true;
+    }
+
+    void BlePlatformWba::AppendCmacBlocks(const services::Aes128Ecb& aes, infra::ConstByteRange input)
+    {
+        really_assert(input.size() % blockSize == 0);
+
+        while (!input.empty())
+        {
+            Block block;
+            std::transform(input.begin(), input.begin() + blockSize, cmacState.begin(), block.begin(), std::bit_xor<uint8_t>());
+            cmacState = EncryptCmacBlock(aes, block);
+            input = infra::DiscardHead(input, blockSize);
+        }
+    }
+
+    BlePlatformWba::Block BlePlatformWba::EncryptCmacBlock(const services::Aes128Ecb& aes, const Block& input) const
     {
         Block result;
 
@@ -180,6 +259,22 @@ namespace hal
         BLEPLATCB_TimerExpiry(id);
         BleStackCB_Process();
     }
+
+    // The PKA reports from within its own callback, so it is released once that has returned
+    void BlePlatformWba::CompletePkaOperation()
+    {
+        infra::EventDispatcher::Instance().Schedule([this, operation = pkaOperation]()
+            {
+                if (operation != pkaOperation)
+                    return;
+
+                diffieHellman = std::nullopt;
+                pka = std::nullopt;
+
+                BLEPLATCB_PkaComplete();
+                BleStackCB_Process();
+            });
+    }
 }
 
 extern "C"
@@ -189,7 +284,7 @@ extern "C"
         hal::BlePlatformWba::Instance().Reset();
     }
 
-    // NVM, PKA and AES-CCM stay stubs until their own step; the basic stack does not use AES-CCM.
+    // NVM and AES-CCM stay stubs; the basic stack does not use AES-CCM.
     int BLEPLAT_NvmAdd(uint8_t, const uint8_t*, uint16_t, const uint8_t*, uint16_t)
     {
         return BLEPLAT_ERROR;
@@ -208,25 +303,27 @@ extern "C"
     void BLEPLAT_NvmDiscard(uint8_t)
     {}
 
-    int BLEPLAT_PkaStartP256Key(const uint32_t*)
+    int BLEPLAT_PkaStartP256Key(const uint32_t* local_private_key)
     {
-        return BLEPLAT_ERROR;
+        auto key = infra::ReinterpretCastByteRange(infra::MemoryRange<const uint32_t>(local_private_key, local_private_key + p256KeyWords));
+        return hal::BlePlatformWba::Instance().StartPublicKeyGeneration(key) ? BLEPLAT_OK : BLEPLAT_BUSY;
     }
 
     void BLEPLAT_PkaReadP256Key(uint32_t* local_public_key)
     {
-        std::fill_n(local_public_key, p256PublicKeyWords, 0);
+        hal::BlePlatformWba::Instance().ReadPublicKey(infra::ReinterpretCastByteRange(infra::MemoryRange<uint32_t>(local_public_key, local_public_key + 2 * p256KeyWords)));
     }
 
-    int BLEPLAT_PkaStartDhKey(const uint32_t*, const uint32_t*)
+    int BLEPLAT_PkaStartDhKey(const uint32_t* local_private_key, const uint32_t* remote_public_key)
     {
-        return BLEPLAT_ERROR;
+        auto key = infra::ReinterpretCastByteRange(infra::MemoryRange<const uint32_t>(local_private_key, local_private_key + p256KeyWords));
+        auto peerKey = infra::ReinterpretCastByteRange(infra::MemoryRange<const uint32_t>(remote_public_key, remote_public_key + 2 * p256KeyWords));
+        return hal::BlePlatformWba::Instance().StartDiffieHellmanKeyGeneration(key, peerKey) ? BLEPLAT_OK : BLEPLAT_BUSY;
     }
 
     int BLEPLAT_PkaReadDhKey(uint32_t* dh_key)
     {
-        std::fill_n(dh_key, p256DhKeyWords, 0);
-        return BLEPLAT_ERROR;
+        return hal::BlePlatformWba::Instance().ReadDiffieHellmanKey(infra::ReinterpretCastByteRange(infra::MemoryRange<uint32_t>(dh_key, dh_key + p256KeyWords))) ? BLEPLAT_OK : BLEPLAT_EOF;
     }
 
     int BLEPLAT_AesCcmCrypt(uint8_t, const uint8_t*, uint8_t, const uint8_t*, uint16_t, const uint8_t*, uint32_t, const uint8_t*, uint8_t, uint8_t*, uint8_t*)

@@ -24,6 +24,9 @@
 #elif defined(STM32WBA)
 #include "hal_st/middlewares/ble_middleware/SystemTransportLayerWba.hpp"
 #include "hal_st/stm32fxxx/DefaultClockNucleoWBA55CG.hpp"
+#include "hal_st/stm32fxxx/PkaStm.hpp"
+#include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
+#include "hal_st/synchronous_stm32fxxx/SynchronousRandomDataGeneratorStm.hpp"
 #endif
 
 unsigned int hse_value = 32'000'000;
@@ -552,7 +555,12 @@ int main()
         tracer
     };
 #elif defined(STM32WBA)
-    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ maxAttMtuSize };
+    static infra::Creator<hal::SynchronousRandomDataGenerator, hal::SynchronousRandomDataGeneratorStm, void()> randomDataGeneratorCreator;
+    static infra::Creator<services::Aes128Ecb, hal::SynchronousAes128EcbStm, void()> aesCreator;
+    static infra::Creator<services::EllipticCurveOperations, hal::PkaStm, void()> pkaCreator;
+    hal::SystemTransportLayerWba::Config systemTransportLayerConfig;
+    systemTransportLayerConfig.maxAttMtuSize = maxAttMtuSize;
+    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig };
 
     static application::VolatileBondStorage volatileBondStorage;
     static hal::BondStorageSt bondStorageSt{ maxNumberOfBonds };
