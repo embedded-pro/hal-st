@@ -14,7 +14,7 @@ target_link_libraries(hal_st.ble_middleware PUBLIC
     services.ble
     services.util
     services.tracer
-    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:hal_st.stm32_wpan_stm32wbaxx.libs>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:$<LINK_GROUP:RESCAN,hal_st.ble_middleware_wba_platform,hal_st.stm32_wpan_stm32wbaxx,hal_st.stm32_wpan_stm32wbaxx.link_layer_basic,hal_st.stm32_wpan_stm32wbaxx.stack_basic>>
 )
 
 target_sources(hal_st.ble_middleware PRIVATE
@@ -47,4 +47,20 @@ target_sources(hal_st.ble_middleware PRIVATE
     TracingGattServerSt.hpp
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:TracingSystemTransportLayerWb.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:TracingSystemTransportLayerWb.hpp>
+)
+
+add_library(hal_st.ble_middleware_wba_platform STATIC)
+emil_build_for(hal_st.ble_middleware_wba_platform
+    TARGET_MCU_FAMILY stm32wbaxx
+    PREREQUISITE_BOOL HALST_STANDALONE)
+
+target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
+    hal_st.stm32_wpan_stm32wbaxx
+    infra.util
+)
+
+target_sources(hal_st.ble_middleware_wba_platform PRIVATE
+    BlePlatformWba.cpp
+    LinkLayerPlatformWba.cpp
+    PowerTableWba.cpp
 )

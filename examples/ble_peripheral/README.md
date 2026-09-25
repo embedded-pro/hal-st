@@ -9,10 +9,10 @@ a link that can be driven from both ends.
 
 ## Targets
 
-| Board          | Preset       | Status                                                              |
-|----------------|--------------|---------------------------------------------------------------------|
-| NUCLEO-WB55RG  | `stm32wb55`  | Built by default                                                    |
-| NUCLEO-WBA55CG | `stm32wba55` | Needs `HALST_BUILD_EXAMPLES_BLE_WBA=On` — see [STM32WBA](#stm32wba) |
+| Board          | Preset       | Status                                                           |
+|----------------|--------------|------------------------------------------------------------------|
+| NUCLEO-WB55RG  | `stm32wb55`  | Built by default                                                 |
+| NUCLEO-WBA55CG | `stm32wba55` | Built by default; not functional yet — see [STM32WBA](#stm32wba) |
 
 ```bash
 cmake --preset stm32wb55
@@ -85,23 +85,25 @@ for why the flash driver on WB55 has to negotiate with the radio coprocessor.
 
 ## STM32WBA
 
-The example compiles for `stm32wba55` but does not link yet, so
-`HALST_BUILD_EXAMPLES_BLE_WBA` stays off. Building with it on
-(`cmake --preset stm32wba55 -DHALST_BUILD_EXAMPLES_BLE_WBA=On`) shows what a WBA port still owes:
+The example builds and links for `stm32wba55`, but the BLE stack does not run on it yet. On WBA
+the host stack and link layer run on the application core as ST's prebuilt archives, and they
+call back into a platform port that the application provides. hal-st provides that port in
+`hal_st/middlewares/ble_middleware`, and today it is still made of stubs:
 
-- **The BLE platform layer is absent.** `BLEPLAT_Init`, `BLEPLAT_AesEcbEncrypt`,
-  `BLEPLAT_AesCmacSetKey`, `BLEPLAT_AesCmacCompute`, `BLEPLAT_PkaStartP256Key`, `BLEPLAT_RngGet`,
-  `BLEPLAT_NvmAdd`, `BLEPLAT_NvmGet`, `BLEPLAT_NvmDiscard`, `BLEPLAT_TimerStart` and
-  `BLEPLAT_TimerStop` are defined in no archive in the tree, and neither is `ll_sys_reset`, which
-  STM32CubeWBA puts in the application's `ll_sys_if.c`. `hal_st/stm32fxxx` already has the drivers
-  they would sit on — `SynchronousAesStm`, `PkaStm`, `RandomDataGeneratorStm`, `RtcStm`.
-- **`LINKLAYER_PLAT_*` and `LINKLAYER_DEBUG_SIGNAL_*` follow.** They are undefined in
-  `LinkLayer_BLE_Basic_lib.a` and defined nowhere; they do not show up in today's link only
-  because the objects referencing them are never extracted.
-- **The prebuilt archives need group ordering.** `stm32wba_ble_stack_basic.a` references
-  `ll_intf_*` in `LinkLayer_BLE_Basic_lib.a`, which `hal_st.stm32_wpan_stm32wbaxx.libs` lists
-  first, so those symbols come back undefined although they are present. The archives need
-  `--start-group`, or the reverse order.
+- **`BlePlatformWba.cpp`** holds `BLEPLAT_*`. NVM stores nothing, RNG, AES and CMAC return
+  zeros, and PKA and timers report an error.
+- **`LinkLayerPlatformWba.cpp`** holds `LINKLAYER_PLAT_*`, `LINKLAYER_DEBUG_SIGNAL_*` and the
+  application's `ll_sys_*` hooks. None of them touches the hardware, and nothing drives
+  `ll_sys_bg_process` or `BleStack_Process` yet.
+- **`PowerTableWba.cpp`** holds ST's TX power tables, which are complete.
+
+These stubs are replaced step by step, in this order:
+
+1. The execution model.
+2. The link-layer platform (clocks and radio interrupts).
+3. RNG, AES and timers.
+4. PKA.
+5. NVM for bond persistence.
 
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.
