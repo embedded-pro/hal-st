@@ -1,12 +1,7 @@
-set(ble_example_mcus TARGET_MCU stm32wb55)
-
-if (HALST_BUILD_EXAMPLES_BLE_WBA)
-    list(APPEND ble_example_mcus TARGET_MCU stm32wba55)
-endif()
-
 add_executable(examples_st.ble_peripheral Main.cpp)
 emil_build_for(examples_st.ble_peripheral
-    ${ble_example_mcus}
+    TARGET_MCU stm32wb55
+    TARGET_MCU stm32wba55
     PREREQUISITE_BOOL HALST_BUILD_EXAMPLES
 )
 

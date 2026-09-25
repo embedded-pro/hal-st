@@ -9,7 +9,6 @@ option(HALST_BUILD_TESTS "Enable building the tests" Off)
 option(HALST_INCLUDE_DEFAULT_INIT "Include default initialization code; turn off when providing custom initialization" ON)
 option(HALST_BUILD_EXAMPLES "Enable build of the examples" OFF)
 option(HALST_BUILD_EXAMPLES_FREERTOS "Enable build of the FreeRTOS example" OFF)
-option(HALST_BUILD_EXAMPLES_BLE_WBA "Enable build of the BLE examples for STM32WBA; needs the WBA link layer platform port, which hal-st does not provide yet" OFF)
 set(HALST_XML_GPIO "" CACHE STRING "XML GPIO table")
 set(HALST_XML_STM32 "" CACHE STRING "XML STM32 table")
 

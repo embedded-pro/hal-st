@@ -65,19 +65,14 @@ target_sources(hal_st.stm32_wpan_stm32wbaxx PRIVATE
     link_layer/ll_sys/src/ll_sys_startup.c
 )
 
-add_library(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic STATIC IMPORTED)
-set_target_properties(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/link_layer/ll_cmd_lib/lib/LinkLayer_BLE_Basic_lib.a)
+if (TARGET_MCU STREQUAL stm32wba65)
+    set(link_layer_basic_lib WBA6_LinkLayer_BLE_Basic_lib.a)
+else()
+    set(link_layer_basic_lib LinkLayer_BLE_Basic_lib.a)
+endif()
 
-add_library(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic_wba6 STATIC IMPORTED)
-set_target_properties(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic_wba6 PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/link_layer/ll_cmd_lib/lib/WBA6_LinkLayer_BLE_Basic_lib.a)
+add_library(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic STATIC IMPORTED GLOBAL)
+set_target_properties(hal_st.stm32_wpan_stm32wbaxx.link_layer_basic PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/link_layer/ll_cmd_lib/lib/${link_layer_basic_lib})
 
-add_library(hal_st.stm32_wpan_stm32wbaxx.stack_basic STATIC IMPORTED)
+add_library(hal_st.stm32_wpan_stm32wbaxx.stack_basic STATIC IMPORTED GLOBAL)
 set_target_properties(hal_st.stm32_wpan_stm32wbaxx.stack_basic PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_LIST_DIR}/ble/stack/lib/stm32wba_ble_stack_basic.a)
-
-add_library(hal_st.stm32_wpan_stm32wbaxx.libs INTERFACE)
-target_link_libraries(hal_st.stm32_wpan_stm32wbaxx.libs INTERFACE
-    $<$<STREQUAL:${TARGET_MCU},stm32wba52>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic>
-    $<$<STREQUAL:${TARGET_MCU},stm32wba55>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic>
-    $<$<STREQUAL:${TARGET_MCU},stm32wba65>:hal_st.stm32_wpan_stm32wbaxx.link_layer_basic_wba6>
-    hal_st.stm32_wpan_stm32wbaxx.stack_basic
-)
