@@ -53,13 +53,12 @@ namespace hal
             WatchDogStm& watchdog;
         };
 
-        void StartUnlessHeld(Operation operation);
-        void Start();
         void WriteNextDoubleWord();
         void EraseNextSector();
         void Finish();
         void StepWhenCpu2AllowsFlashAccess(const infra::Function<void()>& step);
         void TryStep();
+        void ReportEraseActivity();
         bool StepWithCpu2LockedOut();
         void HsemInterruptHandler();
         void EccErrorHandler();
@@ -75,7 +74,6 @@ namespace hal
         cortex::ImmediateInterruptHandler nmiHandler;
 
         Operation operation = Operation::write;
-        bool held = false;
         bool eraseActivityReported = false;
         infra::ConstByteRange buffer;
         uint32_t address = 0;

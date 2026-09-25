@@ -38,9 +38,7 @@ namespace hal
 
         SHCI_C2_SetFlashActivityControl(FLASH_ACTIVITY_CONTROL_SEM7);
         wirelessStack = WirelessStack::running;
-
-        if (std::exchange(held, false))
-            Start();
+        TryStep();
     }
 
     uint32_t FlashCoordinatedWithWirelessStack::NumberOfSectors() const
@@ -68,7 +66,8 @@ namespace hal
         this->buffer = buffer;
         this->address = address;
         this->onDone = onDone;
-        StartUnlessHeld(Operation::write);
+        operation = Operation::write;
+        WriteNextDoubleWord();
     }
 
     void FlashCoordinatedWithWirelessStack::ReadBuffer(infra::ByteRange buffer, uint32_t address, infra::Function<void()> onDone)
@@ -81,30 +80,8 @@ namespace hal
         currentSector = beginIndex;
         endSector = endIndex;
         this->onDone = onDone;
-        StartUnlessHeld(Operation::erase);
-    }
-
-    void FlashCoordinatedWithWirelessStack::StartUnlessHeld(Operation operation)
-    {
-        this->operation = operation;
-        held = wirelessStack == WirelessStack::starting;
-
-        if (!held)
-            Start();
-    }
-
-    void FlashCoordinatedWithWirelessStack::Start()
-    {
-        if (operation == Operation::write)
-            WriteNextDoubleWord();
-        else
-        {
-            eraseActivityReported = wirelessStack == WirelessStack::running;
-            if (eraseActivityReported)
-                SHCI_C2_FLASH_EraseActivity(ERASE_ACTIVITY_ON);
-
-            EraseNextSector();
-        }
+        operation = Operation::erase;
+        EraseNextSector();
     }
 
     void FlashCoordinatedWithWirelessStack::WriteNextDoubleWord()
@@ -165,7 +142,12 @@ namespace hal
 
     void FlashCoordinatedWithWirelessStack::TryStep()
     {
-        if (!stepPending || StepWithCpu2LockedOut())
+        if (!stepPending || wirelessStack == WirelessStack::starting)
+            return;
+
+        ReportEraseActivity();
+
+        if (StepWithCpu2LockedOut())
             return;
 
         LL_HSEM_ClearFlag_C1ICR(HSEM, semaphoreMask);
@@ -178,6 +160,15 @@ namespace hal
                 {
                     TryStep();
                 });
+        }
+    }
+
+    void FlashCoordinatedWithWirelessStack::ReportEraseActivity()
+    {
+        if (operation == Operation::erase && wirelessStack == WirelessStack::running && !eraseActivityReported)
+        {
+            SHCI_C2_FLASH_EraseActivity(ERASE_ACTIVITY_ON);
+            eraseActivityReported = true;
         }
     }
 
