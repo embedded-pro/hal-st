@@ -56,11 +56,14 @@ emil_build_for(hal_st.ble_middleware_wba_platform
 
 target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
     hal_st.stm32_wpan_stm32wbaxx
+    infra.event
     infra.util
 )
 
 target_sources(hal_st.ble_middleware_wba_platform PRIVATE
     BlePlatformWba.cpp
+    BleStackProcessWba.cpp
+    BleWrapWba.c
     LinkLayerPlatformWba.cpp
     PowerTableWba.cpp
 )

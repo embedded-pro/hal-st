@@ -113,15 +113,6 @@ extern "C"
     void ll_sys_reset()
     {}
 
-    void ll_sys_bg_process_init()
-    {}
-
-    void ll_sys_schedule_bg_process()
-    {}
-
-    void ll_sys_schedule_bg_process_isr()
-    {}
-
     void ll_sys_config_params()
     {}
 }
