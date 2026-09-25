@@ -38,7 +38,6 @@ namespace
         return result;
     }
 
-    // RFC 4493, section 2.3
     template<class Block>
     Block DoubleCmacSubkey(const Block& block)
     {
@@ -56,7 +55,6 @@ namespace
         std::reverse_copy(from.begin(), from.end(), to.begin());
     }
 
-    // A public key is x followed by y, each an integer of its own
     void ReverseCoordinates(infra::ConstByteRange from, infra::ByteRange to)
     {
         auto coordinateSize = from.size() / 2;
@@ -249,7 +247,6 @@ namespace hal
         return result;
     }
 
-    // RFC 4493, section 2.4, steps 3 and 4: the last block is padded when incomplete, and combined with the matching subkey
     BlePlatformWba::Block BlePlatformWba::LastCmacBlock(const services::Aes128Ecb& aes, infra::ConstByteRange last) const
     {
         Block block{};

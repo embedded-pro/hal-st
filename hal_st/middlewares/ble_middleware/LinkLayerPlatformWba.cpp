@@ -142,7 +142,6 @@ namespace hal
             ll_sys_config_BLE_schldr_timings(driftTime, executionTime);
     }
 
-    // Outside interrupts an empty pool is refilled on the spot
     void LinkLayerPlatformWba::GenerateRandomData(infra::ByteRange result)
     {
         while (!result.empty())

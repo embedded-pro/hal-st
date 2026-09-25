@@ -39,7 +39,6 @@ namespace
         return Valid(header) && Type(header) == type;
     }
 
-    // A record is its header word followed by its data, padded to whole words
     std::size_t Words(std::size_t size)
     {
         return (size + sizeof(uint32_t) + sizeof(uint32_t) - 1) / sizeof(uint32_t);
@@ -261,7 +260,6 @@ namespace hal
         return infra::DiscardHead(infra::ReinterpretCastByteRange(records), (index + 1) * sizeof(uint32_t));
     }
 
-    // The stack writes several records in a row, after pairing for instance, which are persisted together
     void BleNvmWba::Changed()
     {
         if (!updateScheduled)

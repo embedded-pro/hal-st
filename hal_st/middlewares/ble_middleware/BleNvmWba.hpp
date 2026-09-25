@@ -10,8 +10,6 @@
 
 namespace hal
 {
-    // The stack's security and GATT records, in the record format of ST's nvm_emul.c. The records are
-    // loaded from the persistent copy on construction and written back to it after every change.
     class BleNvmWba
         : public infra::InterfaceConnector<BleNvmWba>
     {
