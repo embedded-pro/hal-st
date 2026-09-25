@@ -100,9 +100,12 @@ application provides. hal-st provides that port in `hal_st/middlewares/ble_middl
   `infra::TimerSingleShot`. NVM is still a stub that stores nothing, and so is AES-CCM, which the
   basic stack does not use.
 
-`SystemTransportLayerWba` takes a `LinkLayerPlatformWba::Config` with the radio sleep timer clock
-(LSE by default, which the NUCLEO-WBA55CG has), its accuracy and the TX power table. The link layer
-takes over the `RADIO` and `HASH` interrupt vectors.
+`SystemTransportLayerWba` takes creators for the AES (`services::Aes128Ecb`) and the PKA
+(`services::EllipticCurveOperations`). The BLE platform creates each only for the duration of an
+operation, so the application can use the same creators whenever the stack is not using them. It
+also takes a `LinkLayerPlatformWba::Config` with the radio sleep timer clock (LSE by default, which
+the NUCLEO-WBA55CG has), its accuracy and the TX power table. The link layer takes over the `RADIO`
+and `HASH` interrupt vectors.
 
 The remaining stub is NVM, for bond persistence.
 

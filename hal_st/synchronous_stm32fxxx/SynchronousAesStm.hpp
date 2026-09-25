@@ -37,7 +37,7 @@ namespace hal
     public:
         using Config = detail::SynchronousAes128EcbConfig;
 
-        explicit SynchronousAes128EcbStm(const Config& config);
+        explicit SynchronousAes128EcbStm(const Config& config = Config());
         ~SynchronousAes128EcbStm();
 
         void SetKey(const std::array<uint8_t, 16>& key) const override;

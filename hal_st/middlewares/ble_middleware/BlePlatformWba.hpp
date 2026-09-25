@@ -1,11 +1,12 @@
 #pragma once
 
-#include "hal_st/stm32fxxx/PkaStm.hpp"
-#include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include "infra/util/MemoryRange.hpp"
+#include "infra/util/ProxyCreator.hpp"
+#include "services/crypto/Aes.hpp"
+#include "services/crypto/EllipticCurve.hpp"
 #include "services/crypto/EllipticCurveDiffieHellman.hpp"
 #include <array>
 #include <cstdint>
@@ -29,7 +30,11 @@ namespace hal
             return 2 + 4 * numberOfLinks;
         }
 
-        explicit BlePlatformWba(infra::MemoryRange<TimerSlot> timers);
+        // The AES and PKA are only held while an operation runs, so that the application can use them in between
+        using AesCreator = infra::CreatorBase<services::Aes128Ecb, void()>;
+        using PkaCreator = infra::CreatorBase<services::EllipticCurveOperations, void()>;
+
+        BlePlatformWba(infra::MemoryRange<TimerSlot> timers, AesCreator& aesCreator, PkaCreator& pkaCreator);
 
         void Reset();
 
@@ -53,19 +58,21 @@ namespace hal
 
         static constexpr std::size_t keySize = 32;
 
-        Block EncryptCmacBlock(const Block& input);
+        void AppendCmacBlocks(const services::Aes128Ecb& aes, infra::ConstByteRange input);
+        Block EncryptCmacBlock(const services::Aes128Ecb& aes, const Block& input) const;
         void ExpireTimer(TimerSlot& slot);
         void CompletePkaOperation();
 
     private:
         infra::MemoryRange<TimerSlot> timers;
-        SynchronousAes128EcbStm aes{ SynchronousAes128EcbStm::Config() };
+        AesCreator& aesCreator;
+        PkaCreator& pkaCreator;
+
         Block cmacKey{};
         Block cmacState{};
 
-        PkaStm pka;
-        services::EllipticCurveDiffieHellman diffieHellman{ pka };
-        bool pkaBusy = false;
+        std::optional<infra::ProxyCreator<services::EllipticCurveOperations, void()>> pka;
+        std::optional<services::EllipticCurveDiffieHellman> diffieHellman;
         bool diffieHellmanKeyValid = false;
         std::array<uint8_t, keySize> privateKey{};
         std::array<uint8_t, 2 * keySize> publicKey{};
