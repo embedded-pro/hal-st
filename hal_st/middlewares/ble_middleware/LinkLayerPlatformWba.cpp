@@ -29,6 +29,9 @@ namespace
 
     constexpr uint8_t defaultSleepClockAccuracy = 0;
 
+    constexpr uint8_t lsiCalibrationDurationSleepTimerCycles = 24;
+    constexpr uint32_t lsiCalibrationPeriodMs = 15000;
+
     constexpr uint8_t defaultDriftTime = 13;
     constexpr uint8_t defaultExecutionTime = 10;
     constexpr uint8_t lsiExtraDriftTime = 9;
@@ -68,6 +71,14 @@ namespace hal
     LinkLayerPlatformWba::LinkLayerPlatformWba(const Config& config)
         : config(config)
     {
+        LL_RCC_HSE_Enable();
+        while (LL_RCC_HSE_IsReady() == 0)
+        {
+        }
+
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+        DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
         ConfigureSleepClock();
         ConfigureRandomDataGeneratorClock();
         randomDataGenerator.emplace();
@@ -90,6 +101,7 @@ namespace hal
 
         if (config.sleepClockSource == SleepClockSource::lsi)
         {
+            ll_intf_le_set_rco_clbr_evnt_params(lsiCalibrationDurationSleepTimerCycles, lsiCalibrationPeriodMs);
             driftTime += lsiExtraDriftTime;
             executionTime += lsiExtraExecutionTime;
         }
@@ -299,8 +311,12 @@ extern "C"
 
     void LINKLAYER_PLAT_DelayUs(uint32_t delay)
     {
-        for (auto cycles = delay * (SystemCoreClock / 1000000U); cycles != 0; --cycles)
-            __NOP();
+        auto start = DWT->CYCCNT;
+        auto cycles = delay * (SystemCoreClock / 1000000U);
+
+        while (DWT->CYCCNT - start < cycles)
+        {
+        }
     }
 
     void LINKLAYER_PLAT_Assert(uint8_t condition)

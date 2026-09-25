@@ -1,5 +1,4 @@
-#ifndef HAL_ST_SYSTEM_TRANSPORT_LAYER_WBA_HPP
-#define HAL_ST_SYSTEM_TRANSPORT_LAYER_WBA_HPP
+#pragma once
 
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
@@ -74,5 +73,3 @@ namespace hal
         bool eventFlowPaused = false;
     };
 }
-
-#endif

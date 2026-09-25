@@ -1,5 +1,4 @@
-#ifndef HAL_ST_LINK_LAYER_PLATFORM_WBA_HPP
-#define HAL_ST_LINK_LAYER_PLATFORM_WBA_HPP
+#pragma once
 
 #include "hal_st/synchronous_stm32fxxx/SynchronousRandomDataGeneratorStm.hpp"
 #include "infra/util/ByteRange.hpp"
@@ -84,5 +83,3 @@ namespace hal
         uint32_t sleepTimerAtWfiExit = 0;
     };
 }
-
-#endif
