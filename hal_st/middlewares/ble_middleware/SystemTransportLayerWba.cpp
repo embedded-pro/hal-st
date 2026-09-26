@@ -8,6 +8,7 @@ extern "C"
 {
 #include "ble_bufsize.h"
 #include "ble_common.h"
+#include "ble_gen_aci.h"
 #include "ble_hal_aci.h"
 #include "ble_hci_le.h"
 #include "blestack.h"
@@ -48,19 +49,28 @@ namespace
         return static_cast<uint8_t>(BLE_PREP_WRITE_X_ATT(maxAttMtuSize));
     }
 
-    BleStack_init_t StackParameters(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize)
+    BleStack_init_t StackParameters(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<uint16_t> hostEvents, infra::MemoryRange<uint8_t> gattLongWrite, infra::MemoryRange<uint64_t> nvmCache, uint8_t numberOfLinks, uint16_t mblockCount, uint16_t maxAttMtuSize)
     {
         return BleStack_init_t{
             .bleStartRamAddress = reinterpret_cast<uint8_t*>(stackBuffer.begin()),
             .total_buffer_size = stackBuffer.size() * sizeof(uint32_t),
+            .nvm_cache_buffer = nvmCache.begin(),
+            .nvm_cache_size = static_cast<uint16_t>(nvmCache.size() - 1),
+            .nvm_cache_max_size = static_cast<uint16_t>(nvmCache.size()),
             .bleStartRamAddress_GATT = reinterpret_cast<uint8_t*>(gattBuffer.begin()),
             .total_buffer_size_GATT = gattBuffer.size() * sizeof(uint32_t),
+            .gatt_long_write_buffer = gattLongWrite.begin(),
+            .extra_data_buffer = nullptr,
+            .extra_data_buffer_size = 0,
+            .host_event_fifo_buffer = hostEvents.begin(),
+            .host_event_fifo_buffer_size = static_cast<uint16_t>(hostEvents.size()),
             .numAttrRecord = hal::SystemTransportLayerWba::numberOfAttributeRecords,
             .numAttrServ = hal::SystemTransportLayerWba::numberOfAttributeServices,
             .attrValueArrSize = hal::SystemTransportLayerWba::attributeValueArraySize,
             .numOfLinks = numberOfLinks,
             .prWriteListSize = PrepareWriteListSize(maxAttMtuSize),
             .mblockCount = mblockCount,
+            .max_add_eatt_bearers = hal::SystemTransportLayerWba::additionalEattBearers,
             .attMtu = maxAttMtuSize,
             .max_coc_mps = maxConnectionOrientedChannelPduSize,
             .max_coc_nbr = maxConnectionOrientedChannels,
@@ -73,15 +83,15 @@ namespace
 
 namespace hal
 {
-    SystemTransportLayerWba::SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, infra::MemoryRange<uint32_t> nvmRecords, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const StackConfig& config)
+    SystemTransportLayerWba::SystemTransportLayerWba(const StackMemory& memory, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, infra::MemoryRange<uint64_t> nvmStorage, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const StackConfig& config)
         : linkLayerPlatform(hardware.randomDataGenerator, config.linkLayer)
         , blePlatform(timers, hardware.aes, hardware.pka)
-        , nvm(nvmRecords, bondBlob)
+        , nvm(nvmStorage, bondBlob)
     {
         really_assert(config.maxAttMtuSize >= BLE_DEFAULT_ATT_MTU && config.maxAttMtuSize <= maxAttMtuSizeLimit);
         really_assert(config.numberOfLinks != 0);
 
-        auto parameters = StackParameters(stackBuffer, gattBuffer, config.numberOfLinks, config.mblockCount, config.maxAttMtuSize);
+        auto parameters = StackParameters(memory.stack, memory.gatt, memory.hostEvents, memory.gattLongWrite, nvm.Cache(), config.numberOfLinks, config.mblockCount, config.maxAttMtuSize);
         really_assert(BleStack_Init(&parameters) == BLE_STATUS_SUCCESS);
     }
 
@@ -89,7 +99,13 @@ namespace hal
     {
         Version version{};
         really_assert(hci_read_local_version_information(&version.hciVersion, &version.hciSubversion, &version.lmpVersion, &version.companyIdentifier, &version.lmpSubversion) == BLE_STATUS_SUCCESS);
-        really_assert(aci_hal_get_fw_build_number(&version.firmwareBuildNumber) == BLE_STATUS_SUCCESS);
+
+        std::array<uint32_t, 2> stackVersion{};
+        std::array<uint32_t, 1> options{};
+        std::array<uint32_t, 3> debugInfo{};
+        really_assert(aci_get_information(stackVersion.data(), options.data(), debugInfo.data()) == BLE_STATUS_SUCCESS);
+        version.firmwareBuildNumber = static_cast<uint16_t>(stackVersion[1] >> 16);
+
         return version;
     }
 

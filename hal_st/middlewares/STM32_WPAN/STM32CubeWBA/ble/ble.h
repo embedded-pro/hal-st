@@ -35,6 +35,7 @@ extern "C" {
 #include "ble_bufsize.h"
 #include "ble_defs.h"
 #include "ble_std.h"
+#include "ble_legacy.h"
 
 #include "svc/Inc/svc_ctl.h"
 

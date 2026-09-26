@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/event_manager.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/inc/event_manager.h#4 $*/
 /**
  ********************************************************************************
  * @file    event_manager.h
  * @brief   This file contains all the functions prototypes for the event_manager.c.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -41,7 +40,7 @@
 #include "ll_fw_config.h"
 #include "common_types.h"
 
-/* Defination ----------------------------------------------------------------*/
+/* Definition ----------------------------------------------------------------*/
 /*Event manager events*/
 #define EVENT_PENDING		1
 #define HANDLE_IS_FULL		77
@@ -103,18 +102,15 @@ typedef enum {
 #endif /* SUPPORT_LE_PAWR_ADVERTISER_ROLE */
 #endif /* SUPPORT_LE_EXTENDED_ADVERTISING */
 #endif /*SUPPORT_BLE*/
-#if SUPPORT_COEXISTENCE
-	COEX_TIMER_EVENT,
-#endif
 #if SUPPORT_MAC
-	RADIO_MAC_TX_DONE_EVENT,
+	RADIO_MAC_PENDING_DONE_EVENT,
 	RAL_SM_DONE_EVENT,
 	MAC_SM_DONE_EVENT,
 	ED_TMR_EVENT,
 #endif /*SUPPORT_MAC*/
-#if ((SUPPORT_BLE)||(SUPPORT_MAC_HCI_UART)||(SUPPORT_ANT_HCI_UART) || (SUPPORT_AUG_MAC_HCI_UART))
+#if ((SUPPORT_BLE)||(SUPPORT_MAC_HCI_UART)||(SUPPORT_ANT_HCI_UART) || (SUPPORT_AUG_MAC_HCI_UART) || (SUPPORT_RADIO_HCI_UART))
 	HCI_TRANSPORT_HANDLER, /* handler for the HCI transport events; handling events from HCI to Host */
-#endif /*SUPPORT_BLE*/
+#endif /* ((SUPPORT_BLE)||(SUPPORT_MAC_HCI_UART)||(SUPPORT_ANT_HCI_UART) || (SUPPORT_AUG_MAC_HCI_UART) || (SUPPORT_RADIO_HCI_UART)) */
 #if (SUPPORT_HCI_EVENT_ONLY)
 	GENERIC_EVENT,
 #if SUPPORT_SYNC_ISOCHRONOUS || SUPPORT_CONNECTED_ISOCHRONOUS
@@ -333,7 +329,7 @@ void * emngr_peak_frst_event(unsigned char id);
 void * emngr_del_event(unsigned char id, void *data);
 
 
-/* @breif Used to remove a certain event within a queue that satisfies the condition set by cbk
+/* @brief Used to remove a certain event within a queue that satisfies the condition set by cbk
  * 		  the cbk can delete priv data if it has allocated data.
  * @param id: [In] ID of the queue to search for
  * @param only_one_event: [In] if False delete all events that satisfies the condition
@@ -352,7 +348,7 @@ uint8_t emngr_remove_conditional_event( uint8_t id, uint8_t only_one_event,
  * */
 uint8_t emngr_can_mcu_sleep(void);
 
-/* @breif Used to process a certain event within a queue that satisfies the condition set by cbk
+/* @brief Used to process a certain event within a queue that satisfies the condition set by cbk
  * @param id: [In] ID of the queue to search for
  * @param only_one_event: [In] if False process all events that satisfies the condition
  * @param conitional_data: [In] Optional pointer to pass to cbk along with priv data

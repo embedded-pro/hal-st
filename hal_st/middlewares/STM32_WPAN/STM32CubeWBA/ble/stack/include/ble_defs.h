@@ -5,7 +5,7 @@
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2025 STMicroelectronics.
+ * Copyright (c) 2018-2026 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -31,10 +31,6 @@
  * cannot be performed.
  */
 #define BLE_STATUS_DEV_IN_BLACKLIST                     0x59U
-
-/* CSRK not found during validation of an incoming signed packet
- */
-#define BLE_STATUS_CSRK_NOT_FOUND                       0x5AU
 
 /* IRK not found (Currently not used)
  */
@@ -147,6 +143,22 @@
 
 /* ------------------------------------------------------------------------- */
 
+/* BLE stack options (Options)
+ * (ACI_RESET)
+ */
+#define BLE_OPTIONS_LL_ONLY                      0x00000001UL
+#define BLE_OPTIONS_NO_SVC_CHANGE_DESC           0x00000002UL
+#define BLE_OPTIONS_DEV_NAME_READ_ONLY           0x00000004UL
+#define BLE_OPTIONS_EXTENDED_ADV                 0x00000008UL
+#define BLE_OPTIONS_CS_ALGO_2                    0x00000010UL
+#define BLE_OPTIONS_REDUCED_DB_IN_NVM            0x00000020UL
+#define BLE_OPTIONS_GATT_CACHING                 0x00000040UL
+#define BLE_OPTIONS_POWER_CLASS_1                0x00000080UL
+#define BLE_OPTIONS_APPEARANCE_WRITABLE          0x00000100UL
+#define BLE_OPTIONS_ENHANCED_ATT                 0x00000200UL
+
+/* ------------------------------------------------------------------------- */
+
 /* Characteristic value lengths
  */
 #define DEVICE_NAME_CHARACTERISTIC_LEN                  8
@@ -195,6 +207,7 @@
 #define GAP_SELECTIVE_CONNECTION_ESTABLISHMENT_PROC  0x20U
 #define GAP_DIRECT_CONNECTION_ESTABLISHMENT_PROC     0x40U
 #define GAP_OBSERVATION_PROC                         0x80U
+#define GAP_GENERIC_SCAN_PROC                        0xB0U
 
 /* GAP Address Type
  */
@@ -209,6 +222,7 @@
 #define GAP_ADD_DEV_MODE_CLEAR                       0x01U
 #define GAP_ADD_DEV_MODE_FILTER_ACC_LIST_ONLY        0x02U
 #define GAP_ADD_DEV_MODE_BOTH_LISTS                  0x04U
+#define GAP_ADD_DEV_MODE_CONFIGURE_FROM_SDB          0x08U
 
 /* ------------------------------------------------------------------------- */
 
@@ -231,7 +245,8 @@
  * (ACI_GAP_SET_AUTHENTICATION_REQUIREMENT)
  */
 #define MITM_PROTECTION_NOT_REQUIRED               0x00U
-#define MITM_PROTECTION_REQUIRED                   0x01U
+#define MITM_PROTECTION_REQUIRED_AS_MANDATORY      0x01U
+#define MITM_PROTECTION_REQUIRED_AS_OPTIONAL       0x02U
 
 /* LE Secure Connections support
  * (ACI_GAP_SET_AUTHENTICATION_REQUIREMENT)
@@ -288,6 +303,7 @@
 #define REASON_DHKEY_CHECK_FAILED                  0x0BU
 #define REASON_NUM_COMPARISON_FAILED               0x0CU
 #define REASON_KEY_REJECTED                        0x0FU
+#define REASON_BUSY                                0x10U
 
 /* Passkey input type detected
  * (ACI_GAP_PASSKEY_INPUT)
@@ -326,8 +342,7 @@
 #define ATTR_ACCESS_WRITE_REQ_ONLY                 0x02U
 #define ATTR_ACCESS_READ_WRITE                     0x03U
 #define ATTR_ACCESS_WRITE_WITHOUT_RESPONSE         0x04U
-#define ATTR_ACCESS_SIGNED_WRITE_ALLOWED           0x08U
-#define ATTR_ACCESS_WRITE_ANY                      0x0EU
+#define ATTR_ACCESS_WRITE_ANY                      0x06U
 #define ATTR_ACCESS_ANY                            0x0FU
 
 /* Characteristic properties
@@ -339,7 +354,6 @@
 #define CHAR_PROP_WRITE                            0x08U
 #define CHAR_PROP_NOTIFY                           0x10u
 #define CHAR_PROP_INDICATE                         0x20U
-#define CHAR_PROP_SIGNED_WRITE                     0x40U
 #define CHAR_PROP_EXT                              0x80U
 
 /* Security permissions for an attribute
@@ -351,6 +365,8 @@
 #define ATTR_PERMISSION_AUTHEN_WRITE   0x08U /* Need authentication to write */
 #define ATTR_PERMISSION_AUTHOR_WRITE   0x10U /* Need authorization to write */
 #define ATTR_PERMISSION_ENCRY_WRITE    0x20U /* Need encryption to write */
+#define ATTR_PERMISSION_SC_READ        0x40U /* Need SC to read */
+#define ATTR_PERMISSION_SC_WRITE       0x80U /* Need SC tto write */
 
 /* Type of UUID (16 bit or 128 bit)
  */
@@ -401,6 +417,10 @@
 #define GATT_CHAR_UPDATE_SEND_NOTIFICATION         0x01U
 #define GATT_CHAR_UPDATE_SEND_INDICATION           0x02U
 
+/* Conn_Handle_To_Notify definitions for ACI_GATT_UPDATE_CHAR_VALUE_EXT
+ */
+#define GATT_NOTIFY_TO_ALL_CLIENTS                 0x0FFFU
+
 /* ------------------------------------------------------------------------- */
 
 /* Advertising Type
@@ -440,7 +460,7 @@
 /* ------------------------------------------------------------------------- */
 
 /* Definitions for Warning_Type
- * (ACI_HAL_WARNING_EVENT)
+ * (ACI_WARNING_EVENT)
  */
 #define WARNING_L2CAP_RECOMBINATION_FAILURE          0x01U
 #define WARNING_GATT_UNEXPECTED_PEER_MESSAGE         0x02U
@@ -448,6 +468,7 @@
 #define WARNING_COC_RX_DATA_LENGTH_TOO_LARGE         0x04U
 #define WARNING_COC_ALREADY_ASSIGNED_DCID            0x05U
 #define WARNING_SMP_UNEXPECTED_LTK_REQUEST           0x06U
+#define WARNING_GATT_BEARER_NOT_ALLOCATED            0x07U
 
 /* ------------------------------------------------------------------------- */
 
@@ -465,6 +486,7 @@
 #define CONFIG_DATA_LL_RSSI_GOLDEN_RANGE_OFFSET    0xC2U
 #define CONFIG_DATA_LL_RPA_MODE_OFFSET             0xC3U
 #define CONFIG_DATA_LL_RX_ACL_CTRL_OFFSET          0xC4U
+#define CONFIG_DATA_LL_ISO_SCHED_MODE_OFFSET       0xC5U
 #define CONFIG_DATA_LL_MAX_DATA_EXT_OFFSET         0xD1U
 
 /* Length for configuration values (see ACI_HAL_WRITE_CONFIG_DATA)
@@ -481,6 +503,7 @@
 #define CONFIG_DATA_LL_RSSI_GOLDEN_RANGE_LEN        2
 #define CONFIG_DATA_LL_RPA_MODE_LEN                 1
 #define CONFIG_DATA_LL_RX_ACL_CTRL_LEN              2
+#define CONFIG_DATA_LL_ISO_SCHED_MODE_LEN           1
 #define CONFIG_DATA_LL_MAX_DATA_EXT_LEN             8
 
 /* ------------------------------------------------------------------------- */

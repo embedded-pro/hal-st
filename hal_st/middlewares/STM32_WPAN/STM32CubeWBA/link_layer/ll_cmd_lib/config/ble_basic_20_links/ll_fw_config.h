@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/ll_fw_config.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/firmware/public_inc/ll_fw_config.h#1 $*/
 /**
  ********************************************************************************
  * @file    ll_fw_config.h
  * @brief   This file contains the major configurations to the BLE controller.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -44,6 +43,11 @@
 
 /*************************** BLE Configuration *************************************/
 /*Configurations of BLE will apply only when BLE is enabled*/
+
+/* Variant configuration */
+#define CFG_LL_BLE_BASIC                                1
+#define CFG_LL_BLE_INTERFACE_COMPATIBILITY          1
+
 /* Roles configurations */
 #ifndef SUPPORT_EXPLCT_OBSERVER_ROLE
 #define SUPPORT_EXPLCT_OBSERVER_ROLE                1 /* Enable\Disable Explicit observer role. Enable:1 - Disable:0 */
@@ -91,7 +95,7 @@
 #endif /* SUPPORT_PERIODIC_SYNC_TRANSFER */
 
 #ifndef SUPPORT_SLEEP_CLOCK_ACCURCY_UPDATES
-#define SUPPORT_SLEEP_CLOCK_ACCURCY_UPDATES         1 /* Enable\Disable Sleep Clock Accuracy Updates Feature. Enable:1 - Disable:0 */
+#define SUPPORT_SLEEP_CLOCK_ACCURCY_UPDATES         0 /* Enable\Disable Sleep Clock Accuracy Updates Feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_SLEEP_CLOCK_ACCURCY_UPDATES */
 
 #ifndef SUPPORT_CONNECTED_ISOCHRONOUS
@@ -164,6 +168,10 @@
                                                       /*LL can use crystal oscillator or RTC or RCO to drive the sleep clock.This selection is done via "DEFAULT_SLEEP_CLOCK_SOURCE" macro. */
 #endif /* USE_NON_ACCURATE_32K_SLEEP_CLK */
 
+#ifndef SUPPORT_CTE_DEGRADATION_API
+#define SUPPORT_CTE_DEGRADATION_API                 1 /* Enable\Disable CTE degradation API. Enable:1 - Disable:0 */
+#endif /* SUPPORT_CTE_DEGRADATION_API */
+
 /* Non-standard features configurations */
 #ifndef NUM_OF_CTSM_EMNGR_HNDLS
 #define NUM_OF_CTSM_EMNGR_HNDLS                     1 /* Number of custom handles in event manager to be used for app specific needs */
@@ -185,9 +193,9 @@
 #define CHECK_ANY_MISSED_EVENT_ON_DEEP_SLEEP_EXIT   1 /* Enable\Disable calling event scheduler handler function at the end of deep sleep exit*/
 #endif /* CHECK_ANY_MISSED_EVENT_ON_DEEP_SLEEP_EXIT */
 
-#ifndef LL_BASIC
-#define LL_BASIC  1
-#endif /* LL_BASIC */
+#ifndef SUPPORT_PROFILE
+#define SUPPORT_PROFILE                             PROFILE_LIGHTWEIGHT /* Enable\Disable profiling LL timing framework */
+#endif /* SUPPORT_PROFILE */
 
 /*************************** MAC Configuration *************************************/
 /*Configurations of MAC will apply only when MAC is enabled*/
@@ -220,10 +228,22 @@
 #ifndef RADIO_CSMA
 #define RADIO_CSMA                                  0 /* Enable\Disable CSMA Algorithm in Radio Layer, Must be Enabled if MAC_LAYER_BUILD */
 #endif /* RADIO_CSMA */
-
+ 
+#ifndef ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY
+#define ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY		1 /* Enable\Disable RX WITH CSMA Feature */
+#endif /* ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY */
+ 
+#ifndef SUPPORT_ANT_DIV
+#define SUPPORT_ANT_DIV                             1 /* Enable/Disable Antenna Diversity Feature */
+#endif /* SUPPORT_ANT_DIV */
+ 
 #ifndef SUPPORT_A_MAC
 #define SUPPORT_A_MAC                               0
 #endif /* SUPPORT_A_MAC */
+ 
+#ifndef SUPPORT_CONFIG_LIB
+#define SUPPORT_CONFIG_LIB							1 /* Enable\Disable Configurable Library feature */
+#endif /* SUPPORT_CONFIG_LIB */
 
 #ifndef SMPL_PRTCL_TEST_ENABLE
 #define SMPL_PRTCL_TEST_ENABLE                      0

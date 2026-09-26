@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/ll_error.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/inc/ll_error.h#4 $*/
 /**
  ********************************************************************************
  * @file    error.h
  * @brief   This file contains error defines across BLE FW LL.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -219,9 +218,17 @@ typedef enum _HW_ERROR_CODES
 #error Advertisers Monitoring feature can be enabled when the device is an observer.
 #endif /* ((SUPPORT_LE_ADVERTISERS_MONITORING) && (!SUPPORT_EXPLCT_OBSERVER_ROLE)) */
 
-#if ((SUPPORT_PHY_SHUTDOWN_MODE) && !(defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a)))
-#error Phy Shutdown feature is only supported on PHY_40nm_3_60_a_tc, PHY_40nm_3_00_a and PHY_40nm_3_40_a
-#endif /* ((SUPPORT_PHY_SHUTDOWN_MODE) && !(defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a))) */
+#if defined(PHY_40nm_2_00_a_tc)
+#error "PHY_40nm_2_00_a_tc is not supported by the current FW version"
+#endif /* PHY_40nm_2_00_a_tc */
+
+#if (SUPPORT_DYNAMIC_PREEMPH_COEFF && CTE_DEGRADATION_API_PHY_SUPPORT)
+#error "Dynamic Preemphasis coefficients feature cannot be enabled while the CTE degradation API is enabled"
+#endif /* SUPPORT_DYNAMIC_PREEMPH_COEFF && CTE_DEGRADATION_API_PHY_SUPPORT */
+
+#if (defined(RTL_VER_7) ^ (defined(PHY_40nm_3_60_a_tc_new_demod) || defined(PHY_40nm_6_00_a_lca00))) && defined(snps_ble_demo)
+#error "Configuration error: RTL_VER_7 shall only be defined while either PHY_40nm_3_60_a_tc_new_demod or PHY_40nm_6_00_a_lca00 is defined"
+#endif /*(defined(RTL_VER_7) && (!defined(PHY_40nm_3_60_a_tc_new_demod) && !defined(PHY_40nm_6_00_a_lca00)))*/
 
 /* Exported macros ------------------------------------------------------------*/
 
@@ -231,4 +238,5 @@ typedef enum _HW_ERROR_CODES
 #endif /* SUPPORT_BLE */
 #endif /* ERROR_H_ */
 
-/******************* (C) (C) COPYRIGHT 2024 SYNOPSYS, INC. *****END OF FILE****/
+/******************* (C) (C) COPYRIGHT 2026 SYNOPSYS, INC. *****END OF FILE****/
+

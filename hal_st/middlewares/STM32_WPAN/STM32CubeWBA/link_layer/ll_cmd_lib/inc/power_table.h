@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/power_table.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/inc/power_table.h#3 $*/
 /**
  ******************************************************************************
  * @file    power_table.h
  * @brief   This file contains APIs prototypes related to configuring the used power table and the external power amplifier (EPA) parameters
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -48,7 +47,7 @@ typedef uint8_t (*epa_enable_cb_t)(uint8_t epa_enable);
  * @brief Structure of one element of the power table.
  */
 typedef struct {
-const uint8_t vddh_pa;			/* VDDHPA supply volatge level */
+const uint8_t vddh_pa;			/* VDDHPA supply voltage level */
 const uint8_t internal_pa_code; /* Internal PA code */
 const uint8_t epa_bypass; 		/* External PA Bypass 1: enabled, 0 : disabled */
 const int8_t tx_pwr; 			/* TX Power level in dBm. */

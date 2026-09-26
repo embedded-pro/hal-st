@@ -33,8 +33,16 @@ namespace hal
         // BLE middleware supports an ATT MTU of 512; the HCI buffer limits this port to 251.
         static constexpr uint16_t maxAttMtuSizeLimit = 251;
 
-        // ST's CFG_BLEPLAT_NVM_MAX_SIZE; the ConfigurationStore entry passed to the constructor must match.
+        // The ConfigurationStore entry passed to the constructor must match.
         static constexpr std::size_t bondBlobSize = 504 * sizeof(uint32_t);
+
+        // As ST's CFG_BLE_HOST_EVENT_BUF_SIZE
+        static constexpr std::size_t hostEventFifoSize = 512;
+
+        // Required by ACI_GATT_WRITE_LONG_CHAR_VALUE, which GattClientSt uses
+        static constexpr std::size_t gattLongWriteBufferSize = 256;
+
+        static constexpr uint8_t additionalEattBearers = 0;
 
         // The stack allocates its memory blocks per link, so its buffer size follows the number of
         // links it is initialised with and has to be known where the buffer is defined.
@@ -42,13 +50,15 @@ namespace hal
         struct Storage
         {
             static constexpr std::size_t mblockCount = BLE_MBLOCKS_CALC(BLE_DEFAULT_PREP_WRITE_LIST_SIZE, maxAttMtuSizeLimit, NumberOfLinks) + 0x15;
-            static constexpr std::size_t stackBufferSize = BLE_TOTAL_BUFFER_SIZE(NumberOfLinks, mblockCount);
+            static constexpr std::size_t stackBufferSize = BLE_TOTAL_BUFFER_SIZE(NumberOfLinks, mblockCount, additionalEattBearers);
             static constexpr std::size_t gattBufferSize = BLE_TOTAL_BUFFER_SIZE_GATT(numberOfAttributeRecords, numberOfAttributeServices, attributeValueArraySize);
 
             std::array<uint32_t, DIVC(stackBufferSize, 4)> stack{};
             std::array<uint32_t, DIVC(gattBufferSize, 4)> gatt{};
+            std::array<uint16_t, DIVC(hostEventFifoSize, 2)> hostEvents{};
+            std::array<uint8_t, gattLongWriteBufferSize> gattLongWrite{};
             std::array<BlePlatformWba::TimerSlot, BlePlatformWba::TimersForLinks(NumberOfLinks)> timers;
-            std::array<uint32_t, bondBlobSize / sizeof(uint32_t)> nvm{};
+            std::array<uint64_t, bondBlobSize / sizeof(uint64_t)> nvm{};
         };
 
         template<uint8_t NumberOfLinks>
@@ -72,7 +82,7 @@ namespace hal
 
         template<uint8_t NumberOfLinks>
         SystemTransportLayerWba(Storage<NumberOfLinks>& storage, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const Config& config = Config())
-            : SystemTransportLayerWba(infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.timers), infra::MakeRange(storage.nvm), bondBlob, hardware, StackConfig{ config, NumberOfLinks, Storage<NumberOfLinks>::mblockCount })
+            : SystemTransportLayerWba(StackMemory{ infra::MakeRange(storage.stack), infra::MakeRange(storage.gatt), infra::MakeRange(storage.hostEvents), infra::MakeRange(storage.gattLongWrite) }, infra::MakeRange(storage.timers), infra::MakeRange(storage.nvm), bondBlob, hardware, StackConfig{ config, NumberOfLinks, Storage<NumberOfLinks>::mblockCount })
         {}
 
         struct Version
@@ -109,7 +119,15 @@ namespace hal
             uint16_t mblockCount;
         };
 
-        SystemTransportLayerWba(infra::MemoryRange<uint32_t> stackBuffer, infra::MemoryRange<uint32_t> gattBuffer, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, infra::MemoryRange<uint32_t> nvmRecords, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const StackConfig& config);
+        struct StackMemory
+        {
+            infra::MemoryRange<uint32_t> stack;
+            infra::MemoryRange<uint32_t> gatt;
+            infra::MemoryRange<uint16_t> hostEvents;
+            infra::MemoryRange<uint8_t> gattLongWrite;
+        };
+
+        SystemTransportLayerWba(const StackMemory& memory, infra::MemoryRange<BlePlatformWba::TimerSlot> timers, infra::MemoryRange<uint64_t> nvmStorage, services::ConfigurationStoreAccess<infra::ByteRange> bondBlob, const HardwareDependencies& hardware, const StackConfig& config);
 
         void ProcessQueuedEvent();
 
