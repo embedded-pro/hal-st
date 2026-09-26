@@ -26,6 +26,8 @@ target_sources(hal_st.stm32_wpan_stm32wbxx PRIVATE
     ble/core/auto/ble_gap_aci.h
     ble/core/auto/ble_gatt_aci.c
     ble/core/auto/ble_gatt_aci.h
+    ble/core/auto/ble_gen_aci.c
+    ble/core/auto/ble_gen_aci.h
     ble/core/auto/ble_hal_aci.c
     ble/core/auto/ble_hal_aci.h
     ble/core/auto/ble_hci_le.c
