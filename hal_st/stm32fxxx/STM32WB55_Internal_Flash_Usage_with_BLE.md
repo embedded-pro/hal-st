@@ -68,11 +68,11 @@ It knows three states of the wireless stack:
 
 | State    | Meaning                                                      | Writes and erases                                                           |
 |----------|--------------------------------------------------------------|-----------------------------------------------------------------------------|
-| stopped  | CPU2 has not been started                                    | Performed; there is no one to notify                                        |
+| stopped  | CPU2 has not been started, or runs FUS                       | Performed; there is no one to notify                                        |
 | starting | CPU2 is booting and does not accept flash coordination yet   | Held until `WirelessStackReady()`, including an operation already under way |
 | running  | `SHCI_C2_SetFlashActivityControl(SEM7)` has been sent        | Performed, and erases reported to CPU2                                      |
 
-Starting in `stopped` lets an application recover configuration from flash before it creates the transport layer, which is needed when that configuration includes the BLE bond record. A configuration store may have to erase a stale page while it recovers. Call `WirelessStackStarting()` just before creating the transport layer, and `WirelessStackReady()` once CPU2 reports ready. Reads are memory mapped and allowed in every state.
+Starting in `stopped` lets an application recover configuration from flash before it creates the transport layer, which is needed when that configuration includes the BLE bond record. A configuration store may have to erase a stale page while it recovers. Call `WirelessStackStarting()` just before creating the transport layer, and `WirelessStackReady()` once CPU2 reports ready. When CPU2 reports FUS instead of the wireless stack, as during a [wireless coprocessor upgrade](../middlewares/ble_middleware/STM32WB55_Wireless_Coprocessor_Upgrade.md), call `FirmwareUpgradeServicesReady()`: FUS does not take part in the coordination. Reads are memory mapped and allowed in every state.
 
 ## References
 

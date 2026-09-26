@@ -1,0 +1,51 @@
+#pragma once
+
+#include <cstdint>
+
+namespace hal
+{
+    class FirmwareUpgradeServices
+    {
+    public:
+        enum class State : uint8_t
+        {
+            idle,
+            wirelessStackUpgradeOngoing,
+            firmwareUpgradeServicesUpgradeOngoing,
+            serviceOngoing,
+            error
+        };
+
+        struct Status
+        {
+            State state;
+            uint8_t errorCode;
+        };
+
+        FirmwareUpgradeServices() = default;
+        FirmwareUpgradeServices(const FirmwareUpgradeServices& other) = delete;
+        FirmwareUpgradeServices& operator=(const FirmwareUpgradeServices& other) = delete;
+        virtual ~FirmwareUpgradeServices() = default;
+
+        virtual uint32_t SecureFlashStartAddress() const = 0;
+        virtual void RequestFirmwareUpgradeServices() = 0;
+        virtual Status GetStatus() = 0;
+        virtual bool Upgrade() = 0;
+        virtual bool DeleteWirelessStack() = 0;
+        virtual bool StartWirelessStack() = 0;
+        virtual void ResetDevice() = 0;
+    };
+
+    class FirmwareUpgradeServicesWb
+        : public FirmwareUpgradeServices
+    {
+    public:
+        uint32_t SecureFlashStartAddress() const override;
+        void RequestFirmwareUpgradeServices() override;
+        Status GetStatus() override;
+        bool Upgrade() override;
+        bool DeleteWirelessStack() override;
+        bool StartWirelessStack() override;
+        void ResetDevice() override;
+    };
+}

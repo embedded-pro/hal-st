@@ -41,6 +41,12 @@ namespace hal
         TryStep();
     }
 
+    void FlashCoordinatedWithWirelessStack::FirmwareUpgradeServicesReady()
+    {
+        wirelessStack = WirelessStack::stopped;
+        TryStep();
+    }
+
     uint32_t FlashCoordinatedWithWirelessStack::NumberOfSectors() const
     {
         return flash.NumberOfSectors();

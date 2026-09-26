@@ -22,6 +22,8 @@ target_sources(hal_st.ble_middleware PRIVATE
     BondStorageSt.hpp
     DirectTestModeSt.cpp
     DirectTestModeSt.hpp
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:FirmwareUpgradeServicesWb.cpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:FirmwareUpgradeServicesWb.hpp>
     GapCentralSt.cpp
     GapCentralSt.hpp
     GapPeripheralSt.cpp
@@ -49,6 +51,8 @@ target_sources(hal_st.ble_middleware PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:TracingSystemTransportLayerWb.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:TracingSystemTransportLayerWba.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:TracingSystemTransportLayerWba.hpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:WirelessCoprocessorUpgradeWb.cpp>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:WirelessCoprocessorUpgradeWb.hpp>
 )
 
 add_library(hal_st.ble_middleware_wba_platform STATIC)

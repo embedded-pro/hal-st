@@ -53,6 +53,8 @@ namespace hal
 
         Version GetVersion() const;
 
+        void OnFirmwareUpgradeServicesRunning(const infra::Function<void()>& onRunning);
+
         // Implementation of HciEventSource
         void HciEventHandler(hci_event_pckt& event) override;
 
@@ -78,6 +80,7 @@ namespace hal
         infra::DelayedProxyCreator<services::BondStorageSynchronizer, void()> bondStorageSynchronizerCreator;
         Configuration configuration;
         infra::AutoResetFunction<void(services::BondStorageSynchronizer&)> onInitialized;
+        infra::Function<void()> onFirmwareUpgradeServicesRunning;
     };
 }
 
