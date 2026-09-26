@@ -9,7 +9,7 @@
 namespace hal
 {
     class WatchdogStm
-        : public WatchdogWithEarlyWarning
+        : public Watchdog
     {
     public:
         struct Config
