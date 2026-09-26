@@ -3,12 +3,12 @@
 
 #include DEVICE_HEADER
 #include "hal/cortex_m/InterruptCortex.hpp"
-#include "infra/timer/Timer.hpp"
-#include <atomic>
+#include "hal/interfaces/Watchdog.hpp"
 
 namespace hal
 {
     class WatchDogStm
+        : public Watchdog
     {
     public:
         struct Config
@@ -22,22 +22,19 @@ namespace hal
             // min time (mS) = 1000 * (Counter _ Window) / WWDG clock           --> 0
             // max time (mS) = 1000 * (Counter _ 0x40) / WWDG clock             --> 36 ms
             uint32_t prescaler{ WWDG_PRESCALER_8 };
-            infra::Duration feedTimerInterval{ std::chrono::milliseconds(25) };
         };
 
-        WatchDogStm(const infra::Function<void()>& onExpired, const Config& config = Config());
+        explicit WatchDogStm(const Config& config = Config());
 
-        void WatchDogRefresh();
+        infra::Duration EarlyWarningPeriod() const override;
+        void Start(const infra::Function<void()>& onEarlyWarning) override;
+        void Refresh() override;
         void Interrupt();
 
     private:
-        void Feed();
-
         cortex::ImmediateInterruptHandler interruptRegistration;
-        infra::TimerRepeating feedingTimer;
         WWDG_HandleTypeDef handle;
-        std::atomic<uint32_t> delay{ 0 };
-        infra::Function<void()> onExpired;
+        infra::Function<void()> onEarlyWarning;
     };
 }
 

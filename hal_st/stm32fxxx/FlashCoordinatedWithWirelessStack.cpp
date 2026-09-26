@@ -215,12 +215,12 @@ namespace hal
         , watchdog(watchdog)
     {
         __disable_irq();
-        watchdog.WatchDogRefresh();
+        watchdog.Refresh();
     }
 
     FlashCoordinatedWithWirelessStack::CriticalSectionScoped::~CriticalSectionScoped()
     {
         __set_PRIMASK(primaskBit);
-        watchdog.WatchDogRefresh();
+        watchdog.Refresh();
     }
 }

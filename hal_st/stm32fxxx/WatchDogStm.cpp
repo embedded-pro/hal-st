@@ -1,10 +1,16 @@
 #include "hal_st/stm32fxxx/WatchDogStm.hpp"
+#include <chrono>
+
+namespace
+{
+    constexpr uint32_t wwdgClockDivider = 4096;
+    constexpr uint32_t counterTicksUntilEarlyWarning = WWDG_CR_T - WWDG_CR_T_6;
+}
 
 namespace hal
 {
-    WatchDogStm::WatchDogStm(const infra::Function<void()>& onExpired, const Config& config)
-        : onExpired(onExpired)
-        , interruptRegistration(WWDG_IRQn, [this]()
+    WatchDogStm::WatchDogStm(const Config& config)
+        : interruptRegistration(WWDG_IRQn, [this]()
               {
                   Interrupt();
               })
@@ -17,6 +23,19 @@ namespace hal
 #ifdef STM32F7
         handle.Init.EWIMode = WWDG_EWI_ENABLE;
 #endif
+    }
+
+    infra::Duration WatchDogStm::EarlyWarningPeriod() const
+    {
+        auto prescaler = 1ull << ((handle.Init.Prescaler & WWDG_CFR_WDGTB) >> WWDG_CFR_WDGTB_Pos);
+        auto ticks = counterTicksUntilEarlyWarning * wwdgClockDivider * prescaler;
+        return std::chrono::duration_cast<infra::Duration>(std::chrono::microseconds(ticks * 1000000ull / HAL_RCC_GetPCLK1Freq()));
+    }
+
+    void WatchDogStm::Start(const infra::Function<void()>& onEarlyWarning)
+    {
+        this->onEarlyWarning = onEarlyWarning;
+
         HAL_WWDG_Init(&handle);
 
         SCB->AIRCR = (0x5FAUL << SCB_AIRCR_VECTKEY_Pos)
@@ -26,14 +45,9 @@ namespace hal
             ;
         NVIC_SetPriority(WWDG_IRQn, 0);
         WWDG->CFR |= WWDG_CFR_EWI;
-
-        feedingTimer.Start(config.feedTimerInterval, [this]()
-            {
-                Feed();
-            });
     }
 
-    void WatchDogStm::WatchDogRefresh()
+    void WatchDogStm::Refresh()
     {
         HAL_WWDG_Refresh(&handle);
         WWDG->SR = 0;
@@ -41,13 +55,7 @@ namespace hal
 
     void WatchDogStm::Interrupt()
     {
-        WatchDogRefresh();
-        if (++delay == 41) // 41 * 36ms = 1.5s
-            onExpired();
-    }
-
-    void WatchDogStm::Feed()
-    {
-        delay = 0;
+        __HAL_WWDG_CLEAR_FLAG(&handle, WWDG_FLAG_EWIF);
+        onEarlyWarning();
     }
 }
