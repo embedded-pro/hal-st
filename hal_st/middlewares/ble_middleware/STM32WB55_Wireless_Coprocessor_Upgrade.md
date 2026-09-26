@@ -21,7 +21,7 @@ CPU2 resets the whole device twice in the procedure: when the wireless stack han
 
 ## Image placement
 
-The image goes directly below the secure flash start address (SFSA, the start of CPU2's flash), where FUS expects it, at the address STM32CubeProgrammer computes from the SFSA:
+FUS does not take the image address as a parameter (ST's own applications pass none, as FUS does not support it); it looks for the image itself, directly below the secure flash start address (SFSA, the start of CPU2's flash). The image therefore goes exactly where STM32CubeProgrammer puts it, at the address it computes from the SFSA:
 
 - FUS image: `SFSA - size`, rounded down to a page
 - Wireless stack image: `SFSA - size - 0x4000`, rounded down to a page; wireless stacks in the format ST marks "FUS_v2 only" use the extra 16 KiB to migrate their NVM data
@@ -63,7 +63,7 @@ When `Prepare()` reports that the image does not fit, `DeleteWirelessStack()` st
 
 The outcome carries FUS's error code (`SHCI_FUS_GetState_ErrorCode_t`) for `installFailed` and `deleteFailed`, or `0xff` when FUS did not report one. `installUnconfirmed` means the procedure cannot tell whether the install succeeded: the wireless stack was running again before FUS reported how the install ended, or FUS was never seen working on it, for instance after a power loss just as the upgrade was requested. Compare `SystemTransportLayerWb::GetVersion()` with the image.
 
-After a command, FUS reporting idle counts as done once FUS was seen busy, or after it stays idle for `Config::idlePollsBeforeDone` polls, also when the procedure resumes after a reset. When a reset interrupts the start of the wireless stack, the start is retried once.
+After a command, FUS reporting idle counts as done once FUS was seen busy, or after it stays idle for `Config::idlePollsBeforeDone` polls, also when the procedure resumes after a reset. When a reset interrupts the start of the wireless stack, the start is retried once. On a device where FUS never ran before, FUS reports an error state until the device resets once, so, as ST's BLE_Ota application does, the device is reset once before the first command is issued.
 
 FUS images must be installed in order: FUS v1.2.0 before FUS v2.x, and a wireless stack in the "FUS_v2 only" format only over FUS v2.x. Check the running FUS with `SystemTransportLayerWb::GetVersion()` first. FUS verifies the image signature itself; ST's images are encrypted and signed, and are installed as delivered.
 

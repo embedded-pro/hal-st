@@ -89,6 +89,7 @@ namespace hal
 
         void ContinueWithWirelessStack();
         void ContinueWithFirmwareUpgradeServices();
+        void IssueRequested();
         void RequestInstall();
         void IssueDelete();
         void DeleteDone(FirmwareUpgradeServices::Status status);
@@ -118,6 +119,7 @@ namespace hal
         RunningFirmware runningFirmware = RunningFirmware::wirelessStack;
         Image image = Image::wirelessStack;
         std::optional<Record> lastRecord;
+        bool lastStepRepeated = false;
         uint32_t nextRecordAddress = 0;
         Record record{};
         std::array<Record, 8> records{};

@@ -30,9 +30,10 @@ namespace hal
         virtual uint32_t SecureFlashStartAddress() const = 0;
         virtual void RequestFirmwareUpgradeServices() = 0;
         virtual Status GetStatus() = 0;
-        virtual bool Upgrade(uint32_t imageAddress) = 0;
+        virtual bool Upgrade() = 0;
         virtual bool DeleteWirelessStack() = 0;
         virtual bool StartWirelessStack() = 0;
+        virtual void ResetDevice() = 0;
     };
 
     class FirmwareUpgradeServicesWb
@@ -42,8 +43,9 @@ namespace hal
         uint32_t SecureFlashStartAddress() const override;
         void RequestFirmwareUpgradeServices() override;
         Status GetStatus() override;
-        bool Upgrade(uint32_t imageAddress) override;
+        bool Upgrade() override;
         bool DeleteWirelessStack() override;
         bool StartWirelessStack() override;
+        void ResetDevice() override;
     };
 }

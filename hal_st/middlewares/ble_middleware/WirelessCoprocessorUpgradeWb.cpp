@@ -157,6 +157,7 @@ namespace hal
     void WirelessCoprocessorUpgradeWb::ReadJournal(const infra::Function<void()>& onDone)
     {
         lastRecord = std::nullopt;
+        lastStepRepeated = false;
         nextRecordAddress = JournalAddress();
         onJournalRead = onDone;
         ReadNextRecords();
@@ -189,6 +190,7 @@ namespace hal
                         return;
                     }
 
+                    lastStepRepeated = lastRecord && lastRecord->step == entry.step;
                     lastRecord = entry;
                     nextRecordAddress += sizeof(Record);
                 }
@@ -200,6 +202,7 @@ namespace hal
     void WirelessCoprocessorUpgradeWb::EraseJournal(const infra::Function<void()>& onDone)
     {
         lastRecord = std::nullopt;
+        lastStepRepeated = false;
         nextRecordAddress = JournalAddress();
         flash.EraseSectors(journalSector, journalSector + 1, onDone);
     }
@@ -270,13 +273,11 @@ namespace hal
         switch (lastRecord->step)
         {
             case Step::deleteRequested:
-                IssueDelete();
+            case Step::installRequested:
+                IssueRequested();
                 break;
             case Step::deleteIssued:
                 PollUntilDone(&WirelessCoprocessorUpgradeWb::DeleteDone);
-                break;
-            case Step::installRequested:
-                IssueUpgrade(lastRecord->value);
                 break;
             case Step::upgradeIssued:
                 PollUntilDone(&WirelessCoprocessorUpgradeWb::UpgradeDone);
@@ -300,6 +301,23 @@ namespace hal
                     });
                 break;
         }
+    }
+
+    void WirelessCoprocessorUpgradeWb::IssueRequested()
+    {
+        if (firmwareUpgradeServices.GetStatus().state == FirmwareUpgradeServices::State::error && !lastStepRepeated)
+        {
+            AppendRecord(lastRecord->step, lastRecord->value, [this]()
+                {
+                    firmwareUpgradeServices.ResetDevice();
+                });
+            return;
+        }
+
+        if (lastRecord->step == Step::deleteRequested)
+            IssueDelete();
+        else
+            IssueUpgrade(lastRecord->value);
     }
 
     void WirelessCoprocessorUpgradeWb::RequestInstall()
@@ -346,7 +364,7 @@ namespace hal
     {
         AppendRecord(Step::upgradeIssued, address, [this]()
             {
-                if (firmwareUpgradeServices.Upgrade(lastRecord->value))
+                if (firmwareUpgradeServices.Upgrade())
                     PollUntilDone(&WirelessCoprocessorUpgradeWb::UpgradeDone);
                 else
                     StartWirelessStack(Step::wirelessStackStartIssued, unknownError);

@@ -42,9 +42,9 @@ namespace hal
         return { state, state == State::error ? static_cast<uint8_t>(errorCode) : static_cast<uint8_t>(FUS_STATE_ERROR_NO_ERROR) };
     }
 
-    bool FirmwareUpgradeServicesWb::Upgrade(uint32_t imageAddress)
+    bool FirmwareUpgradeServicesWb::Upgrade()
     {
-        return SHCI_C2_FUS_FwUpgrade(imageAddress, 0) == SHCI_Success;
+        return SHCI_C2_FUS_FwUpgrade(0, 0) == SHCI_Success;
     }
 
     bool FirmwareUpgradeServicesWb::DeleteWirelessStack()
@@ -55,5 +55,10 @@ namespace hal
     bool FirmwareUpgradeServicesWb::StartWirelessStack()
     {
         return SHCI_C2_FUS_StartWs() == SHCI_Success;
+    }
+
+    void FirmwareUpgradeServicesWb::ResetDevice()
+    {
+        HAL_NVIC_SystemReset();
     }
 }
