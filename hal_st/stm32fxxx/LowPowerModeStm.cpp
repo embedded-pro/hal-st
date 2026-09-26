@@ -23,7 +23,6 @@ namespace hal
     void LowPowerModeStm::Stop() const
     {
 #if defined(STM32WB) || defined(STM32WBA)
-        // Stop mode with a running wireless stack needs coordination with CPU2 and the radio sleep timer
         Sleep();
 #else
         HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);

@@ -10,7 +10,6 @@ namespace hal
         : public LowPowerMode
     {
     public:
-        // Stop mode leaves the system running from the internal oscillator, so the run-mode clocks are restored on wake-up
         explicit LowPowerModeStm(const infra::Function<void()>& restoreClocksAfterStop);
 
         void Enter(PowerMode mode) override;
