@@ -28,7 +28,9 @@
 
 /* Exported functions  ------------------------------------------------------------*/
 void Pre_ZigbeeCmdProcessing(void);
+void Post_ZigbeeCmdProcessing(void);
 void ZIGBEE_CmdTransfer(void);
+void ZIGBEE_CmdTransferWithNotif(void);
 Zigbee_Cmd_Request_t* ZIGBEE_Get_OTCmdPayloadBuffer(void);
 Zigbee_Cmd_Request_t* ZIGBEE_Get_OTCmdRspPayloadBuffer(void);
 Zigbee_Cmd_Request_t* ZIGBEE_Get_NotificationPayloadBuffer(void);

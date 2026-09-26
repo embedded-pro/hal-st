@@ -1,12 +1,11 @@
 /*****************************************************************************
  * @file    ble_hci_le.c
- * @author  MDG
  * @brief   STM32WB BLE API (hci_le)
  *          Auto-generated file: do not edit!
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2022 STMicroelectronics.
+ * Copyright (c) 2018-2025 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -16,7 +15,7 @@
  *****************************************************************************
  */
 
-#include "ble_hci_le.h"
+#include "auto/ble_hci_le.h"
 
 tBleStatus hci_disconnect( uint16_t Connection_Handle,
                            uint8_t Reason )
@@ -205,10 +204,10 @@ tBleStatus hci_host_number_of_completed_packets( uint8_t Number_Of_Handles,
 }
 
 tBleStatus hci_read_local_version_information( uint8_t* HCI_Version,
-                                               uint16_t* HCI_Revision,
-                                               uint8_t* LMP_PAL_Version,
-                                               uint16_t* Manufacturer_Name,
-                                               uint16_t* LMP_PAL_Subversion )
+                                               uint16_t* HCI_Subversion,
+                                               uint8_t* LMP_Version,
+                                               uint16_t* Company_Identifier,
+                                               uint16_t* LMP_Subversion )
 {
   struct hci_request rq;
   hci_read_local_version_information_rp0 resp;
@@ -223,10 +222,10 @@ tBleStatus hci_read_local_version_information( uint8_t* HCI_Version,
   if ( resp.Status )
     return resp.Status;
   *HCI_Version = resp.HCI_Version;
-  *HCI_Revision = resp.HCI_Revision;
-  *LMP_PAL_Version = resp.LMP_PAL_Version;
-  *Manufacturer_Name = resp.Manufacturer_Name;
-  *LMP_PAL_Subversion = resp.LMP_PAL_Subversion;
+  *HCI_Subversion = resp.HCI_Subversion;
+  *LMP_Version = resp.LMP_Version;
+  *Company_Identifier = resp.Company_Identifier;
+  *LMP_Subversion = resp.LMP_Subversion;
   return BLE_STATUS_SUCCESS;
 }
 
@@ -351,10 +350,10 @@ tBleStatus hci_le_read_buffer_size( uint16_t* HC_LE_ACL_Data_Packet_Length,
   return BLE_STATUS_SUCCESS;
 }
 
-tBleStatus hci_le_read_local_supported_features( uint8_t* LE_Features )
+tBleStatus hci_le_read_local_supported_features_page_0( uint8_t* LE_Features )
 {
   struct hci_request rq;
-  hci_le_read_local_supported_features_rp0 resp;
+  hci_le_read_local_supported_features_page_0_rp0 resp;
   Osal_MemSet( &resp, 0, sizeof(resp) );
   Osal_MemSet( &rq, 0, sizeof(rq) );
   rq.ogf = 0x08;
@@ -645,7 +644,7 @@ tBleStatus hci_le_create_connection_cancel( void )
   return status;
 }
 
-tBleStatus hci_le_read_filter_accept_list_size( uint8_t* White_List_Size )
+tBleStatus hci_le_read_filter_accept_list_size( uint8_t* Filter_Accept_List_Size )
 {
   struct hci_request rq;
   hci_le_read_filter_accept_list_size_rp0 resp;
@@ -659,7 +658,7 @@ tBleStatus hci_le_read_filter_accept_list_size( uint8_t* White_List_Size )
     return BLE_STATUS_TIMEOUT;
   if ( resp.Status )
     return resp.Status;
-  *White_List_Size = resp.White_List_Size;
+  *Filter_Accept_List_Size = resp.Filter_Accept_List_Size;
   return BLE_STATUS_SUCCESS;
 }
 
@@ -812,11 +811,11 @@ tBleStatus hci_le_read_channel_map( uint16_t Connection_Handle,
   return BLE_STATUS_SUCCESS;
 }
 
-tBleStatus hci_le_read_remote_features( uint16_t Connection_Handle )
+tBleStatus hci_le_read_remote_features_page_0( uint16_t Connection_Handle )
 {
   struct hci_request rq;
   uint8_t cmd_buffer[BLE_CMD_MAX_PARAM_LEN];
-  hci_le_read_remote_features_cp0 *cp0 = (hci_le_read_remote_features_cp0*)(cmd_buffer);
+  hci_le_read_remote_features_page_0_cp0 *cp0 = (hci_le_read_remote_features_page_0_cp0*)(cmd_buffer);
   tBleStatus status = 0;
   int index_input = 0;
   cp0->Connection_Handle = Connection_Handle;
@@ -1949,6 +1948,55 @@ tBleStatus hci_le_set_privacy_mode( uint8_t Peer_Identity_Address_Type,
   Osal_MemSet( &rq, 0, sizeof(rq) );
   rq.ogf = 0x08;
   rq.ocf = 0x04e;
+  rq.cparam = cmd_buffer;
+  rq.clen = index_input;
+  rq.rparam = &status;
+  rq.rlen = 1;
+  if ( hci_send_req(&rq, FALSE) < 0 )
+    return BLE_STATUS_TIMEOUT;
+  return status;
+}
+
+tBleStatus hci_le_generate_dhkey_v2( const uint8_t* Remote_P256_Public_Key,
+                                     uint8_t Key_Type )
+{
+  struct hci_request rq;
+  uint8_t cmd_buffer[BLE_CMD_MAX_PARAM_LEN];
+  hci_le_generate_dhkey_v2_cp0 *cp0 = (hci_le_generate_dhkey_v2_cp0*)(cmd_buffer);
+  tBleStatus status = 0;
+  int index_input = 0;
+  Osal_MemCpy( (void*)&cp0->Remote_P256_Public_Key, (const void*)Remote_P256_Public_Key, 64 );
+  index_input += 64;
+  cp0->Key_Type = Key_Type;
+  index_input += 1;
+  Osal_MemSet( &rq, 0, sizeof(rq) );
+  rq.ogf = 0x08;
+  rq.ocf = 0x05e;
+  rq.event = 0x0F;
+  rq.cparam = cmd_buffer;
+  rq.clen = index_input;
+  rq.rparam = &status;
+  rq.rlen = 1;
+  if ( hci_send_req(&rq, FALSE) < 0 )
+    return BLE_STATUS_TIMEOUT;
+  return status;
+}
+
+tBleStatus hci_le_set_resolvable_private_address_timeout_v2( uint16_t RPA_Timeout_Min,
+                                                             uint16_t RPA_Timeout_Max )
+{
+  struct hci_request rq;
+  uint8_t cmd_buffer[BLE_CMD_MAX_PARAM_LEN];
+  hci_le_set_resolvable_private_address_timeout_v2_cp0 *cp0 = (hci_le_set_resolvable_private_address_timeout_v2_cp0*)(cmd_buffer);
+  tBleStatus status = 0;
+  int index_input = 0;
+  cp0->RPA_Timeout_Min = RPA_Timeout_Min;
+  index_input += 2;
+  cp0->RPA_Timeout_Max = RPA_Timeout_Max;
+  index_input += 2;
+  Osal_MemSet( &rq, 0, sizeof(rq) );
+  rq.ogf = 0x08;
+  rq.ocf = 0x09e;
   rq.cparam = cmd_buffer;
   rq.clen = index_input;
   rq.rparam = &status;

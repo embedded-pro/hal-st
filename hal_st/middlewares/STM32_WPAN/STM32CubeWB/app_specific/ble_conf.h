@@ -22,6 +22,10 @@
 #ifndef BLE_CONF_H
 #define BLE_CONF_H
 
+/* ble.h no longer provides the event packet types that the BLE middleware receives, nor the CMSIS
+   compiler macros that ble_legacy.h relies on; tl.h brings both */
+#include "tl.h"
+
 /******************************************************************************
  *
  * BLE SERVICES CONFIGURATION

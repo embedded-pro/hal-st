@@ -130,7 +130,8 @@ namespace
         const uint8_t prepareWriteListSize = BLE_PREP_WRITE_X_ATT(configuration.maxAttMtuSize);
         const uint8_t numberOfBleMemoryBlocks = BLE_MBLOCKS_CALC(prepareWriteListSize, configuration.maxAttMtuSize, configuration.numberOfLinks);
         const uint8_t bleStackOptions = (SHCI_C2_BLE_INIT_OPTIONS_LL_HOST | SHCI_C2_BLE_INIT_OPTIONS_WITH_SVC_CHANGE_DESC | SHCI_C2_BLE_INIT_OPTIONS_DEVICE_NAME_RO | SHCI_C2_BLE_INIT_OPTIONS_NO_EXT_ADV | SHCI_C2_BLE_INIT_OPTIONS_NO_CS_ALGO2 |
-                                         SHCI_C2_BLE_INIT_OPTIONS_FULL_GATTDB_NVM | SHCI_C2_BLE_INIT_OPTIONS_GATT_CACHING_NOTUSED | SHCI_C2_BLE_INIT_OPTIONS_POWER_CLASS_2_3 | SHCI_C2_BLE_INIT_OPTIONS_APPEARANCE_READONLY | SHCI_C2_BLE_INIT_OPTIONS_ENHANCED_ATT_NOTSUPPORTED);
+                                         SHCI_C2_BLE_INIT_OPTIONS_FULL_GATTDB_NVM | SHCI_C2_BLE_INIT_OPTIONS_GATT_CACHING_NOTUSED | SHCI_C2_BLE_INIT_OPTIONS_POWER_CLASS_2_3);
+        const uint8_t bleStackOptionsExtension = (SHCI_C2_BLE_INIT_OPTIONS_APPEARANCE_READONLY | SHCI_C2_BLE_INIT_OPTIONS_ENHANCED_ATT_NOTSUPPORTED);
 
         SHCI_C2_CONFIG_Cmd_Param_t configParam = {
             SHCI_C2_CONFIG_PAYLOAD_CMD_SIZE,
@@ -159,10 +160,10 @@ namespace
                 prepareWriteListSize,
                 numberOfBleMemoryBlocks,
                 configuration.maxAttMtuSize,
-                0x1FA,                                        // Sleep clock accuracy in Slave mode
-                0x00,                                         // Sleep clock accuracy in Master mode
+                0x1FA,                                        // Sleep clock accuracy in Peripheral mode
+                0x00,                                         // Sleep clock accuracy in Central mode
                 ToLowSpeedClock(configuration.rfWakeupClock), // Source for the low speed clock for RF wake-up
-                0xFFFFFFFF,                                   // Maximum duration of the connection event when the device is in Slave mode in units of 625/256 us (~2.44 us)
+                0xFFFFFFFF,                                   // Maximum duration of the connection event when the device is in Peripheral mode in units of 625/256 us (~2.44 us)
                 0x148,                                        // Start up time of the high speed (16 or 32 MHz) crystal oscillator in units of 625/256 us (~2.44 us)
                 0x01,                                         // Viterbi Mode
                 bleStackOptions,
@@ -175,7 +176,11 @@ namespace
                 1650, // Maximum advertising data length (in bytes)
                 0,    // RF TX Path Compensation Value (16-bit signed integer). Units: 0.1 dB.
                 0,    // RF RX Path Compensation Value (16-bit signed integer). Units: 0.1 dB.
-                SHCI_C2_BLE_INIT_BLE_CORE_5_3 }
+                SHCI_C2_BLE_INIT_BLE_CORE_5_3,
+                bleStackOptionsExtension,
+                0,       // Maximum number of additional Enhanced ATT bearers
+                nullptr, // Extra data buffer for extended Host commands (unused)
+                0 }
         };
 
         if (SHCI_C2_BLE_Init(&bleInitCmdPacket) != SHCI_Success)
