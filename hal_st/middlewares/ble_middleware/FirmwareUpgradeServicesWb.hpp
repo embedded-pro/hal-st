@@ -28,11 +28,7 @@ namespace hal
         virtual ~FirmwareUpgradeServices() = default;
 
         virtual uint32_t SecureFlashStartAddress() const = 0;
-
-        // Only valid while the wireless stack runs; the device resets with FUS running on CPU2
         virtual void RequestFirmwareUpgradeServices() = 0;
-
-        // The commands below are only valid while FUS runs
         virtual Status GetStatus() = 0;
         virtual bool Upgrade(uint32_t imageAddress) = 0;
         virtual bool DeleteWirelessStack() = 0;

@@ -13,8 +13,6 @@ namespace hal
         constexpr uint8_t unknownError = 0xff;
         constexpr uint8_t erasedByte = 0xff;
 
-        // ST's install addresses keep this room between a wireless stack image and the secure flash, which
-        // stacks in the format marked "FUS_v2 only" use to migrate their NVM data
         constexpr uint32_t wirelessStackMigrationArea = 0x4000;
 
         bool Erased(infra::ConstByteRange range)
@@ -369,7 +367,6 @@ namespace hal
 
     void WirelessCoprocessorUpgradeWb::ReportWirelessStackNotStarted(uint8_t errorCode)
     {
-        // A device without wireless stack stays in FUS after FUS itself was upgraded
         if (errorCode == noError && image == Image::firmwareUpgradeServices)
             Report(Result::installed, noError);
         else

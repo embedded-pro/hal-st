@@ -30,7 +30,6 @@ namespace hal
 
     void FirmwareUpgradeServicesWb::RequestFirmwareUpgradeServices()
     {
-        // The wireless stack answers the first request with SHCI_FUS_CMD_NOT_SUPPORTED, and resets the device into FUS on the second
         SHCI_C2_FUS_GetState(nullptr);
         SHCI_C2_FUS_GetState(nullptr);
     }

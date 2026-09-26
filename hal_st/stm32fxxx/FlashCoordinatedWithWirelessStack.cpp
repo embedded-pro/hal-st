@@ -45,7 +45,6 @@ namespace hal
     {
         really_assert(wirelessStack != WirelessStack::running);
 
-        // FUS neither accepts flash activity control nor uses the radio, so the flash is shared as with CPU2 stopped
         wirelessStack = WirelessStack::stopped;
         TryStep();
     }

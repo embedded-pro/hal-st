@@ -53,7 +53,6 @@ namespace hal
 
         Version GetVersion() const;
 
-        // Called instead of onInitialized when CPU2 comes up running FUS rather than the wireless stack
         void OnFirmwareUpgradeServicesRunning(const infra::Function<void()>& onRunning);
 
         // Implementation of HciEventSource
