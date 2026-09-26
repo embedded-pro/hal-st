@@ -55,6 +55,7 @@ namespace hal
 
     void WatchDogStm::Interrupt()
     {
+        __HAL_WWDG_CLEAR_FLAG(&handle, WWDG_FLAG_EWIF);
         onEarlyWarning();
     }
 }
