@@ -362,19 +362,13 @@ namespace hal
 
     void TracingGapCentralSt::HandleL2capConnectionUpdateRequestEvent(const aci_l2cap_connection_update_req_event_rp0& event)
     {
-#if defined(STM32WB)
-        auto latency = event.Slave_Latency;
-#else
-        auto latency = event.Latency;
-#endif
-
         tracer.Trace() << "TracingGapCentralSt::HandleL2capConnectionUpdateRequestEvent";
         tracer.Trace() << "\tConnection handle   : 0x" << infra::hex << event.Connection_Handle;
         tracer.Trace() << "\tIdentifier          : 0x" << infra::hex << event.Identifier;
         tracer.Trace() << "\tL2CAP length        : " << event.L2CAP_Length;
         tracer.Trace() << "\tInterval min        : " << event.Interval_Min;
         tracer.Trace() << "\tInterval max        : " << event.Interval_Max;
-        tracer.Trace() << "\tPeripheral latency  : " << latency;
+        tracer.Trace() << "\tPeripheral latency  : " << event.Latency;
 
         GapCentralSt::HandleL2capConnectionUpdateRequestEvent(event);
     }

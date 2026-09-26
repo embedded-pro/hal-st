@@ -19,8 +19,11 @@ cmake --preset stm32wb55
 cmake --build --preset stm32wb55-RelWithDebInfo --target examples_st.ble_central
 ```
 
-On WB55 the wireless coprocessor has to be running a full BLE stack (not the HCI-only one); flash
-it with STM32CubeProgrammer before running this example.
+On WB55 the wireless coprocessor has to be running the full BLE stack that matches the middleware
+in tree, `stm32wb5x_BLE_Stack_full_fw.bin` from STM32CubeWB v1.24.0 in
+[`hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries`](../../hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt).
+It installs only over FUS V2.x, so update the FUS first if needed; flash both with STM32CubeProgrammer
+before running this example.
 
 ## Terminal
 

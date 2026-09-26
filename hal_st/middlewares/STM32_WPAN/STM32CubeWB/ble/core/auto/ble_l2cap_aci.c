@@ -1,12 +1,11 @@
 /*****************************************************************************
  * @file    ble_l2cap_aci.c
- * @author  MDG
  * @brief   STM32WB BLE API (l2cap_aci)
  *          Auto-generated file: do not edit!
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2022 STMicroelectronics.
+ * Copyright (c) 2018-2025 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -16,12 +15,12 @@
  *****************************************************************************
  */
 
-#include "ble_l2cap_aci.h"
+#include "auto/ble_l2cap_aci.h"
 
 tBleStatus aci_l2cap_connection_parameter_update_req( uint16_t Connection_Handle,
                                                       uint16_t Conn_Interval_Min,
                                                       uint16_t Conn_Interval_Max,
-                                                      uint16_t Slave_latency,
+                                                      uint16_t Latency,
                                                       uint16_t Timeout_Multiplier )
 {
   struct hci_request rq;
@@ -35,7 +34,7 @@ tBleStatus aci_l2cap_connection_parameter_update_req( uint16_t Connection_Handle
   index_input += 2;
   cp0->Conn_Interval_Max = Conn_Interval_Max;
   index_input += 2;
-  cp0->Slave_latency = Slave_latency;
+  cp0->Latency = Latency;
   index_input += 2;
   cp0->Timeout_Multiplier = Timeout_Multiplier;
   index_input += 2;
@@ -55,7 +54,7 @@ tBleStatus aci_l2cap_connection_parameter_update_req( uint16_t Connection_Handle
 tBleStatus aci_l2cap_connection_parameter_update_resp( uint16_t Connection_Handle,
                                                        uint16_t Conn_Interval_Min,
                                                        uint16_t Conn_Interval_Max,
-                                                       uint16_t Slave_latency,
+                                                       uint16_t Latency,
                                                        uint16_t Timeout_Multiplier,
                                                        uint16_t Minimum_CE_Length,
                                                        uint16_t Maximum_CE_Length,
@@ -73,7 +72,7 @@ tBleStatus aci_l2cap_connection_parameter_update_resp( uint16_t Connection_Handl
   index_input += 2;
   cp0->Conn_Interval_Max = Conn_Interval_Max;
   index_input += 2;
-  cp0->Slave_latency = Slave_latency;
+  cp0->Latency = Latency;
   index_input += 2;
   cp0->Timeout_Multiplier = Timeout_Multiplier;
   index_input += 2;
@@ -138,6 +137,7 @@ tBleStatus aci_l2cap_coc_connect_confirm( uint16_t Connection_Handle,
                                           uint16_t MPS,
                                           uint16_t Initial_Credits,
                                           uint16_t Result,
+                                          uint8_t Max_Channel_Number,
                                           uint8_t* Channel_Number,
                                           uint8_t* Channel_Index_List )
 {
@@ -157,6 +157,8 @@ tBleStatus aci_l2cap_coc_connect_confirm( uint16_t Connection_Handle,
   index_input += 2;
   cp0->Result = Result;
   index_input += 2;
+  cp0->Max_Channel_Number = Max_Channel_Number;
+  index_input += 1;
   Osal_MemSet( &rq, 0, sizeof(rq) );
   rq.ogf = 0x3f;
   rq.ocf = 0x189;
