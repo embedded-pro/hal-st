@@ -41,6 +41,15 @@ namespace hal
         TryStep();
     }
 
+    void FlashCoordinatedWithWirelessStack::FirmwareUpgradeServicesReady()
+    {
+        really_assert(wirelessStack != WirelessStack::running);
+
+        // FUS neither accepts flash activity control nor uses the radio, so the flash is shared as with CPU2 stopped
+        wirelessStack = WirelessStack::stopped;
+        TryStep();
+    }
+
     uint32_t FlashCoordinatedWithWirelessStack::NumberOfSectors() const
     {
         return flash.NumberOfSectors();

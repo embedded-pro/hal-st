@@ -25,6 +25,7 @@ namespace hal
 
         void WirelessStackStarting();
         void WirelessStackReady();
+        void FirmwareUpgradeServicesReady();
 
         uint32_t NumberOfSectors() const override;
         uint32_t SizeOfSector(uint32_t sectorIndex) const override;

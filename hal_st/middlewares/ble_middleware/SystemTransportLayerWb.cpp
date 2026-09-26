@@ -234,6 +234,11 @@ namespace hal
         };
     }
 
+    void SystemTransportLayerWb::OnFirmwareUpgradeServicesRunning(const infra::Function<void()>& onRunning)
+    {
+        onFirmwareUpgradeServicesRunning = onRunning;
+    }
+
     void SystemTransportLayerWb::HandleErrorNotifyEvent(void* SysEvent)
     {}
 
@@ -278,6 +283,9 @@ namespace hal
     void SystemTransportLayerWb::HandleFusFwEvent(void* payload)
     {
         ((tSHCI_UserEvtRxParam*)payload)->status = SHCI_TL_UserEventFlow_Disable;
+
+        if (onFirmwareUpgradeServicesRunning)
+            onFirmwareUpgradeServicesRunning();
     }
 
     void SystemTransportLayerWb::HandleUnknwownReadyEvent(void* payload)
