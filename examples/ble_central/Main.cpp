@@ -22,7 +22,7 @@
 #include "hal_st/middlewares/ble_middleware/TracingSystemTransportLayerWb.hpp"
 #include "hal_st/stm32fxxx/DefaultClockNucleoWB55RG.hpp"
 #elif defined(STM32WBA)
-#include "hal_st/middlewares/ble_middleware/SystemTransportLayerWba.hpp"
+#include "hal_st/middlewares/ble_middleware/TracingSystemTransportLayerWba.hpp"
 #include "hal_st/stm32fxxx/DefaultClockNucleoWBA55CG.hpp"
 #include "hal_st/stm32fxxx/PkaStm.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
@@ -563,7 +563,7 @@ int main()
     static services::ConfigurationStoreStub configurationStore;
     static std::array<uint8_t, hal::SystemTransportLayerWba::bondBlobSize> bondBlob{};
     static infra::ByteRange bondBlobRange{ infra::MakeRange(bondBlob) };
-    static hal::SystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ services::ConfigurationStoreAccess<infra::ByteRange>{ configurationStore, bondBlobRange }, hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig };
+    static hal::TracingSystemTransportLayerWba::WithLinks<numberOfLinks> systemTransportLayer{ services::ConfigurationStoreAccess<infra::ByteRange>{ configurationStore, bondBlobRange }, hal::SystemTransportLayerWba::HardwareDependencies{ randomDataGeneratorCreator, aesCreator, pkaCreator }, systemTransportLayerConfig, tracer };
 
     static application::VolatileBondStorage volatileBondStorage;
     static hal::BondStorageSt bondStorageSt{ maxNumberOfBonds };

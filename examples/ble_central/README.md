@@ -129,5 +129,13 @@ the application does not drive by interrupts.
 starts. The example hands it a `services::ConfigurationStoreStub`, so bonds do not survive a reset;
 see [Bonds are not persistent](../ble_peripheral/README.md#bonds-are-not-persistent).
 
+The example uses `TracingSystemTransportLayerWba`, which traces the stack's version at start-up, as
+reported by `SystemTransportLayerWba::GetVersion()`, and when the HCI event queue fills and pauses
+the event flow. `DirectTestModeSt::SetTransmitPowerLevel` picks the nearest PA level of ST's table,
+up to the maximum of the selected TX power table.
+
+Deep sleep is not supported yet: the link layer never enters its deep sleep, and nothing puts the
+device into standby.
+
 None of this affects STM32WB55, where the stack runs on CPU2 and the transport layer in tree is
 complete.

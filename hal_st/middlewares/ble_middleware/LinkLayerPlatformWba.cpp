@@ -1,6 +1,7 @@
 #include "hal_st/middlewares/ble_middleware/LinkLayerPlatformWba.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#include <algorithm>
 #include DEVICE_HEADER
 #include "stm32wbaxx_ll_pwr.h"
 #include "stm32wbaxx_ll_rcc.h"
@@ -13,6 +14,7 @@ extern "C"
 #include "ll_intf.h"
 #include "ll_intf_cmn.h"
 #include "ll_sys.h"
+#include "power_table.h"
 }
 
 namespace
@@ -103,6 +105,18 @@ namespace hal
         ConfigureSleepClock();
         ConfigureRandomDataGeneratorClock();
         RefillRandomDataPool();
+    }
+
+    int8_t LinkLayerPlatformWba::MaxTransmitPower() const
+    {
+        auto tables = infra::MemoryRange<const power_table_id_t>(ll_tx_power_tables, ll_tx_power_tables + num_of_supported_power_tables);
+        auto table = std::find_if(tables.begin(), tables.end(), [this](const power_table_id_t& entry)
+            {
+                return entry.power_table_id == static_cast<uint8_t>(config.txPowerTable);
+            });
+
+        really_assert(table != tables.end() && table->tx_power_levels_count != 0);
+        return table->ptr_tx_power_table[table->tx_power_levels_count - 1].tx_pwr;
     }
 
     void LinkLayerPlatformWba::ConfigureParameters()
