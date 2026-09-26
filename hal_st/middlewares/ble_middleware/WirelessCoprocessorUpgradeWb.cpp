@@ -12,6 +12,7 @@ namespace hal
         constexpr uint8_t noError = 0x00;
         constexpr uint8_t unknownError = 0xff;
         constexpr uint8_t erasedByte = 0xff;
+        constexpr uint32_t installUnconfirmed = 0x100;
 
         constexpr uint32_t wirelessStackMigrationArea = 0x4000;
 
@@ -240,11 +241,12 @@ namespace hal
                     });
                 break;
             case Step::wirelessStackStartIssued:
+            case Step::wirelessStackStartRetried:
             {
-                auto errorCode = static_cast<uint8_t>(lastRecord->value);
-                EraseJournal([this, errorCode]()
+                auto installResult = lastRecord->value;
+                EraseJournal([this, installResult]()
                     {
-                        Report(errorCode == noError ? Result::installed : Result::installFailed, errorCode);
+                        ReportWirelessStackStarted(installResult);
                     });
                 break;
             }
@@ -271,20 +273,23 @@ namespace hal
                 IssueDelete();
                 break;
             case Step::deleteIssued:
-                PollUntilDone(true, &WirelessCoprocessorUpgradeWb::DeleteDone);
+                PollUntilDone(&WirelessCoprocessorUpgradeWb::DeleteDone);
                 break;
             case Step::installRequested:
                 IssueUpgrade(lastRecord->value);
                 break;
             case Step::upgradeIssued:
-                PollUntilDone(true, &WirelessCoprocessorUpgradeWb::UpgradeDone);
+                PollUntilDone(&WirelessCoprocessorUpgradeWb::UpgradeDone);
                 break;
             case Step::wirelessStackStartIssued:
+                StartWirelessStack(Step::wirelessStackStartRetried, lastRecord->value);
+                break;
+            case Step::wirelessStackStartRetried:
             {
-                auto errorCode = static_cast<uint8_t>(lastRecord->value);
-                EraseJournal([this, errorCode]()
+                auto installResult = lastRecord->value;
+                EraseJournal([this, installResult]()
                     {
-                        ReportWirelessStackNotStarted(errorCode);
+                        ReportWirelessStackNotStarted(installResult);
                     });
                 break;
             }
@@ -313,7 +318,7 @@ namespace hal
         AppendRecord(Step::deleteIssued, 0, [this]()
             {
                 if (firmwareUpgradeServices.DeleteWirelessStack())
-                    PollUntilDone(false, &WirelessCoprocessorUpgradeWb::DeleteDone);
+                    PollUntilDone(&WirelessCoprocessorUpgradeWb::DeleteDone);
                 else
                     EraseJournal([this]()
                         {
@@ -342,40 +347,55 @@ namespace hal
         AppendRecord(Step::upgradeIssued, address, [this]()
             {
                 if (firmwareUpgradeServices.Upgrade(lastRecord->value))
-                    PollUntilDone(false, &WirelessCoprocessorUpgradeWb::UpgradeDone);
+                    PollUntilDone(&WirelessCoprocessorUpgradeWb::UpgradeDone);
                 else
-                    StartWirelessStack(unknownError);
+                    StartWirelessStack(Step::wirelessStackStartIssued, unknownError);
             });
     }
 
     void WirelessCoprocessorUpgradeWb::UpgradeDone(FirmwareUpgradeServices::Status status)
     {
-        StartWirelessStack(status.state == FirmwareUpgradeServices::State::idle ? noError : status.errorCode);
+        if (status.state == FirmwareUpgradeServices::State::error)
+            StartWirelessStack(Step::wirelessStackStartIssued, status.errorCode);
+        else
+            StartWirelessStack(Step::wirelessStackStartIssued, busySeen ? noError : installUnconfirmed);
     }
 
-    void WirelessCoprocessorUpgradeWb::StartWirelessStack(uint8_t errorCode)
+    void WirelessCoprocessorUpgradeWb::StartWirelessStack(Step step, uint32_t installResult)
     {
-        AppendRecord(Step::wirelessStackStartIssued, errorCode, [this, errorCode]()
+        AppendRecord(step, installResult, [this, installResult]()
             {
                 if (!firmwareUpgradeServices.StartWirelessStack())
-                    EraseJournal([this, errorCode]()
+                    EraseJournal([this, installResult]()
                         {
-                            ReportWirelessStackNotStarted(errorCode);
+                            ReportWirelessStackNotStarted(installResult);
                         });
             });
     }
 
-    void WirelessCoprocessorUpgradeWb::ReportWirelessStackNotStarted(uint8_t errorCode)
+    void WirelessCoprocessorUpgradeWb::ReportWirelessStackStarted(uint32_t installResult)
     {
-        if (errorCode == noError && image == Image::firmwareUpgradeServices)
+        if (installResult == installUnconfirmed)
+            Report(Result::installUnconfirmed, noError);
+        else if (installResult == noError)
             Report(Result::installed, noError);
         else
-            Report(Result::installFailed, errorCode != noError ? errorCode : unknownError);
+            Report(Result::installFailed, static_cast<uint8_t>(installResult));
     }
 
-    void WirelessCoprocessorUpgradeWb::PollUntilDone(bool busySeen, void (WirelessCoprocessorUpgradeWb::*onDone)(FirmwareUpgradeServices::Status))
+    void WirelessCoprocessorUpgradeWb::ReportWirelessStackNotStarted(uint32_t installResult)
     {
-        this->busySeen = busySeen;
+        if (installResult == installUnconfirmed)
+            Report(Result::installUnconfirmed, noError);
+        else if (installResult == noError && image == Image::firmwareUpgradeServices)
+            Report(Result::installed, noError);
+        else
+            Report(Result::installFailed, installResult != noError ? static_cast<uint8_t>(installResult) : unknownError);
+    }
+
+    void WirelessCoprocessorUpgradeWb::PollUntilDone(void (WirelessCoprocessorUpgradeWb::*onDone)(FirmwareUpgradeServices::Status))
+    {
+        busySeen = false;
         idlePolls = 0;
         onFirmwareUpgradeServicesDone = onDone;
         pollTimer.Start(config.statusPollInterval, [this]()

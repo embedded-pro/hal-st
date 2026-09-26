@@ -68,7 +68,8 @@ namespace hal
             deleteIssued,
             installRequested,
             upgradeIssued,
-            wirelessStackStartIssued
+            wirelessStackStartIssued,
+            wirelessStackStartRetried
         };
 
         struct Record
@@ -93,9 +94,10 @@ namespace hal
         void DeleteDone(FirmwareUpgradeServices::Status status);
         void IssueUpgrade(uint32_t address);
         void UpgradeDone(FirmwareUpgradeServices::Status status);
-        void StartWirelessStack(uint8_t errorCode);
-        void ReportWirelessStackNotStarted(uint8_t errorCode);
-        void PollUntilDone(bool busySeen, void (WirelessCoprocessorUpgradeWb::*onDone)(FirmwareUpgradeServices::Status));
+        void StartWirelessStack(Step step, uint32_t installResult);
+        void ReportWirelessStackStarted(uint32_t installResult);
+        void ReportWirelessStackNotStarted(uint32_t installResult);
+        void PollUntilDone(void (WirelessCoprocessorUpgradeWb::*onDone)(FirmwareUpgradeServices::Status));
         void Poll();
         void Report(Result result, uint8_t errorCode);
 

@@ -61,7 +61,9 @@ To upgrade:
 
 When `Prepare()` reports that the image does not fit, `DeleteWirelessStack()` starts FUS and deletes the stack; `Resume()` then reports `readyForImage`, and steps 1 to 3 follow while FUS runs.
 
-The outcome carries FUS's error code (`SHCI_FUS_GetState_ErrorCode_t`) for `installFailed` and `deleteFailed`, or `0xff` when FUS did not report one. `installUnconfirmed` means the wireless stack was running again before FUS reported how the install ended; compare `SystemTransportLayerWb::GetVersion()` with the image.
+The outcome carries FUS's error code (`SHCI_FUS_GetState_ErrorCode_t`) for `installFailed` and `deleteFailed`, or `0xff` when FUS did not report one. `installUnconfirmed` means the procedure cannot tell whether the install succeeded: the wireless stack was running again before FUS reported how the install ended, or FUS was never seen working on it, for instance after a power loss just as the upgrade was requested. Compare `SystemTransportLayerWb::GetVersion()` with the image.
+
+After a command, FUS reporting idle counts as done once FUS was seen busy, or after it stays idle for `Config::idlePollsBeforeDone` polls, also when the procedure resumes after a reset. When a reset interrupts the start of the wireless stack, the start is retried once.
 
 FUS images must be installed in order: FUS v1.2.0 before FUS v2.x, and a wireless stack in the "FUS_v2 only" format only over FUS v2.x. Check the running FUS with `SystemTransportLayerWb::GetVersion()` first. FUS verifies the image signature itself; ST's images are encrypted and signed, and are installed as delivered.
 

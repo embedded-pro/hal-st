@@ -43,8 +43,6 @@ namespace hal
 
     void FlashCoordinatedWithWirelessStack::FirmwareUpgradeServicesReady()
     {
-        really_assert(wirelessStack != WirelessStack::running);
-
         wirelessStack = WirelessStack::stopped;
         TryStep();
     }
