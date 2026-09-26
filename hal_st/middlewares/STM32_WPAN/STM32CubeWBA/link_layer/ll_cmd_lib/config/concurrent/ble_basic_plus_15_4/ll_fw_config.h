@@ -43,34 +43,39 @@
 
 /*************************** BLE Configuration *************************************/
 /*Configurations of BLE will apply only when BLE is enabled*/
+
+/* Variant configuration */
+#define CFG_LL_BLE_BASIC_PLUS                           1
+#define CFG_LL_BLE_INTERFACE_COMPATIBILITY          1
+
 /* Roles configurations */
 #ifndef SUPPORT_EXPLCT_OBSERVER_ROLE
-#define SUPPORT_EXPLCT_OBSERVER_ROLE                0 /* Enable\Disable Explicit observer role. Enable:1 - Disable:0 */
+#define SUPPORT_EXPLCT_OBSERVER_ROLE                1 /* Enable\Disable Explicit observer role. Enable:1 - Disable:0 */
 #endif /* SUPPORT_EXPLCT_OBSERVER_ROLE */
 
 #ifndef SUPPORT_EXPLCT_BROADCASTER_ROLE
-#define SUPPORT_EXPLCT_BROADCASTER_ROLE             0 /* Enable\Disable Explicit broadcaster role. Enable:1 - Disable:0 */
+#define SUPPORT_EXPLCT_BROADCASTER_ROLE             1 /* Enable\Disable Explicit broadcaster role. Enable:1 - Disable:0 */
 #endif /* SUPPORT_EXPLCT_BROADCASTER_ROLE */
 
 #ifndef SUPPORT_MASTER_CONNECTION
-#define SUPPORT_MASTER_CONNECTION                   0 /* Enable\Disable Master connection role. Enable:1 - Disable:0 */
+#define SUPPORT_MASTER_CONNECTION                   1 /* Enable\Disable Master connection role. Enable:1 - Disable:0 */
 #endif /* SUPPORT_MASTER_CONNECTION */
 
 #ifndef SUPPORT_SLAVE_CONNECTION
-#define SUPPORT_SLAVE_CONNECTION                    0 /* Enable\Disable Slave connection role. Enable:1 - Disable:0 */
+#define SUPPORT_SLAVE_CONNECTION                    1 /* Enable\Disable Slave connection role. Enable:1 - Disable:0 */
 #endif /* SUPPORT_SLAVE_CONNECTION */
 
 /* Standard features configurations */
 #ifndef SUPPORT_LE_ENCRYPTION
-#define SUPPORT_LE_ENCRYPTION                       0 /* Enable\Disable Encryption feature. Enable:1 - Disable:0 */
+#define SUPPORT_LE_ENCRYPTION                       1 /* Enable\Disable Encryption feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_LE_ENCRYPTION */
 
 #ifndef SUPPORT_PRIVACY
-#define SUPPORT_PRIVACY                             0 /* Enable\Disable Privacy feature. Enable:1 - Disable:0 */
+#define SUPPORT_PRIVACY                             1 /* Enable\Disable Privacy feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_PRIVACY */
 
 #ifndef SUPPORT_LE_EXTENDED_ADVERTISING
-#define SUPPORT_LE_EXTENDED_ADVERTISING             0 /* Enable\Disable Extended advertising feature. Enable:1 - Disable:0 */
+#define SUPPORT_LE_EXTENDED_ADVERTISING             1 /* Enable\Disable Extended advertising feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_LE_EXTENDED_ADVERTISING */
 
 #ifndef SUPPORT_LE_PERIODIC_ADVERTISING
@@ -78,7 +83,7 @@
 #endif /* SUPPORT_LE_PERIODIC_ADVERTISING */
 
 #ifndef SUPPORT_LE_POWER_CLASS_1
-#define SUPPORT_LE_POWER_CLASS_1                    0 /* Enable\Disable Low power class 1 feature. Enable:1 - Disable:0 */
+#define SUPPORT_LE_POWER_CLASS_1                    1 /* Enable\Disable Low power class 1 feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_LE_POWER_CLASS_1 */
 
 #ifndef SUPPORT_AOA_AOD
@@ -106,7 +111,7 @@
 #endif /* SUPPORT_SYNC_ISOCHRONOUS */
 
 #ifndef SUPPORT_LE_POWER_CONTROL
-#define SUPPORT_LE_POWER_CONTROL                    0 /* Enable\Disable LE Power Control Feature. Enable:1 - Disable:0 */
+#define SUPPORT_LE_POWER_CONTROL                    1 /* Enable\Disable LE Power Control Feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_LE_POWER_CONTROL */
 
 #ifndef SUPPORT_CHANNEL_CLASSIFICATION
@@ -118,11 +123,11 @@
 #endif /* SUPPORT_PERIODIC_ADV_ADI */
 
 #ifndef SUPPORT_LE_ENHANCED_CONN_UPDATE
-#define SUPPORT_LE_ENHANCED_CONN_UPDATE             0
+#define SUPPORT_LE_ENHANCED_CONN_UPDATE             1
 #endif /* SUPPORT_LE_ENHANCED_CONN_UPDATE */
 
 #ifndef SUPPORT_CSSA
-#define SUPPORT_CSSA                                0 /* Enable\Disable Coding Selection Scheme on Advertising Feature. Enable:1 - Disable:0 */
+#define SUPPORT_CSSA                                1 /* Enable\Disable Coding Selection Scheme on Advertising Feature. Enable:1 - Disable:0 */
 #endif /* SUPPORT_CSSA */
 
 #ifndef SUPPORT_LE_PAWR_ADVERTISER_ROLE
@@ -155,7 +160,7 @@
 
 /* Capabilities configurations */
 #ifndef MAX_NUM_CNCRT_STAT_MCHNS
-#define MAX_NUM_CNCRT_STAT_MCHNS                    0 /* Set maximum number of states the controller can support */
+#define MAX_NUM_CNCRT_STAT_MCHNS                    8 /* Set maximum number of states the controller can support */
 #endif /* MAX_NUM_CNCRT_STAT_MCHNS */
 
 #ifndef USE_NON_ACCURATE_32K_SLEEP_CLK
@@ -163,13 +168,17 @@
                                                       /*LL can use crystal oscillator or RTC or RCO to drive the sleep clock.This selection is done via "DEFAULT_SLEEP_CLOCK_SOURCE" macro. */
 #endif /* USE_NON_ACCURATE_32K_SLEEP_CLK */
 
+#ifndef SUPPORT_CTE_DEGRADATION_API
+#define SUPPORT_CTE_DEGRADATION_API                 1 /* Enable\Disable CTE degradation API. Enable:1 - Disable:0 */
+#endif /* SUPPORT_CTE_DEGRADATION_API */
+
 /* Non-standard features configurations */
 #ifndef NUM_OF_CTSM_EMNGR_HNDLS
-#define NUM_OF_CTSM_EMNGR_HNDLS                     0 /* Number of custom handles in event manager to be used for app specific needs */
+#define NUM_OF_CTSM_EMNGR_HNDLS                     1 /* Number of custom handles in event manager to be used for app specific needs */
 #endif /* NUM_OF_CTSM_EMNGR_HNDLS */
 
 #ifndef SUPPORT_AUGMENTED_BLE_MODE
-#define SUPPORT_AUGMENTED_BLE_MODE                  0 /* Enable\Disable Augmented BLE Support. Enable:1 - Disable:0 */
+#define SUPPORT_AUGMENTED_BLE_MODE                  1 /* Enable\Disable Augmented BLE Support. Enable:1 - Disable:0 */
 #endif /* SUPPORT_AUGMENTED_BLE_MODE */
 
 #ifndef SUPPORT_PTA
@@ -184,9 +193,13 @@
 #define CHECK_ANY_MISSED_EVENT_ON_DEEP_SLEEP_EXIT   1 /* Enable\Disable calling event scheduler handler function at the end of deep sleep exit*/
 #endif /* CHECK_ANY_MISSED_EVENT_ON_DEEP_SLEEP_EXIT */
 
-#ifndef LL_BASIC
-#define LL_BASIC                                    0
-#endif /* LL_BASIC */
+#ifndef SUPPORT_AUTONOMOUS_POWER_CONTROL_REQ
+#define SUPPORT_AUTONOMOUS_POWER_CONTROL_REQ        1
+#endif /* SUPPORT_AUTONOMOUS_POWER_CONTROL_REQ */
+
+#ifndef SUPPORT_PROFILE
+#define SUPPORT_PROFILE                             PROFILE_LIGHTWEIGHT /* Enable\Disable profiling LL timing framework */
+#endif /* SUPPORT_PROFILE */
 
 /*************************** MAC Configuration *************************************/
 /*Configurations of MAC will apply only when MAC is enabled*/
@@ -210,6 +223,7 @@
 #endif /* RAL_NUMBER_OF_INSTANCE */
  
 #endif
+
 #ifndef MAX_NUMBER_OF_INDIRECT_DATA
 #define MAX_NUMBER_OF_INDIRECT_DATA                 10 /* The maximum number of supported indirect data buffers */
 #endif /* MAX_NUMBER_OF_INDIRECT_DATA */
@@ -247,7 +261,7 @@
 #endif /* SMPL_PRTCL_TEST_ENABLE */
 
 #ifndef IEEE_EUI64_VENDOR_SPECIFIC_FUNC
-#define IEEE_EUI64_VENDOR_SPECIFIC_FUNC             1  /* Comment to disable EUI-64 vendor specific function, in this case EUI-64 is not unique */
+#define IEEE_EUI64_VENDOR_SPECIFIC_FUNC             1 /* Comment to disable EUI-64 vendor specific function, in this case EUI-64 is not unique */
 #endif /* IEEE_EUI64_VENDOR_SPECIFIC_FUNC */
 
 /*************************** Zigbee Configuration **********************************/

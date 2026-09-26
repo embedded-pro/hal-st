@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/ll_fw_config.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/firmware/public_inc/ll_fw_config.h#1 $*/
 /**
  ********************************************************************************
  * @file    ll_fw_config.h
  * @brief   This file contains the major configurations to the BLE controller.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -200,26 +199,39 @@
 #define FFD_DEVICE_CONFIG                           0 /* Enable\Disable FFD:1 - RFD:0 */
 #endif
 
+#ifdef SUPPORT_AUG_MAC_HCI_UART
 #ifndef RAL_NUMBER_OF_INSTANCE
-#define RAL_NUMBER_OF_INSTANCE                      1 /* The Number of RAL instances supported */
+#define RAL_NUMBER_OF_INSTANCE						2 /* The Number of RAL instances supported */
 #endif /* RAL_NUMBER_OF_INSTANCE */
+ 
+#else
+#ifndef RAL_NUMBER_OF_INSTANCE
+#define RAL_NUMBER_OF_INSTANCE						1 /* The Number of RAL instances supported */
+#endif /* RAL_NUMBER_OF_INSTANCE */
+ 
+#endif
+
 
 #ifndef MAX_NUMBER_OF_INDIRECT_DATA
 #define MAX_NUMBER_OF_INDIRECT_DATA                 10 /* The maximum number of supported indirect data buffers */
 #endif /* MAX_NUMBER_OF_INDIRECT_DATA */
 
 #ifndef SUPPORT_OPENTHREAD_1_2
-#define SUPPORT_OPENTHREAD_1_2                      0 /* Enable / disable FW parts related to new features introduced in openthread 1.2*/
+#define SUPPORT_OPENTHREAD_1_2                      1 /* Enable / disable FW parts related to new features introduced in openthread 1.2*/
 #endif /* SUPPORT_OPENTHREAD_1_2 */
 
 #ifndef SUPPORT_SEC
-#define SUPPORT_SEC                                 0 /* The MAC Security Supported : 1 - Not Supported:0 */
+#define SUPPORT_SEC                                 1 /* The MAC Security Supported : 1 - Not Supported:0 */
 #endif /* SUPPORT_SEC */
 
 #ifndef RADIO_CSMA
 #define RADIO_CSMA                                  1 /* Enable\Disable CSMA Algorithm in Radio Layer, Must be Enabled if MAC_LAYER_BUILD */
 #endif /* RADIO_CSMA */
-
+ 
+#ifndef ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY
+#define ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY		1 /* Enable\Disable RX WITH CSMA Feature */
+#endif /* ENHANCED_RX_WHILE_CSMA_BACKOFF_DELAY */
+ 
 #ifndef SUPPORT_ANT_DIV
 #define SUPPORT_ANT_DIV                             1 /* Enable/Disable Antenna Diversity Feature */
 #endif /* SUPPORT_ANT_DIV */
@@ -227,6 +239,11 @@
 #ifndef SUPPORT_A_MAC
 #define SUPPORT_A_MAC                               1
 #endif /* SUPPORT_A_MAC */
+
+#ifndef SUPPORT_CONFIG_LIB
+#define SUPPORT_CONFIG_LIB                          1 /* Enable\Disable Configurable Library feature */
+#endif /* SUPPORT_CONFIG_LIB */
+
 #ifndef SMPL_PRTCL_TEST_ENABLE
 #define SMPL_PRTCL_TEST_ENABLE                      0
 #endif /* SMPL_PRTCL_TEST_ENABLE */

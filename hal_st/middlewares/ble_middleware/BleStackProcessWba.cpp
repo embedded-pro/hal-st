@@ -1,18 +1,17 @@
 #include "hal_st/middlewares/ble_middleware/BleStackProcessWba.hpp"
 #include "infra/event/EventDispatcher.hpp"
+#include <array>
 #include <atomic>
 #include <cstdint>
 
 extern "C"
 {
-#include "auto/ble_raw_api.h"
+#include "ble_std.h"
 #include "blestack.h"
 #include "common_types.h"
 #include "ll_intf.h"
 #include "ll_sys.h"
-
-    // Set by the link layer, possibly from its interrupt
-    extern uint8_t missed_hci_event_flag;
+#include "ll_sys_startup.h"
 }
 
 namespace
@@ -20,6 +19,11 @@ namespace
     constexpr uint8_t lostLinkLayerEventHardwareCode = 0x03;
 
     constexpr uint8_t allowAllLinkLayerEvents = 0x0f;
+
+    constexpr std::array<uint8_t, 4> lostLinkLayerEvent{ HCI_EVENT_PKT_TYPE, HCI_HARDWARE_ERROR_EVT_CODE, 1, lostLinkLayerEventHardwareCode };
+
+    // Set by the link layer, possibly from its interrupt
+    std::atomic_bool linkLayerEventMissed{ false };
 }
 
 extern "C"
@@ -53,8 +57,8 @@ extern "C"
                 {
                     scheduled = false;
 
-                    if (std::atomic_ref<uint8_t>(missed_hci_event_flag).exchange(0) != 0)
-                        HCI_HARDWARE_ERROR_EVENT(lostLinkLayerEventHardwareCode);
+                    if (linkLayerEventMissed.exchange(false) && BLECB_Indication(lostLinkLayerEvent.data(), lostLinkLayerEvent.size(), nullptr, 0) != BLE_STATUS_SUCCESS)
+                        linkLayerEventMissed = true;
 
                     if (BleStack_Process() == BLE_SLEEPMODE_RUNNING)
                         BleStackCB_Process();
@@ -63,6 +67,12 @@ extern "C"
 
     void HostStack_Process()
     {
+        BleStackCB_Process();
+    }
+
+    void ll_sys_handle_missed_event_cb(uint16_t, uint8_t*)
+    {
+        linkLayerEventMissed = true;
         BleStackCB_Process();
     }
 }

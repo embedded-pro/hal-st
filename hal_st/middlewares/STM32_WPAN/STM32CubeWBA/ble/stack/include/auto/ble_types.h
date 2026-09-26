@@ -5,7 +5,7 @@
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2025 STMicroelectronics.
+ * Copyright (c) 2018-2026 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -30,7 +30,7 @@ typedef uint8_t tBleStatus;
 typedef __PACKED_STRUCT
 {
   /**
-   * Connection_Handle[i]
+   * Connection_Handle[i].
    * Values:
    * - 0x0000 ... 0x0EFF
    */
@@ -89,16 +89,14 @@ typedef __PACKED_STRUCT
    * begins the subsequent scan on the primary advertising physical channel.
    * Time = N * 0.625 ms.
    * Values:
-   * - 0x0004 (2.500 ms)  ... 0x5DC0 (15000.000 ms) : STM32WB
-   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : STM32WBA
+   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : full supported range
    */
   uint16_t Scan_Interval;
   /**
    * Duration of the scan on the primary advertising physical channel.
    * Time = N * 0.625 ms.
    * Values:
-   * - 0x0004 (2.500 ms)  ... 0x5DC0 (15000.000 ms) : STM32WB
-   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : STM32WBA
+   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : full supported range
    */
   uint16_t Scan_Window;
 } Scan_Param_Phy_t;
@@ -111,16 +109,14 @@ typedef __PACKED_STRUCT
    * begins the subsequent scan on the primary advertising physical channel.
    * Time = N * 0.625 ms.
    * Values:
-   * - 0x0004 (2.500 ms)  ... 0x5DC0 (15000.000 ms) : STM32WB
-   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : STM32WBA
+   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : full supported range
    */
   uint16_t Scan_Interval;
   /**
    * Duration of the scan on the primary advertising physical channel.
    * Time = N * 0.625 ms.
    * Values:
-   * - 0x0004 (2.500 ms)  ... 0x5DC0 (15000.000 ms) : STM32WB
-   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : STM32WBA
+   * - 0x0004 (2.500 ms)  ... 0xFFFF (40959.375 ms) : full supported range
    */
   uint16_t Scan_Window;
   /**
@@ -183,13 +179,13 @@ typedef __PACKED_STRUCT
   /**
    * Maximum size, in octets, of the payload from the Central's Host.
    * Values:
-   * - 0x0000 ... 0x0FFF
+   * - 0 ... 310
    */
   uint16_t Max_SDU_C_To_P;
   /**
    * Maximum size, in octets, of the payload from the Peripheral's Host.
    * Values:
-   * - 0x0000 ... 0x0FFF
+   * - 0 ... 310
    */
   uint16_t Max_SDU_P_To_C;
   /**
@@ -232,33 +228,33 @@ typedef __PACKED_STRUCT
   /**
    * Number of subevents in each interval of each BIS in the BIG.
    * Values:
-   * - 0x01 ... 0x1F
+   * - 1 ... 31
    */
   uint8_t NSE;
   /**
    * Maximum size, in octets, of the payload from the Central's Host.
    * Values:
-   * - 0x0000 ... 0x0FFF
+   * - 0 ... 310
    */
   uint16_t Max_SDU_C_To_P;
   /**
    * Maximum size, in octets, of the payload from the Peripheral's Host.
    * Values:
-   * - 0x0000 ... 0x0FFF
+   * - 0 ... 310
    */
   uint16_t Max_SDU_P_To_C;
   /**
    * Maximum size, in octets, of the payload from the Central to the
    * Peripheral.
    * Values:
-   * - 0x0000 ... 0x00FB
+   * - 0 ... 251
    */
   uint16_t Max_PDU_C_To_P;
   /**
    * Maximum size, in octets, of the payload from the Peripheral to the
    * Central.
    * Values:
-   * - 0x0000 ... 0x00FB
+   * - 0 ... 251
    */
   uint16_t Max_PDU_P_To_C;
   /**
@@ -341,22 +337,6 @@ typedef __PACKED_STRUCT
    */
   uint8_t Address[6];
 } Bonded_Device_Entry_t;
-
-/* Definition of Identity_Entry_t */
-typedef __PACKED_STRUCT
-{
-  /**
-   * Identity address type
-   * Values:
-   * - 0x00: Public Identity Address
-   * - 0x01: Random (static) Identity Address
-   */
-  uint8_t Peer_Identity_Address_Type;
-  /**
-   * Public or Random (static) Identity Address of the peer device
-   */
-  uint8_t Peer_Identity_Address[6];
-} Identity_Entry_t;
 
 /* Definition of List_Entry_t */
 typedef __PACKED_STRUCT
@@ -482,17 +462,14 @@ typedef __PACKED_STRUCT
    */
   uint8_t Event_Type;
   /**
-   * Address type
-   * 0x00 Public Device Address
-   * 0x01 Random Device Address
-   * 0x02 Public Identity Address (Corresponds to Resolved Private Address)
-   * 0x03 Random (Static) Identity Address (Corresponds to Resolved Private
-   * Address)
+   * Address type.
    * Values:
    * - 0x00: Public Device Address
    * - 0x01: Random Device Address
-   * - 0x02: Public Identity Address
-   * - 0x03: Random (Static) Identity Address
+   * - 0x02: Public Identity Address (corresponds to the Resolved Private
+   *   Address)
+   * - 0x03: Random (static) Identity Address (corresponds to the Resolved
+   *   Private Address)
    */
   uint8_t Address_Type;
   /**
@@ -507,8 +484,8 @@ typedef __PACKED_STRUCT
    */
   uint8_t Length_Data;
   /**
-   * Octets of advertising or scan response data formatted as defined in
-   * Bluetooth spec. [Vol 3, Part C, 11].
+   * Octets of advertising or scan response data formatted as defined in Core
+   * Specification [Vol 3, Part C, 11].
    */
   const uint8_t* Data;
   /**
@@ -531,17 +508,14 @@ typedef __PACKED_STRUCT
    */
   uint8_t Event_Type;
   /**
-   * Address type
-   * 0x00 Public Device Address
-   * 0x01 Random Device Address
-   * 0x02 Public Identity Address (Corresponds to Resolved Private Address)
-   * 0x03 Random (Static) Identity Address (Corresponds to Resolved Private
-   * Address)
+   * Address type.
    * Values:
    * - 0x00: Public Device Address
    * - 0x01: Random Device Address
-   * - 0x02: Public Identity Address
-   * - 0x03: Random (Static) Identity Address
+   * - 0x02: Public Identity Address (corresponds to the Resolved Private
+   *   Address)
+   * - 0x03: Random (static) Identity Address (corresponds to the Resolved
+   *   Private Address)
    */
   uint8_t Address_Type;
   /**
@@ -879,7 +853,7 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
   uint8_t LE_Features[8];
-} hci_le_read_local_supported_features_rp0;
+} hci_le_read_local_supported_features_page_0_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -1071,12 +1045,12 @@ typedef __PACKED_STRUCT
 typedef __PACKED_STRUCT
 {
   uint16_t Connection_Handle;
-} hci_le_read_remote_features_cp0;
+} hci_le_read_remote_features_page_0_cp0;
 
 typedef __PACKED_STRUCT
 {
   uint8_t Status;
-} hci_le_read_remote_features_rp0;
+} hci_le_read_remote_features_page_0_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -2369,9 +2343,397 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
+  uint8_t Advertising_Handle;
+  uint8_t Num_Subevents;
+  uint8_t Subevent_Param[252];
+} hci_le_set_periodic_advertising_subevent_data_cp0;
+
+typedef __PACKED_STRUCT
+{
   uint8_t Status;
-  uint16_t Build_Number;
-} aci_hal_get_fw_build_number_rp0;
+  uint8_t Advertising_Handle;
+} hci_le_set_periodic_advertising_subevent_data_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Sync_Handle;
+  uint16_t Request_Event;
+  uint8_t Request_Subevent;
+  uint8_t Response_Subevent;
+  uint8_t Response_Slot;
+  uint8_t Response_Data_Length;
+  uint8_t Response_Data[BLE_CMD_MAX_PARAM_LEN - 8];
+} hci_le_set_periodic_advertising_response_data_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Sync_Handle;
+} hci_le_set_periodic_advertising_response_data_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Sync_Handle;
+  uint16_t Periodic_Advertising_Properties;
+  uint8_t Num_Subevents;
+  uint8_t Subevent[BLE_CMD_MAX_PARAM_LEN - 5];
+} hci_le_set_periodic_sync_subevent_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Sync_Handle;
+} hci_le_set_periodic_sync_subevent_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Advertising_Handle;
+  uint8_t Subevent;
+  uint8_t Initiator_Filter_Policy;
+  uint8_t Own_Address_Type;
+  uint8_t Peer_Address_Type;
+  uint8_t Peer_Address[6];
+  uint8_t Initiating_PHYs;
+  Init_Param_Phy_t Init_Param_Phy[3];
+} hci_le_extended_create_connection_v2_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_extended_create_connection_v2_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Advertising_Handle;
+  uint16_t Periodic_Adv_Interval_Min;
+  uint16_t Periodic_Adv_Interval_Max;
+  uint16_t Periodic_Adv_Properties;
+  uint8_t Num_Subevents;
+  uint8_t Subevent_Interval;
+  uint8_t Response_Slot_Delay;
+  uint8_t Response_Slot_Spacing;
+  uint8_t Num_Response_Slots;
+} hci_le_set_periodic_advertising_parameters_v2_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint8_t Advertising_Handle;
+} hci_le_set_periodic_advertising_parameters_v2_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint8_t Max_Page;
+  uint8_t LE_Features[248];
+} hci_le_read_all_local_supported_features_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Pages_Requested;
+} hci_le_read_all_remote_features_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_read_all_remote_features_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint8_t Num_Config_Supported;
+  uint16_t Max_Consecutive_Procedures_Supported;
+  uint8_t Num_Antennas_Supported;
+  uint8_t Max_Antenna_Paths_Supported;
+  uint8_t Roles_Supported;
+  uint8_t Optional_Modes_Supported;
+  uint8_t RTT_Capability;
+  uint8_t RTT_AA_Only_N;
+  uint8_t RTT_Sounding_N;
+  uint8_t RTT_Random_Payload_N;
+  uint16_t NADM_Sounding_Capability;
+  uint16_t NADM_Random_Capability;
+  uint8_t CS_SYNC_PHYs_Supported;
+  uint16_t Subfeatures_Supported;
+  uint16_t T_IP1_Times_Supported;
+  uint16_t T_IP2_Times_Supported;
+  uint16_t T_FCS_Times_Supported;
+  uint16_t T_PM_Times_Supported;
+  uint8_t T_SW_Time_Supported;
+  uint8_t TX_SNR_Capability;
+} hci_le_cs_read_local_supported_capabilities_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+} hci_le_cs_read_remote_supported_capabilities_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_read_remote_supported_capabilities_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Num_Config_Supported;
+  uint16_t Max_Consecutive_Procedures_Supported;
+  uint8_t Num_Antennas_Supported;
+  uint8_t Max_Antenna_Paths_Supported;
+  uint8_t Roles_Supported;
+  uint8_t Modes_Supported;
+  uint8_t RTT_Capability;
+  uint8_t RTT_AA_Only_N;
+  uint8_t RTT_Sounding_N;
+  uint8_t RTT_Random_Payload_N;
+  uint16_t NADM_Sounding_Capability;
+  uint16_t NADM_Random_Capability;
+  uint8_t CS_SYNC_PHYs_Supported;
+  uint16_t Subfeatures_Supported;
+  uint16_t T_IP1_Times_Supported;
+  uint16_t T_IP2_Times_Supported;
+  uint16_t T_FCS_Times_Supported;
+  uint16_t T_PM_Times_Supported;
+  uint8_t T_SW_Time_Supported;
+  uint8_t TX_SNR_Capability;
+} hci_le_cs_write_cached_remote_supported_capabilities_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+} hci_le_cs_write_cached_remote_supported_capabilities_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+} hci_le_cs_security_enable_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_security_enable_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Role_Enable;
+  uint8_t CS_SYNC_Antenna_Selection;
+  uint8_t Max_TX_Power;
+} hci_le_cs_set_default_settings_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+} hci_le_cs_set_default_settings_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+} hci_le_cs_read_remote_fae_table_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_read_remote_fae_table_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Remote_FAE_Table[72];
+} hci_le_cs_write_cached_remote_fae_table_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+} hci_le_cs_write_cached_remote_fae_table_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint8_t Create_Context;
+  uint8_t Main_Mode_Type;
+  uint8_t Sub_Mode_Type;
+  uint8_t Min_Main_Mode_Steps;
+  uint8_t Max_Main_Mode_Steps;
+  uint8_t Main_Mode_Repetition;
+  uint8_t Mode_0_Steps;
+  uint8_t Role;
+  uint8_t RTT_Type;
+  uint8_t CS_SYNC_PHY;
+  uint8_t Channel_Map[10];
+  uint8_t Channel_Map_Repetition;
+  uint8_t Channel_Selection_Type;
+  uint8_t Ch3c_Shape;
+  uint8_t Ch3c_Jump;
+  uint8_t Reserved;
+} hci_le_cs_create_config_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_create_config_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+} hci_le_cs_remove_config_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_remove_config_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Channel_Classification[10];
+} hci_le_cs_set_channel_classification_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_set_channel_classification_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint16_t Max_Procedure_Len;
+  uint16_t Min_Procedure_Interval;
+  uint16_t Max_Procedure_Interval;
+  uint16_t Max_Procedure_Count;
+  uint8_t Min_Subevent_Len[3];
+  uint8_t Max_Subevent_Len[3];
+  uint8_t Tone_Antenna_Config_Selection;
+  uint8_t PHY;
+  uint8_t Tx_Power_Delta;
+  uint8_t Preferred_Peer_Antenna;
+  uint8_t SNR_Control_Initiator;
+  uint8_t SNR_Control_Reflector;
+} hci_le_cs_set_procedure_parameters_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+} hci_le_cs_set_procedure_parameters_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint8_t Enable;
+} hci_le_cs_procedure_enable_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_procedure_enable_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Main_Mode_Type;
+  uint8_t Sub_Mode_Type;
+  uint8_t Main_Mode_Repetition;
+  uint8_t Mode_0_Steps;
+  uint8_t Role;
+  uint8_t RTT_Type;
+  uint8_t CS_SYNC_PHY;
+  uint8_t CS_SYNC_Antenna_Selection;
+  uint8_t Subevent_Len[3];
+  uint16_t Subevent_Interval;
+  uint8_t Max_Num_Subevents;
+  uint8_t Transmit_Power_Level;
+  uint8_t T_IP1_Time;
+  uint8_t T_IP2_Time;
+  uint8_t T_FCS_Time;
+  uint8_t T_PM_Time;
+  uint8_t T_SW_Time;
+  uint8_t Tone_Antenna_Config_Selection;
+  uint8_t Reserved;
+  uint8_t SNR_Control_Initiator;
+  uint8_t SNR_Control_Reflector;
+  uint16_t DRBG_Nonce;
+  uint8_t Channel_Map_Repetition;
+  uint16_t Override_Config;
+  uint8_t Override_Parameters_Length;
+  uint8_t Override_Parameters_Data[BLE_CMD_MAX_PARAM_LEN - 30];
+} hci_le_cs_test_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_test_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_test_end_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Address_Type;
+  uint8_t Address[6];
+  uint8_t RSSI_Threshold_Low;
+  uint8_t RSSI_Threshold_High;
+  uint8_t Timeout;
+} hci_le_add_device_to_monitored_advertisers_list_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_add_device_to_monitored_advertisers_list_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Address_Type;
+  uint8_t Address[6];
+} hci_le_remove_device_from_monitored_advertisers_list_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_remove_device_from_monitored_advertisers_list_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_clear_monitored_advertisers_list_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint8_t Number;
+} hci_le_read_monitored_advertisers_list_size_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Enable;
+} hci_le_enable_monitoring_advertisers_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_enable_monitoring_advertisers_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint16_t Frame_Space_Min;
+  uint16_t Frame_Space_Max;
+  uint8_t PHYS;
+  uint16_t Spacing_Types;
+} hci_le_frame_space_update_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_frame_space_update_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -2459,14 +2821,6 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
-  uint8_t Status;
-  uint16_t Allocated_For_TX;
-  uint16_t Allocated_For_RX;
-  uint16_t Allocated_MBlocks;
-} aci_hal_get_pm_debug_info_v2_rp0;
-
-typedef __PACKED_STRUCT
-{
   uint8_t Enable;
 } aci_hal_set_peripheral_latency_cp0;
 
@@ -2521,6 +2875,31 @@ typedef __PACKED_STRUCT
   uint16_t Out_Data_Length;
   uint8_t Out_Data[(BLE_EVT_MAX_PARAM_LEN - 3) - 3];
 } aci_hal_ead_encrypt_decrypt_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Enable;
+} aci_hal_pta_enable_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_hal_pta_enable_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Mode;
+  uint16_t Handle;
+  uint32_t Priority;
+  uint32_t Priority_Mask;
+  uint8_t Slots_Number;
+  uint8_t Limit_Timeout;
+} aci_hal_pta_set_priority_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_hal_pta_set_priority_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -2753,11 +3132,6 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
-  uint8_t Status;
-} aci_gap_configure_filter_accept_list_rp0;
-
-typedef __PACKED_STRUCT
-{
   uint16_t Connection_Handle;
   uint8_t Reason;
 } aci_gap_terminate_cp0;
@@ -2787,32 +3161,6 @@ typedef __PACKED_STRUCT
   uint16_t LE_Scan_Interval;
   uint16_t LE_Scan_Window;
   uint8_t Own_Address_Type;
-  uint8_t Filter_Duplicates;
-} aci_gap_start_limited_discovery_proc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_start_limited_discovery_proc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t LE_Scan_Interval;
-  uint16_t LE_Scan_Window;
-  uint8_t Own_Address_Type;
-  uint8_t Filter_Duplicates;
-} aci_gap_start_general_discovery_proc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_start_general_discovery_proc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t LE_Scan_Interval;
-  uint16_t LE_Scan_Window;
-  uint8_t Own_Address_Type;
   uint16_t Conn_Interval_Min;
   uint16_t Conn_Interval_Max;
   uint16_t Conn_Latency;
@@ -2827,38 +3175,6 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_gap_start_auto_connection_establish_proc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t LE_Scan_Type;
-  uint16_t LE_Scan_Interval;
-  uint16_t LE_Scan_Window;
-  uint8_t Own_Address_Type;
-  uint8_t Scanning_Filter_Policy;
-  uint8_t Filter_Duplicates;
-} aci_gap_start_general_connection_establish_proc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_start_general_connection_establish_proc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t LE_Scan_Type;
-  uint16_t LE_Scan_Interval;
-  uint16_t LE_Scan_Window;
-  uint8_t Own_Address_Type;
-  uint8_t Scanning_Filter_Policy;
-  uint8_t Filter_Duplicates;
-  uint8_t Num_of_Peer_Entries;
-  Peer_Entry_t Peer_Entry[(BLE_CMD_MAX_PARAM_LEN - 9)/sizeof(Peer_Entry_t)];
-} aci_gap_start_selective_connection_establish_proc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_start_selective_connection_establish_proc_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -2940,21 +3256,6 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
-  uint16_t LE_Scan_Interval;
-  uint16_t LE_Scan_Window;
-  uint8_t LE_Scan_Type;
-  uint8_t Own_Address_Type;
-  uint8_t Filter_Duplicates;
-  uint8_t Scanning_Filter_Policy;
-} aci_gap_start_observation_proc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_start_observation_proc_rp0;
-
-typedef __PACKED_STRUCT
-{
   uint8_t Status;
   uint8_t Num_of_Addresses;
   Bonded_Device_Entry_t Bonded_Device_Entry[((BLE_EVT_MAX_PARAM_LEN - 3) - 2)/sizeof(Bonded_Device_Entry_t)];
@@ -3024,22 +3325,6 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_gap_set_oob_data_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Num_of_Resolving_list_Entries;
-  Identity_Entry_t Identity_Entry[(BLE_CMD_MAX_PARAM_LEN - 2)/sizeof(Identity_Entry_t)];
-} aci_gap_add_devices_to_resolving_list_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Clear_Resolving_List;
-} aci_gap_add_devices_to_resolving_list_cp1;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gap_add_devices_to_resolving_list_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3249,12 +3534,12 @@ typedef __PACKED_STRUCT
   uint8_t Scanning_Filter_Policy;
   uint8_t Scanning_PHYs;
   Scan_Param_Phy_t Scan_Param_Phy[2];
-} aci_gap_ext_start_scan_cp0;
+} aci_gap_start_scan_cp0;
 
 typedef __PACKED_STRUCT
 {
   uint8_t Status;
-} aci_gap_ext_start_scan_rp0;
+} aci_gap_start_scan_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3678,56 +3963,6 @@ typedef __PACKED_STRUCT
 {
   uint16_t Connection_Handle;
   uint16_t Attr_Handle;
-  uint16_t Val_Offset;
-  uint8_t Attribute_Val_Length;
-  uint8_t Attribute_Val[BLE_CMD_MAX_PARAM_LEN - 7];
-} aci_gatt_write_long_char_desc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_write_long_char_desc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint16_t Attr_Handle;
-  uint16_t Val_Offset;
-} aci_gatt_read_long_char_desc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_read_long_char_desc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint16_t Attr_Handle;
-  uint8_t Attribute_Val_Length;
-  uint8_t Attribute_Val[BLE_CMD_MAX_PARAM_LEN - 5];
-} aci_gatt_write_char_desc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_write_char_desc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint16_t Attr_Handle;
-} aci_gatt_read_char_desc_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_read_char_desc_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint16_t Attr_Handle;
   uint8_t Attribute_Val_Length;
   uint8_t Attribute_Val[BLE_CMD_MAX_PARAM_LEN - 5];
 } aci_gatt_write_without_resp_cp0;
@@ -3736,19 +3971,6 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_gatt_write_without_resp_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint16_t Attr_Handle;
-  uint8_t Attribute_Val_Length;
-  uint8_t Attribute_Val[BLE_CMD_MAX_PARAM_LEN - 5];
-} aci_gatt_signed_write_without_resp_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_signed_write_without_resp_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3768,22 +3990,25 @@ typedef __PACKED_STRUCT
   uint8_t Error_Code;
   uint8_t Attribute_Val_Length;
   uint8_t Attribute_Val[BLE_CMD_MAX_PARAM_LEN - 7];
-} aci_gatt_write_resp_cp0;
+} aci_gatt_permit_write_cp0;
 
 typedef __PACKED_STRUCT
 {
   uint8_t Status;
-} aci_gatt_write_resp_rp0;
+} aci_gatt_permit_write_rp0;
 
 typedef __PACKED_STRUCT
 {
   uint16_t Connection_Handle;
-} aci_gatt_allow_read_cp0;
+  uint8_t Read_status;
+  uint8_t Error_Code;
+  uint16_t Attr_Handle;
+} aci_gatt_permit_read_cp0;
 
 typedef __PACKED_STRUCT
 {
   uint8_t Status;
-} aci_gatt_allow_read_rp0;
+} aci_gatt_permit_read_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3829,6 +4054,22 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
+  uint16_t Connection_Handle;
+  uint16_t Attr_Handle;
+  uint16_t Offset;
+  uint16_t Value_Length_Requested;
+} aci_gatt_get_attribute_value_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Length;
+  uint16_t Value_Length;
+  uint8_t Value[(BLE_EVT_MAX_PARAM_LEN - 3) - 5];
+} aci_gatt_get_attribute_value_rp0;
+
+typedef __PACKED_STRUCT
+{
   uint16_t Conn_Handle_To_Notify;
   uint16_t Service_Handle;
   uint16_t Char_Handle;
@@ -3843,17 +4084,6 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_gatt_update_char_value_ext_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint16_t Connection_Handle;
-  uint8_t Error_Code;
-} aci_gatt_deny_read_cp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Status;
-} aci_gatt_deny_read_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3895,6 +4125,35 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_gatt_read_multiple_var_char_value_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint16_t Attr_Handle;
+  uint8_t Signed_Mode;
+  uint16_t Data_Length;
+  uint32_t Data_Pointer;
+} aci_gatt_write_without_resp_ext_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_gatt_write_without_resp_ext_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint16_t Attr_Handle;
+  uint8_t Write_Mode;
+  uint16_t Val_Offset;
+  uint16_t Data_Length;
+  uint32_t Data_Pointer;
+} aci_gatt_write_with_resp_ext_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_gatt_write_with_resp_ext_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -3950,6 +4209,7 @@ typedef __PACKED_STRUCT
   uint16_t MPS;
   uint16_t Initial_Credits;
   uint16_t Result;
+  uint8_t Max_Channel_Number;
 } aci_l2cap_coc_connect_confirm_cp0;
 
 typedef __PACKED_STRUCT
@@ -4016,6 +4276,49 @@ typedef __PACKED_STRUCT
 {
   uint8_t Status;
 } aci_l2cap_coc_tx_data_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Mode;
+  uint32_t Options;
+} aci_reset_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_reset_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint32_t Version[2];
+  uint32_t Options;
+  uint32_t Debug_Info[3];
+} aci_get_information_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Offset;
+  uint8_t Length;
+  uint8_t Value[BLE_CMD_MAX_PARAM_LEN - 2];
+} aci_write_config_data_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} aci_write_config_data_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Offset;
+} aci_read_config_data_cp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint8_t Data_Length;
+  uint8_t Data[(BLE_EVT_MAX_PARAM_LEN - 3) - 2];
+} aci_read_config_data_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -4100,7 +4403,7 @@ typedef __PACKED_STRUCT
   uint8_t Status;
   uint16_t Connection_Handle;
   uint8_t LE_Features[8];
-} hci_le_read_remote_features_complete_event_rp0;
+} hci_le_read_remote_features_page_0_complete_event_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -4411,6 +4714,86 @@ typedef __PACKED_STRUCT
 typedef __PACKED_STRUCT
 {
   uint8_t Status;
+  uint16_t Sync_Handle;
+  uint8_t Advertising_SID;
+  uint8_t Advertiser_Address_Type;
+  uint8_t Advertiser_Address[6];
+  uint8_t Advertiser_PHY;
+  uint16_t Periodic_Advertising_Interval;
+  uint8_t Advertiser_Clock_Accuracy;
+  uint8_t Num_Subevents;
+  uint8_t Subevent_Interval;
+  uint8_t Response_Slot_Delay;
+  uint8_t Response_Slot_Spacing;
+} hci_le_periodic_advertising_sync_established_v2_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Sync_Handle;
+  uint8_t Tx_Power;
+  uint8_t RSSI;
+  uint8_t CTE_Type;
+  uint16_t Periodic_Event_Counter;
+  uint8_t Subevent;
+  uint8_t Data_Status;
+  uint8_t Data_Length;
+  uint8_t Data[(BLE_EVT_MAX_PARAM_LEN - 1) - 10];
+} hci_le_periodic_advertising_report_v2_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint16_t Service_Data;
+  uint16_t Sync_Handle;
+  uint8_t Advertising_SID;
+  uint8_t Advertiser_Address_Type;
+  uint8_t Advertiser_Address[6];
+  uint8_t Advertiser_PHY;
+  uint16_t Periodic_Advertising_Interval;
+  uint8_t Advertiser_Clock_Accuracy;
+  uint8_t Num_Subevents;
+  uint8_t Subevent_Interval;
+  uint8_t Response_Slot_Delay;
+  uint8_t Response_Slot_Spacing;
+} hci_le_periodic_advertising_sync_transfer_received_v2_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Advertising_Handle;
+  uint8_t Subevent_Start;
+  uint8_t Subevent_Data_Count;
+} hci_le_periodic_advertising_subevent_data_request_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Advertising_Handle;
+  uint8_t Subevent;
+  uint8_t Tx_Status;
+  uint8_t Num_Responses;
+  uint8_t Responses[250];
+} hci_le_periodic_advertising_response_report_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Role;
+  uint8_t Peer_Address_Type;
+  uint8_t Peer_Address[6];
+  uint8_t Local_Resolvable_Private_Address[6];
+  uint8_t Peer_Resolvable_Private_Address[6];
+  uint16_t Conn_Interval;
+  uint16_t Conn_Latency;
+  uint16_t Supervision_Timeout;
+  uint8_t Central_Clock_Accuracy;
+  uint8_t Advertising_Handle;
+  uint16_t Sync_Handle;
+} hci_le_enhanced_connection_complete_v2_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
   uint16_t Connection_Handle;
   uint8_t CIG_Sync_Delay[3];
   uint8_t CIS_Sync_Delay[3];
@@ -4436,27 +4819,152 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
-  uint8_t Last_State;
-  uint8_t Next_State;
-  uint32_t Next_State_SysTime;
-  uint8_t Last_State_Slot;
-  uint8_t Next_State_Slot;
-} aci_hal_end_of_radio_activity_event_rp0;
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Max_Remote_Page;
+  uint8_t Max_Valid_Page;
+  uint8_t LE_Features[248];
+} hci_le_read_all_remote_features_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Num_Config_Supported;
+  uint16_t Max_Consecutive_Procedures_Supported;
+  uint8_t Num_Antennas_Supported;
+  uint8_t Max_Antenna_Paths_Supported;
+  uint8_t Roles_Supported;
+  uint8_t Optional_Modes_Supported;
+  uint8_t RTT_Capability;
+  uint8_t RTT_AA_Only_N;
+  uint8_t RTT_Sounding_N;
+  uint8_t RTT_Random_Payload_N;
+  uint16_t NADM_Sounding_Capability;
+  uint16_t NADM_Random_Capability;
+  uint8_t CS_SYNC_PHYs_Supported;
+  uint16_t Subfeatures_Supported;
+  uint16_t T_IP1_Times_Supported;
+  uint16_t T_IP2_Times_Supported;
+  uint16_t T_FCS_Times_Supported;
+  uint16_t T_PM_Times_Supported;
+  uint8_t T_SW_Time_Supported;
+  uint8_t TX_SNR_Capability;
+} hci_le_cs_read_remote_supported_capabilities_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Remote_FAE_Table[72];
+} hci_le_cs_read_remote_fae_table_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+} hci_le_cs_security_enable_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint8_t Action;
+  uint8_t Main_Mode_Type;
+  uint8_t Sub_Mode_Type;
+  uint8_t Min_Main_Mode_Steps;
+  uint8_t Max_Main_Mode_Steps;
+  uint8_t Main_Mode_Repetition;
+  uint8_t Mode_0_Steps;
+  uint8_t Role;
+  uint8_t RTT_Type;
+  uint8_t CS_SYNC_PHY;
+  uint8_t Channel_Map[10];
+  uint8_t Channel_Map_Repetition;
+  uint8_t Channel_Selection_Type;
+  uint8_t Ch3c_Shape;
+  uint8_t Ch3c_Jump;
+  uint8_t Reserved;
+  uint8_t T_IP1_Time;
+  uint8_t T_IP2_Time;
+  uint8_t T_FCS_Time;
+  uint8_t T_PM_Time;
+} hci_le_cs_config_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint8_t State;
+  uint8_t Tone_Antenna_Config_Selection;
+  uint8_t Selected_TX_Power;
+  uint8_t Subevent_Len[3];
+  uint8_t Subevents_Per_Event;
+  uint16_t Subevent_Interval;
+  uint16_t Event_Interval;
+  uint16_t Procedure_Interval;
+  uint16_t Procedure_Count;
+  uint16_t Max_Procedure_Len;
+} hci_le_cs_procedure_enable_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint16_t Start_ACL_Conn_Event_Counter;
+  uint16_t Procedure_Counter;
+  uint16_t Frequency_Compensation;
+  uint8_t Reference_Power_Level;
+  uint8_t Procedure_Done_Status;
+  uint8_t Subevent_Done_Status;
+  uint8_t Abort_Reason;
+  uint8_t Num_Antenna_Paths;
+  uint8_t Num_Steps_Reported;
+  uint8_t Step_Param[239];
+} hci_le_cs_subevent_result_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint16_t Connection_Handle;
+  uint8_t Config_ID;
+  uint8_t Procedure_Done_Status;
+  uint8_t Subevent_Done_Status;
+  uint8_t Abort_Reason;
+  uint8_t Num_Antenna_Paths;
+  uint8_t Num_Steps_Reported;
+  uint8_t Step_Param[246];
+} hci_le_cs_subevent_result_continue_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+} hci_le_cs_test_end_complete_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Address_Type;
+  uint8_t Address[6];
+  uint8_t Condition;
+} hci_le_monitored_advertisers_report_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Status;
+  uint16_t Connection_Handle;
+  uint8_t Initiator;
+  uint16_t Frame_Space;
+  uint8_t PHYS;
+  uint16_t Spacing_Types;
+} hci_le_frame_space_update_complete_event_rp0;
 
 typedef __PACKED_STRUCT
 {
   uint8_t Warning_Type;
   uint8_t Data_Length;
   uint8_t Data[(BLE_EVT_MAX_PARAM_LEN - 2) - 2];
-} aci_hal_warning_event_rp0;
-
-typedef __PACKED_STRUCT
-{
-  uint8_t Group_Id;
-  uint32_t Next_Anchor_Point;
-  uint32_t Time_Stamp;
-  uint32_t Next_Sdu_Delivery_Timeout;
-} aci_hal_sync_event_rp0;
+} aci_warning_event_rp0;
 
 typedef __PACKED_STRUCT
 {
@@ -4468,6 +4976,7 @@ typedef __PACKED_STRUCT
 typedef __PACKED_STRUCT
 {
   uint16_t Connection_Handle;
+  uint8_t IO_Capability;
 } aci_gap_pass_key_req_event_rp0;
 
 typedef __PACKED_STRUCT
@@ -4767,9 +5276,10 @@ typedef __PACKED_STRUCT
 
 typedef __PACKED_STRUCT
 {
+  uint16_t Connection_Handle;
   uint8_t Channel_Index;
   uint8_t EAB_State;
-  uint8_t Status;
+  uint16_t MTU;
 } aci_gatt_eatt_bearer_event_rp0;
 
 typedef __PACKED_STRUCT
@@ -4810,6 +5320,23 @@ typedef __PACKED_STRUCT
   uint16_t Attribute_Value_Length;
   uint8_t Attribute_Value[(BLE_EVT_MAX_PARAM_LEN - 2) - 8];
 } aci_gatt_notification_ext_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Last_State;
+  uint8_t Next_State;
+  uint32_t Next_State_SysTime;
+  uint8_t Last_State_Slot;
+  uint8_t Next_State_Slot;
+} aci_hal_end_of_radio_activity_event_rp0;
+
+typedef __PACKED_STRUCT
+{
+  uint8_t Group_Id;
+  uint32_t Next_Anchor_Point;
+  uint32_t Time_Stamp;
+  uint32_t Next_Sdu_Delivery_Timeout;
+} aci_hal_sync_event_rp0;
 
 
 #endif /* BLE_TYPES_H__ */

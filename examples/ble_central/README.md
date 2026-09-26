@@ -105,9 +105,10 @@ application provides. hal-st provides that port in `hal_st/middlewares/ble_middl
 - **`PowerTableWba.cpp`** holds ST's TX power tables.
 - **`BlePlatformWba.cpp`** holds `BLEPLAT_*`: random numbers, AES-ECB and AES-CMAC on the AES
   peripheral, P-256 key generation and the Diffie-Hellman key on the PKA, the stack's timers on
-  `infra::TimerSingleShot`, and its NVM. AES-CCM is a stub, which the basic stack does not use.
-- **`BleNvmWba.cpp`** is the stack's NVM: its security and GATT records, in the record format of
-  ST's `nvm_emul.c`, kept in RAM and written back to a `ConfigurationStore` entry after each change.
+  `infra::TimerSingleShot`, and its NVM. AES-CCM is a stub; only the stack's Encrypted Advertising
+  Data commands use it, and the BLE middleware issues none.
+- **`BleNvmWba.cpp`** is the stack's NVM: the RAM cache in which the stack keeps its security and
+  GATT database, written back to a `ConfigurationStore` entry each time the stack asks to store it.
 
 `SystemTransportLayerWba` takes its hardware in `SystemTransportLayerWba::HardwareDependencies`:
 creators for the RNG (`hal::SynchronousRandomDataGenerator`), the AES (`services::Aes128Ecb`) and
@@ -125,8 +126,9 @@ vector, and registers the software low interrupt in the interrupt table, so pick
 the application does not drive by interrupts.
 
 `SystemTransportLayerWba` also takes that `ConfigurationStore` entry, a range of
-`SystemTransportLayerWba::bondBlobSize` bytes, and loads the records from it before the stack
-starts. The example hands it a `services::ConfigurationStoreStub`, so bonds do not survive a reset;
+`SystemTransportLayerWba::bondBlobSize` bytes, and loads the cache from it before the stack
+starts. A blob written by the record based NVM of hal-st's earlier stack version is discarded, so
+bonds stored by that version are lost once. The example hands it a `services::ConfigurationStoreStub`, so bonds do not survive a reset;
 see [Bonds are not persistent](../ble_peripheral/README.md#bonds-are-not-persistent).
 
 The example uses `TracingSystemTransportLayerWba`, which traces the stack's version at start-up, as

@@ -6,7 +6,7 @@ extern "C"
 #include "power_table.h"
 }
 
-// TX power tables of STM32CubeWBA v1.6.0 (Projects/NUCLEO-WBA55CG/Applications/BLE/BLE_HeartRate/STM32_WPAN/Target/power_table.c),
+// TX power tables of STM32CubeWBA v1.10.0 (Projects/NUCLEO-WBA55CG/Applications/BLE/BLE_HeartRate/STM32_WPAN/Target/power_table.c),
 // which are the same for STM32WBA5x and STM32WBA6x.
 // Copyright (c) 2022 STMicroelectronics, licensed under the terms in hal_st/middlewares/STM32_WPAN/STM32CubeWBA/LICENSE.md.
 

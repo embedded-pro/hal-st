@@ -540,10 +540,10 @@ extern "C"
     void LINKLAYER_PLAT_RequestTemperature()
     {}
 
-    void LINKLAYER_PLAT_EnableOSContextSwitch()
+    void LINKLAYER_PLAT_PhyStartClbr()
     {}
 
-    void LINKLAYER_PLAT_DisableOSContextSwitch()
+    void LINKLAYER_PLAT_PhyStopClbr()
     {}
 
     void LINKLAYER_PLAT_SCHLDR_TIMING_UPDATE_NOT(Evnt_timing_t*)

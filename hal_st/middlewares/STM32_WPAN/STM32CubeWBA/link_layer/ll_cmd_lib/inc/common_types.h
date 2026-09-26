@@ -1,10 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/common_types.h#1 $*/
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/inc/common_types.h#5 $*/
 /**
  ********************************************************************************
  * @file    common_types.h
  * @brief   This file contains common includes for BLE FW LL.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -49,48 +48,49 @@
 /********************************************************************** */
 /****************** BLE MAC COMBO Configurations*********************** */
 /********************************************************************** */
-#ifdef BLE
-#define SUPPORT_BLE									1
+#ifdef BLE_LL
+#define SUPPORT_BLE									1			///< BLE controller is supported
 #else
-#define SUPPORT_BLE									0
+#define SUPPORT_BLE									0			///< BLE controller is not supported
 #endif
 
 #ifdef MAC
-#define SUPPORT_MAC									1
+#define SUPPORT_MAC									1			///< MAC controller is supported
 #else
-#define SUPPORT_MAC									0
+#define SUPPORT_MAC									0			///< MAC controller is not supported
 #endif
 #ifdef ANT_ROLE
-#define SUPPORT_ANT								    1
+#define SUPPORT_ANT								    1			///< ANT controller is supported
 
 #ifdef SUPPORT_ANT_TESTING
-#define SUPPORT_ANT_HCI_UART								    1
+#define SUPPORT_ANT_HCI_UART						1			///< ANT HCI UART is supported
 #else
-#define SUPPORT_ANT_HCI_UART								    0
+#define SUPPORT_ANT_HCI_UART						0			///< ANT HCI UART is not supported
 #endif /* SUPPORT_ANT_HCI_UART*/
 
 #else
-#define SUPPORT_ANT								    0
-#define SUPPORT_ANT_HCI_UART                                0
+#define SUPPORT_ANT								    0			///< ANT controller is not supported
+#define SUPPORT_ANT_HCI_UART                        0			///< ANT HCI UART is not supported
 #endif
 
 #ifdef MAC_LAYER
-#define MAC_LAYER_BUILD 1
+#define MAC_LAYER_BUILD 1										///< MAC layer is supported
 #else
-#define MAC_LAYER_BUILD 0
+#define MAC_LAYER_BUILD 0										///< MAC layer is not supported
 #endif
 
 #ifdef SUPPORT_MAC_HCI_UART
-#define SUPPORT_MAC_HCI_UART       1
+#define SUPPORT_MAC_HCI_UART       					1			///< MAC HCI UART is supported
 #else
-#define SUPPORT_MAC_HCI_UART       0
+#define SUPPORT_MAC_HCI_UART       					0			///< MAC HCI UART is not supported
 #endif
 
 #ifdef SUPPORT_AUG_MAC_HCI_UART
-#define SUPPORT_AUG_MAC_HCI_UART       1
+#define SUPPORT_AUG_MAC_HCI_UART       				1			///< AUG MAC HCI UART is supported
 #else
-#define SUPPORT_AUG_MAC_HCI_UART       0
+#define SUPPORT_AUG_MAC_HCI_UART       				0			///< AUG MAC HCI UART is not supported
 #endif
+#define SUPPORT_RADIO_HCI_UART       				0			///< Radio HCI UART is not supported
 
 #if((!SUPPORT_BLE)&&(SUPPORT_MAC || SUPPORT_AUG_MAC_HCI_UART)&&(RAL_NUMBER_OF_INSTANCE>1))
 #error "BLE controller must be enabled to support MAC multiple Instances"
@@ -103,11 +103,29 @@
 #if((!SUPPORT_BLE)&&(SUPPORT_MAC)&&(SUPPORT_ANT))
 #error "BLE controller must be enabled to support MAC and ANT Coexistence"
 #endif
-
+#if(SUPPORT_MAC && SUPPORT_CONFIG_LIB && (!MAC_LAYER_BUILD || !SUPPORT_OPENTHREAD_1_2))
+#error "BUILD_MAC and SUPPORT_OPENTHREAD_1_2 must be TRUE to support configurable library feature"
+#endif
 #define SUPPORT_COEXISTENCE							((SUPPORT_BLE&&SUPPORT_MAC) || (SUPPORT_BLE&&SUPPORT_ANT))
 #define SUPPORT_ANT_COEXISTENCE						(SUPPORT_BLE&&SUPPORT_ANT)
 /****************** User configuration **********************************/
-#define CS_TESTING TRUE
+#define CS_TESTING 						1
+#if(CS_TESTING && (defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_2_10_a_tc))|| defined(PHY_40nm_3_60_a_tc_new_demod))
+#define USE_ANT_MODE_FOR_CS_TESTING		1
+#else
+#define USE_ANT_MODE_FOR_CS_TESTING		0
+#endif/*(CS_TESTING && (defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_2_10_a_tc))|| defined(PHY_40nm_3_60_a_tc_new_demod))*/
+
+#define PROFILE_DISABLED				0
+#define PROFILE_DETAILED				1
+#define PROFILE_LIGHTWEIGHT				2
+#define PROFILE_BSP						3
+
+#ifndef SUPPORT_PROFILE
+#define SUPPORT_PROFILE					PROFILE_DISABLED
+#endif /* SUPPORT_PROFILE */
+
+#define IS_INTERNAL_PROFILED_ENABLED	((SUPPORT_PROFILE == PROFILE_DETAILED) || (SUPPORT_PROFILE == PROFILE_LIGHTWEIGHT))
 
 /********************* Macros **********************************/
 
@@ -143,51 +161,82 @@
 #define MEMCPY_N_BYTES(ptr_dest, ptr_src,no_bytes ,keep_endian)	 ble_memcpy_n_bytes(ptr_dest,ptr_src ,no_bytes ,keep_endian)
 
 
-
 extern os_mutex_id g_ll_lock;
 #define LL_LOCK()	os_rcrsv_mutex_wait(g_ll_lock,0xffffffff)
 #define LL_UNLOCK()	os_rcrsv_mutex_release(g_ll_lock)
 
-#ifndef SUPPORT_ANT_DIV
-#define SUPPORT_ANT_DIV 0
-#endif
 
 #if SUPPORT_MAC
-#define RADIO_MAC_TX_DONE_EVENT_MAX     				1
+/** Maximum number of MAC TX done events. */
+#define RADIO_MAC_PENDING_DONE_EVENT_MAX     				1
+/** Maximum number of RAL state machine done events. */
 #define RAL_SM_DONE_EVENT_MAX 							RADIO_TX_RX_PACKET_BLOCK_COUNT
+/** Maximum number of ED timer events allowed. */
 #define ED_TIMER_EVENT_MAX								1
+/** Maximum number of MLME timer events. */
 #define MAX_MLME_TIMER_EVENT							MAC_NUMBER_OF_INSTANCE
+/** Maximum number of direct data transmission events. */
 #define MAX_DIRECT_DATA_TX_EVENT						MAC_NUMBER_OF_INSTANCE
+/** Maximum number of timeout events for indirect data. */
 #define MAX_INDIRECT_DATA_TIMEOUT_EVENT					MAX_NUMBER_OF_INDIRECT_DATA
+/** Maximum number of periodic calibration timer events. */
 #define PRDC_CLBR_TMR_EVENT_MAX 						1
+/** Maximum value for CSL receiver timer event. */
 #define CSL_RCV_TMR_EVENT_MAX   						1
 
-/* Size in octets of extended address used in security processing */
+/** The sensitivity threshold (in dBm) for the OQPSK receiver. */
+#define OQPSK_RECEIVER_SENSTIVITY						-85
+/** The length of an extended address, typically used for unique device identification. */
 #define EXT_ADDRESS_LENGTH								8
 #endif /* SUPPORT_MAC */
 
 #if SUPPORT_MAC && SUPPORT_OPENTHREAD_1_2
-/* compiler flag to control supporting of CSL transmitter , RADIO TX at specific time , 1  supported , 0 not supported */
-#define CONFIG_MAC_CSL_TRANSMITTER_ENABLE                1
-/* compiler flag to control supporting of CSL receiver , RADIO RX at specific time, 1  supported , 0 not supported */
-#define CONFIG_MAC_CSL_RECEIVER_ENABLE                   1
-/* compiler flag to control supporting of Radio security handling */
-#define SUPPORT_RADIO_SECURITY_OT_1_2                    1
-/* compiler flag to control supporting of Enhanced Ack Link metrics probing  */
-#define SUPPORT_ENH_ACK_LINK_METRICS_PROBING_OT_1_2 	 1
-/* compiler flag to control supporting of Time sync experimental feature of OT 1.2
- * (it is not a thread 1.2 shall not be added except for with OT 1.2 for testing purpose) */
-#define SUPPORT_TIME_SYNC_OT_1_2						 1
+/** Compiler flag to control supporting of CSL transmitter, RADIO TX at specific time, 1 supported, 0 not supported */
+#define CONFIG_MAC_CSL_TRANSMITTER_ENABLE               1
+/** Compiler flag to control supporting of CSL receiver, RADIO RX at specific time, 1 supported, 0 not supported */
+#define CONFIG_MAC_CSL_RECEIVER_ENABLE                  1
+/** Compiler flag to control supporting of radio security handling, 1 supported, 0 not supported */
+#define SUPPORT_RADIO_SECURITY_OT_1_2                   1
+/** Compiler flag to control supporting of Enhanced Ack Link metrics probing, 1 supported, 0 not supported  */
+#define SUPPORT_ENH_ACK_LINK_METRICS_PROBING_OT_1_2 	1
+/**
+ * Compiler flag to control supporting of Time sync experimental feature of OT 1.2
+ * (it is not a thread 1.2 shall not be added except for with OT 1.2 for testing purpose)
+ */
+#define SUPPORT_TIME_SYNC_OT_1_2						1
 #else
-#define CONFIG_MAC_CSL_TRANSMITTER_ENABLE                0
-#define CONFIG_MAC_CSL_RECEIVER_ENABLE                   0
-#define SUPPORT_RADIO_SECURITY_OT_1_2           		 0
-#define SUPPORT_ENH_ACK_LINK_METRICS_PROBING_OT_1_2 	 0
-#define SUPPORT_TIME_SYNC_OT_1_2						 0
+/** Compiler flag to control supporting of CSL transmitter, RADIO TX at specific time, 1 supported, 0 not supported */
+#define CONFIG_MAC_CSL_TRANSMITTER_ENABLE               0
+/** Compiler flag to control supporting of CSL receiver, RADIO RX at specific time, 1 supported, 0 not supported */
+#define CONFIG_MAC_CSL_RECEIVER_ENABLE                  0
+/** Compiler flag to control supporting of radio security handling, 1 supported, 0 not supported */
+#define SUPPORT_RADIO_SECURITY_OT_1_2           		0
+/** Compiler flag to control supporting of Enhanced Ack Link metrics probing, 1 supported, 0 not supported  */
+#define SUPPORT_ENH_ACK_LINK_METRICS_PROBING_OT_1_2 	0
+/**
+ * Compiler flag to control supporting of Time sync experimental feature of OT 1.2
+ * (it is not a thread 1.2 shall not be added except for with OT 1.2 for testing purpose)
+ */
+#define SUPPORT_TIME_SYNC_OT_1_2						0
 #endif /*SUPPORT_MAC && SUPPORT_OPENTHREAD_1_2 */
+
+#ifndef SUPPORT_ANT_DIV
+#define SUPPORT_ANT_DIV 								0			///< Antenna diversity feature is not supported
+#endif
+
+#ifndef SUPPORT_CONFIG_LIB
+#define SUPPORT_CONFIG_LIB 								0			///< Configurable library feature is not supported
+#endif
 
 /* end of radio activity custom command flag */
 #define END_OF_RADIO_ACTIVITY_REPORTING				1 /* Enable\Disable end of radio activity reporting feature. Enable:1 - Disable:0 */
+
+/**
+ * @brief Global error definition across different components.
+ * refer the error codes defined in @ref  ll_error.h for more  information about  the values that this type should set
+ */
+typedef uint32_t ble_stat_t;
+
 
 /* Supported PHYs*/
 typedef enum {
@@ -196,10 +245,6 @@ typedef enum {
 	LE_2M 					= 0x02,
 	LE_CODED_S8				= 0x03,
 	LE_CODED 				= 0x04,
-/*===============  Channel Sounding  ===============*/
-#if (SUPPORT_CHANNEL_SOUNDING &&( SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION))
-	LE_2M_2BT				= 0x08,
-#endif /*SUPPORT_CHANNEL_SOUNDING &&( SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION)*/
 #if (SUPPORT_LE_POWER_CONTROL)
 	LE_PHY_UNDEFINED		= 0xFC,
 	NEW_PHY_CODED_S2		= 0xFD,
@@ -258,6 +303,10 @@ typedef enum {
 } security_mode_enum_t;
 
 #if SUPPORT_MAC
+/**
+ * @brief Enum defines the various PHY data rates supported by the RAL.
+ * 
+ */
 typedef enum ral_phy_rate_enum {
 #if SUPPORT_A_MAC
 	RAL_RATE_125K = 0x00,
@@ -304,27 +353,42 @@ typedef enum _slptmr_src_type_e {
 #endif /* USE_NON_ACCURATE_32K_SLEEP_CLK */
 }slptmr_src_type_e;
 
-/**
-  * @brief Enumeration of the antenna diversity interval type.
-  */
 #if SUPPORT_MAC && SUPPORT_ANT_DIV
+/**
+ * @brief Enum defines the antenna diversity interval types.
+ * 
+ */
 typedef enum ant_intrv_type_enum {
 	NO_TYPE,
 	FIXED_TIME,
 	PACKETS_NUMBER
 } ant_intrv_type_enum_t;
 
-/*
- * @brief structure that hold antenna diversity parameters information.
+/**
+ * @brief Structure represents antenna diversity parameters.
+ * 
  */
 typedef struct _antenna_diversity_st{
-	ant_intrv_type_enum_t ant_intrv_type;                /* antenna interval type: FIXED_TIME(us) or PACKETS_NUMBER(n) */ 
-	uint32_t ant_intrv_value;                            /* antenna interval value based on type; us for FIXED_TIME, n for PACKETS_NUMBER */ 
-	uint16_t wntd_coord_shrt_addr;	                     /* wanted coordinator/router short address */
-	uint8_t wntd_coord_ext_addr[EXT_ADDRESS_LENGTH];	 /* wanted coordinator/router extended address */
-	uint8_t max_rx_ack_retries;                          /* max number of retries to receive ack in case of ack error reception*/
+	ant_intrv_type_enum_t ant_intrv_type;                ///< Antenna interval type: FIXED_TIME(us) or PACKETS_NUMBER(n)
+	uint32_t ant_intrv_value;                            ///< Antenna interval value based on type; us for FIXED_TIME, n for PACKETS_NUMBER
+	uint16_t wntd_coord_shrt_addr;	                     ///< Wanted coordinator/router short address
+	uint8_t wntd_coord_ext_addr[EXT_ADDRESS_LENGTH];	 ///< Wanted coordinator/router extended address
+	uint8_t max_rx_ack_retries;                          ///< Maximum number of retries to receive ACK in case of ACK error reception
 } antenna_diversity_st;
 #endif /* SUPPORT_MAC && SUPPORT_ANT_DIV */
+#if SUPPORT_MAC && SUPPORT_CONFIG_LIB
+/**
+ * @brief Structure represents configurable library parameters.
+ * 
+ */
+typedef struct _config_lib_st{
+	uint8_t mac_layer_build;                			///< Disable/Enable MAC layer build
+	uint8_t support_openthread_1_2;                     ///< Disable/Enable FW parts related to new features introduced in OpenThread 1.2.
+	uint8_t ack_all_received_frames_with_ar_bit_set;	///< Disable/Enable sending ACK for all received frames with AR bit set
+} config_lib_st;
+
+extern config_lib_st g_config_lib_params;				///< Configurable library parameters
+#endif /* SUPPORT_MAC && SUPPORT_CONFIG_LIB */
 
 /*
  * @brief structure that hold some information about the data transmitted across layers.
@@ -353,7 +417,7 @@ typedef struct ble_buff_hdr_st {
 typedef struct _iso_pdu_buff_hdr_st {
 	ble_buff_hdr_t  pkt;	/* PDU Packet */
 #if(SUPPORT_CONNECTED_ISOCHRONOUS && (SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION))
-	uint8_t flsh_tmout_cnt;		/* flush timeout counter */
+	int8_t flsh_tmout_cnt;		/* flush timeout counter */
 	uint8_t flsh_tmout_subevnt_cnt;		/* flush timeout subevent number */
 	uint8_t rx_flsh_tmout_cnt_updtd;	/* flush timeout count updated or not flag */
 #endif //(SUPPORT_CONNECTED_ISOCHRONOUS && (SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION))
@@ -365,19 +429,39 @@ typedef struct _iso_pdu_buff_hdr_st {
 typedef struct _sdu_buf_hdr_st {
 	iso_pdu_buff_hdr_st* ptr_last_pdu_buff_hdr;		/* pointer to the last pdu buffer header pointed to this sdu */
 	struct _sdu_buf_hdr_st* ptr_nxt_sdu_buff_hdr;	/* next sdu pointer */
+	struct _sdu_buf_hdr_st* ptr_nxt_frgmnt_sdu_buff_hdr;	/* sdu fragments pointer is a list for all sdu fragments from controller perspective not Host */
 	uint32_t*ptr_sdu_buffer;	/* pointer to SDU buffer in system memory for rx*/
 	uint32_t time_stamp;	/* Time Stamp associated with this SDU */
 	uint32_t time_offset;	/* Time Offset used only in framed SDUs */
 	uint16_t pkt_sqnc_num;	/* Packet Sequence Number */
 	uint16_t iso_sdu_len;	/* ISO SDU data real length */
+	uint16_t total_sdu_len; /* total sdu length for all sdu fragments */
 	uint8_t  pkt_status_flag;
-	uint8_t  pb_flag;      /* PB_flag used in rx */
+	uint8_t  pb_flag;      									/* Packet boundary flag*/
+	uint8_t  is_virtual_sdu_hdr;							/* Is virtual SDU is set in case of virtual SDUs to be allocated
+	 	 	 	 	 	 	 	 	 	 	 	 	 	 	   This is used in flush mechanism to handle the flow control
+	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 */
 	/*
 	 * the first one will have the value 10 complete sdu until a new sdu fragment will be received then it will be 00 first fragment
 	 * the subsequent one will have the value 11 last fragment until a new sdu fragment will be received then it will be 01 continuation fragment
 	 *
 	 * */
 } iso_sdu_buf_hdr_st, *iso_sdu_buf_hdr_p;
+
+/**
+ * @brief Data contained in CIS Request event
+ *
+ * This structure contains the parameters passed from the master to the host of the slave in CIS creation procedure.
+ */
+typedef struct _ble_intf_get_cig_info_st{
+	uint32_t trsnprt_ltncy_m_to_s;	/* The maximum time, in us, for transmission of SDUs of all CISes */
+	uint32_t trsnprt_ltncy_s_to_m;
+	uint16_t iso_interval;
+	uint16_t cis_conn_hndl;	/* CIS connection handle */
+	uint8_t role;
+	uint8_t cis_id;		/* CIS Identifier */
+	uint8_t cig_id;		/* CIG Identifier */
+} ble_intf_get_cig_info_st;
 #endif  /* (SUPPORT_BRD_ISOCHRONOUS || SUPPORT_SYNC_ISOCHRONOUSs ||  (SUPPORT_CONNECTED_ISOCHRONOUS && ( SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION))) */
 
 #if SUPPORT_LE_PAWR_ADVERTISER_ROLE
@@ -415,7 +499,6 @@ typedef enum {
 	AUG_HCI_MAC_REQ = 0x0C,
 	AUG_HCI_MAC_CFM = 0x0D,
 #endif /* SUPPORT_AUG_MAC_HCI_UART */
-
 } event_t;
 
 
@@ -443,12 +526,13 @@ typedef enum {
 #define BLE_BUFF_HDR_MAC_CMD_PCK		(1<<6)
 #define BLE_BUFF_HDR_MAC_KEY_TBL_CMD_PCK		((1<<7)|(1<<4))
 #endif /* (SUPPORT_MAC && SUPPORT_MAC_HCI_UART) */
+#if (SUPPORT_AUG_MAC_HCI_UART)
+#define BLE_BUFF_HDR_AUG_MAC_CMD_PCK		     ((1<<7)|(1<<6))
+#endif /* SUPPORT_AUG_MAC_HCI_UART */
 #if (SUPPORT_ANT_HCI_UART)
 #define BLE_BUFF_HDR_ANT_CMD_PCK		(1<<7)
 #endif  /* SUPPORT_ANT_HCI_UART */
-#if (SUPPORT_AUG_MAC_HCI_UART)
-#define BLE_BUFF_HDR_AUG_MAC_CMD_PCK		((1<<7)|(1<<6))
-#endif
+
 
 
 /**
@@ -458,14 +542,23 @@ typedef enum {
 #define DEFAULT_PHY_CALIBRATION_PERIOD        		10	/* Time period for PHY calibration = 10s */
 #endif /* DEFAULT_PHY_CALIBRATION_PERIOD */
 
-#if defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a)
-#define SUPPORT_MAC_PHY_CONT_TESTING_CMDS 1
+/**
+ * The PHY calibrations initialization options of execution context.
+ */
+#define PHY_CALIBRATION_CONTEXT_BG                          0
+#define PHY_CALIBRATION_CONTEXT_ISR                         1
+
+#ifndef SUPPORT_MAC_PHY_CONT_TESTING_CMDS
+#define SUPPORT_MAC_PHY_CONT_TESTING_CMDS			1
+#endif /* SUPPORT_MAC_PHY_CONT_TESTING_CMDS */
+
+#if (defined(PHY_40nm_3_60_a_tc)|| defined(PHY_40nm_3_60_a_tc_new_demod) || defined(PHY_40nm_3_00_a)	\
+		|| defined(PHY_40nm_3_40_a) || defined(PHY_40nm_6_00_a) || defined(PHY_40nm_6_00_a_lca00))
+#define SUPPORT_MAC_CONT_TESTING_CMDS_PHY_SUPPORT	SUPPORT_MAC_PHY_CONT_TESTING_CMDS
 #else
-#define SUPPORT_MAC_PHY_CONT_TESTING_CMDS 0
-#if(SUPPORT_MAC_PHY_CONT_TESTING_CMDS)
-#error "SUPPORT_MAC_PHY_CONT_TESTING_CMDS must be enabled for PHY_40nm_3_00_a or PHY_40nm_3_40_a only"
-#endif/*end of (SUPPORT_MAC_PHY_CONT_TESTING_CMDS) */
-#endif /*end of defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a) */
+#define SUPPORT_MAC_CONT_TESTING_CMDS_PHY_SUPPORT	0
+#endif /*end of defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_60_a_tc_new_demod)|| defined(PHY_40nm_3_00_a)
+		|| defined(PHY_40nm_3_40_a) || defined(PHY_40nm_6_00_a) || defined(PHY_40nm_6_00_a_lca00) */
 
 #ifndef EXTERNAL_CUSTOM_CMDS
 #define EXTERNAL_CUSTOM_CMDS						0	/* Indicates that an external custom HCI commands module exists */
@@ -474,6 +567,7 @@ typedef enum {
 #define SUPPORT_ZIGBEE_PHY_CERTIFICATION   0  /* 0 disable , 1 enable .. used to enable support of hci command required to implement zigbee phy Test cases*/
 #endif /* SUPPORT_ZIGBEE_PHY_CERTIFICATION */
 
+#ifndef SUPPORT_HCI_EVENT_ONLY
 #if (!USE_HCI_TRANSPORT) && (SUPPORT_BLE)						  /* SUPPORT_HCI_EVENT_ONLY cannot be supported with default HCI_transport */
 /* if this marco is enabled it will enable  the below features
  *  -Queue events - ACL - ISO - Reports into different queues
@@ -483,13 +577,14 @@ typedef enum {
 #else
 #define SUPPORT_HCI_EVENT_ONLY				0
 #endif/* (!USE_HCI_TRANSPORT) && (SUPPORT_BLE) */
+#endif /* SUPPORT_HCI_EVENT_ONLY */
 
 #ifndef SUPPORT_HCI_EVENT_ONLY_TESTING
 #define SUPPORT_HCI_EVENT_ONLY_TESTING				0
 #endif /* SUPPORT_HCI_EVENT_ONLY_TESTING */
 
 #ifndef SUPPORT_HW_AUDIO_SYNC_SIGNAL
-#define SUPPORT_HW_AUDIO_SYNC_SIGNAL       0
+#define SUPPORT_HW_AUDIO_SYNC_SIGNAL        0
 #endif /* SUPPORT_HW_AUDIO_SYNC_SIGNAL */
 
 #if SUPPORT_LE_PAWR_SYNC_ROLE
@@ -513,10 +608,6 @@ typedef enum {
 #define SUPPORT_RX_DTP_CONTROL				1 /* Enable\Disable ACL Rx data throughput feature */
 #endif /* SUPPORT_RX_DTP_CONTROL */
 
-#ifndef SUPPORT_CUSTOM_ADV_SCAN_TESTING
-#define SUPPORT_CUSTOM_ADV_SCAN_TESTING		0
-#endif /* SUPPORT_CUSTOM_ADV_SCAN_TESTING */
-
 #ifndef SUPPORT_CHANNEL_SOUNDING
 #define SUPPORT_CHANNEL_SOUNDING			0
 #endif /* SUPPORT_CHANNEL_SOUNDING */
@@ -531,32 +622,71 @@ typedef enum {
 #endif /* SUPPORT_CONFIGURABLE_GAIN_FIX */
 
 #if SUPPORT_CONFIGURABLE_GAIN_FIX
+#define SUPPORT_DYNAMIC_PREEMPH_COEFF				1 			/* Enable\Disable dynamic preemphasis coefficients support */
 #define PREEMPH_GAIN_COEFF_STEP_SIZE				10 			/* percentage margin of single step */
 #define GAIN_FIX_WAKEUP_TIME_OVERHEAD				4 			/* in sleep timer units, the added time overhead from patching all pre-emphasis coefficients */
 #else
+#define SUPPORT_DYNAMIC_PREEMPH_COEFF				0
 #define GAIN_FIX_WAKEUP_TIME_OVERHEAD				0
 #endif /* SUPPORT_CONFIGURABLE_GAIN_FIX */
 
 #ifndef SUPPORT_PHY_SHUTDOWN_MODE
-#if defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a)
 #define SUPPORT_PHY_SHUTDOWN_MODE					1 /* Enable\Disable phpy shutdown mode support */
-#else
-#define SUPPORT_PHY_SHUTDOWN_MODE					0
-#endif /* defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a) */
 #endif /* SUPPORT_PHY_SHUTDOWN_MODE */
 
-#if SUPPORT_PHY_SHUTDOWN_MODE
+#if (defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_60_a_tc_new_demod) || defined(PHY_40nm_3_00_a)	\
+		|| defined(PHY_40nm_3_40_a) || defined(PHY_40nm_6_00_a)) || defined(PHY_40nm_6_00_a_lca00)
+#define PHY_SHUTDOWN_MODE_PHY_SUPPORT				SUPPORT_PHY_SHUTDOWN_MODE
+#else
+#define PHY_SHUTDOWN_MODE_PHY_SUPPORT				0
+#endif /* defined(PHY_40nm_3_60_a_tc) || defined(PHY_40nm_3_60_a_tc_new_demod) || defined(PHY_40nm_3_00_a)
+		|| defined(PHY_40nm_3_40_a) || defined(PHY_40nm_6_00_a) || defined(PHY_40nm_6_00_a_lca00) */
+
+#if PHY_SHUTDOWN_MODE_PHY_SUPPORT
 #define PHY_SHUTDOWN_WAKEUP_TIME_OVERHEAD			2 			/* in sleep timer units, the added time overhead from executing override seqeuences needed in phy shutdown mode */
 #else
 #define PHY_SHUTDOWN_WAKEUP_TIME_OVERHEAD			0
-#endif /* SUPPORT_PHY_SHUTDOWN_MODE */
+#endif /* PHY_SHUTDOWN_MODE_PHY_SUPPORT */
+
+#ifndef SUPPORT_CTE_DEGRADATION_API
+#define SUPPORT_CTE_DEGRADATION_API					0 /* Enable\Disable CTE PHY Degradation fix support */
+#endif /* SUPPORT_CTE_DEGRADATION_API */
+
+
+#if (defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a))
+#define CTE_DEGRADATION_API_PHY_SUPPORT				SUPPORT_CTE_DEGRADATION_API
+#else
+#define CTE_DEGRADATION_API_PHY_SUPPORT				0
+#endif /* defined(PHY_40nm_3_00_a) || defined(PHY_40nm_3_40_a) */
 
 #ifndef SUPPORT_GNRC_SCHDLR_IF
 #define SUPPORT_GNRC_SCHDLR_IF				1
-#endif
+#endif /* SUPPORT_GNRC_SCHDLR_IF */ 
+
 #ifndef NEAR_AUX_AFTER_EXT_SLEEP_TIMER_SCHEDULING
 #define NEAR_AUX_AFTER_EXT_SLEEP_TIMER_SCHEDULING 	0
 #endif /* NEAR_AUX_AFTER_EXT_SLEEP_TIMER_SCHEDULING */
+
+#ifndef SUPPORT_LE_ENHANCED_CONN_UPDATE
+#define SUPPORT_LE_ENHANCED_CONN_UPDATE 0
+#endif /* SUPPORT_LE_ENHANCED_CONN_UPDATE */
+
+#if (defined(PHY_40nm_6_00_a) || defined(PHY_40nm_6_00_a_lca00))
+#define PHY_USE_APB_TRANSPORT				1
+#else
+#define PHY_USE_APB_TRANSPORT				0
+#endif /* PHY_40nm_6_00_a || PHY_40nm_6_00_a_lca00 */
+#if defined(RTL_VER_7)
+#define USE_NEW_DEMODULATOR							1
+#endif /* (USED_RTL_VER >= 7) */
+
+#ifndef USE_NEW_DEMODULATOR
+#define USE_NEW_DEMODULATOR 0
+#endif /*USE_NEW_DEMODULATOR*/
+
+#ifndef CS_TESTING
+#define CS_TESTING 0
+#endif /* CS_TESTING */
 
 #if (SUPPORT_CHANNEL_SOUNDING &&( SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION))
 /**
@@ -589,4 +719,19 @@ typedef struct _cs_host_buffer {
 
 #endif /*SUPPORT_CHANNEL_SOUNDING &&( SUPPORT_MASTER_CONNECTION || SUPPORT_SLAVE_CONNECTION)*/
 
+#ifndef ENABLE_AUTOMOUS_SCHEDULING_TIMING_UPDATE
+/**
+ * Compiler flag to enable autonomous link layer timing updates, which increases EXEC_TIME when some event fails to execute multiple times.
+ * This serves as a recovery mechanism for misconfigured EXEC_TIME values. However, enabling this flag may introduce conflicts in some multi-role scenarios.
+ * The recommended approach is to set EXEC_TIME correctly based on the worst-case scenario, in which case this flag is not needed.
+ * If EXEC_TIME is not set properly, enabling this flag may cause conflicts and degrade scheduling performance, which is expected.
+ * If conflicts arise due to the autonomous link layer timing introduced by this flag, EXEC_TIME should be re-profiled and the new profiled value should be set in EXEC_TIME_PROFILED.
+ * If @ref SUPPORT_TIM_UPDT is set to 0, this flag has no meaning
+ */
+#define ENABLE_AUTOMOUS_SCHEDULING_TIMING_UPDATE  0
+#endif /*ENABLE_AUTOMOUS_SCHEDULING_TIMING_UPDATE*/
+
+
+
 #endif /*COMMON_TYPES_H_*/
+

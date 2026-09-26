@@ -1,11 +1,9 @@
-/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca01/firmware/public_inc/bsp.h#1 $*/
-
+/*$Id: //dwh/bluetooth/DWC_ble154combo/firmware/rel/2.00a-lca06/inc/bsp.h#5 $*/
 /**
  ********************************************************************************
  * @file    bsp.h
  * @brief   board support package interface wrapper file.
  ******************************************************************************
- * @copy
  * This Synopsys DWC Bluetooth Low Energy Combo Link Layer/MAC software and
  * associated documentation ( hereinafter the "Software") is an unsupported
  * proprietary work of Synopsys, Inc. unless otherwise expressly agreed to in
@@ -82,7 +80,7 @@ typedef enum InterruptPriorities {
 typedef enum EvntNotiState {
 	EVNT_START,
 	EVNT_END,
-	EVNT_NOT_SPECIIFED
+	EVNT_NOT_SPECIFIED
 }EvntNotiState;
 
 /**
@@ -112,10 +110,20 @@ typedef struct _ble_ll_bus {
 
 /* Structure holding the Event timing */
 typedef struct Evnt_timing_s{
-	uint32_t drift_time; /* The total drift time between the software timer value and the start execution of the function evnt_schdlr_timer_callback */
-	uint32_t exec_time;  /* The time to get the event ready for air transmission */
+	uint32_t drift_time; 	/* The total drift time between the software timer value and the start execution of the function evnt_schdlr_timer_callback */
+	uint32_t exec_time;  	/* The time to get the event ready for air transmission.
+	 	 	 	 	 	 	 * When passed from the host, it indicates the profiled execution time. It will be replaced
+	 	 	 	 	 	 	 * by the actual execution time using the CALCULATE_EXEC_TIME directive
+	 	 	 	 	 	 	 * after calling ll_intf_config_schdling_time and this new value will be reported through bsp_evnt_schldr_timing_update_not */
 	uint32_t schdling_time; /* The total time to server the completed event and start new cycle of it, the time from longest time of the state machine done isr to till the debug dio DBG_IO_PROFILE_END_DRIFT_TIME is raised */
 }Evnt_timing_t;
+
+typedef enum _profiling_state_e {
+	PROFILE_STATE_START,
+	PROFILE_STATE_CLEAR,
+	PROFILE_STATE_END,
+} profiling_state_e;
+
 /**
  * @brief enum holding all debugging gpio
  *
@@ -149,6 +157,7 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_LLWCC_CMN_HG_ISR                                     ,
 	DBG_IO_LLHWC_CMN_LW_ISR                                     ,
 	DBG_IO_LLHWC_CMN_CLR_TIMER_ERROR                            ,
+	DBG_IO_LLHWC_CMN_CLR_ACTTMR_ERROR                           ,
 	DBG_IO_LLHWC_LL_ISR                                         ,
 	DBG_IO_LLHWC_SPLTMR_SET                                     ,
 	DBG_IO_LLHWC_SPLTMR_GET                                     ,
@@ -202,13 +211,10 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_COEX_TIMER_EVNT_CLBK                                 ,
 	DBG_IO_COEX_STRT_ONE_SHOT                                   ,
 	DBG_IO_COEX_FORCE_STOP_RX                                   ,
-
-
 	DBG_IO_LLHWC_ADV_DONE                                       ,
 	DBG_IO_LLHWC_SCN_DONE                                       ,
-    DBG_IO_LLHWC_INIT_DONE                                      ,
-    DBG_IO_LLHWC_CONN_DONE                                      ,
-
+    	DBG_IO_LLHWC_INIT_DONE                                      ,
+    	DBG_IO_LLHWC_CONN_DONE                                      ,
 	DBG_IO_LLHWC_CIG_DONE                                       ,
 	DBG_IO_LLHWC_BIG_DONE                                       ,
 	DBG_IO_OS_TMR_CREATE                                        ,
@@ -228,12 +234,10 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_LLCP_POST_TMR_CBK                                    ,
 	DBG_IO_LLHWC_ENRGY_DETECT_CBK                               ,
 	DBG_IO_PRVCY_POST_TMR_CBK                                   ,
-
 	DBG_IO_ANT_PRPR_TMR_CBK                                     ,
-
 	DBG_IO_COEX_TMR_FRC_STOP_AIR_GRANT_CBK                      ,
 	DBG_IO_MLME_RX_EN_TMR_CBK                                   ,
-    DBG_IO_MLME_GNRC_TMR_CBK                                    ,
+    	DBG_IO_MLME_GNRC_TMR_CBK                                    ,
 	DBG_IO_MIB_JOIN_LST_TMR_CBK                                 ,
 	DBG_IO_MLME_PWR_PRES_TMR_CBK                                ,
 	DBG_IO_PRESISTENCE_TMR_CBK                                  ,
@@ -242,12 +246,11 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_RADIO_CSL_RCV_TMR_CBK                                ,
 	DBG_IO_ED_TMR_CBK                                           ,
 	DBG_IO_DIO_EXT_TMR_CBK                                      ,
-	DBG_IO_RCO_CLBR_TMR_CBK
-	                                                            ,
+	DBG_IO_RCO_CLBR_TMR_CBK                                     ,           
 	DBG_IO_ADV_EXT_MNGR_ADV_CBK                                 ,
 	DBG_IO_ADV_EXT_MNGR_SCN_CBK                                 ,
 	DBG_IO_ADV_EXT_MNGR_SCN_ERR_CBK                             ,
-    DBG_IO_ADV_EXT_MNGR_PRDC_SCN_CBK                                ,
+    	DBG_IO_ADV_EXT_MNGR_PRDC_SCN_CBK                            ,
 	DBG_IO_ADV_EXT_MNGR_PRDC_SCN_ERR_CBK                        ,
 	DBG_IO_BIG_ADV_CBK                                          ,
 	DBG_IO_BIG_ADV_ERR_CBK                                      ,
@@ -272,14 +275,11 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_BIS_MNGR_SYNC_TMOUT_CBK                              ,
 	DBG_IO_ISOAL_MNGR_SDU_GEN                                   ,
 	DBG_IO_ISO_MNGR_CIS_PROCESS_EVNT_CBK                        ,
-
 	DBG_IO_CONN_MNGR_PROCESS_EVNT_CLBK                          ,
 	DBG_IO_CONN_MNGR_UPDT_CONN_PARAM_CBK                        ,
-	DBG_IO_CONN_MNGR_DATA_LEN_UPDT_CBK							,
+	DBG_IO_CONN_MNGR_DATA_LEN_UPDT_CBK		            ,
 	DBG_IO_EVNT_SCHDLR_HW_EVNT_CMPLT                            ,
-
 	DBG_IO_HCI_EVENT_HNDLR                                      ,
-
 	DBG_IO_MLME_TMRS_CBK                                        ,
 	DBG_IO_DIRECT_TX_EVNT_CBK                                   ,
 	DBG_IO_INDIRECT_PKT_TOUR_CBK                                ,
@@ -340,8 +340,19 @@ typedef enum Debug_GPIO_e{
 	DBG_IO_RADIO_SET_PENDING_TX_CONTINUE						,
 	DBG_IO_RADIO_HANDLE_PENDING_TX								,
 	DBG_IO_RAL_AD_SET_MEASUREMENT_STATE							,
-    DBG_IO_PROFILE_CS_GEN                                       ,
-    DBG_IO_PROFILE_CS_CHNL_SHUFFLING                            ,
+    	DBG_IO_PROFILE_CS_GEN,
+    	DBG_IO_PROFILE_CS_CHNL_SHUFFLING,
+    	DBG_IO_SET_DEEP_SLEEP_MODE,
+	DBG_IO_BACK_FROM_DEEP_SLEEP,
+	DBG_IO_CS_EVENT_MISSED,
+	DBG_IO_CS_EVENT_CONFLICTING,
+	DBG_IO_CS_GENERATOR_IS_LATE,
+	DBG_IO_CS_SCHDLR_OUT_OF_BOUND,
+	DBG_IO_CS_EXECUTION_FAILED,
+	DBG_IO_CS_OFFSET_FAILED,
+	DBG_IO_CS_STRT_TIM_FRM_ACL,
+	DBG_IO_RAL_TX_ACK								 ,
+	DBG_IO_RAL_HANDLE_PHY_ISR                                                        ,
 	Debug_GPIO_num
 
 }Debug_GPIO_t;
@@ -389,7 +400,7 @@ void bus_write(uint8_t *buffer, uint16_t size);
 /**
  * @brief   logger port initialization
  *
- *this function is used to initalizer the logger
+ *this function is used to initialize the logger
  * @param  None
  * @retval None
  *
@@ -413,9 +424,7 @@ void logger_write(uint8_t *buffer, uint32_t size);
  *
  * @retval None
  */
-extern void enable_irq(
-			void
-);
+extern void enable_irq( void );
 /**
  * @brief   disable interrupt request function
  * This function disable the MCU interrupt ,after calling this function the LL code must not be interrupted as it is in critical section
@@ -423,9 +432,7 @@ extern void enable_irq(
  *
  * @retval None
  */
-extern void disable_irq(
-			void
-);
+extern void disable_irq(void);
 /**
  * @brief this function is used to enable a specific ISR
  * @param[in]  isr_type that holds specific ISR to be enabled by this function
@@ -453,7 +460,7 @@ void disable_specific_irq(uint8_t isr_type );
  * 	this function is used to initialize the used MCU
  * @param  op[in]   : pointer to @ref _ble_ll_bus structure that stores the bus callback functions
  * @retval 0 if SUCCESS
- * otherwise Not SUCESS
+ * otherwise Not SUCCESS
  *
  */
 int bsp_init(void);
@@ -472,7 +479,7 @@ void bsp_delay_us(uint32_t delay);
  *
  * 	this function is used to enabled and register ISR for the given interrupt line
  * @param  intrNum[in]   : number to the interrupt line to be enabled
- * @param  intr_cb[in]   : pionter to ISR function the will be called when this interupt is fired
+ * @param  intr_cb[in]   : pointer to ISR function the will be called when this interrupt is fired
  * @retval  None
  *
  */
@@ -482,7 +489,7 @@ int bsp_intr_enable (uint32_t intrNum, void (*intr_cb)(void));
  *
  * 	this function is used to set the interrupt priority and register ISR for the given interrupt line
  * @param  intrNum[in]   : number to the configured interrupt line
- * @param  intr_cb[in]   : pionter to ISR function the will be called when this interupt is fired
+ * @param  intr_cb[in]   : pointer to ISR function the will be called when this interrupt is fired
  * @param  intpri[in]    : the priority oto used for the given interrupt
  * @retval  None
  *
@@ -502,17 +509,6 @@ int bsp_intr_set_pri(uint32_t intrNum, void (*intr_cb)(void), int32_t intpri);
  * @retval 0   the given pointer is not in LL BLE memory
  */
 int bsp_is_ptr_in_ble_mem(void* ptr);
-
-
-/**
- * @brief  make the mcu sleep in a certain power mode according to its idle time.
- *
- * @param  None.
- *
- * @retval None.
- */
-void bsp_mcu_slp(void);
-
 
 /**
  * @brief	Clear GPIO pin output value
@@ -654,7 +650,7 @@ void bsp_set_phy_clbr_state(PhyClbrState state);
 /**
  * @brief a function to notify the upper layer to switch the clock.
  *
- * @param evnt_timing[in]: Evnt_timing_t pointer to structure contains drift time , execution time and scheduling time
+ * @param evnt_timing[in]: Evnt_timing_t pointer to structure contains drift time , execution time and scheduling time. For the execution time, it shall follow this equation MAX(EXEC_TIME_PROFILED, PHY_WAKEUP_TIME) - PHY_WAKEUP_TIME + EXEC_TIME_MARGIN
  *
  * @retval None.
  */
@@ -673,6 +669,19 @@ int logUart(void* devHandle, char* logStr);
 void bsp_assert_log(uint8_t condition, uint8_t severity, const char *ptr_func_name,  const int line);
 void bsp_assert(uint8_t condition, uint8_t severity);
 
+/**
+ * @brief Communicates the state of the execution time profiling
+ *
+ * @param[in] state: Signals the start, end or clearance of the execution time
+ */
+void bsp_exec_time_profiling(const profiling_state_e state);
+
+/**
+ * @brief Communicates the profiled value for the drift time
+ *
+ * @param[in] value: Profiled value in HW Cycles
+ */
+void bsp_drift_time_profiling(const uint32_t value);
 
 
 #endif /* LL_BSP_H_ */

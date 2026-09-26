@@ -5,7 +5,7 @@
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2025 STMicroelectronics.
+ * Copyright (c) 2018-2026 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -24,73 +24,38 @@
 #include "ble_std.h"
 #include "ble_defs.h"
 
-
-/* Default BLE variant */
-#ifndef BASIC_FEATURES
-#define BASIC_FEATURES 0
-#endif
-#ifndef BASIC_PLUS
-#define BASIC_PLUS 0
-#endif
-#ifndef PERIPHERAL_ONLY
-#define PERIPHERAL_ONLY 0
-#endif
-#ifndef LL_ONLY
-#define LL_ONLY 0
-#endif
-#ifndef LL_ONLY_BASIC
-#define LL_ONLY_BASIC 0
-#endif
-
-/* Size of command/events buffers:
- *
- * To change the size of commands and events parameters used in the
- * auto-generated files, you need to update 2 defines:
- *
- *  - BLE_CMD_MAX_PARAM_LEN
- *  - BLE_EVT_MAX_PARAM_LEN
- *
- * These 2 defines are set below with default values and can be changed.
- *
- * To compute the value to support a characteristic of 512 bytes for a specific
- * command or an event, you need to look in "ble_types.h".
- *
- * Here are 2 examples, one with a command and one with an event:
- *
- * - aci_gatt_update_char_value_ext_cp0
- *   ----------------------------------
- *
- *   we have in the structure:
- *
- *      uint8_t Value[(BLE_CMD_MAX_PARAM_LEN- 12)/sizeof(uint8_t)];
- *
- *   so to support a 512 byte value, we need to have
- *
- *   BLE_CMD_MAX_PARAM_LEN at least equal to: 512 + 12 = 524
- *
- * - aci_gatt_read_handle_value_rp0
- *   ------------------------------
- *
- *   we have in the structure:
- *
- *     uint8_t Value[((BLE_EVT_MAX_PARAM_LEN - 3) - 5)/sizeof(uint8_t)];
- *
- *   so to support a 512 byte value, we need to have
- *
- *   BLE_EVT_MAX_PARAM_LEN at least equal to: 512 + 3 + 5 = 520
- *
- * If you need several events or commands with 512-size values, you need to
- * take the maximum values for BLE_EVT_MAX_PARAM_LEN and BLE_CMD_MAX_PARAM_LEN.
- *
+/* Default BLE variant
  */
+#ifndef BLE_STACK_ADVANCED_FEATURES
+#define BLE_STACK_ADVANCED_FEATURES 0
+#endif
+#ifndef BLE_STACK_BASIC_PLUS
+#define BLE_STACK_BASIC_PLUS 0
+#endif
+#ifndef BLE_STACK_BASIC_FEATURES
+#define BLE_STACK_BASIC_FEATURES 0
+#endif
+#ifndef BLE_STACK_PERIPHERAL_ONLY
+#define BLE_STACK_PERIPHERAL_ONLY 0
+#endif
+#ifndef BLE_STACK_LL_ONLY
+#define BLE_STACK_LL_ONLY 0
+#endif
+
+/* Definition to determine BLE Host stack presence */
+#define BLE_HOST_PRESENT (!BLE_STACK_LL_ONLY)
+
+/* Definition to determine if all features are present */
+#define BLE_ALL (!(BLE_STACK_ADVANCED_FEATURES || BLE_STACK_BASIC_PLUS || \
+                   BLE_STACK_BASIC_FEATURES || BLE_STACK_PERIPHERAL_ONLY))
 
 /* Maximum parameter size of BLE commands.
- * Change this value if needed. */
-#define BLE_CMD_MAX_PARAM_LEN          HCI_COMMAND_MAX_PARAM_LEN
+ */
+#define BLE_CMD_MAX_PARAM_LEN HCI_COMMAND_MAX_PARAM_LEN
 
 /* Maximum parameter size of BLE responses/events.
- * Change this value if needed. */
-#define BLE_EVT_MAX_PARAM_LEN          HCI_EVENT_MAX_PARAM_LEN
+ */
+#define BLE_EVT_MAX_PARAM_LEN HCI_EVENT_MAX_PARAM_LEN
 
 
 #endif /* BLE_CONST_H__ */

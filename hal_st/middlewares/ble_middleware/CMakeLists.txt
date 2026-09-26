@@ -14,7 +14,7 @@ target_link_libraries(hal_st.ble_middleware PUBLIC
     services.ble
     services.util
     services.tracer
-    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:$<LINK_GROUP:RESCAN,hal_st.ble_middleware_wba_platform,hal_st.stm32_wpan_stm32wbaxx,hal_st.stm32_wpan_stm32wbaxx.link_layer_basic,hal_st.stm32_wpan_stm32wbaxx.stack_basic>>
+    $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbaxx>:$<LINK_GROUP:RESCAN,hal_st.ble_middleware_wba_platform,hal_st.stm32_wpan_stm32wbaxx,hal_st.stm32_wpan_stm32wbaxx.link_layer_basic,hal_st.stm32_wpan_stm32wbaxx.stack>>
 )
 
 target_sources(hal_st.ble_middleware PRIVATE
@@ -72,7 +72,7 @@ target_link_libraries(hal_st.ble_middleware_wba_platform PUBLIC
 )
 
 target_compile_definitions(hal_st.ble_middleware_wba_platform PRIVATE
-    BLE
+    BLE_LL
 )
 
 target_sources(hal_st.ble_middleware_wba_platform PRIVATE

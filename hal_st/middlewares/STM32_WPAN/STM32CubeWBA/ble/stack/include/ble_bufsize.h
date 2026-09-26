@@ -5,7 +5,7 @@
  *****************************************************************************
  * @attention
  *
- * Copyright (c) 2018-2025 STMicroelectronics.
+ * Copyright (c) 2018-2026 STMicroelectronics.
  * All rights reserved.
  *
  * This software is licensed under terms that can be found in the LICENSE file
@@ -49,11 +49,7 @@
  */
 #define BLE_MEM_BLOCK_SIZE                   32
 
-#if ((BASIC_FEATURES != 0)||(PERIPHERAL_ONLY != 0))
-#define BLE_MEM_BLOCK_X_PTX(n_link)           0
-#else
 #define BLE_MEM_BLOCK_X_PTX(n_link)           (n_link)
-#endif
 
 #define BLE_MEM_BLOCK_X_TX(mtu) \
         (DIVC((mtu) + 4U, BLE_MEM_BLOCK_SIZE) + 1)
@@ -73,7 +69,7 @@
 
 /*
  * BLE_MBLOCKS_CALC: minimum number of buffers needed by the stack.
- * This is the minimum racomanded value and depends on:
+ * This is the minimum recommended value and depends on:
  *  - pw: size of Prepare Write List
  *  - mtu: ATT_MTU size
  *  - n_link: maximum number of simultaneous connections
@@ -96,25 +92,17 @@
  * - a part, that may be considered "fixed", i.e. independent from the above
  *   mentioned parameters.
 */
-#if (PERIPHERAL_ONLY != 0)
-#define BLE_FIXED_BUFFER_SIZE_BYTES  4   /* Peripheral Only */
-#elif (BASIC_FEATURES != 0)
-#define BLE_FIXED_BUFFER_SIZE_BYTES  260   /* Basic Features */
-#else
-#define BLE_FIXED_BUFFER_SIZE_BYTES  676   /* Full stack / Basic Plus */
-#endif
+#define BLE_FIXED_BUFFER_SIZE_BYTES   272
 
 /*
  * BLE_PER_LINK_SIZE_BYTES: additional memory size used per link
  */
+#define BLE_PER_LINK_SIZE_BYTES       192
 
-#if (PERIPHERAL_ONLY != 0)
-#define BLE_PER_LINK_SIZE_BYTES       148   /* Peripheral Only */
-#elif (BASIC_FEATURES != 0)
-#define BLE_PER_LINK_SIZE_BYTES       176   /* Basic Features */
-#else
-#define BLE_PER_LINK_SIZE_BYTES       188   /* Full stack / Basic Plus */
-#endif
+/*
+ * BLE_PER_ADD_BEARER_SIZE_BYTES: additional memory size used per add. bearer
+ */
+#define BLE_PER_ADD_BEARER_SIZE_BYTES  40
 
 /*
  * BLE_TOTAL_BUFFER_SIZE: this macro returns the amount of memory, in bytes,
@@ -122,13 +110,16 @@
  * whose size depends on the number of supported connections.
  *
  * @param n_link: Maximum number of simultaneous connections that the device
- * will support. Valid values are from 1 to 8.
+ * will support. Valid values are from 1 to 20.
  *
  * @param mblocks_count: Number of memory blocks allocated for packets.
+ *
+ * @param n_add_bearer: Number of additional EATT bearers
  */
-#define BLE_TOTAL_BUFFER_SIZE(n_link, mblocks_count) \
+#define BLE_TOTAL_BUFFER_SIZE(n_link, mblocks_count, n_add_bearer) \
         (16 + BLE_FIXED_BUFFER_SIZE_BYTES + \
          (BLE_PER_LINK_SIZE_BYTES * (n_link)) + \
+         (BLE_PER_ADD_BEARER_SIZE_BYTES * (n_add_bearer)) + \
          ((BLE_MEM_BLOCK_SIZE + 8) * (mblocks_count)))
 
 /*
