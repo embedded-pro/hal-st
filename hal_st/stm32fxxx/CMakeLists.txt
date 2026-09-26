@@ -113,8 +113,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     UsbHostLinkLayerStm.hpp
     UniqueDeviceId.cpp
     UniqueDeviceId.hpp
-    WatchdogStm.cpp
-    WatchdogStm.hpp
+    WatchDogStm.cpp
+    WatchDogStm.hpp
 )
 
 list(APPEND UartMcus stm32wb55)

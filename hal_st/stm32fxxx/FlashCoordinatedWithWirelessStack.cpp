@@ -8,7 +8,7 @@
 
 namespace hal
 {
-    FlashCoordinatedWithWirelessStack::FlashCoordinatedWithWirelessStack(FlashInternalStmBase& flash, Watchdog& watchdog, WirelessStack wirelessStack)
+    FlashCoordinatedWithWirelessStack::FlashCoordinatedWithWirelessStack(FlashInternalStmBase& flash, WatchDogStm& watchdog, WirelessStack wirelessStack)
         : flash(flash)
         , watchdog(watchdog)
         , wirelessStack(wirelessStack)
@@ -210,7 +210,7 @@ namespace hal
         }
     }
 
-    FlashCoordinatedWithWirelessStack::CriticalSectionScoped::CriticalSectionScoped(Watchdog& watchdog)
+    FlashCoordinatedWithWirelessStack::CriticalSectionScoped::CriticalSectionScoped(WatchDogStm& watchdog)
         : primaskBit(__get_PRIMASK())
         , watchdog(watchdog)
     {

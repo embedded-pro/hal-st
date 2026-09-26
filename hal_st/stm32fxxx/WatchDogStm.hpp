@@ -4,11 +4,10 @@
 #include DEVICE_HEADER
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/interfaces/Watchdog.hpp"
-#include "infra/util/Function.hpp"
 
 namespace hal
 {
-    class WatchdogStm
+    class WatchDogStm
         : public Watchdog
     {
     public:
@@ -17,22 +16,24 @@ namespace hal
             constexpr Config()
             {}
 
-            // The early warning fires 63 WWDG clock ticks after a refresh, where the WWDG clock is PCLK1 / (4096 * prescaler)
+            // WWDG clock (Hz) = PCLK1 / (4096 * Prescaler)                     --> 54Mhz / 32768 = 1728 Hz
+            // WWDG timeout (mS) = 1000 * Counter / WWDG clock                  -->  73 ms
+            // WWDG Counter refresh is allowed between the following limits :
+            // min time (mS) = 1000 * (Counter _ Window) / WWDG clock           --> 0
+            // max time (mS) = 1000 * (Counter _ 0x40) / WWDG clock             --> 36 ms
             uint32_t prescaler{ WWDG_PRESCALER_8 };
-            cortex::InterruptPriority interruptPriority{ cortex::InterruptPriority::highest };
         };
 
-        explicit WatchdogStm(const Config& config = Config());
+        explicit WatchDogStm(const Config& config = Config());
 
-        void Refresh() override;
         infra::Duration EarlyWarningPeriod() const override;
         void Start(const infra::Function<void()>& onEarlyWarning) override;
-
-    private:
+        void Refresh() override;
         void Interrupt();
 
+    private:
         cortex::ImmediateInterruptHandler interruptRegistration;
-        WWDG_HandleTypeDef handle{};
+        WWDG_HandleTypeDef handle;
         infra::Function<void()> onEarlyWarning;
     };
 }
