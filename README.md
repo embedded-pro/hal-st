@@ -13,7 +13,7 @@ hal-st requires:
 
 ## How to build the software
 
-hal-st cannot be built by-itself, it must be built as part of a larger project. This paragraph describes how to add hal-st to a CMake build-system, using [EmbeddedInfraLib].
+hal-st cannot be built by itself, it must be built as part of a larger project. This paragraph describes how to add hal-st to a CMake build-system, using [EmbeddedInfraLib].
 
 > CMakeLists.txt
 
