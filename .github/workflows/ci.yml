@@ -69,12 +69,16 @@ jobs:
           save: ${{ github.ref == 'refs/heads/main' }}
       # The Visual Studio generator ignores compiler launchers and builds one project at a time;
       # sccache cannot cache /Zi, so debug info is embedded (/Z7) instead.
+      # CC/CXX make run-cmake skip its vcpkg-based MSVC setup; msvc-dev-cmd already did it.
       - uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10.9
+        env:
+          CC: cl
+          CXX: cl
         with:
           configurePreset: "host-single-Debug"
           buildPreset: "host-single-Debug"
           testPreset: "host-single-Debug"
-          configurePresetAdditionalArgs: "['-GNinja', '-DCMAKE_C_COMPILER=cl', '-DCMAKE_CXX_COMPILER=cl', '-DCMAKE_C_COMPILER_LAUNCHER=sccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache', '-DCMAKE_POLICY_DEFAULT_CMP0141=NEW', '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded']"
+          configurePresetAdditionalArgs: "['-GNinja', '-DCMAKE_C_COMPILER_LAUNCHER=sccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache', '-DCMAKE_POLICY_DEFAULT_CMP0141=NEW', '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded']"
       - name: Upload test logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
