@@ -99,6 +99,7 @@ namespace hal
     UartStm::~UartStm()
     {
         uartArray[uartIndex]->CR1 &= ~(USART_CR1_TXEIE | USART_CR1_TCIE | USART_CR1_RXNEIE | USART_CR1_TE | USART_CR1_RE);
+        HAL_UART_DeInit(&uartHandle);
 
 #if defined(HAS_PERIPHERAL_LPUART)
         if (uartArray.begin() == peripheralLpuart.begin())

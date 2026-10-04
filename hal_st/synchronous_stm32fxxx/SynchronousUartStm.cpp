@@ -52,6 +52,11 @@ namespace hal
     SynchronousUartStm::~SynchronousUartStm()
     {
         peripheralUart[uartIndex]->CR1 &= ~(USART_CR1_RXNEIE | USART_CR1_TE | USART_CR1_RE);
+
+        UART_HandleTypeDef uartHandle = {};
+        uartHandle.Instance = peripheralUart[uartIndex];
+        HAL_UART_DeInit(&uartHandle);
+        DisableClockUart(uartIndex);
     }
 
     void SynchronousUartStm::SendData(infra::ConstByteRange data)
@@ -185,6 +190,23 @@ namespace hal
     SynchronousUartStmSendOnly::~SynchronousUartStmSendOnly()
     {
         uartBase->CR1 &= ~(USART_CR1_RXNEIE | USART_CR1_TE | USART_CR1_RE);
+
+        UART_HandleTypeDef uartHandle = {};
+        uartHandle.Instance = uartBase;
+        HAL_UART_DeInit(&uartHandle);
+
+#if defined(HAS_PERIPHERAL_LPUART)
+        for (std::size_t i = 0; i != peripheralLpuart.size(); ++i)
+            if (peripheralLpuart[i] == uartBase)
+            {
+                DisableClockLpuart(i);
+                return;
+            }
+#endif
+
+        for (std::size_t i = 0; i != peripheralUart.size(); ++i)
+            if (peripheralUart[i] == uartBase)
+                DisableClockUart(i);
     }
 
     void SynchronousUartStmSendOnly::SendData(infra::ConstByteRange data)
