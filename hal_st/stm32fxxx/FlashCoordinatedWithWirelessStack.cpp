@@ -211,7 +211,7 @@ namespace hal
             __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_ECCD);
             const uint32_t errorAddress = READ_BIT(FLASH->ECCR, FLASH_ECCR_ADDR_ECC);
             uint32_t pageError = 0;
-            FLASH_EraseInitTypeDef eraseInitStruct{ .TypeErase = FLASH_TYPEERASE_PAGES, .Page = flash.SectorOfAddress(errorAddress), .NbPages = 1 };
+            FLASH_EraseInitTypeDef eraseInitStruct{ .TypeErase = FLASH_TYPEERASE_PAGES, .Page = (errorAddress * 8U) / FLASH_PAGE_SIZE, .NbPages = 1 };
             HAL_FLASHEx_Erase(&eraseInitStruct, &pageError);
         }
     }
