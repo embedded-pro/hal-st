@@ -1,5 +1,7 @@
 #include "hal_st/stm32fxxx/AdcDmaStm.hpp"
 #include "infra/event/EventDispatcher.hpp"
+#include "infra/util/ReallyAssert.hpp"
+#include <algorithm>
 
 namespace hal
 {
@@ -59,7 +61,14 @@ namespace hal
 
         timer.Start();
         Configure();
+#if defined(STM32WB) || defined(STM32WBA)
+        const auto samples = std::min(numberOfSamples, buffer.size());
+        really_assert(samples != 0);
+        measurement = infra::Head(buffer, samples);
+        dmaStream.StartReceive(measurement);
+#else
         dmaStream.StartReceive(buffer);
+#endif
         LL_ADC_REG_StartConversion(adc.Handle().Instance);
     }
 
@@ -91,6 +100,13 @@ namespace hal
 
     void AdcTriggeredByTimerWithDma::TransferDone()
     {
+#if defined(STM32WB) || defined(STM32WBA)
+        // External-trigger mode keeps ADSTART set, and ADC_Disable refuses while it is set
+        LL_ADC_REG_StopConversion(adc.Handle().Instance);
+        while (LL_ADC_REG_IsStopConversionOngoing(adc.Handle().Instance))
+        {
+        }
+#endif
         auto result = ADC_Disable(&adc.Handle());
         assert(result == HAL_OK);
 
@@ -99,7 +115,11 @@ namespace hal
         if (this->onDone)
             infra::EventDispatcher::Instance().Schedule([this]()
                 {
+#if defined(STM32WB) || defined(STM32WBA)
+                    onDone(measurement);
+#else
                     onDone(buffer);
+#endif
                 });
     }
 }
