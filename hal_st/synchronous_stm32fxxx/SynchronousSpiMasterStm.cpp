@@ -80,6 +80,9 @@ namespace hal
         peripheralSpi[spiInstance]->IER |= SPI_IER_TXPIE;
         peripheralSpi[spiInstance]->IER |= SPI_IER_RXPIE;
 #endif
+#ifdef SPI_CR1_CSTART
+        peripheralSpi[spiInstance]->CR1 |= SPI_CR1_CSTART;
+#endif
 
         while (sending || receiving || dummyToSend != 0 || dummyToReceive != 0)
             HandleInterrupt();
@@ -144,7 +147,6 @@ namespace hal
                 reinterpret_cast<volatile uint8_t&>(peripheralSpi[spiInstance]->DR) = sendData.front();
 #else
                 reinterpret_cast<volatile uint8_t&>(peripheralSpi[spiInstance]->TXDR) = sendData.front();
-                peripheralSpi[spiInstance]->CR1 |= SPI_CR1_CSTART;
 #endif
                 sendData.pop_front();
             }

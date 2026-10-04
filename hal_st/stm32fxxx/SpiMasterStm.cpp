@@ -93,6 +93,9 @@ namespace hal
         peripheralSpi[spiInstance]->CR2 |= SPI_CR2_TXEIE;
         peripheralSpi[spiInstance]->CR2 |= SPI_CR2_RXNEIE;
 #endif
+#ifdef SPI_CR1_CSTART
+        peripheralSpi[spiInstance]->CR1 |= SPI_CR1_CSTART;
+#endif
     }
 
     void SpiMasterStm::SetChipSelectConfigurator(ChipSelectConfigurator& configurator)
@@ -172,7 +175,6 @@ namespace hal
                 reinterpret_cast<volatile uint8_t&>(peripheralSpi[spiInstance]->DR) = sendData.front();
 #else
                 reinterpret_cast<volatile uint8_t&>(peripheralSpi[spiInstance]->TXDR) = sendData.front();
-                peripheralSpi[spiInstance]->CR1 |= SPI_CR1_CSTART;
 #endif
                 sendData.pop_front();
             }
