@@ -2,9 +2,8 @@
 
 Wiring set `bundle1`: TX, RX, RTS and CTS of every `tests.uart.instances` entry on DIOs; the logic analyzer also
 records the firmware TX line to decode the frames and measure the bit rate. USART1 is the terminal, so the
-instances under test are LPUART1 (both boards) and USART2 (NUCLEO-WBA55CG). A receive overrun aborts
-`UartStm`/`UartStmDma` (`really_assert(!ORE)`, hal_st/stm32fxxx/UartStm.cpp:177): a test that loses the firmware
-while streaming names it.
+instances under test are LPUART1 (both boards) and USART2 (NUCLEO-WBA55CG). A receive overrun drops bytes
+(`UartStm` clears ORE and goes on), so a streaming failure names it.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from ad3_waveforms_bench.terminal import FirmwareError
 from hal_st_validation import expect
 from hal_st_validation.firmware import settle
 
-OVERRUN_HINT = "if the firmware stopped answering: a receive overrun aborts UartStm/UartStmDma (UartStm.cpp:177)"
+OVERRUN_HINT = "bytes missing: a receive overrun drops them"
 
 
 @pytest.fixture
@@ -155,7 +154,7 @@ def test_full_duplex_stream(fw, ad3, need, uart_cfg, instance, baud, variant):
             received = ad3.uart.read(size, timeout=transfer + 1.0)
         finally:
             response = settle(pending)
-        assert response is not None and response.ok, f"round {round_number}: uart.send {response} ({OVERRUN_HINT})"
+        assert response is not None and response.ok, f"round {round_number}: uart.send {response}"
         assert received == outbound, f"round {round_number}: firmware to AD3"
         assert fw.uart.recv(instance["index"], timeout=int(transfer * 1000) + 500, len=size) == inbound, (
             f"round {round_number}: AD3 to firmware ({OVERRUN_HINT})"
@@ -369,7 +368,7 @@ def test_send_and_receive_limits(fw, uart_cfg, instance):
         assert error.value.reason == reason, line
 
 
-# Swapping leaves the instance swapped until reset (a known gap), so these run last and reset the board.
+# These run last and reset the board, so a swap that survived a close cannot leak into other tests.
 @pytest.fixture
 def reset_afterwards(fw, board_cfg):
     yield

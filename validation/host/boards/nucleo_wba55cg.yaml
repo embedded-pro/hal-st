@@ -177,116 +177,16 @@ wiring_sets:
 # test ids relative to tests/hil (`*` and `?` are wildcards, brackets are
 # literal); `hangs` gaps abort or hang the firmware, so their tests are
 # skipped unless --run-known-gaps; the others are expected failures. --fake
-# ignores them. The centre-aligned period of PwmStm.cpp:381-390 is off the
-# frequency tolerance at short periods only, so test_pwm.py::test_waveform
-# expects that failure per case (expect.pwm_frequency_driver).
+# ignores them.
 known_gaps:
-  - tests:
-      - test_pwm.py::test_waveform*
-      - test_pwm.py::test_frequency_limits*
-      - test_pwm.py::test_channels*
-      - test_pwm.py::test_complementary*
-      - test_pwm.py::test_dead_time_limits[1000000]
-      - test_pwm.py::test_idle_levels*
-      - test_pwm.py::test_break_input*
-      - test_pwm.py::test_frequency_change_and_stop*
-      - test_pwm.py::test_duty_errors
-      - test_pwm.py::test_one_timer_at_a_time
-      - test_pwm.py::test_reopen_forgets_dead_time_and_break
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:256-261 - every pwm.open aborts the
-      firmware: ConfigureTimeBase calls HAL_TIM_PWM_Init with Period = 0, the
-      IS_TIM_PERIOD assert (USE_FULL_ASSERT) ends in assert_failed and abort()
-    hangs: true
-  - tests:
-      - test_pwm.py::test_reopen_forgets_dead_time_and_break
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:238-250 - dead time, break and idle settings
-      (BDTR, AF1) survive into the next open of the same timer
-    hangs: false
-  - tests:
-      - test_uart.py::test_close_during_stalled_send[*variant=interrupt*]
-    reason: >-
-      hal_st/stm32fxxx/UartStm.cpp:102 - closing a UART during a stalled send
-      leaves TXEIE set: the next open of that instance ends in an interrupt
-      storm
-    hangs: true
   - tests:
       - test_uart.py::test_send_timeout_while_cts_held[*variant=sync*]
       - test_uart.py::test_close_during_stalled_send[*variant=sync*]
     reason: >-
-      hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:58 - with sync=1
+      hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:62 - with sync=1
       and CTS held off SendData waits for TXE without a timeout and blocks the
       event loop for good
     hangs: true
-  - tests:
-      - test_adc.py::test_dc_levels*
-      - test_adc.py::test_sequence*
-      - test_adc.py::test_trigger_rate*
-      - test_adc.py::test_measure_timeout
-      - test_adc.py::test_trigger_timer_busy_for_pwm_and_encoder
-      - test_adc.py::test_measure_limits
-      - test_adc.py::test_adc_pin_blocks_gpio
-      - test_adc.py::test_sampling_time[*sampling=3.5*]
-      - test_adc.py::test_sampling_time[*sampling=7.5*]
-      - test_adc.py::test_sampling_time[*sampling=12.5*]
-      - test_adc.py::test_sampling_time[*sampling=19.5*]
-      - test_adc.py::test_sampling_time[*sampling=39.5*]
-      - test_adc.py::test_sampling_time[*sampling=79.5*]
-      - test_adc.py::test_sampling_time[*sampling=814.5*]
-    reason: >-
-      hal_st/stm32fxxx/AdcDmaMultiChannelStm.cpp:105 - adc.open aborts unless
-      sampling=1.5: the per-channel ADC_SAMPLETIME_x reaches
-      HAL_ADC_ConfigChannel, where ADC4 takes only
-      ADC_SAMPLINGTIME_COMMON_1/2 (assert_param ends in abort())
-    hangs: true
-  - tests:
-      - test_adc.py::test_sequence[*length=2*]
-      - test_adc.py::test_sequence[*length=3*]
-      - test_adc.py::test_sequence[*length=4*]
-      - test_adc.py::test_sequence[*length=8*]
-      - test_adc.py::test_measure_limits
-    reason: >-
-      hal_st/stm32fxxx/AnalogToDigitalPinStm.cpp:183,193 and
-      AdcDmaMultiChannelStm.cpp:114 - a sequence of more than one pin converts
-      one wrong channel (scan mode off, NbrOfConversion 1): software-triggered
-      adc.measure answers ERR timeout
-    hangs: false
-  - tests:
-      - test_adc.py::test_trigger_rate[*timer=1*]
-    reason: >-
-      hal_st/stm32fxxx/AdcTimerTriggeredBase.cpp:20-21 and TimerStm.cpp:191 -
-      timer=1 never triggers: the ADC waits for TIM1 TRGO2 while the timer
-      drives TRGO, so adc.measure answers ERR timeout
-    hangs: false
-  - tests:
-      - test_spi.py::test_receive_only_first[*variant=interrupt*]
-    reason: >-
-      hal_st/stm32fxxx/SpiMasterStm.cpp:160-168 - a receive-only first
-      transfer after spi.open never starts (CSTART is not set on the dummy
-      transmit path): ERR timeout
-    hangs: false
-  - tests:
-      - test_spi.py::test_receive_only_first[*variant=sync*]
-    reason: >-
-      hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.cpp:132-139 - a
-      receive-only first transfer after spi.open never starts (CSTART is not
-      set on the dummy transmit path) and the polling loop spins forever
-    hangs: true
-  - tests:
-      - test_pwm.py::test_break_input[*brkpol=low*]
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:318,349 - brkpol=low sets BDTR.BKP=0 and
-      AF1.BKINP=1, which inverts the input a second time: the break acts
-      active high
-    hangs: false
-  - tests:
-      - test_uart.py::test_swap_does_not_survive_close*
-    reason: >-
-      hal_st/stm32fxxx/UartStm.cpp:82-88 - CR2.SWAP is only written when
-      swapTxRx is set, so a swap=1 session leaves the instance swapped for
-      every later open until reset
-    hangs: false
 
 # Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
 # per key: `--depth full` runs the cartesian product, `--depth quick` a

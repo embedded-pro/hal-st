@@ -239,54 +239,8 @@ wiring_sets:
 # test ids relative to tests/hil (`*` and `?` are wildcards, brackets are
 # literal); `hangs` gaps abort or hang the firmware, so their tests are
 # skipped unless --run-known-gaps; the others are expected failures. --fake
-# ignores them. The centre-aligned period of PwmStm.cpp:381-390 is off the
-# frequency tolerance at short periods only, so test_pwm.py::test_waveform
-# expects that failure per case (expect.pwm_frequency_driver).
-known_gaps:
-  - tests:
-      - test_pwm.py::test_waveform*
-      - test_pwm.py::test_frequency_limits*
-      - test_pwm.py::test_channels*
-      - test_pwm.py::test_complementary*
-      - test_pwm.py::test_dead_time_limits[1000000]
-      - test_pwm.py::test_idle_levels*
-      - test_pwm.py::test_break_input*
-      - test_pwm.py::test_frequency_change_and_stop*
-      - test_pwm.py::test_duty_errors
-      - test_pwm.py::test_one_timer_at_a_time
-      - test_pwm.py::test_reopen_forgets_dead_time_and_break
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:256-261 - every pwm.open aborts the
-      firmware: ConfigureTimeBase calls HAL_TIM_PWM_Init with Period = 0, the
-      IS_TIM_PERIOD assert (USE_FULL_ASSERT) ends in assert_failed and abort()
-    hangs: true
-  - tests:
-      - test_pwm.py::test_reopen_forgets_dead_time_and_break
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:238-250 - dead time, break and idle settings
-      (BDTR, AF1) survive into the next open of the same timer
-    hangs: false
-  - tests:
-      - test_uart.py::test_close_during_stalled_send[*variant=interrupt*]
-    reason: >-
-      hal_st/stm32fxxx/UartStm.cpp:102 - closing a UART during a stalled send
-      leaves TXEIE set: the next open of that instance ends in an interrupt
-      storm
-    hangs: true
-  - tests:
-      - test_pwm.py::test_break_input[*brkpol=low*]
-    reason: >-
-      hal_st/stm32fxxx/PwmStm.cpp:318,349 - brkpol=low sets BDTR.BKP=0 and
-      AF1.BKINP=1, which inverts the input a second time: the break acts
-      active high
-    hangs: false
-  - tests:
-      - test_uart.py::test_swap_does_not_survive_close*
-    reason: >-
-      hal_st/stm32fxxx/UartStm.cpp:82-88 - CR2.SWAP is only written when
-      swapTxRx is set, so a swap=1 session leaves the instance swapped for
-      every later open until reset
-    hangs: false
+# ignores them.
+known_gaps: []
 
 # Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
 # per key: `--depth full` runs the cartesian product, `--depth quick` a

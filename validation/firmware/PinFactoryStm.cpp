@@ -145,7 +145,7 @@ namespace validation
 
     bool PinFactoryStm::SupportsInterrupt(HilPinId pin) const
     {
-        if (!IsBonded(pin) || PortOf(pin) == hal::Port::H)
+        if (!IsBonded(pin))
             return false;
 
         const auto& owner = extiOwners[pin.index];

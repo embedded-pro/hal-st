@@ -130,22 +130,11 @@ Writing the firmware against the drivers showed hal-st bugs that the suite runs 
 
 | Board | Driver | Effect | Source |
 |-------|--------|--------|--------|
-| both  | `PwmStm` | Every `pwm.open` aborts: the timer is initialised with `Period = 0`, and the HAL's `IS_TIM_PERIOD` assert (`USE_FULL_ASSERT` outside MinSizeRel) ends in `abort()`. Affects every MCU, not only these two. | `hal_st/stm32fxxx/PwmStm.cpp:256-261` |
-| both  | `PwmStm` | Dead time, break and idle settings (BDTR, AF1) survive into the next open of the same timer. | `PwmStm.cpp:238-250` |
-| both  | `PwmStm` | `brkpol=low` sets BKP=0 and BKINP=1, which inverts the input a second time: the break acts active high. | `PwmStm.cpp:318,349` |
-| both  | `PwmStm` | The centre-aligned period is two counter ticks short (1 MHz at 64 MHz runs at 1.032 MHz); `test_waveform` expects the failure where it leaves the tolerance. | `PwmStm.cpp:381-390` |
-| WBA55 | `AdcDmaMultiChannelStm` | `adc.open` aborts unless `sampling=1.5`: a per-channel sampling time is passed where ADC4 takes only `ADC_SAMPLINGTIME_COMMON_1/2`. | `hal_st/stm32fxxx/AdcDmaMultiChannelStm.cpp:105` |
-| WBA55 | `AdcStm` | Sequences of more than one pin convert one wrong channel (scan mode off, one conversion). | `AnalogToDigitalPinStm.cpp:183,193`, `AdcDmaMultiChannelStm.cpp:114` |
-| WBA55 | `AdcTimerTriggeredBase` | `timer=1` never triggers: the ADC listens to TRGO2 while the timer drives TRGO. | `AdcTimerTriggeredBase.cpp:20-21` |
-| WBA55 | `SpiMasterStm`, `SynchronousSpiMasterStm` | A receive-only first transfer never starts (CSTART is not set on the dummy path); the synchronous driver then spins forever. | `SpiMasterStm.cpp:160-168`, `SynchronousSpiMasterStm.cpp:132-139` |
-| both  | `UartStm` | Closing a UART during a stalled send leaves TXEIE set: the next open of that instance ends in an interrupt storm. | `UartStm.cpp:102` |
-| both  | `UartStm` | `swap=1` leaves the instance swapped for every later open until reset (CR2.SWAP is only written when swapping). | `UartStm.cpp:82-88` |
-| both  | `UartStm`, `UartStmDma` | A receive overrun aborts the firmware (`really_assert(!ORE)`); no test is expected to overrun, but a streaming failure that loses the firmware names it. | `UartStm.cpp:177` |
-| both  | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout; an overrun is never cleared. | `SynchronousUartStm.cpp:58,102` |
-| both  | `UartStm` | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `UartStm.cpp:202-205` |
-| WB55  | `SynchronousQuadratureEncoderLpTimStm` | The LPTIM input filter of one open carries over into the next. | `SynchronousQuadratureEncoderLpTimStm.cpp:122` |
-| both  | `GpioStm` | EXTI on port H selects the wrong port (the compacted `hal::Port` value is written to EXTICR); the firmware answers `ERR unsupported` for `gpio.irq` on port H. | `GpioStm.cpp:541` |
-| both  | `WatchDogStm` | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver. | `WatchDogStm.cpp` |
+| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout. | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:62` |
+| both  | `UartStm` | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205` |
+| both  | `WatchDogStm` | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver. | `hal_st/stm32fxxx/WatchDogStm.cpp` |
+
+The gaps found earlier in `PwmStm`, `AdcStm`/`AdcDmaMultiChannelStm`/`AdcTimerTriggeredBase` (WBA55 ADC4), `SpiMasterStm`/`SynchronousSpiMasterStm` (receive-only start), `UartStm` (TXEIE after close, SWAP, overrun), `SynchronousQuadratureEncoderLpTimStm` (filter carry-over) and `GpioStm` (EXTI on port H) are fixed, and the tests that exposed them now guard the fixes. The port H fix has no HIL test: PH3 (BOOT0) is the only port H pin on both boards and is reserved.
 
 Fix the driver, then remove its entry from both board files so the tests guard the fix.
 

@@ -245,10 +245,10 @@ def test_gpio_exti_line_serves_one_port():
     assert reason(terminal, "gpio.irq PA6 rising") == "ok"
 
 
-def test_gpio_port_h_has_no_interrupt():
+def test_gpio_port_h_has_interrupt():
     """PH3 (BOOT0) is the only port H pin and is reserved, so the rule is checked on the model."""
     _, firmware = make_terminal()
-    assert not firmware.supports_interrupt("PH3")
+    assert firmware.supports_interrupt("PH3")
     assert firmware.supports_interrupt("PC13")
 
 

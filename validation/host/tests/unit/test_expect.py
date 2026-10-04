@@ -38,8 +38,9 @@ def test_pwm_clock_and_ticks():
         (WB55, 488, "center", 0xFFFF, False),
         (WB55, 32_000_000, "edge", 0xFFFF, True),
         (WB55, 32_000_001, "edge", 0xFFFF, False),
-        (WB55, 16_000_000, "center", 0xFFFF, True),
-        (WB55, 16_000_001, "center", 0xFFFF, False),
+        (WB55, 32_000_000, "center", 0xFFFF, True),
+        (WB55, 32_000_001, "center", 0xFFFF, False),
+        (WB55, 21_333_334, "center", 0xFFFF, True),
         (WBA55, 1000, "edge", 0xFFFF, False),
         (WBA55, 1000, "center", 0xFFFF, True),
         (WBA55, 1526, "edge", 0xFFFF, True),
@@ -61,25 +62,24 @@ def test_pwm_frequency_quantisation():
     assert expect.pwm_frequency(1_000_000, 300_000, "edge") == pytest.approx(333_333.33, rel=1e-6)
 
 
-def test_pwm_frequency_of_the_driver():
-    """PwmStm writes ARR = ticks - 1 centre aligned too: 2 * (ticks - 1) counts per period."""
-    assert expect.pwm_frequency_driver(WB55, 10000, "edge") == expect.pwm_frequency(WB55, 10000, "edge")
-    assert expect.pwm_frequency_driver(WB55, 10000, "center") == pytest.approx(WB55 / 6398)
-    assert expect.pwm_frequency_driver(WB55, 1_000_000, "center") == pytest.approx(1_032_258, rel=1e-6)
-    assert expect.pwm_duty_driver(WB55, 10000, "center", 50) == pytest.approx(100 * 1600 / 3199)
-    assert expect.pwm_duty_driver(WB55, 10000, "edge", 50) == expect.pwm_duty(WB55, 10000, "edge", 50)
+def test_pwm_auto_reload():
+    """ARR = ticks - 1 edge aligned, ticks / 2 centre aligned (2 * ARR ticks per period)."""
+    assert expect.pwm_auto_reload(WB55, 10000, "edge") == 6399
+    assert expect.pwm_auto_reload(WB55, 10000, "center") == 3200
+    assert expect.pwm_auto_reload(WB55, 32_000_000, "center") == 1
+    assert expect.pwm_frequency(WB55, 21_333_334, "center") == pytest.approx(32_000_000), "3 ticks: ARR 1"
 
 
 @pytest.mark.parametrize(
     ("pwmclk", "mode", "counter_max", "limits"),
     [
         (WB55, "edge", 0xFFFF, (977, 32_000_000)),
-        (WB55, "center", 0xFFFF, (489, 16_000_000)),
+        (WB55, "center", 0xFFFF, (489, 32_000_000)),
         (WB55, "edge", 0xFFFFFFFF, (1, 32_000_000)),
         (WBA55, "edge", 0xFFFF, (1526, 50_000_000)),
-        (WBA55, "center", 0xFFFF, (763, 25_000_000)),
+        (WBA55, "center", 0xFFFF, (763, 50_000_000)),
         (976, "edge", 0xFFFF, (1, 488)),
-        (976, "center", 0xFFFF, (1, 244)),
+        (976, "center", 0xFFFF, (1, 488)),
     ],
 )
 def test_pwm_frequency_limits(pwmclk, mode, counter_max, limits):

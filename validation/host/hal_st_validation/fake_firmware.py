@@ -710,10 +710,9 @@ class FakeFirmware(FakeTerminalDevice):
         return "OK"
 
     def supports_interrupt(self, pin: str) -> bool:
-        """Port H is refused (`hal::GpioStm` writes the compacted port number into EXTICR); an EXTI line
-        serves one port at a time."""
+        """An EXTI line serves one port at a time."""
         owner = self.exti.get(int(pin[2:]))
-        return self.bonded(pin) and pin[1] != "H" and (owner is None or owner == pin)
+        return self.bonded(pin) and (owner is None or owner == pin)
 
     def _cmd_gpio_irq(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 2, 2, ("type",))

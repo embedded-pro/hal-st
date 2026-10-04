@@ -72,7 +72,6 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `gpio.pulse <pin> <count> <periodMs>` → `OK` after `count` toggles of the output, one every `periodMs` (EMIL timer driven); `ERR usage` on an input
 - `gpio.irq <pin> <rising|falling|both|off> [type=immediate|dispatched]` → `OK`; each edge increments a counter; `type` defaults to `dispatched`
   - an EXTI line serves one port at a time: a pin whose line (its index) already counts edges for a pin of another port returns `ERR unsupported` until that pin's interrupt is turned `off` or the pin is released
-  - port H returns `ERR unsupported` (`hal::GpioStm` writes the compacted `hal::Port` value into EXTICR, which selects the wrong port for H)
 - `gpio.count <pin> [clear=0|1]` → `OK count=<n>`
 - `gpio.release <pin>` → `OK`; the pin returns to a digital input with its configured pull
 
@@ -94,7 +93,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`
-- A frequency whose period is under 2 counter ticks or does not fit the counter (16 bits, 32 bits on TIM2; half the period in centre-aligned mode) returns `ERR range`, both in `pwm.open` and `pwm.freq`
+- A frequency whose period is under 2 counter ticks, or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` edge aligned and `ticks / 2` centre aligned, where the counter runs up and down for a period of `2 x ARR` ticks
 - `pwm.close <timer>` → `OK`
 
 ## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`)

@@ -3,8 +3,7 @@ fake firmware (pure functions). Frequencies are in Hz, times in seconds unless t
 
 Sources: `PwmStmBase::SetBaseFrequencyImpl`/`SetDutyCycle`/`EncodeDeadTime` (hal_st/stm32fxxx/PwmStm.cpp), the
 ST HAL `UART_DIV_SAMPLING8`/`UART_DIV_LPUART` macros and `IS_UART_BAUDRATE`, the SPI baud-rate prescaler and the
-WWDG counter (validation/PROTOCOL.md and the factories in validation/firmware). The `pwm_*` expectations are the
-ones the protocol asks for; `*_driver` variants give what the current driver does where it has a known gap.
+WWDG counter (validation/PROTOCOL.md and the factories in validation/firmware).
 """
 
 from __future__ import annotations
@@ -59,17 +58,24 @@ def pwm_clock(timer_clock: int, prescaler: int = 0) -> int:
 
 
 def pwm_ticks(pwmclk: int, frequency: int, mode: PwmMode) -> int:
-    """Counter ticks per period as the driver computes them (ARR + 1); halved in centre-aligned mode."""
+    """Compare full scale of a period: ARR + 1 edge aligned, ARR centre aligned (the counter runs 0 .. ARR .. 0,
+    2 * ARR ticks per period)."""
     ticks = pwmclk // frequency
     return ticks // 2 if mode == "center" else ticks
 
 
+def pwm_auto_reload(pwmclk: int, frequency: int, mode: PwmMode) -> int:
+    """ARR `PwmStm` writes for `frequency`."""
+    ticks = pwmclk // frequency
+    return ticks // 2 if mode == "center" else ticks - 1
+
+
 def pwm_fits(pwmclk: int, frequency: int, mode: PwmMode, counter_max: int = 0xFFFF) -> bool:
-    """`pwm.open`/`pwm.freq` answer `ERR range` otherwise: at least 2 ticks, and ARR within the counter."""
+    """`pwm.open`/`pwm.freq` answer `ERR range` otherwise: at least 2 counter ticks per period, and ARR within the
+    counter."""
     if frequency <= 0:
         return False
-    ticks = pwm_ticks(pwmclk, frequency, mode)
-    return ticks >= 2 and ticks - 1 <= counter_max
+    return pwmclk // frequency >= 2 and pwm_auto_reload(pwmclk, frequency, mode) <= counter_max
 
 
 def pwm_frequency(pwmclk: int, frequency: int, mode: PwmMode) -> float:
@@ -79,19 +85,12 @@ def pwm_frequency(pwmclk: int, frequency: int, mode: PwmMode) -> float:
     return pwmclk / (2 * ticks if mode == "center" else ticks)
 
 
-def pwm_frequency_driver(pwmclk: int, frequency: int, mode: PwmMode) -> float:
-    """Output frequency `PwmStm` produces today: centre aligned it halves the ticks and still writes ARR = ticks - 1,
-    so the period is 2 * (ticks - 1) (hal_st/stm32fxxx/PwmStm.cpp:381-390, a known gap)."""
-    ticks = pwm_ticks(pwmclk, frequency, mode)
-    return pwmclk / (2 * (ticks - 1) if mode == "center" else ticks)
-
-
 def pwm_frequency_limits(pwmclk: int, mode: PwmMode, counter_max: int = 0xFFFF) -> tuple[int, int]:
     """Lowest and highest frequency `pwm.open`/`pwm.freq` accept at `pwmclk` (at least 2 ticks, ARR within the
     counter); the accepted frequencies form one interval."""
-    divider = 2 if mode == "center" else 1
-    lowest = max(1, pwmclk // (divider * (counter_max + 2)) + 1)
-    highest = pwmclk // (2 * divider)
+    longest = 2 * counter_max + 1 if mode == "center" else counter_max + 1
+    lowest = max(1, pwmclk // (longest + 1) + 1)
+    highest = pwmclk // 2
     while lowest > 1 and pwm_fits(pwmclk, lowest - 1, mode, counter_max):
         lowest -= 1
     while not pwm_fits(pwmclk, lowest, mode, counter_max) and lowest <= highest:
@@ -112,12 +111,6 @@ def pwm_duty(pwmclk: int, frequency: int, mode: PwmMode, duty: float) -> float:
     return 100 * min(pwm_duty_counts(pwmclk, frequency, mode, duty), full) / full
 
 
-def pwm_duty_driver(pwmclk: int, frequency: int, mode: PwmMode, duty: float) -> float:
-    """Duty `PwmStm` produces today: centre aligned the CCR of `pwm_duty_counts` is compared against ARR = ticks - 1."""
-    full = pwm_ticks(pwmclk, frequency, mode) - (1 if mode == "center" else 0)
-    return 100 * min(pwm_duty_counts(pwmclk, frequency, mode, duty), full) / full
-
-
 def pwm_duty_step(pwmclk: int, frequency: int, mode: PwmMode) -> float:
     """Duty resolution in percent: one compare count."""
     return 100 / pwm_ticks(pwmclk, frequency, mode)
@@ -134,7 +127,7 @@ def pwm_prescaler_for(timer_clock: int, frequency: int, mode: PwmMode, counter_m
         pwmclk = pwm_clock(timer_clock, prescaler)
         if pwm_fits(pwmclk, frequency, mode, counter_max):
             return prescaler
-        if pwm_ticks(pwmclk, frequency, mode) < 2:
+        if pwmclk // frequency < 2:
             break
     raise ValueError(f"{frequency} Hz does not fit any prescaler at {timer_clock} Hz ({mode})")
 

@@ -75,12 +75,12 @@ namespace validation
 
         bool ValidFrequency(uint8_t timer, uint32_t counterClock, bool centerAligned, uint32_t hertz)
         {
-            auto ticksPerPeriod = counterClock / hertz;
-            if (centerAligned)
-                ticksPerPeriod /= 2;
+            const auto ticksPerPeriod = counterClock / hertz;
+            if (ticksPerPeriod < 2)
+                return false;
 
             const uint32_t maximumCompare = IS_TIM_32B_COUNTER_INSTANCE(Instance(timer)) ? 0xffffffffu : 0xffffu;
-            return ticksPerPeriod >= 2 && ticksPerPeriod - 1 <= maximumCompare;
+            return (centerAligned ? ticksPerPeriod / 2 : ticksPerPeriod - 1) <= maximumCompare;
         }
 
         std::optional<uint8_t> ChannelOfPin(HilPinId pin, infra::MemoryRange<const hal::PinConfigTypeStm> functions, uint8_t timer)

@@ -3,8 +3,7 @@ levels, the break input, frequency changes and the argument checks.
 
 Wiring set `bundle1`: the outputs of `tests.pwm.timers` (channel pins, complementary `npin`s and `brk` inputs) on
 DIOs. Frequencies and duties are compared with what the protocol asks for after quantisation to whole counter
-ticks (`expect.pwm_frequency`/`pwm_duty`); the centre-aligned period of the current driver is a known gap
-(`expect.pwm_frequency_driver`), an expected failure of `test_waveform` where it leaves the frequency tolerance.
+ticks (`expect.pwm_frequency`/`pwm_duty`).
 """
 
 from __future__ import annotations
@@ -87,22 +86,6 @@ def check_aligned(capture, dios, feature, allowed):
         assert worst <= allowed + 2 / capture.rate, f"DIO{dio} {feature} edges off by {worst * 1e9:.0f} ns"
 
 
-CENTER_PERIOD_GAP = (
-    "known gap: hal_st/stm32fxxx/PwmStm.cpp:381-390 - centre aligned the period is 2 x (ticks/2 - 1) counter ticks "
-    "instead of ticks (expect.pwm_frequency_driver)"
-)
-
-
-def expect_center_period_gap(request, pwm_cfg, pwmclk, frequency, mode):
-    """The centre-aligned period gap fails the frequency check only where the driver's period leaves the tolerance
-    (short periods; the duty error stays within one step there); `--fake` ignores it like the board files' gaps."""
-    if mode != "center" or request.config.getoption("--fake"):
-        return
-    error = abs(expect.pwm_frequency_driver(pwmclk, frequency, mode) / expect.pwm_frequency(pwmclk, frequency, mode) - 1)
-    if error > tolerance(pwm_cfg, "frequency"):
-        request.applymarker(pytest.mark.xfail(strict=False, reason=CENTER_PERIOD_GAP))
-
-
 def expected_waveform(pwmclk, frequency, mode, duty):
     return (
         expect.pwm_frequency(pwmclk, frequency, mode),
@@ -115,7 +98,7 @@ def expected_waveform(pwmclk, frequency, mode, duty):
 @pytest.mark.board_params("timer", "pwm.timers")
 @pytest.mark.matrix("pwm.waveform")
 @pytest.mark.constraint(valid=supported)
-def test_waveform(request, fw, ad3, need, pwm_cfg, timer_clock, timer, freq, duty, mode, prescaler, sync):
+def test_waveform(fw, ad3, need, pwm_cfg, timer_clock, timer, freq, duty, mode, prescaler, sync):
     """One channel: `ERR range` exactly where the period does not fit the counter, else frequency and duty."""
     channel = timer["channels"][0]
     dio = need.dio(channel["pin"])
@@ -130,8 +113,6 @@ def test_waveform(request, fw, ad3, need, pwm_cfg, timer_clock, timer, freq, dut
         return
     assert fits, "the firmware accepted a period outside the counter"
     assert reported == pwmclk
-    if duty not in (0, 100):
-        expect_center_period_gap(request, pwm_cfg, pwmclk, freq, mode)
     fw.pwm.duty(timer["timer"], duty)
     capture = record(ad3, pwm_cfg, freq, None if duty in (0, 100) else dio)
     frequency, quantised, step = expected_waveform(pwmclk, freq, mode, duty)

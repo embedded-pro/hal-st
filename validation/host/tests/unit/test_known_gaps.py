@@ -86,9 +86,7 @@ def test_invalid_entries_are_rejected(gaps):
 @pytest.mark.parametrize("name", BOARDS)
 def test_board_files_cite_code(name):
     """Every gap names its source (`file:line`) and the symptom."""
-    gaps = load_board(name).known_gaps
-    assert gaps
-    for gap in gaps:
+    for gap in load_board(name).known_gaps:
         assert ".cpp:" in gap.reason and " - " in gap.reason, gap.reason
 
 
@@ -144,22 +142,27 @@ def collected_marks(tmp_path, board, *options):
     return marks
 
 
+CTS_HELD = "test_uart.py::test_send_timeout_while_cts_held[usart2-variant="
+
+
 def test_conftest_applies_the_gaps_of_the_board(tmp_path):
     marks = collected_marks(tmp_path, "nucleo_wba55cg", "--port", "nosuchport")
-    receive_only = {test_id: found for test_id, found in marks.items() if test_id.startswith("test_spi.py::test_receive_only_first[")}
-    assert [name for name, _ in receive_only["test_spi.py::test_receive_only_first[spi1-variant=interrupt]"]] == ["xfail"]
-    assert "SpiMasterStm.cpp:160-168" in receive_only["test_spi.py::test_receive_only_first[spi1-variant=interrupt]"][0][1]
-    sync = receive_only["test_spi.py::test_receive_only_first[spi1-variant=sync]"]
+    sync = marks[CTS_HELD + "sync]"]
     assert sync == [("skip", sync[0][1])] and sync[0][1].startswith("known gap (firmware aborts/hangs): ")
-    assert "test_spi.py::test_receive_only_first[spi1-variant=dma]" not in marks
+    assert "SynchronousUartStm.cpp" in sync[0][1]
+    assert CTS_HELD + "interrupt]" not in marks
     assert "test_pwm.py::test_open_errors" not in marks, "argument errors never reach the driver"
-    assert [name for name, _ in marks["test_pwm.py::test_duty_errors"]] == ["skip"]
 
 
 def test_run_known_gaps_turns_skips_into_expected_failures(tmp_path):
-    marks = collected_marks(tmp_path, "nucleo_wb55rg", "--port", "nosuchport", "--run-known-gaps")
-    assert [name for name, _ in marks["test_pwm.py::test_duty_errors"]] == ["xfail"]
+    marks = collected_marks(tmp_path, "nucleo_wba55cg", "--port", "nosuchport", "--run-known-gaps")
+    assert [name for name, _ in marks[CTS_HELD + "sync]"]] == ["xfail"]
     assert not any(name == "skip" and "known gap" in reason for found in marks.values() for name, reason in found)
+
+
+def test_a_board_without_gaps_marks_nothing(tmp_path):
+    marks = collected_marks(tmp_path, "nucleo_wb55rg", "--port", "nosuchport")
+    assert not any("known gap" in reason for found in marks.values() for _, reason in found)
 
 
 def test_fake_ignores_the_gaps(tmp_path):
