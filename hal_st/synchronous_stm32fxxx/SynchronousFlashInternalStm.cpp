@@ -98,6 +98,9 @@ namespace hal
             erase(beginIndex, FLASH_PAGE_NB - beginIndex, FLASH_BANK_1);
             erase(0, endIndex - FLASH_PAGE_NB + 1, FLASH_BANK_2);
         }
+#elif defined(STM32WB) || defined(STM32WBA)
+        const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
+        erase((regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, (AddressOfSector(endIndex) - AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, 0);
 #else
         erase(beginIndex, endIndex - beginIndex, 0);
 #endif
