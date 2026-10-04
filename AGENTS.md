@@ -55,7 +55,10 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 
 ## Testing
 
-No unit tests in this repo. hal-st is validated on real hardware — the `validation/` app (firmware + pytest/AD3 host suite, see `validation/README.md`), manual testing on Nucleo/Discovery boards, logic-analyser/scope verification and the `integration_test/` rig — not by GoogleTest suites. A driver change on STM32WB55/WBA55 should keep `validation/PROTOCOL.md`, the firmware factory and the host tests in step. `validation/host/tests/unit` tests the host harness itself (`pytest validation/host/tests/unit`), not the drivers. Don't add unit tests for new or changed drivers. (`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
+No unit tests in this repo. hal-st is validated on real hardware — the `validation/` app (firmware + pytest/AD3 host suite, see `validation/README.md`), manual testing on Nucleo/Discovery boards,
+logic-analyser/scope verification and the `integration_test/` rig — not by GoogleTest suites. A driver change on STM32WB55/WBA55 should keep `validation/PROTOCOL.md`, the firmware factory and the host
+tests in step. `validation/host/tests/unit` tests the host harness itself (`pytest validation/host/tests/unit`), not the drivers. Don't add unit tests for new or changed drivers.
+(`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
 
 ## Build
 

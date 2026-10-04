@@ -134,7 +134,9 @@ Writing the firmware against the drivers showed hal-st bugs that the suite runs 
 | both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                   |
 | both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                       |
 
-The gaps found earlier in `PwmStm`, `AdcStm`/`AdcDmaMultiChannelStm`/`AdcTimerTriggeredBase` (WBA55 ADC4), `SpiMasterStm`/`SynchronousSpiMasterStm` (receive-only start), `UartStm` (TXEIE after close, SWAP, overrun), `SynchronousQuadratureEncoderLpTimStm` (filter carry-over) and `GpioStm` (EXTI on port H) are fixed, and the tests that exposed them now guard the fixes. The port H fix has no HIL test: PH3 (BOOT0) is the only port H pin on both boards and is reserved.
+The gaps found earlier in `PwmStm`, `AdcStm`/`AdcDmaMultiChannelStm`/`AdcTimerTriggeredBase` (WBA55 ADC4), `SpiMasterStm`/`SynchronousSpiMasterStm` (receive-only start), `UartStm` (TXEIE after close,
+SWAP, overrun), `SynchronousQuadratureEncoderLpTimStm` (filter carry-over) and `GpioStm` (EXTI on port H) are fixed, and the tests that exposed them now guard the fixes. The port H fix has no HIL
+test: PH3 (BOOT0) is the only port H pin on both boards and is reserved.
 
 Fix the driver, then remove its entry from both board files so the tests guard the fix.
 
@@ -180,7 +182,9 @@ On Windows:
    - Start the ST-LINK GDB server (from STM32CubeIDE or STM32CubeCLT) on port 61234, accepting connections from the container.
    - `port-bridge` holds the COM port while it runs; stop it before opening the port in another tool. `ad3-bench-server --fake` serves a simulated AD3 to try the setup without hardware.
 
-Both bridges listen on `127.0.0.1` by default, which Docker Desktop reaches through `host.docker.internal`. If the container cannot connect (for example Docker Engine inside WSL2), listen on all interfaces with `ad3-bench-server --host 0.0.0.0 --token <secret>` (and `AD3_REMOTE_TOKEN=<secret>` in the container) and `port-bridge --bind 0.0.0.0`, and keep ports 5025, 5000 and 61234 blocked from the network in the Windows firewall: whoever reaches them controls the AD3 and the board.
+Both bridges listen on `127.0.0.1` by default, which Docker Desktop reaches through `host.docker.internal`. If the container cannot connect (for example Docker Engine inside WSL2), listen on all
+interfaces with `ad3-bench-server --host 0.0.0.0 --token <secret>` (and `AD3_REMOTE_TOKEN=<secret>` in the container) and `port-bridge --bind 0.0.0.0`, and keep ports 5025, 5000 and 61234 blocked from
+the network in the Windows firewall: whoever reaches them controls the AD3 and the board.
 
 In the container:
 
@@ -275,7 +279,9 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
   - 1-4 channels, complementary outputs and complementary-only outputs with dead time and inversion (shoot-through check), the dead-time limit;
   - idle levels, the break input with both polarities and automatic re-enable;
   - frequency changes and stop, the features each timer offers (`unsupported` elsewhere), argument errors, one timer at a time, and that a re-open forgets dead time and break.
-- `test_uart.py` - every baud rate x parity x driver variant (interrupt, DMA, duplex DMA, synchronous) on LPUART1 and USART2, both directions against the AD3 UART, frames decoded from the firmware TX line and the bit rate measured on it, large payloads, full-duplex streaming, RTS/CTS flow control per variant, send timeout with CTS held, re-open with other settings, TX/RX swap, the baud limits of each instance, argument errors and default pins.
+- `test_uart.py` - every baud rate x parity x driver variant (interrupt, DMA, duplex DMA, synchronous) on LPUART1 and USART2, both directions against the AD3 UART, frames decoded from the firmware TX
+  line and the bit rate measured on it, large payloads, full-duplex streaming, RTS/CTS flow control per variant, send timeout with CTS held, re-open with other settings, TX/RX swap, the baud limits of
+  each instance, argument errors and default pins.
 - `test_spi.py` - SPI modes 0-3 x baud x driver variant (interrupt, DMA, synchronous) x GPIO chip select, decoded from the logic analyzer (MOSI, MISO, clock polarity and rate, chip-select release), continued sessions, receive-only first transfers, the largest transfer, the baud limits and argument errors.
 - `test_adc.py` - wavegen DC levels against raw 12-bit codes (checked against the scope when it is wired), sequences of up to 8 conversions, every sampling time, timer-triggered rates and the measure timeout, timer sharing with PWM and the encoder, unsupported trigger timers, argument errors and limits, and ADC pins against GPIO.
 - `test_qei.py` - position counts for frequency x cycles x direction x decoding x phase inversion, physically inverted phases restored by `inva`/`invb`, offset and rollover, speed, the index input through `qei.index`, the LPTIM1 encoder on the NUCLEO-WB55RG, default pins, the resolution limits, argument errors, one encoder at a time and timer sharing.
