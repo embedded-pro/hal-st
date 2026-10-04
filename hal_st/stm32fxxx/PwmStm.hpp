@@ -20,6 +20,7 @@ namespace hal
         enum class Alignment : uint32_t
         {
             edgeAligned = TIM_COUNTERMODE_UP,
+            // Cannot reach 0 %: counting down, the output is active for at least one tick per period.
             edgeAlignedDownCounting = TIM_COUNTERMODE_DOWN,
             centerAlignedDownCounting = TIM_COUNTERMODE_CENTERALIGNED1,
             centerAlignedUpCounting = TIM_COUNTERMODE_CENTERALIGNED2,
