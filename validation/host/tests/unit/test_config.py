@@ -129,8 +129,8 @@ def test_wb55_bundle2_moves_the_encoder_inputs():
 
 @pytest.mark.parametrize("name", BOARDS)
 def test_parameters_reference_wired_pins(name):
-    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2); SPI instances are wired in some
-    set, through the jumpers of their `option` when they name one."""
+    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2); PWM timers and SPI instances are
+    wired in some set, SPI instances through the jumpers of their `option` when they name one."""
     board = load_board(name)
 
     def wired(pin, kind="dio", bundle="bundle1"):
@@ -149,9 +149,9 @@ def test_parameters_reference_wired_pins(name):
     assert counting[2:] == other[2:] and counting[1] != other[1], "same EXTI line, other port"
     for timer in board.param("pwm.timers"):
         for channel in timer["channels"]:
-            assert wired(channel["pin"]), channel
-            assert channel.get("npin") is None or wired(channel["npin"]), channel
-        assert timer.get("brk") is None or wired(timer["brk"]), timer
+            assert wired_in_a_set(channel["pin"]), channel
+            assert channel.get("npin") is None or wired_in_a_set(channel["npin"]), channel
+        assert timer.get("brk") is None or wired_in_a_set(timer["brk"]), timer
     for instance in board.param("uart.instances"):
         assert all(wired(instance[key]) for key in ("tx", "rx", "rts", "cts")), instance
     for instance in board.param("spi.instances"):

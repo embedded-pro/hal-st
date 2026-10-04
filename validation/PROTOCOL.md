@@ -99,13 +99,17 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 ## PWM (`hal::PwmStm`, `sync=1` selects `hal::SynchronousPwmStm`)
 
-- `pwm.open <timer> [channels=<c>[,<c>...]] [pins=<pin>[:<npin>][,...]] [freq=<hz>] [mode=edge|center] [prescaler=<n>] [dead=<ns>|off] [inv=0|1] [invn=0|1] [idle=0|1] [idlen=0|1] [brk=<pin>] [brkpol=low|high] [brkauto=0|1] [sync=0|1]` → `OK pwmclk=<hz>`
+- `pwm.open <timer> [channels=<c>[,<c>...]] [pins=<pin>[:<npin>][,...]] [freq=<hz>] [mode=edge|edgedown|center|centerup|centerboth] [prescaler=<n>] [dead=<ns>|off] [inv=0|1] [invn=0|1] [idle=0|1] [idlen=0|1] [brk=<pin>] [brkpol=low|high] [brkauto=0|1] [sync=0|1] [preload=0|1] [brkfilter=<0-15>] [trgo=reset|enable|update|oc1|oc1ref|oc2ref|oc3ref|oc4ref]` → `OK pwmclk=<hz>`
   - `channels` or `pins` is required (`ERR usage`); 1 to 4 channels, each at most once (`ERR usage`), numbered 1-4
   - a `pins` entry is the channel output, optionally followed by `:` and its complementary output; `-` leaves a position unused (`PA8:PA7` drives CH1 and CH1N, `PA8` or `PA8:-` CH1 only, `-:PA7` CH1N only); with `channels` the entries follow the channel order, without it each channel follows from its pin
   - `channels` without `pins` takes the first pin of the pinout table for each channel that is neither reserved nor missing from the package, and no complementary output
-  - defaults: `freq=10000 mode=edge prescaler=0 dead=off inv=0 invn=0 idle=0 idlen=0 brkpol=high brkauto=0 sync=0`
+  - defaults: `freq=10000 mode=edge prescaler=0 dead=off inv=0 invn=0 idle=0 idlen=0 brkpol=high brkauto=0 sync=0 preload=1`, no `brkfilter` and no `trgo`
   - `pwmclk` is the counter clock, the timer kernel clock divided by `prescaler + 1`; `prescaler` is 0-65535
-  - `mode=center` is the centre-aligned counter (`ERR unsupported` on TIM16/TIM17)
+  - `mode` selects the counter (`hal::PwmStmBase::Alignment`): `edge` counts up; `edgedown` counts down and cannot reach 0 %: at duty 0 the output stays active for one counter tick per period, since PWM mode 1 is active while the counter is at or below the compare value;
+    `center`, `centerup` and `centerboth` count up and down and give the same waveform (they differ only in when the compare flags are set); every mode but `edge` needs a counter mode select, TIM1, TIM2 or (STM32WBA55) TIM3 (`ERR unsupported` on TIM16/TIM17)
+  - `preload=1` buffers period and compare values, so a `pwm.duty` or `pwm.freq` takes effect at the next update event; with `preload=0` it takes effect at once, and a write in the middle of a period cuts or stretches that period's pulse
+  - `brkfilter` is the break input filter (BDTR.BKF, 0 = none up to 15 = 8 samples at the timer kernel clock / 32, 256 kernel clocks; the reference manual lists every step); it needs `brk` (`ERR usage`)
+  - `trgo` selects the trigger output (TIMx_CR2.MMS) an `adc.open trgo=` sequence runs on: `reset`, `enable`, `update`, `oc1` (compare pulse of channel 1), `oc1ref`-`oc4ref` (the channel's reference signal); without `trgo` the trigger output is `reset`; it needs a master timer, TIM1, TIM2 or (STM32WBA55) TIM3 (`ERR unsupported` on TIM16/TIM17)
   - `dead` is the dead time inserted between a channel and its complementary output, at most 1000000 ns; it saturates at the largest dead time the DTG field encodes
   - `inv` and `invn` invert every channel output or complementary output, `idle` and `idlen` set their level while the outputs are disabled
   - `brk=<pin>` muxes the break input of the timer (`ERR pin` for another pin); `brkpol` is the active level and `brkauto=1` re-enables the outputs automatically after the break input releases
@@ -115,7 +119,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`
-- A frequency whose period is under 2 counter ticks, or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` edge aligned and `ticks / 2` centre aligned, where the counter runs up and down for a period of `2 x ARR` ticks
+- A frequency whose period is under 2 counter ticks, or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
 - `pwm.close <timer>` → `OK`
 
 ## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`)
@@ -167,13 +171,39 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 ## ADC (`hal::AdcStm` with `hal::AdcDmaMultiChannelStmBase`)
 
-- `adc.open <adc> pins=<pin>[,<pin>...] [sampling=<cycles>] [timer=<timer>] [rate=<hz>]` → `OK`
+- `adc.open <adc> pins=<pin>[,<pin>...] [sampling=<cycles>] [timer=<timer>] [rate=<hz>] [trgo=<timer>]` → `OK`
   - `pins` is required (`ERR usage`), one conversion per pin in the given order, at most 8 (`ERR range`); a pin without an ADC channel returns `ERR pin`
   - `sampling` is the sampling time of every channel, in ADC clock cycles: WB55 `2.5`, `6.5`, `12.5`, `24.5`, `47.5`, `92.5`, `247.5`, `640.5` (default `2.5`); WBA55 `1.5`, `3.5`, `7.5`, `12.5`, `19.5`, `39.5`, `79.5`, `814.5` (default `3.5`); the value is handed to the driver's per-channel `samplingTime`
   - without `timer` each run converts the sequence once from a software trigger (DMA one-shot mode), and the firmware starts the next run from the event loop after the previous one completed
   - `timer=<t>` triggers the conversions from the TRGO of timer `t` at `rate` runs per second (default 1000, 1-100000, `ERR range` outside) in DMA circular mode; the timers the driver can trigger from are TIM1 and TIM2 (`ERR unsupported` for others); `rate` without `timer` returns `ERR usage`
+  - `trgo=<t>` converts the sequence once per trigger output of timer `t` while the `pwm` group drives it (open `pwm.open <t> ... trgo=<source>` first; `adc.open` never takes the timer), in DMA circular mode; nothing arrives before `pwm.duty` starts the timer
+    - `trgo` with `timer` or `rate` returns `ERR usage`, a timer the MCU lacks `ERR range`
+    - `ERR unsupported` when no group holds the timer, or when the ADC cannot trigger from its TRGO: TIM1 and TIM2 on STM32WB55, TIM2 only on STM32WBA55 (ADC4 reaches TIM1 through TRGO2, which PWM leaves at reset)
+    - `ERR busy` when another group (encoder, timer-triggered ADC, `ain.burst`, `dma.wave`, `tim`, `tpwm`) holds the timer
+  - while open the group holds the ADC and its DMA channel (channel 7 of DMA1 on STM32WB55, of GPDMA1 on STM32WBA55), which `ain` needs too (`ERR busy` both ways)
 - `adc.measure <adc> [n=<samples>]` → `OK samples=<v>[,<v>...]` (raw 12-bit codes); `n` is the number of sequence runs (default 1), each contributing one value per pin, at most 64 values; returns `ERR timeout` after 1000 ms
 - `adc.close <adc>` → `OK`
+
+## Analog input (`hal::AnalogToDigitalPinImplStm`, `hal::AnalogToDigitalInternalTemperatureStm`, `hal::AdcTriggeredByTimerWithDma`)
+
+Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the ADC's DMA channel, which `spis` receives on as well on STM32WBA55) until it answers and then releases them; while `adc` is open, another group holds one of them, or a command of this group still runs, it answers `ERR busy`. `<adc>` is the ADC of `adc.open` (1 on STM32WB55, 4 on STM32WBA55, `ERR range` otherwise).
+
+- `ain.read <adc> <pin|temp> [sampling=<cycles>]` → `OK code=<v>`, or `OK code=<v> mcelsius=<n>` for `temp`
+  - one conversion of `pin` (an analog pin, `ERR pin` otherwise) or of the internal temperature sensor; `sampling` takes the values of `adc.open` (default the same); the STM32WBA55 driver samples every channel with its common sampling time (79.5 cycles) whatever `sampling` says
+  - `mcelsius` is `__LL_ADC_CALC_TEMPERATURE` with VDDA = 3300 mV and the factory calibration, in whole degrees (a multiple of 1000); the sensor needs a long sampling time (WB55 `640.5`, WBA55 `814.5`), the driver's default is shorter than its minimum
+  - `ERR timeout` after 1000 ms
+- `ain.burst <adc> <pin> n=<1-256> rate=<10-100000> [repeat=1|2] [out=list|stats]` → `OK samples=<v>,... us=<n>` or `OK n=<n> min=<v> max=<v> mean=<v> us=<n>`
+  - one `AdcTriggeredByTimerWithDma` over a 256-sample buffer converts `pin` on every TIM2 update at `rate` per second (TIM2 is the driver's timer); each command calls `Measure(n)` `repeat` times on that driver
+  - `n` and `rate` are required (`ERR usage`); `out=list` (default) lists the samples and allows `n` up to 64 (`ERR range` above), `out=stats` reports the number of samples, their minimum, maximum and mean (rounded); `us` is the time from `Measure(n)` to its result
+  - with `repeat=2` the first measurement is reported as `EVT ain index=<adc> run=1 ...` with the same fields, the second as the final line
+  - `ERR timeout` after `repeat` × (n / rate + 1 ms) + 1000 ms; the group stays busy until the measurement completes
+
+## DMA (`hal::CircularTransmitDmaChannel`)
+
+- `dma.wave <pin> rate=<1-1000000> pattern=<hex> [ms=<1-10000>]` → `OK` after `ms` (default 50)
+  - drives `pin` (an output) with `pattern`, 1 to 32 bytes, one bit per TIM2 update at `rate` per second, byte by byte and least significant bit first, repeated: TIM2 update requests make a `CircularTransmitDmaChannel` write a 32-bit set/reset word to the port's BSRR (32-bit memory and peripheral transfers)
+  - the channel is DMA2 channel 4 on STM32WB55 and GPDMA1 channel 8 on STM32WBA55; TIM2, the channel and the pin are held until the reply, so a group using any of them answers `ERR busy`, and so does `dma.wave` while they are in use
+  - `rate` and `pattern` are required (`ERR usage`); `pattern=-` or an odd number of hex digits is `ERR usage`, more than 32 bytes `ERR range`
 
 ## Quadrature encoder (`hal::SynchronousQuadratureEncoderStm`, `lp=1` selects `hal::SynchronousQuadratureEncoderLpTimStm`)
 

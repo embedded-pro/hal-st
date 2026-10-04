@@ -23,12 +23,16 @@ target_link_libraries(hal_st.validation_firmware PRIVATE
 target_sources(hal_st.validation_firmware PRIVATE
     AdcFactory.cpp
     AdcFactory.hpp
+    AnalogInputGroup.cpp
+    AnalogInputGroup.hpp
     BoardInfoStm.cpp
     BoardInfoStm.hpp
     BoardTypes.hpp
     ChannelPins.hpp
     Console.cpp
     Console.hpp
+    DmaGroup.cpp
+    DmaGroup.hpp
     EepromGroup.cpp
     EepromGroup.hpp
     HsemMaster.cpp

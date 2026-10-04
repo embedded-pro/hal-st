@@ -15,8 +15,10 @@
 #include "services/hil/commands/HilWatchDogCommands.hpp"
 #include "services/peripheral/DebugLed.hpp"
 #include "validation/firmware/AdcFactory.hpp"
+#include "validation/firmware/AnalogInputGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
@@ -68,7 +70,7 @@ int main()
     static validation::SpiFactoryStm spiFactory{ naming, console.dma, resources };
     static services::HilSpiCommands::WithCapacity<64> spi{ context, spiFactory };
 
-    static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers };
+    static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers, resources };
     static services::HilAdcCommands::WithCapacity<validation::AdcFactoryStm::slots, 64> adc{ context, adcFactory };
 
     static validation::QeiFactoryStm qeiFactory{ naming, timers, resources };
@@ -100,6 +102,9 @@ int main()
     static validation::LpTimerPwmFactoryStm lpTimerPwmFactory{ naming, resources };
     static validation::LpTimerPwmGroup lpTimerPwm{ context, lpTimerPwmFactory };
 #endif
+
+    static validation::AnalogInputCommands analogInput{ context, naming, console.dma, timers, resources };
+    static validation::DmaCommands dmaWave{ context, naming, console.dma, timers, resources };
 
     validation::CreateUnsupportedGroups(context);
 

@@ -441,6 +441,8 @@ _PULSE_PERIOD_MAX_MS = 60_000
 _RECEIVE_TIMEOUT_MAX_MS = 10_000
 _ADC_MEASURE_TIMEOUT = 1.0
 _ADC_DMA = ("dma1", 7)
+# `adc.open trgo=`: PwmStm drives TRGO only, and the WBA55 ADC4 reaches TIM1 through TRGO2 alone (AdcFactory.cpp).
+_ADC_PWM_TRIGGER_TIMERS = {"stm32wb55": frozenset({1, 2}), "stm32wba55": frozenset({2})}
 _QEI_RESOLUTION_16BIT = 65536
 _QEI_VELOCITY_MAX_US = 1_000_000
 _QEI_CAPTURES = ("a", "b", "ab")
@@ -945,6 +947,9 @@ class FakeFirmware(FakeTerminalDevice):
         # PwmStm asserts a counter mode select instance for every alignment but edgeAligned (PwmStm.cpp:224).
         if mode != "edge" and not expect.timer_has_center_mode(timer):
             _fail("unsupported")
+        # `IS_TIM_MASTER_INSTANCE`: the timers with a counter mode select, on both MCUs.
+        if trgo is not None and not expect.timer_has_center_mode(timer):
+            _fail("unsupported")
         complementary = any(output.npin is not None for output in outputs)
         needs_break = complementary or dead is not None or flags["idle"] or flags["idlen"] or brk is not None
         if needs_break and not expect.timer_has_break(timer):
@@ -1164,7 +1169,7 @@ class FakeFirmware(FakeTerminalDevice):
                 _fail("range")
             # The sequence runs on the TRGO of a timer the pwm group drives; the adc group does not own it.
             holder = self.timer_owners.get(trgo)
-            if trgo not in expect.ADC_TRIGGER_TIMERS or holder is None:
+            if trgo not in _ADC_PWM_TRIGGER_TIMERS[self.family] or holder is None:
                 _fail("unsupported")
             assert holder is not None
             if holder[0] != "pwm":

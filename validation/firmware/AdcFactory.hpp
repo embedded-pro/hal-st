@@ -12,6 +12,7 @@
 #include "infra/util/MemoryRange.hpp"
 #include "services/hil/commands/HilAdcCommands.hpp"
 #include "validation/firmware/BoardTypes.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
 #include <array>
 #include <atomic>
@@ -22,13 +23,15 @@
 
 namespace validation
 {
+    hal::TimerBaseStm::Timing TriggerTiming(uint8_t timer, uint32_t rate);
+
     class AdcFactoryStm
         : public services::HilAdcFactory
     {
     public:
         static constexpr std::size_t slots = 1;
 
-        AdcFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma, TimerAllocation& timers);
+        AdcFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma, TimerAllocation& timers, ResourceAllocation& resources);
 
         std::size_t KeyPositionals() const override;
         services::HilStatus ParseKey(const services::HilArguments& arguments, uint16_t& key) const override;
@@ -49,6 +52,7 @@ namespace validation
             uint32_t samplingTime = 0;
             std::optional<uint8_t> timer;
             uint32_t rate = 0;
+            std::optional<uint8_t> triggerTimer;
         };
 
         class Sequence
@@ -67,6 +71,21 @@ namespace validation
         {
         public:
             TriggeredSequence(infra::MemoryRange<uint16_t> samples, infra::MemoryRange<hal::AnalogPinStm> inputs, hal::AdcStm& converter, hal::DmaStm::ReceiveStream& receiveStream, ChannelConfigs configs, uint8_t oneBasedTimer, hal::TimerBaseStm::Timing timing);
+
+            void Measure(const infra::Function<void(Samples)>& onDone) override;
+            void Stop() override;
+
+            bool Measuring() const;
+
+        private:
+            std::atomic<bool> measuring{ false };
+        };
+
+        class PwmTriggeredSequence
+            : public Sequence
+        {
+        public:
+            PwmTriggeredSequence(infra::MemoryRange<uint16_t> samples, infra::MemoryRange<hal::AnalogPinStm> inputs, hal::AdcStm& converter, hal::DmaStm::ReceiveStream& receiveStream, ChannelConfigs configs, uint32_t triggerSource);
 
             void Measure(const infra::Function<void(Samples)>& onDone) override;
             void Stop() override;
@@ -101,18 +120,22 @@ namespace validation
 
         services::HilStatus Parse(const services::HilArguments& arguments, Request& request) const;
         services::HilStatus ParsePins(const services::HilArguments& arguments, Request& request) const;
+        services::HilStatus EvaluateTrigger(uint8_t timer) const;
+        services::HilStatus ClaimResources();
+        void ReleaseResources();
         void Construct(const Request& request, const std::array<hal::GpioPin*, maximumPins>& claimed, services::HilAdcHandle& handle);
 
     private:
         const services::HilPinNaming& naming;
         hal::DmaStm& dma;
         TimerAllocation& timers;
+        ResourceAllocation& resources;
         std::optional<hal::AdcStm> adc;
         std::optional<hal::DmaStm::ReceiveStream> stream;
         infra::BoundedVector<hal::AnalogPinStm>::WithMaxSize<maximumPins> analogPins;
         std::array<uint16_t, maximumPins> buffer{};
         std::array<hal::detail::AdcStmChannelConfig, maximumPins> configs{};
-        std::variant<std::monostate, Sequence, TriggeredSequence> sequence;
+        std::variant<std::monostate, Sequence, TriggeredSequence, PwmTriggeredSequence> sequence;
         RepeatedConversion repeated;
         std::optional<uint8_t> timer;
     };

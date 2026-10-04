@@ -575,6 +575,22 @@ tests:
             pin: tim17ch1
             npin: tim17ch1n
         brk: PA15
+      # bundle2 only (DIO8/DIO9 on PA7/PA6, DIO11 on PB8; with bundle1 the
+      # tests that need their DIOs skip): TIM2 CH3/CH4 and TIM16 CH1 with
+      # CH1N, without break input (PB8 carries LD3).
+      - name: tim2_bundle2
+        timer: 2
+        channels:
+          - channel: 3
+            pin: tim2ch3
+          - channel: 4
+            pin: tim2ch4
+      - name: tim16_bundle2
+        timer: 16
+        channels:
+          - channel: 1
+            pin: tim16ch1
+            npin: tim16ch1n
     # One channel of each timer; ERR range exactly where the period does
     # not fit (expect.pwm_fits), unsupported for center on TIM16/TIM17.
     waveform:
@@ -1135,6 +1151,104 @@ tests:
     tolerance:
       frequency: 0.01
       duty: 0.01
+  pwm_ext:
+    # A pwm.timers entry with two wired channels and a counter mode select.
+    alignment_timer: tim1
+    modes: [edge, edgedown, center, centerup, centerboth]
+    alignment_frequency: 10000
+    alignment_duties: [30, 60]
+    # edgedown cannot reach 0 %: the output stays active for one counter
+    # tick per period (PwmStm.hpp). The prescaler makes a tick `tick_us`.
+    zero_duty:
+      tick_us: 10
+      frequency: 100
+      periods: 5
+    # pwm.duty 80 then 20, runt_repeats times while the LA records
+    # runt_window_s: with preload=0 at least one high pulse lies strictly
+    # between 20 % and 80 % of the period (beyond runt_margin), with
+    # preload=1 none. 1 MHz counter clock.
+    preload_timer: tim1
+    preload_frequency: 200
+    runt_repeats: 20
+    runt_window_s: 0.5
+    runt_margin: 0.03
+    # pwm.timers entries with `brk`, each hit by one AD3 pulse of `ticks`
+    # timer kernel clocks (brkpol=high, brkauto=0). BKF 15 samples 8 times
+    # at fDTS / 32: 256 kernel clocks.
+    break_filter_timers: [tim1, tim16, tim17]
+    break_filter_cases:
+      - name: unfiltered_short
+        filter: 0
+        ticks: 64
+        trips: true
+      - name: filtered_short
+        filter: 15
+        ticks: 64
+        trips: false
+      - name: filtered_long
+        filter: 15
+        ticks: 1024
+        trips: true
+    break_frequency: 10000
+    break_settle_s: 0.01
+    # adc.open trgo=<timer> runs one sequence per period of the pwm
+    # group's timer (pwm.timers names); test_trgo_paces_adc compares
+    # n=trgo_runs with n=1 like test_adc.py::test_trigger_rate.
+    trgo:
+      timer: [tim2]
+      source: [update, oc1ref]
+    trgo_frequency: 1000
+    trgo_runs: 64
+    trgo_repeats: 3
+    trgo_tolerance: 0.2
+    trgo_jitter_s: 0.002
+    # Driven by the pwm group, but no TRGO the ADC can trigger from: ADC4
+    # reaches TIM1 through TRGO2 only, which PwmStm leaves at reset.
+    trgo_unsupported_timers: [tim1, tim16]
+    capture_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 1.0
+      alignment_s: 2.0e-7
+  ain:
+    # W1/W2 inputs (bundle1); codes against tests.adc vref/bits/tolerance.
+    pins: [ain2, ain3]
+    levels: [0.2, 1.65, 3.1]
+    # Accepted, but the STM32WBA driver samples every channel with
+    # SamplingTimeCommon1 (79.5 cycles, AnalogToDigitalPinStm.cpp).
+    sampling: ["3.5", "39.5", "814.5"]
+    # The sensor needs a long sampling time; the driver's default is below
+    # its minimum (B.14), so with it only "a code arrives" is checked.
+    temp_sampling: "814.5"
+    temp_range: [10, 45]
+    # One AdcTriggeredByTimerWithDma over a `buffer`-sample buffer per
+    # command, Measure(n) at `rate`: n samples in n / rate (B.12).
+    burst:
+      n: [16, 100]
+      rate: 1000
+      buffer: 256
+      tolerance: 0.1
+      latency_s: 0.01
+    # Wavegen ramp during an out=list burst: the codes rise with the ramp.
+    ramp:
+      low: 0.3
+      high: 3.0
+      frequency: 2
+      n: 64
+      rate: 1000
+  dma:
+    # dma.wave output pin, wired to a DIO in every wiring set.
+    pin: gpio0
+    wave:
+      rate: [1000, 100000, 1000000]
+      pattern: ["a5", "0ff0", "deadbeef", "0100000000000080"]
+    ms: 300
+    samples_per_bit: 8
+    record_bits: 200
+    start_delay_s: 0.05
+    tolerance:
+      rate: 0.01
+      bit: 0.25
   unsupported:
     commands:
       - comp.open 1

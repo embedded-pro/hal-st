@@ -16,15 +16,32 @@ namespace validation
     {
         using services::HilChoice;
         using services::HilStatus;
+        using Alignment = hal::PwmStmBase::Alignment;
+        using TriggerOutput = hal::PwmStmBase::TriggerOutput;
 
         constexpr uint32_t maximumPrescaler = 0xffff;
         constexpr uint32_t maximumDeadTimeNs = 1000000;
+        constexpr uint32_t maximumBreakFilter = 15;
 
-        constexpr std::array<const char*, 14> openKeys{ { "channels", "pins", "freq", "mode", "prescaler", "dead", "inv", "invn", "idle", "idlen", "brk", "brkpol", "brkauto", "sync" } };
+        constexpr std::array<const char*, 17> openKeys{ { "channels", "pins", "freq", "mode", "prescaler", "dead", "inv", "invn", "idle", "idlen", "brk", "brkpol", "brkauto", "sync", "preload", "brkfilter", "trgo" } };
 
-        constexpr std::array<HilChoice<bool>, 2> alignments{ {
-            { "edge", false },
-            { "center", true },
+        constexpr std::array<HilChoice<Alignment>, 5> alignments{ {
+            { "edge", Alignment::edgeAligned },
+            { "edgedown", Alignment::edgeAlignedDownCounting },
+            { "center", Alignment::centerAlignedDownCounting },
+            { "centerup", Alignment::centerAlignedUpCounting },
+            { "centerboth", Alignment::centerAlignedBothCounting },
+        } };
+
+        constexpr std::array<HilChoice<TriggerOutput>, 8> triggerOutputs{ {
+            { "reset", TriggerOutput::reset },
+            { "enable", TriggerOutput::enable },
+            { "update", TriggerOutput::update },
+            { "oc1", TriggerOutput::comparePulse },
+            { "oc1ref", TriggerOutput::compareChannel1 },
+            { "oc2ref", TriggerOutput::compareChannel2 },
+            { "oc3ref", TriggerOutput::compareChannel3 },
+            { "oc4ref", TriggerOutput::compareChannel4 },
         } };
 
         constexpr std::array<HilChoice<bool>, 2> breakPolarities{ {
@@ -71,6 +88,11 @@ namespace validation
         uint32_t CounterClock(uint8_t timer, uint32_t prescaler)
         {
             return TimerClock(timer) / (prescaler + 1);
+        }
+
+        bool IsCenterAligned(Alignment alignment)
+        {
+            return alignment != Alignment::edgeAligned && alignment != Alignment::edgeAlignedDownCounting;
         }
 
         bool ValidFrequency(uint8_t timer, uint32_t counterClock, bool centerAligned, uint32_t hertz)
@@ -198,7 +220,7 @@ namespace validation
             return status;
         }
 
-        timing = Timing{ CounterClock(index, request.prescaler), request.centerAligned };
+        timing = Timing{ CounterClock(index, request.prescaler), IsCenterAligned(request.alignment) };
         opened = &Construct(index, request, claimed);
         return HilStatus::done;
     }
@@ -239,7 +261,10 @@ namespace validation
                 return output.complementaryPin.has_value();
             });
 
-        if (request.centerAligned && !IS_TIM_COUNTER_MODE_SELECT_INSTANCE(Instance(timer)))
+        if (request.alignment != Alignment::edgeAligned && !IS_TIM_COUNTER_MODE_SELECT_INSTANCE(Instance(timer)))
+            return HilStatus::unsupported;
+
+        if (request.triggerOutput && !IS_TIM_MASTER_INSTANCE(Instance(timer)))
             return HilStatus::unsupported;
 
         if ((complementary || request.deadTime || request.idleHigh || request.complementaryIdleHigh || request.breakPin) && !IS_TIM_BREAK_INSTANCE(Instance(timer)))
@@ -252,7 +277,7 @@ namespace validation
         if (request.breakPin && !SupportsFunction(*request.breakPin, hal::PinConfigTypeStm::timerBreak, timer))
             return HilStatus::pin;
 
-        if (!ValidFrequency(timer, CounterClock(timer, request.prescaler), request.centerAligned, request.frequency))
+        if (!ValidFrequency(timer, CounterClock(timer, request.prescaler), IsCenterAligned(request.alignment), request.frequency))
             return HilStatus::range;
 
         return HilStatus::done;
@@ -262,7 +287,9 @@ namespace validation
     {
         HilStatus status = HilStatus::done;
         arguments.Number("freq", request.frequency, 1, std::numeric_limits<uint32_t>::max(), status);
-        arguments.Select("mode", request.centerAligned, alignments, status);
+        arguments.Select("mode", request.alignment, alignments, status);
+        if (arguments.Has("trgo"))
+            arguments.Select("trgo", request.triggerOutput.emplace(), triggerOutputs, status);
         arguments.Number("prescaler", request.prescaler, 0, maximumPrescaler, status);
 
         if (auto deadTime = arguments.Key("dead"); deadTime && *deadTime != "off")
@@ -278,10 +305,22 @@ namespace validation
         arguments.Flag("idlen", request.complementaryIdleHigh, status);
         arguments.Flag("brkauto", request.breakAutomaticOutput, status);
         arguments.Flag("sync", request.synchronous, status);
+        arguments.Flag("preload", request.preload, status);
         arguments.Select("brkpol", request.breakActiveHigh, breakPolarities, status);
+
+        if (arguments.Has("brkfilter"))
+        {
+            uint32_t filter = 0;
+            arguments.Number("brkfilter", filter, 0, maximumBreakFilter, status);
+            request.breakFilter = static_cast<uint8_t>(filter);
+        }
+
         arguments.Pin("brk", naming, request.breakPin, status);
         if (status != HilStatus::done)
             return status;
+
+        if (request.breakFilter && !request.breakPin)
+            return HilStatus::usage;
 
         return ParseOutputs(arguments, request);
     }
@@ -442,9 +481,10 @@ namespace validation
     services::HilPwmHandle& PwmFactoryStm::Construct(uint8_t timer, const Request& request, const ClaimedPins& claimed)
     {
         hal::PwmStmBase::Config config;
-        // All three centre-aligned modes give the same waveform; they only differ in when CCxIF is set, which nothing here uses
-        config.alignment = request.centerAligned ? hal::PwmStmBase::Alignment::centerAlignedDownCounting : hal::PwmStmBase::Alignment::edgeAligned;
+        config.alignment = request.alignment;
         config.prescaler = static_cast<uint16_t>(request.prescaler);
+        config.preloadEnabled = request.preload;
+        config.triggerOutput = request.triggerOutput;
 
         if (request.deadTime)
             config.deadTime.emplace().duration = std::chrono::nanoseconds(*request.deadTime);
@@ -454,6 +494,7 @@ namespace validation
             auto& breakInput = config.breakInput.emplace();
             breakInput.activeHigh = request.breakActiveHigh;
             breakInput.automaticOutputEnable = request.breakAutomaticOutput;
+            breakInput.filter = request.breakFilter.value_or(0);
         }
 
         infra::BoundedVector<hal::PwmStmBase::ChannelConfig>::WithMaxSize<maximumChannels> channels;

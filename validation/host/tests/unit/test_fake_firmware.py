@@ -1164,6 +1164,8 @@ def test_spi_holds_its_peripheral():
         ("pwm.open 1 channels=1 trgo=oc4ref", "ok"),
         ("pwm.open 2 channels=1 trgo=oc1", "ok"),
         ("pwm.open 1 channels=1 trgo=never", "usage"),
+        ("pwm.open 16 channels=1 trgo=update", "unsupported"),
+        ("pwm.open 17 channels=1 trgo=reset", "unsupported"),
     ],
 )
 def test_pwm_open_extensions(line, expected):
@@ -1215,6 +1217,15 @@ def test_adc_trgo_on_a_timer_another_group_holds_is_busy():
     terminal.command("qei.open 1 a=PA8 b=PA9")
     assert reason(terminal, "adc.open 1 pins=PC3 trgo=1") == "busy"
     assert reason(terminal, "adc.open 1 pins=PB0 trgo=1") == "pin", "argument errors come first"
+
+
+def test_adc_trgo_cannot_use_tim1_on_wba55():
+    terminal, _ = wba()
+    terminal.command("pwm.open 1 channels=1 trgo=update")
+    assert reason(terminal, "adc.open 4 pins=PA7 trgo=1") == "unsupported", "ADC4 reaches TIM1 through TRGO2 only"
+    terminal.command("pwm.close 1")
+    terminal.command("pwm.open 2 channels=1 trgo=update")
+    assert reason(terminal, "adc.open 4 pins=PA7 trgo=2") == "ok"
 
 
 def test_adc_holds_its_peripheral_and_dma_channel():
