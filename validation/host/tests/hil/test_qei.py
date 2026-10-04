@@ -209,7 +209,7 @@ def test_lptim_errors(fw, qei, instance):
     cases = [
         ({**pins, "filter": 3}, "range"),
         ({**pins, "res": instance["max_res"] + 1}, "range"),
-        ({**pins, "cap": "ab"}, "unsupported"),
+        ({**pins, "cap": "a"}, "unsupported"),
         ({**pins, "offset": 0}, "unsupported"),
         ({**pins, "invb": 0}, "unsupported"),
         ({"lp": True}, "usage"),

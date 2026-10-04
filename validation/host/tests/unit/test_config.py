@@ -208,11 +208,11 @@ def test_matrices_load(name):
 
 @pytest.mark.parametrize("name", BOARDS)
 def test_unsupported_commands_cover_the_protocol(name):
-    """`tests.unsupported.commands` names every command PROTOCOL.md lists as unavailable."""
+    """`tests.unsupported.commands` names every command PROTOCOL.md lists as unavailable on the board's MCU."""
     from hal_st_validation.fake_firmware import UNSUPPORTED_COMMANDS
 
     board = load_board(name)
-    assert {line.split()[0] for line in board.param("unsupported.commands")} == set(UNSUPPORTED_COMMANDS)
+    assert {line.split()[0] for line in board.param("unsupported.commands")} == set(UNSUPPORTED_COMMANDS[board.family])
 
 
 @pytest.mark.parametrize("name", BOARDS)
@@ -295,7 +295,9 @@ def test_optional_connections_and_roles():
         "board": "x",
         "family": "stm32wb55",
         "pins": {"gpio0": "PC6"},
-        "wiring_sets": {"s": {"dio": {0: "gpio0", 1: {"pin": "PB0", "role": "probe", "requires": "extra"}}}},
+        "wiring_sets": {
+            "s": {"options": {"extra": "a probe"}, "dio": {0: "gpio0", 1: {"pin": "PB0", "role": "probe", "requires": "extra"}}}
+        },
     }
     board = parse_board(raw)
     assert board.wiring(["s"]).dio(role="probe") is None
@@ -318,7 +320,7 @@ def test_params_and_overrides():
     assert board.param("new.value") == 1.5
     with pytest.raises(ConfigError):
         board.apply_overrides(["novalue"])
-    assert board.aliases_of("PA8") == ["tim1ch1", "qei1a"]
+    assert board.aliases_of("PA8")[:2] == ["tim1ch1", "qei1a"], "in table order (PA8 is also mco)"
     assert load_board("nucleo_wb55rg").matrix("pwm.waveform")["freq"] != [20000], "overrides stay in one BoardConfig"
 
 

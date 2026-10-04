@@ -2,6 +2,7 @@
 
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "services/hil/HilPinId.hpp"
+#include <array>
 #include <cstdint>
 
 namespace validation
@@ -39,5 +40,37 @@ namespace validation
     {
         uint8_t transmit;
         uint8_t receive;
+    };
+
+    struct DmaChannel
+    {
+        uint8_t dma;
+        uint8_t channel;
+    };
+
+    struct DmaPair
+    {
+        DmaChannel transmit;
+        DmaChannel receive;
+    };
+
+    struct I2cPins
+    {
+        uint8_t index;
+        HilPinId scl;
+        HilPinId sda;
+    };
+
+    struct QuadSpiPins
+    {
+        HilPinId clk;
+        HilPinId ncs;
+        std::array<HilPinId, 4> io;
+    };
+
+    struct LowPowerPins
+    {
+        HilPinId wake;
+        HilPinId marker;
     };
 }

@@ -19,14 +19,17 @@ namespace validation::board
     inline constexpr uint8_t maximumPinIndex = 15;
     static_assert(static_cast<uint8_t>(Port::H) == 3, "portLetters must follow hal::Port");
 
-    inline constexpr std::array<uint16_t, 4> bondedPins{ { 0xffef, 0xffff, 0xe000, 0x0008 } };
+    // The generated pinout table comes from the WBA52 XML; only these are bonded out on the UFQFPN48 (PA3, PB10, PB11
+    // and PB13 are SMPS and VDD11 pads)
+    inline constexpr std::array<uint16_t, 4> bondedPins{ { 0xffe7, 0xd3ff, 0xe000, 0x0008 } };
 
     inline constexpr UartPins terminal{ 1, false, Pin(Port::B, 12), Pin(Port::A, 8) };
     inline constexpr uint32_t terminalBaudRate = 921600;
     inline constexpr DmaRequests terminalDma{ GPDMA1_REQUEST_USART1_TX, GPDMA1_REQUEST_USART1_RX };
 
-    // Red LD3: the blue LD1 is the SPI1 clock pin, and the green LD2 needs a solder bridge on some board revisions
-    inline constexpr HilPinId debugLed = Pin(Port::B, 8);
+    // Green LD2: PB8 (red LD3) is the only SPI3 MOSI and the only bonded TIM16 CH1N pin, and the blue LD1 is the SPI1
+    // clock pin. LD2 is not connected on a stock board (SB28 open), so the heartbeat stays dark unless SB28 is closed
+    inline constexpr HilPinId debugLed = Pin(Port::A, 9);
     inline constexpr std::array<HilPinId, 8> reservedPins{ {
         terminal.tx,
         terminal.rx,
@@ -40,6 +43,11 @@ namespace validation::board
 
     inline constexpr std::optional<UartPins> defaultUart = UartPins{ 1, true, Pin(Port::B, 5), Pin(Port::A, 10) };
     inline constexpr QeiPins defaultQei{ 1, Pin(Port::A, 11), Pin(Port::A, 12), Pin(Port::A, 15) };
+    inline constexpr std::array<I2cPins, 2> i2cPins{ {
+        { 1, Pin(Port::B, 2), Pin(Port::B, 1) },
+        { 3, Pin(Port::A, 6), Pin(Port::A, 7) },
+    } };
+    inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::B, 14), Pin(Port::A, 2) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({
         { "terminaltx", terminal.tx },
@@ -94,11 +102,36 @@ namespace validation::board
         { "sw1", Pin(Port::C, 13) },
         { "sw2", Pin(Port::B, 6) },
         { "sw3", Pin(Port::B, 7) },
+        { "i2c1scl", i2cPins[0].scl },
+        { "i2c1sda", i2cPins[0].sda },
+        { "i2c3scl", i2cPins[1].scl },
+        { "i2c3sda", i2cPins[1].sda },
+        { "spi3clk", Pin(Port::A, 0) },
+        { "spi3miso", Pin(Port::B, 9) },
+        { "spi3mosi", Pin(Port::B, 8) },
+        { "spi3nss", Pin(Port::A, 5) },
+        { "spi1nss", Pin(Port::A, 12) },
+        { "lptim1ch2", Pin(Port::A, 15) },
+        { "lptim2ch1", Pin(Port::A, 11) },
+        { "lptim2ch2", Pin(Port::A, 1) },
+        { "lptim1in1", Pin(Port::A, 0) },
+        { "lptim1in2", Pin(Port::B, 3) },
+        { "lptim2in1", Pin(Port::B, 9) },
+        { "lptim2in2", Pin(Port::B, 0) },
+        { "tim16ch1n", Pin(Port::B, 8) },
     });
 
     inline constexpr uint8_t uartDmaChannel = 3;
     inline constexpr uint8_t spiDmaChannel = 5;
     inline constexpr uint8_t adcDmaChannel = 7;
+    inline constexpr DmaChannel adcDma{ 1, adcDmaChannel };
+    inline constexpr DmaPair spiSlaveDma{ { 1, 8 }, { 1, 7 } };
+    inline constexpr DmaChannel dmaGroupDma{ 1, 8 };
+    inline constexpr uint8_t dmaGroupDmaRequest = GPDMA1_REQUEST_TIM2_UP;
+
+    inline constexpr uint8_t scaffoldTimer = 17;
+    inline constexpr uint32_t flashScratchFirstPage = 64;
+    inline constexpr uint32_t flashScratchEndPage = 128;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)
     {

@@ -22,13 +22,16 @@ _ALIAS_PATTERNS = (
     r"tim(1[0-7]|[1-9])ch[1-3]n",
     r"tim(1[0-7]|[1-9])bkin",
     r"qei(1[0-7]|[1-9])(a|b|idx)",
-    r"lptim[12]in[12]",
-    r"spi[1-3](clk|miso|mosi|cs)",
+    r"lptim[12](in|ch)[12]",
+    r"spi[1-3](clk|miso|mosi|cs|nss)",
+    r"i2c[1-3](scl|sda)",
+    r"qspi(clk|ncs|io[0-3])",
     r"usart[1-3](tx|rx|rts|cts)",
     r"lpuart1(tx|rx|rts|cts)",
     r"led[0-7]",
     r"gpio(1[0-5]|[0-9])",
     r"sw[1-3]",
+    r"mco",
 )
 _ALIAS_RE = re.compile("^(?:" + "|".join(_ALIAS_PATTERNS) + ")$")
 
@@ -41,13 +44,16 @@ def _generic_aliases() -> frozenset[str]:
         names |= {f"tim{timer}ch{channel}n" for channel in range(1, 4)}
         names |= {f"tim{timer}bkin"}
         names |= {f"qei{timer}{signal}" for signal in ("a", "b", "idx")}
-    names |= {f"lptim{index}in{line}" for index in (1, 2) for line in (1, 2)}
-    names |= {f"spi{index}{signal}" for index in range(1, 4) for signal in ("clk", "miso", "mosi", "cs")}
+    names |= {f"lptim{index}{kind}{line}" for index in (1, 2) for kind in ("in", "ch") for line in (1, 2)}
+    names |= {f"spi{index}{signal}" for index in range(1, 4) for signal in ("clk", "miso", "mosi", "cs", "nss")}
+    names |= {f"i2c{index}{signal}" for index in range(1, 4) for signal in ("scl", "sda")}
+    names |= {f"qspi{signal}" for signal in ("clk", "ncs", "io0", "io1", "io2", "io3")}
     names |= {f"usart{index}{signal}" for index in range(1, 4) for signal in ("tx", "rx", "rts", "cts")}
     names |= {f"lpuart1{signal}" for signal in ("tx", "rx", "rts", "cts")}
     names |= {f"led{index}" for index in range(8)}
     names |= {f"gpio{index}" for index in range(16)}
     names |= {f"sw{index}" for index in range(1, 4)}
+    names |= {"mco"}
     assert all(_ALIAS_RE.match(name) for name in names)
     return frozenset(names)
 

@@ -104,10 +104,11 @@ Run with `--depth quick` first; once it passes, run it again with `--depth full`
 Options from `tests/conftest.py`:
 
 - `--board` - board file name in `host/boards/` or a path to a YAML file (default `nucleo_wb55rg`, or `HAL_ST_BOARD`).
+- `--board-extra <yaml>` - YAML deep-merged over the board file, repeatable (or `HAL_ST_BOARD_EXTRA`, a list separated by `os.pathsep`): mappings merge, lists append, a scalar replaces, and a key ending in `!` replaces the value of the key without it (`limit_pins!: [...]`).
 - `--port`, `--baud` - firmware terminal serial port (or `HAL_ST_PORT`) and baud rate (default from the board file, 921600).
 - `--command-timeout` - seconds to wait for a reply (or `HAL_ST_COMMAND_TIMEOUT`, default from the board file); raise it for slow links such as port-bridge.
 - `--wiring-set a,b` - active wiring sets (or `HAL_ST_WIRING`).
-- `--with <tag>` - enable optional wiring (`loopback` for the SPI MOSI-MISO jumper), repeatable.
+- `--with <tag>` - enable optional wiring, repeatable. The tag must be an option of a selected `--wiring-set`, and options that exclude each other cannot be enabled together; otherwise the run stops with a usage error.
 - `--depth quick|full` - `quick` (default, or `HAL_ST_DEPTH`) runs a pairwise subset of every parameter matrix: every pair of values of any two parameters appears in at least one test. `full` runs the complete cartesian products.
 - `--set path=value` - override a test parameter, value parsed as YAML: `--set pwm.waveform.freq=[20000] --set uart.transfer.baud=[921600]`.
 - `--run-known-gaps` - also run the tests of known driver gaps that abort or hang the firmware (see [Known driver gaps](#known-driver-gaps)); they are skipped by default.
@@ -116,10 +117,12 @@ Options from the `ad3_waveforms_bench` pytest plugin (loaded automatically once 
 
 - `--ad3-serial` - pick an AD3 by serial number (or `AD3_SERIAL`); `--ad3-remote host[:port]` uses an AD3 on another machine (or `AD3_REMOTE`); `--no-ad3` skips every test that needs it.
 - `--fake` - run the HIL plumbing against the in-memory fakes (`FakeDwfApi` for the AD3, `hal_st_validation.fake_firmware` for the terminal); only useful when changing the test code.
-  - The fake firmware validates arguments in the firmware's order and models pins, instances, timer sharing, EXTI line ownership, ADC triggers and the watchdog.
+  - The fake firmware validates arguments in the firmware's order and models pins, instances, timer sharing, the peripherals and DMA channels groups share, EXTI line ownership, ADC triggers and the watchdog; the groups of `fakes/*.py` add the newer command groups.
   - It models no measured signal, so most tests that read the AD3 fail under `--fake --wiring-set ...`; `--fake --no-ad3` passes completely.
 
 Tests that need no AD3 (system, argument errors, limits, instance and timer sharing, watchdog behaviour) run with any wiring set.
+Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless it is marked `@pytest.mark.uses_option("T")` or `@pytest.mark.requires_option("T")`.
+Pins an option ties to a channel with a jumper resolve only for such tests. `requires_option` skips the test without the option, `conflicts_option` skips it with the option.
 Tests that reset the board on purpose (watchdog, UART swap) are marked `resets_board`; any other unexpected `EVT boot` fails the test that caused it.
 Every instance a test opened is closed afterwards and the AD3 outputs are released, so tests are independent (the firmware keeps at most one PWM timer, UART, SPI, ADC, encoder and watchdog open at a time).
 Use `-k`, `-m "not slow"` and `--junitxml report.xml` as usual.
@@ -272,6 +275,7 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
 
 ## What is tested
 
+- `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled ("pass --with <tag> or remove the wiring"), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
 - `test_gpio.py` - output levels with every drive (`hal::Speed`), inputs following the AD3 with every pull, pull-only idle levels, open drain, the user LED, eight pins at a time, pins held by other groups, interrupt counts for edge x handler type x pulse count x frequency against exact AD3 pulse trains, one EXTI line per port at a time, `gpio.pulse` timing.
 - `test_pwm.py` - for `PwmStm` and `SynchronousPwmStm`:
@@ -293,12 +297,15 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
 Each board file (`host/boards/<board>.yaml`) holds:
 
 - `terminal`, `clocks` (the kernel clocks the expectations use), `pins` (the PROTOCOL.md alias table, compared with `board.pins`; only the generic names of `hal_st_validation.protocol` are accepted) and `ad3` (supplies, analog limits).
-- `wiring_sets` - per set, `dio`, `wavegen` and `scope` maps from AD3 channel to pin or alias. An entry is either a pin or a mapping with `pin`, `jumpered` (pins tied to `pin` with a wire), `role` (a name tests can look up), `note` and `requires` (only used with `--with <tag>`); `jumpers` and `options` document extra wiring.
+- `wiring_sets` - per set, `dio`, `wavegen` and `scope` maps from AD3 channel to pin or alias. An entry is either a pin or a mapping with `pin`, `jumpered` (pins tied to `pin` with a wire), `role` (a name tests can look up), `note` and `requires` (only used with `--with <tag>`, which the set must offer); `jumpers` documents extra wiring.
+- `wiring_sets.<set>.options.<tag>` - the optional wiring a set offers: a description, or a mapping with `description`, `jumpered` (key pin -> pins the wiring ties to it; the self-check drives the key), `loads` (pins the wiring loads), `pullups` (pins it pulls up to 3V3) and `excludes` (options that cannot be fitted at the same time).
 - `known_gaps` - driver gaps with the test ids (wildcards `*` and `?`) they affect, the reason and whether they hang the firmware.
 - `tests` - the parameters of every test module: parameter matrices, pins and instances, levels and tolerances.
   - `@pytest.mark.matrix("pwm.waveform")` turns every key of that mapping into one test parameter of the same name; `@pytest.mark.board_params("argname", "section.key")` adds one parameter from a list.
   - All parameters of a test form one matrix: `--depth full` runs its product, `--depth quick` a pairwise subset (`hal_st_validation.pairwise`); `@pytest.mark.constraint(valid=...)` removes combinations a driver cannot take (for example parity with the synchronous UART).
   - Extending a sweep or moving a peripheral to other pins is a YAML change.
+  - `tests.wiring.undriven` lists pins nothing on the board may drive (solder bridges to ST-LINK lines); `test_wiring.py` checks them.
+  - `@pytest.mark.wiring_options("tag")` runs a test once per enabled option (`enabled=False`: per offered option that is not enabled), each case marked `uses_option`.
 
 To validate another board, add a board profile under `firmware/boards/<mcu>/` and the MCU to `emil_build_for` in `firmware/CMakeLists.txt`, copy a board file, adapt the pins, wiring sets and parameters, and pass `--board path/to/board.yaml`.
 
@@ -316,7 +323,10 @@ The console forwards commands, prints final lines and events, and keeps a histor
 
 In `hal_st_validation` (hal-st specific):
 
-- `firmware.py` - typed API with one group per PROTOCOL.md section (`fw.system`, `fw.gpio`, `fw.pwm`, `fw.uart`, `fw.spi`, `fw.adc`, `fw.qei`, `fw.wdt`); keyword arguments map 1:1 to protocol options (`continue_` for `continue`).
+- `firmware.py` - typed API with one group per PROTOCOL.md section (`fw.system`, `fw.gpio`, `fw.pwm`, `fw.uart`, `fw.spi`, `fw.adc`, `fw.qei`, `fw.wdt`); keyword arguments map 1:1 to protocol options (`continue_` for `continue`). The groups of `groups/*.py` are attached under the names their `GROUPS` mapping exports.
+- `groups/` - `Group` (`groups/base.py`: `_cmd`, `begin` for commands whose final line comes later, pin resolution) and one module per area exporting `GROUPS = {"name": GroupClass}`.
+- `fakes/` - `FakeGroup` and the argument helpers (`fakes/base.py`); one module per area with the fake firmware's model of its command groups, found automatically.
+- `patterns.py` - the payloads the firmware generates (`len=`, `pattern=inc|const|prbs`, `seed=`) and their CRC-32 (`crc=`).
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
 - `pairwise.py` - the full product and the deterministic pairwise generator behind `--depth`.
@@ -327,4 +337,5 @@ In the firmware (`firmware/`):
 
 - `Main.cpp` composes the console, the pin pool and every command group; `Console` is the terminal on USART1; `boards/<mcu>/BoardProfile.hpp` holds the aliases, reserved pins, default pins, DMA request lines, clocks and ADC tables of each board.
 - `PinFactoryStm` builds `hal::GpioPinStm`s over the generated pinout tables (bonded pins only, analog sharing, one EXTI line per port); `BoardInfoStm` reports the board, clock and reset cause; `TimerAllocation` keeps PWM, encoder and timer-triggered ADC off each other's timer.
+- `ResourceAllocation` keeps the groups that share an I2C, SPI, ADC or LPTIM instance, a DMA channel or an HSEM semaphore off each other, with the owner ids of `Owners.hpp`; `Payload` generates the `len=`/`pattern=` payloads and the `out=crc` CRCs; `ChannelPins`, `Stopwatch` (microseconds from the cycle counter) and `HsemMaster` (the one HSEM master of the STM32WB55) serve the newer groups.
 - One factory per command group (`UartFactory`, `SpiFactory`, `AdcFactory`, `PwmFactory`, `QeiFactory` with the `qei.index` command, `WatchDogFactory`) parses the hal-st options and builds the driver; `UnsupportedGroups` answers the rest.

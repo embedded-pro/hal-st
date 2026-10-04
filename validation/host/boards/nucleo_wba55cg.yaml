@@ -85,6 +85,23 @@ pins:
   sw1: PC13
   sw2: PB6
   sw3: PB7
+  i2c1scl: PB2
+  i2c1sda: PB1
+  i2c3scl: PA6
+  i2c3sda: PA7
+  spi3clk: PA0
+  spi3miso: PB9
+  spi3mosi: PB8
+  spi3nss: PA5
+  spi1nss: PA12
+  lptim1ch2: PA15
+  lptim2ch1: PA11
+  lptim2ch2: PA1
+  lptim1in1: PA0
+  lptim1in2: PB3
+  lptim2in1: PB9
+  lptim2in2: PB0
+  tim16ch1n: PB8
 
 ad3:
   # V+/V- stay off (null): the Nucleo is powered from the ST-LINK USB.
@@ -197,8 +214,9 @@ tests:
     boot_timeout: 5.0
     # USART1 is the terminal: `uart.open 1` answers busy.
     reserved_uarts: [1]
-    # Blinking debug LED (red LD3), reserved by the firmware.
-    debug_led: PB8
+    # Blinking debug LED (green LD2), reserved by the firmware; dark unless
+    # SB28 is closed (open on a stock board).
+    debug_led: PA9
     # SWD, LSE crystal and BOOT0: reserved like the terminal pins.
     reserved_pins: [PA13, PA14, PC14, PC15, PH3]
     # Instances the MCU lacks: ERR range (0 too, the peripherals start at 1).
@@ -212,12 +230,12 @@ tests:
       - pwm.open 4
       - qei.open 4
       - wdt.start 1 timeout=100
-    # Features the MCU lacks: ERR unsupported (no LPTIM encoder on the WBA55).
+    # Features the MCU lacks: ERR unsupported.
     unsupported_instances:
-      - qei.open 1 lp=1
       - qei.open 16
     # A pin the package does not bond out (or a port it lacks): ERR pin.
-    unbonded_pins: [PA4, PC0, PD0]
+    # PA3, PB10, PB11 and PB13 are SMPS and VDD11 pads on the UFQFPN48.
+    unbonded_pins: [PA4, PC0, PD0, PA3, PB10, PB11, PB13]
     # Names that are no pin: ERR pin.
     invalid_pins: [PA16, PA08, PD0, LED0, nosuchalias]
     delays_ms: [10, 200]
@@ -231,7 +249,7 @@ tests:
     input_pulls: [none, up, down]
     # RAM holds `limit` GPIO pins; `limit_pins` names one more.
     limit: 8
-    limit_pins: [gpio0, gpio1, gpio2, led0, led1, PA11, PB0, PA12, PB2]
+    limit_pins: [gpio0, gpio1, gpio2, led0, PB8, PA11, PB0, PA12, PB2]
     irq:
       edge: [rising, falling, both]
       handler: [immediate, dispatched]
@@ -566,9 +584,19 @@ tests:
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1
-      - eeprom.write 0 00
-      - eeprom.read 0 1
-      - eeprom.erase
       - eth.open
       - eth.status
       - eth.close
+      - hsem.take 0 procid=1
+      - hsem.release 0 procid=1
+      - hsem.status 0
+      - hsem.lock 0
+      - hsem.mine 0
+      - qspi.open 1
+      - qspi.cmd 1 instr=0x9f rx=3
+      - qspi.poll 1 match=0x01 mask=0x01
+      - qspi.xfer 1 9f
+      - qspi.close 1
+      - flash.stack stopped
+      - clock.mco sysclk
+      - clock.hsi48 1

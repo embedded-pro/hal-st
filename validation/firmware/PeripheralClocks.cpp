@@ -39,4 +39,58 @@ namespace validation
 
         return hclk / peripheralClock == 1 ? peripheralClock : peripheralClock * 2;
     }
+
+    bool I2cExists(uint8_t index)
+    {
+        return index >= 1 && index <= hal::peripheralI2c.size() && hal::peripheralI2c[index - 1] != nullptr;
+    }
+
+    uint32_t I2cKernelClock(uint8_t index)
+    {
+        switch (index)
+        {
+            case 1:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C1);
+            case 3:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C3);
+            default:
+                return 0;
+        }
+    }
+
+    bool SpiExists(uint8_t index)
+    {
+        return index >= 1 && index <= hal::peripheralSpi.size() && hal::peripheralSpi[index - 1] != nullptr;
+    }
+
+    bool SpiLimited(uint8_t index)
+    {
+#if defined(IS_SPI_LIMITED_INSTANCE)
+        return SpiExists(index) && IS_SPI_LIMITED_INSTANCE(hal::peripheralSpi[index - 1]);
+#else
+        return false;
+#endif
+    }
+
+    bool LpTimerExists(uint8_t index)
+    {
+#if defined(HAS_PERIPHERAL_LPTIMER)
+        return index >= 1 && index <= hal::peripheralLpTimer.size() && hal::peripheralLpTimer[index - 1] != nullptr;
+#else
+        return false;
+#endif
+    }
+
+    uint32_t LpTimerClock(uint8_t index)
+    {
+        switch (index)
+        {
+            case 1:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_LPTIM1);
+            case 2:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_LPTIM2);
+            default:
+                return 0;
+        }
+    }
 }

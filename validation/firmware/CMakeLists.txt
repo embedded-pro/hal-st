@@ -26,9 +26,15 @@ target_sources(hal_st.validation_firmware PRIVATE
     BoardInfoStm.cpp
     BoardInfoStm.hpp
     BoardTypes.hpp
+    ChannelPins.hpp
     Console.cpp
     Console.hpp
+    HsemMaster.cpp
+    HsemMaster.hpp
     Main.cpp
+    Owners.hpp
+    Payload.cpp
+    Payload.hpp
     PeripheralClocks.cpp
     PeripheralClocks.hpp
     PinFactoryStm.cpp
@@ -37,8 +43,11 @@ target_sources(hal_st.validation_firmware PRIVATE
     PwmFactory.hpp
     QeiFactory.cpp
     QeiFactory.hpp
+    ResourceAllocation.cpp
+    ResourceAllocation.hpp
     SpiFactory.cpp
     SpiFactory.hpp
+    Stopwatch.hpp
     TimerAllocation.cpp
     TimerAllocation.hpp
     UartFactory.cpp

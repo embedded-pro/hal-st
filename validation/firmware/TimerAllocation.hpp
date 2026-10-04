@@ -14,6 +14,7 @@ namespace validation
     public:
         services::HilStatus Claim(uint8_t timer, services::HilOwner owner);
         void Release(uint8_t timer, services::HilOwner owner);
+        std::optional<services::HilOwner> Owner(uint8_t timer) const;
 
     private:
         std::array<std::optional<services::HilOwner>, 32> owners;

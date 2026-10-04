@@ -2,7 +2,7 @@ import pytest
 from ad3_waveforms_bench.terminal import FirmwareError, FirmwareTerminal
 
 from hal_st_validation.fake_firmware import WB55_PINS, WBA55_PINS, FakeFirmware, FakeSerial
-from hal_st_validation.firmware import Firmware
+from hal_st_validation.firmware import Firmware, settle
 
 
 @pytest.fixture
@@ -84,6 +84,11 @@ def test_gpio_resolves_aliases_and_tracks_release(fw, fake):
         ({"channels": [1], "dead": "off", "sync": True}, "pwm.open 1 channels=1 dead=off sync=1"),
         ({"channels": [1], "inv": True, "invn": False, "idle": True, "idlen": False}, "pwm.open 1 channels=1 inv=1 invn=0 idle=1 idlen=0"),
         ({"channels": [1], "brk": "tim1bkin", "brkpol": "low", "brkauto": True}, "pwm.open 1 channels=1 brk=PB12 brkpol=low brkauto=1"),
+        (
+            {"channels": [1], "mode": "centerup", "preload": False, "trgo": "update"},
+            "pwm.open 1 channels=1 mode=centerup preload=0 trgo=update",
+        ),
+        ({"channels": [1], "brk": "tim1bkin", "brkfilter": 7}, "pwm.open 1 channels=1 brk=PB12 brkfilter=7"),
     ],
 )
 def test_pwm_open_formatting(fw, fake, kwargs, line):
@@ -202,3 +207,36 @@ def test_unsupported_groups_through_raw_commands(fw):
     with pytest.raises(FirmwareError) as error:
         fw.command("can.open", 1, bitrate=500000)
     assert error.value.reason == "unsupported"
+
+
+def test_spi_extension_formatting(fw, fake):
+    fw.spi.open(1, clk="spi1clk", mosi="spi1mosi", miso="spi1miso", nss="spi1nss", dma=True, bits=12, lsb=True)
+    assert last(fake) == "spi.open 1 clk=PA5 mosi=PA7 miso=PA6 dma=1 bits=12 lsb=1 nss=PA4"
+    fw.spi.close(1)
+    fw.spi.open(2, clk="spi2clk", mosi="spi2mosi", miso="spi2miso", lsb=False)
+    assert last(fake) == "spi.open 2 clk=PB13 mosi=PB15 miso=PB14 lsb=0"
+
+
+def test_adc_trgo_formatting(fw, fake):
+    fw.pwm.open(2, channels=[1], trgo="update")
+    fw.adc.open(1, pins=["ain4"], trgo=2)
+    assert last(fake) == "adc.open 1 pins=PC3 trgo=2"
+    assert fw.open_instances == [("pwm", 2), ("adc", 1)]
+
+
+def test_uart_sendonly_formatting(fw, fake):
+    fw.uart.open(1, lp=True, tx="lpuart1tx", sendonly=True)
+    assert last(fake) == "uart.open 1 lp=1 tx=PA2 sendonly=1"
+    assert fw.uart.recv(1) == b""
+
+
+def test_qei_capture_on_edges_formatting(fw, fake):
+    fw.qei.open(1, lp=True, a="lptim1in1", b="lptim1in2", cap="rise")
+    assert last(fake) == "qei.open 1 lp=1 a=PC0 b=PC2 cap=rise"
+
+
+def test_begin_sends_without_waiting(fw, fake):
+    pending = fw.gpio.begin("cfg", "led0", "out", drive="fast")
+    assert pending.wait().ok
+    assert last(fake) == "gpio.cfg led0 out drive=fast"
+    assert settle(fw.gpio.begin("get", "PB0")).as_int("value") == 0

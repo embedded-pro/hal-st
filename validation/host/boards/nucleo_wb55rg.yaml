@@ -79,6 +79,22 @@ pins:
   sw1: PC4
   sw2: PD0
   sw3: PD1
+  i2c1scl: PB8
+  i2c1sda: PB9
+  i2c3scl: PC0
+  i2c3sda: PC1
+  spi2clk: PB13
+  spi2miso: PB14
+  spi2mosi: PB15
+  spi2nss: PB12
+  spi1nss: PA4
+  qspiclk: PA3
+  qspincs: PA2
+  qspiio0: PB9
+  qspiio1: PB8
+  qspiio2: PA7
+  qspiio3: PA6
+  mco: PA8
 
 ad3:
   # V+/V- stay off (null): the Nucleo is powered from the ST-LINK USB.
@@ -657,9 +673,12 @@ tests:
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1
-      - eeprom.write 0 00
-      - eeprom.read 0 1
-      - eeprom.erase
       - eth.open
       - eth.status
       - eth.close
+      - lptpwm.open 1 pins=PA15
+      - lptpwm.duty 1 1 50
+      - lptpwm.pulse 1 1 10 100
+      - lptpwm.start 1
+      - lptpwm.stop 1
+      - lptpwm.close 1

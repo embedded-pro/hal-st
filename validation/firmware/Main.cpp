@@ -19,6 +19,7 @@
 #include "validation/firmware/PinFactoryStm.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/SpiFactory.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
 #include "validation/firmware/UartFactory.hpp"
@@ -43,6 +44,7 @@ int main()
     static services::HilPinNamingDefault naming{ validation::board::portLetters, validation::board::maximumPinIndex, infra::MakeRange(validation::board::aliases) };
     static services::HilContext context{ console.response, pins, naming, console.terminal };
     static validation::TimerAllocation timers;
+    static validation::ResourceAllocation resources;
 
     static hal::cortex::Reset reset;
     static services::HilSystemCommands system{ context, boardInfo, reset };
