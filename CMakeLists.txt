@@ -84,6 +84,9 @@ add_subdirectory(services)
 if (HALST_BUILD_EXAMPLES OR HALST_BUILD_EXAMPLES_FREERTOS)
     add_subdirectory(examples)
 endif()
+if (HALST_BUILD_EXAMPLES)
+    add_subdirectory(validation)
+endif()
 
 emil_clangformat_directories(hal_st DIRECTORIES .)
 
