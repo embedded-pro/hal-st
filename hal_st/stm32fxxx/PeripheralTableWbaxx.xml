@@ -28,4 +28,8 @@
   </peripheral>
   <peripheral name="Aes" type="AES_TypeDef*"><item name="AES"/></peripheral>
   <peripheral name="Pka" type="PKA_TypeDef*"><item name="PKA"/><interrupt/></peripheral>
+  <peripheral name="LpTimer" type="LPTIM_TypeDef*" prefix="LPTIM">
+    <item name="LPTIM"/>
+    <interrupt/>
+  </peripheral>
 </peripherals>
