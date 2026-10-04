@@ -80,11 +80,8 @@ namespace hal
         uartHandle.AdvancedInit = {};
 
 #if defined(UART_ADVFEATURE_SWAP_INIT)
-        if (config.swapTxRx)
-        {
-            uartHandle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_SWAP_INIT;
-            uartHandle.AdvancedInit.Swap = UART_ADVFEATURE_SWAP_ENABLE;
-        }
+        uartHandle.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_SWAP_INIT;
+        uartHandle.AdvancedInit.Swap = config.swapTxRx ? UART_ADVFEATURE_SWAP_ENABLE : UART_ADVFEATURE_SWAP_DISABLE;
 #endif
 #endif
 
@@ -101,7 +98,7 @@ namespace hal
 
     UartStm::~UartStm()
     {
-        uartArray[uartIndex]->CR1 &= ~(USART_CR1_TE | USART_CR1_RE);
+        uartArray[uartIndex]->CR1 &= ~(USART_CR1_TXEIE | USART_CR1_TCIE | USART_CR1_RXNEIE | USART_CR1_TE | USART_CR1_RE);
 
 #if defined(HAS_PERIPHERAL_LPUART)
         if (uartArray.begin() == peripheralLpuart.begin())
@@ -122,17 +119,18 @@ namespace hal
 
         __DMB();
 
-        uartArray[uartIndex]->CR1 |= USART_CR1_TXEIE;
+        ATOMIC_SET_BIT(uartArray[uartIndex]->CR1, USART_CR1_TXEIE);
     }
 
     void UartStm::ReceiveData(infra::Function<void(infra::ConstByteRange data)> dataReceived)
     {
         this->dataReceived = dataReceived;
 
+        // Atomic, otherwise a TXEIE clear by Invoke during the read-modify-write is undone and TXE interrupts never stop
         if (dataReceived == nullptr)
-            uartArray[uartIndex]->CR1 &= ~(USART_CR1_RE | USART_CR1_RXNEIE);
+            ATOMIC_CLEAR_BIT(uartArray[uartIndex]->CR1, USART_CR1_RE | USART_CR1_RXNEIE);
         else
-            uartArray[uartIndex]->CR1 |= USART_CR1_RE | USART_CR1_RXNEIE;
+            ATOMIC_SET_BIT(uartArray[uartIndex]->CR1, USART_CR1_RE | USART_CR1_RXNEIE);
     }
 
     void UartStm::RegisterInterrupt(const Config& config)
@@ -172,16 +170,18 @@ namespace hal
                 buffer.push_back(receivedByte);
             }
 
-            // If buffer is empty then interrupt was raised by Overrun Error (ORE) and we miss data.
-#if defined(USART_ISR_ORE)
-            really_assert(!(uartArray[uartIndex]->ISR & USART_ISR_ORE));
-#else
-            really_assert(!(uartArray[uartIndex]->SR & USART_SR_ORE));
-#endif
-
             if (dataReceived != nullptr)
                 dataReceived(buffer.range());
         }
+
+#if defined(USART_ICR_ORECF)
+        if (uartArray[uartIndex]->ISR & USART_ISR_ORE)
+            uartArray[uartIndex]->ICR = USART_ICR_ORECF;
+#else
+        // An SR then DR read clears ORE; while RXNE is set the receive loop does that read and keeps the byte
+        if ((uartArray[uartIndex]->SR & (USART_SR_ORE | USART_SR_RXNE)) == USART_SR_ORE)
+            static_cast<void>(uartArray[uartIndex]->DR);
+#endif
 
         if (sending && ((uartArray[uartIndex]->CR1 & USART_CR1_TXEIE) != 0))
         {

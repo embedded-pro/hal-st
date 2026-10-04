@@ -55,6 +55,7 @@ namespace hal
 
     UartStmDma::~UartStmDma()
     {
+        transmitDmaChannel.StopTransfer();
         uartArray[uartIndex]->CR3 &= ~USART_CR3_DMAT;
     }
 
