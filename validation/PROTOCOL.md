@@ -133,14 +133,37 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `uart.recv <index> [timeout=<ms>] [len=<n>]` → `OK data=<hex>` with everything received since the last `uart.recv`, at most 256 bytes (waits up to `timeout`, default 1000, at most 10000, for `len` bytes when given, and returns what arrived even if fewer)
 - `uart.close <index>` → `OK`
 
-## SPI master (`hal::SpiMasterStm`, `dma=1` selects `hal::SpiMasterStmDma`, `sync=1` selects `hal::SynchronousSpiMasterStm`)
+## SPI master (`hal::SpiMasterStm`, `dma=1` selects `hal::SpiMasterStmDma`, `sync=1` selects `hal::SynchronousSpiMasterStm`, `bits` adds `hal::SpiDataSizeConfiguratorStm`)
 
-- `spi.open <index> clk=<pin> mosi=<pin> miso=<pin> [cs=<pin>] [baud=<hz>] [mode=0|1|2|3] [dma=0|1] [sync=0|1]` → `OK`; defaults `baud=1000000 mode=0`
+- `spi.open <index> clk=<pin> mosi=<pin> miso=<pin> [cs=<pin>] [nss=<pin>] [baud=<hz>] [mode=0|1|2|3] [dma=0|1] [sync=0|1] [bits=<4-16>] [lsb=0|1]` → `OK`; defaults `baud=1000000 mode=0 bits=8 lsb=0`
   - the SPI clock is the fastest `spiclk / 2^n` (n = 1-8) not above `baud`, where `spiclk` is the kernel clock of the instance; `baud` outside `spiclk/256 ... spiclk/2` returns `ERR range`
   - `cs` is a GPIO chip select (any free pin, driven by EMIL's `SpiMasterWithChipSelect` or `SynchronousSpiMasterWithChipSelect`): low during a transfer, released after it unless `continue=1`
   - `dma=1` with `sync=1` returns `ERR usage`
+  - `nss` is the hardware slave select of the driver (`slaveSelect`): the pin must offer the instance's NSS function (`ERR pin`) and excludes `cs` (`ERR usage`). The masters configure the NSS pin but initialise the SPI with software NSS, so the pin is never driven (a known gap)
+  - `lsb=1` sends and receives the least significant bit first
+  - `bits` other than 8 needs `dma=1` (`ERR unsupported`); every transfer then runs with frames of `bits` bits (`SpiDataSizeConfiguratorStm`, installed for the whole open)
+  - up to 8 bits each buffer byte is one frame (its low bits); from 9 bits on, each frame takes two buffer bytes, little endian, so `txHex` and `rx` need an even length. Received frames are right aligned, the bits above the frame zero
+  - SPI3 of the STM32WBA55 is a limited instance: `bits` 8 or 16 only (`ERR unsupported`)
+  - the instance is shared with `spis`: an instance the SPI slave holds returns `ERR busy`
 - `spi.xfer <index> <txHex> [rx=<n>] [continue=0|1]` → `OK rx=<hex>`; with an empty `txHex` (`-`) it receives `rx` bytes; `rx` defaults to the length of `txHex`, the transfer lasts max(tx, `rx`) bytes with `txHex` zero-padded, and the first `rx` received bytes are returned (`rx=0` only transmits); at most 64 bytes
 - `spi.close <index>` → `OK`
+
+## SPI slave (`hal::SpiSlaveStmDma`)
+
+- `spis.open <index> clk=<pin> miso=<pin> mosi=<pin> nss=<pin>` → `OK`: all four pins are required (`ERR usage`), each must offer its SPI function of the instance (`ERR pin`); the slave runs mode 0, 8-bit frames, MSB first, with the hardware NSS input (low selects it)
+  - DMA: STM32WB55 DMA2 channels 1 (transmit) and 2 (receive); STM32WBA55 GPDMA1 channels 8 (transmit) and 7 (receive), shared with `adc`, `ain.burst` and `dma.wave`. The instance held by `spi`, a held channel or pin returns `ERR busy`
+- `spis.arm <index> <txHex|-> [rx=<n>] [len=<n>] [pattern=inc|const|prbs] [seed=<n>]` → `OK` once the transfer is handed to the driver (`SendAndReceive`)
+  - full duplex: `rx` left out or equal to the transmit length (another value returns `ERR usage`); send only: `rx=0`; receive only: `-` with `rx=<n>`; nothing to send or receive returns `ERR usage`. Lengths 1-1024 (`ERR range`)
+  - `-` with `len=<n>` sends a payload generated in firmware (see "Framing"); `pattern`/`seed` without `len`, or `len` with hex, return `ERR usage`
+  - a transfer already armed returns `ERR busy`
+  - while nothing is armed the slave is disabled: frames a master clocks then are dropped. Frames beyond the armed length are dropped as well; the transfer completes with the armed length
+  - receive only sends the DMA's dummy word on MISO (undefined content)
+- `spis.result <index> [wait=<ms>] [out=hex|crc]` → `OK done=1 rx=<hex>` (or `OK done=1 len=<n> crc=<hex8>` with `out=crc`) once the transfer is done; `OK done=0` at once when nothing is armed, or after `wait` ms (0-10000, default 1000) with the transfer still armed
+  - `out=hex` holds 128 bytes: a longer receive length returns `ERR range`; a send-only transfer answers `rx=` with no data
+  - the result stays readable until the next `spis.arm` or `spis.cancel`
+  - a second `spis.result` while one waits returns `ERR busy`; `spis.cancel` and `spis.close` answer a waiting `spis.result` with `OK done=0` first
+- `spis.cancel <index>` → `OK cancelled=<0|1>`: stops the armed transfer (`CancelTransmission`); `cancelled=1` when it was still running
+- `spis.close <index>` → `OK`: cancels the transfer, then releases the driver, its DMA channels and pins
 
 ## ADC (`hal::AdcStm` with `hal::AdcDmaMultiChannelStmBase`)
 

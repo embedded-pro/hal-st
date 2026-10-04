@@ -378,7 +378,14 @@ wiring_sets:
 # literal); `hangs` gaps abort or hang the firmware, so their tests are
 # skipped unless --run-known-gaps; the others are expected failures. --fake
 # ignores them.
-known_gaps: []
+known_gaps:
+  - tests:
+      - test_spi_ext.py::test_hardware_nss*
+    reason: >-
+      hal_st/stm32fxxx/SpiMasterStm.cpp:24, SpiMasterStmDma.cpp:38 and
+      hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.cpp:23 - the SPI
+      masters mux slaveSelect to NSS but initialise SPI_NSS_SOFT, so NSS is
+      never driven; hardware NSS framing needs a decision (DESIGN B.14)
 
 # Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
 # per key: `--depth full` runs the cartesian product, `--depth quick` a
@@ -405,6 +412,8 @@ tests:
       - qei.open 3
       - adc.open 4
       - wdt.start 1 timeout=100
+      - spis.open 0
+      - spis.open 3
     # Features the MCU lacks: ERR unsupported.
     unsupported_instances:
       - qei.open 16
@@ -595,6 +604,15 @@ tests:
         mosi: spi1mosi
         miso: spi1miso
         cs: spi1cs
+      # SPI2 reaches the AD3 only through the spiloop jumpers (`option`):
+      # its tests skip without --with spiloop.
+      - name: spi2
+        index: 2
+        clk: spi2clk
+        mosi: spi2mosi
+        miso: spi2miso
+        cs: spi2nss
+        option: spiloop
     variants:
       interrupt:
         dma: 0
@@ -798,6 +816,85 @@ tests:
     wcycle_ms: 10
     erase_size: 8192
     freq: 400000
+  # hal::SpiSlaveStmDma (`spis.*`): the AD3 SPI master (mode 0, MSB first,
+  # its chip select on `nss`) clocks the instances; `option` as above.
+  spis:
+    instances:
+      - name: spi1
+        index: 1
+        clk: spi1clk
+        miso: spi1miso
+        mosi: spi1mosi
+        nss: spi1nss
+      - name: spi2
+        index: 2
+        clk: spi2clk
+        miso: spi2miso
+        mosi: spi2mosi
+        nss: spi2nss
+        option: spiloop
+    freqs: [100000, 1000000, 4000000]
+    # Above 128 bytes the result is compared by CRC (`out=crc`).
+    lengths: [1, 2, 64, 255, 1024]
+    # The board's own master against the slave of the other instance
+    # (requires --with spiloop); EMIL's spi.xfer holds 64 bytes. The
+    # master drives the slave's NSS with its GPIO chip select `cs`.
+    loop_lengths: [1, 2, 64]
+    loop_baud: 1000000
+    loop_variants: [interrupt, dma, sync]
+    loops:
+      - name: spi1-to-spi2
+        master:
+          index: 1
+          clk: spi1clk
+          mosi: spi1mosi
+          miso: spi1miso
+          cs: spi1cs
+        slave:
+          index: 2
+          clk: spi2clk
+          miso: spi2miso
+          mosi: spi2mosi
+          nss: spi2nss
+      - name: spi2-to-spi1
+        master:
+          index: 2
+          clk: spi2clk
+          mosi: spi2mosi
+          miso: spi2miso
+          cs: spi2nss
+        slave:
+          index: 1
+          clk: spi1clk
+          miso: spi1miso
+          mosi: spi1mosi
+          nss: spi1nss
+  # spi.open lsb=, bits= (dma=1, SpiDataSizeConfiguratorStm) and nss=. Frames
+  # above 8 bits take two buffer bytes, little endian (spiwords.spi_frames),
+  # so `payload` has an even length. `bits` lists the sizes decoded on the
+  # logic analyzer per instance; `limited` instances take 8 and 16 only.
+  spi_ext:
+    instances:
+      - name: spi1
+        index: 1
+        clk: spi1clk
+        mosi: spi1mosi
+        miso: spi1miso
+        cs: spi1cs
+        nss: spi1nss
+        bits: [4, 8, 12, 16]
+      - name: spi2
+        index: 2
+        clk: spi2clk
+        mosi: spi2mosi
+        miso: spi2miso
+        cs: spi2nss
+        nss: spi2nss
+        bits: [4, 8, 12, 16]
+        option: spiloop
+    lsb: [0, 1]
+    baud: 1000000
+    payload: "a53c0f8001fe7e42"
   unsupported:
     commands:
       - comp.open 1

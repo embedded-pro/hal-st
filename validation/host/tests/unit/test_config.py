@@ -129,11 +129,17 @@ def test_wb55_bundle2_moves_the_encoder_inputs():
 
 @pytest.mark.parametrize("name", BOARDS)
 def test_parameters_reference_wired_pins(name):
-    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2)."""
+    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2); SPI instances are wired in some
+    set, through the jumpers of their `option` when they name one."""
     board = load_board(name)
 
     def wired(pin, kind="dio", bundle="bundle1"):
         return board.wiring([bundle]).channel(kind, board.resolve_pin(pin)) is not None
+
+    def wired_in_a_set(pin, option=None):
+        tags = [option] if option else []
+        sets = [set_name for set_name, wiring_set in board.wiring_sets.items() if option is None or option in wiring_set.options]
+        return any(board.wiring([bundle], tags).channel("dio", board.resolve_pin(pin), allowed=tags) is not None for bundle in sets)
 
     for pin in board.param("gpio.loop_pins") + board.param("gpio.output_pins"):
         assert wired(pin), pin
@@ -149,7 +155,7 @@ def test_parameters_reference_wired_pins(name):
     for instance in board.param("uart.instances"):
         assert all(wired(instance[key]) for key in ("tx", "rx", "rts", "cts")), instance
     for instance in board.param("spi.instances"):
-        assert all(wired(instance[key]) for key in ("clk", "cs", "mosi", "miso")), instance
+        assert all(wired_in_a_set(instance[key], instance.get("option")) for key in ("clk", "cs", "mosi", "miso")), instance
     for instance in board.param("qei.instances"):
         assert all(wired(instance[key]) for key in ("a", "b", "idx")), instance
     for instance in board.param("qei.lp_instances"):

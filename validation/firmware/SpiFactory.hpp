@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hal_st/stm32fxxx/DmaStm.hpp"
+#include "hal_st/stm32fxxx/SpiDataSizeConfiguratorStm.hpp"
 #include "hal_st/stm32fxxx/SpiMasterStm.hpp"
 #include "hal_st/stm32fxxx/SpiMasterStmDma.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.hpp"
@@ -10,6 +11,7 @@
 #include "services/peripheral/SpiMasterWithChipSelect.hpp"
 #include "services/synchronous_peripheral/SynchronousSpiMasterWithChipSelect.hpp"
 #include "validation/firmware/BoardTypes.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
 #include <cstdint>
 #include <optional>
 #include <variant>
@@ -20,7 +22,7 @@ namespace validation
         : public services::HilSpiFactory
     {
     public:
-        SpiFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma);
+        SpiFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma, ResourceAllocation& resources);
 
         uint8_t Instances() const override;
         infra::MemoryRange<const char* const> OpenKeys() const override;
@@ -35,10 +37,13 @@ namespace validation
             std::optional<HilPinId> mosi;
             std::optional<HilPinId> miso;
             std::optional<HilPinId> chipSelect;
+            std::optional<HilPinId> slaveSelect;
             uint32_t baud = 1000000;
             uint32_t mode = 0;
+            uint32_t bits = 8;
             bool dma = false;
             bool synchronous = false;
+            bool lsb = false;
             uint32_t baudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
         };
 
@@ -48,6 +53,7 @@ namespace validation
             hal::GpioPin* mosi = nullptr;
             hal::GpioPin* miso = nullptr;
             hal::GpioPin* chipSelect = nullptr;
+            hal::GpioPin* slaveSelect = nullptr;
         };
 
         class TrackedSpiMaster
@@ -84,9 +90,12 @@ namespace validation
     private:
         const services::HilPinNaming& naming;
         hal::DmaStm& dma;
+        ResourceAllocation& resources;
+        uint8_t index = 0;
         std::optional<hal::DmaStm::TransmitStream> transmitStream;
         std::optional<hal::DmaStm::ReceiveStream> receiveStream;
         std::variant<std::monostate, hal::SpiMasterStm, hal::SpiMasterStmDma, hal::SynchronousSpiMasterStm> driver;
+        std::optional<hal::SpiDataSizeConfiguratorStm> dataSize;
         std::optional<services::SpiMasterWithChipSelect> chipSelect;
         std::optional<services::SynchronousSpiMasterWithChipSelect> synchronousChipSelect;
         std::optional<TrackedSpiMaster> tracked;

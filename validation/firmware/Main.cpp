@@ -25,6 +25,7 @@
 #include "validation/firmware/QeiFactory.hpp"
 #include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/SpiFactory.hpp"
+#include "validation/firmware/SpiSlaveGroup.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
 #include "validation/firmware/UartFactory.hpp"
 #include "validation/firmware/UnsupportedGroups.hpp"
@@ -60,7 +61,7 @@ int main()
     static validation::UartFactoryStm uartFactory{ naming, console.dma };
     static services::HilUartCommands::WithCapacity<256, 112> uart{ context, uartFactory };
 
-    static validation::SpiFactoryStm spiFactory{ naming, console.dma };
+    static validation::SpiFactoryStm spiFactory{ naming, console.dma, resources };
     static services::HilSpiCommands::WithCapacity<64> spi{ context, spiFactory };
 
     static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers };
@@ -79,6 +80,9 @@ int main()
     static validation::I2cTargetCommands i2cTarget{ context, i2cTargetFactory };
     static validation::EepromGroup eepromGroup{ context, naming, resources };
     static services::HilEepromCommands::WithCapacity<128> eeprom{ context, eepromGroup };
+
+    static validation::SpiSlaveFactory spiSlaveFactory{ naming, console.dma, resources };
+    static validation::SpiSlaveCommands spiSlave{ context, spiSlaveFactory };
 
     validation::CreateUnsupportedGroups(context);
 

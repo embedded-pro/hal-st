@@ -161,7 +161,9 @@ def test_run_known_gaps_turns_skips_into_expected_failures(tmp_path):
 
 
 def test_a_board_without_gaps_marks_nothing(tmp_path):
-    marks = collected_marks(tmp_path, "nucleo_wb55rg", "--port", "nosuchport")
+    no_gaps = tmp_path / "no_gaps.yaml"
+    no_gaps.write_text("known_gaps!: []\n", encoding="utf-8")
+    marks = collected_marks(tmp_path, "nucleo_wb55rg", "--port", "nosuchport", "--board-extra", str(no_gaps))
     assert not any("known gap" in reason for found in marks.values() for _, reason in found)
 
 

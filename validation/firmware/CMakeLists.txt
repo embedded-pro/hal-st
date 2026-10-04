@@ -57,6 +57,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     ResourceAllocation.hpp
     SpiFactory.cpp
     SpiFactory.hpp
+    SpiSlaveGroup.cpp
+    SpiSlaveGroup.hpp
     Stopwatch.hpp
     TimerAllocation.cpp
     TimerAllocation.hpp

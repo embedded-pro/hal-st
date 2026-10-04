@@ -1,10 +1,11 @@
 """SPI master (`hal::SpiMasterStm`, `SpiMasterStmDma`, `SynchronousSpiMasterStm`), decoded from a logic-analyzer
 capture.
 
-Wiring set `bundle1`: CLK, CS, MOSI and MISO of `tests.spi.instances` on DIOs. The AD3 SDK has no verified
-SPI-slave mode, so the firmware master is observed with the logic analyzer: MISO is driven to a static level by
-the AD3, or, with `--with loopback` and a MOSI-MISO jumper, only monitored (the firmware must then read back what
-it sent). The clock is the fastest spiclk / 2^n not above `baud` (`expect.spi_clock`).
+Wiring set `bundle1`: CLK, CS, MOSI and MISO of `tests.spi.instances` on DIOs (an instance with `option` is
+reached only through that option's jumpers, e.g. WB55 SPI2 with `--with spiloop`). The firmware master is
+observed with the logic analyzer: MISO is driven to a static level by the AD3, or, where the loopback jumper ties
+the instance's MOSI to its MISO (`--with loopback`), only monitored (the firmware must then read back what it
+sent). The clock is the fastest spiclk / 2^n not above `baud` (`expect.spi_clock`).
 """
 
 from __future__ import annotations
@@ -21,8 +22,17 @@ def spi_cfg(board_cfg):
     return board_cfg.param("spi")
 
 
-def spi_dios(need, instance):
+def spi_dios(need, wiring, instance):
+    option = instance.get("option")
+    if option and not wiring.has(option):
+        pytest.skip(f"{instance['name']} is wired with --with {option} only")
     return {key: need.dio(instance[key]) for key in ("clk", "cs", "mosi", "miso")}
+
+
+def looped(wiring, board_cfg, instance):
+    """The loopback jumper ties this instance's MOSI to its MISO."""
+    mosi, miso = (board_cfg.resolve_pin(instance[key]) for key in ("mosi", "miso"))
+    return miso in wiring.jumpered_to(mosi, {"loopback"})
 
 
 def measured_clock(clk, rate, baud):
@@ -60,8 +70,8 @@ def expected_rx(payload, loopback, miso_level):
     return payload if loopback else bytes([0xFF if miso_level else 0x00] * len(payload))
 
 
-def prepare_miso(ad3, wiring, dios, miso_level):
-    loopback = wiring.has("loopback")
+def prepare_miso(ad3, wiring, board_cfg, instance, dios, miso_level):
+    loopback = looped(wiring, board_cfg, instance)
     if loopback and miso_level:
         pytest.skip("MISO follows MOSI with the loopback jumper")
     if not loopback:
@@ -70,12 +80,14 @@ def prepare_miso(ad3, wiring, dios, miso_level):
 
 
 @pytest.mark.ad3
+@pytest.mark.uses_option("loopback")
+@pytest.mark.uses_option("spiloop")
 @pytest.mark.board_params("instance", "spi.instances")
 @pytest.mark.matrix("spi.transfer")
 @pytest.mark.board_params("miso_level", "spi.miso_levels")
 def test_transfer(fw, ad3, need, wiring, board_cfg, spi_cfg, instance, mode, baud, variant, cs, miso_level):
-    dios = spi_dios(need, instance)
-    loopback = prepare_miso(ad3, wiring, dios, miso_level)
+    dios = spi_dios(need, wiring, instance)
+    loopback = prepare_miso(ad3, wiring, board_cfg, instance, dios, miso_level)
     use_cs = cs == "gpio"
     open_spi(fw, spi_cfg, instance, variant, use_cs, baud=baud, mode=mode)
     clock = expect.spi_clock(board_cfg.clock("spi", instance["index"]), baud)
@@ -106,11 +118,12 @@ def test_transfer(fw, ad3, need, wiring, board_cfg, spi_cfg, instance, mode, bau
 
 
 @pytest.mark.ad3
+@pytest.mark.uses_option("spiloop")
 @pytest.mark.board_params("instance", "spi.instances")
 @pytest.mark.matrix("spi.sessions")
-def test_continued_session(fw, ad3, need, spi_cfg, instance, mode, variant):
+def test_continued_session(fw, ad3, need, wiring, spi_cfg, instance, mode, variant):
     """`continue=1` keeps the chip select low for the next `spi.xfer`; the bytes of both arrive in one session."""
-    dios = spi_dios(need, instance)
+    dios = spi_dios(need, wiring, instance)
     ad3.dio.drive(dios["miso"], 0)
     baud = spi_cfg["session_baud"]
     open_spi(fw, spi_cfg, instance, variant, baud=baud, mode=mode)
@@ -129,22 +142,26 @@ def test_continued_session(fw, ad3, need, spi_cfg, instance, mode, variant):
 
 
 @pytest.mark.ad3
+@pytest.mark.uses_option("loopback")
+@pytest.mark.uses_option("spiloop")
 @pytest.mark.board_params("instance", "spi.instances")
 @pytest.mark.matrix("spi.receive_only")
-def test_receive_only_first(fw, ad3, need, wiring, spi_cfg, instance, variant):
+def test_receive_only_first(fw, ad3, need, wiring, board_cfg, spi_cfg, instance, variant):
     """A receive-only transfer (`spi.xfer <i> - rx=<n>`) right after `spi.open` clocks out zeros and returns MISO."""
-    dios = spi_dios(need, instance)
-    loopback = prepare_miso(ad3, wiring, dios, 0 if wiring.has("loopback") else 1)
+    dios = spi_dios(need, wiring, instance)
+    loopback = prepare_miso(ad3, wiring, board_cfg, instance, dios, 0 if looped(wiring, board_cfg, instance) else 1)
     open_spi(fw, spi_cfg, instance, variant, baud=1000000)
     assert fw.spi.xfer(instance["index"], b"", rx=4) == (b"\x00" * 4 if loopback else b"\xff" * 4)
 
 
 @pytest.mark.ad3
+@pytest.mark.uses_option("loopback")
+@pytest.mark.uses_option("spiloop")
 @pytest.mark.board_params("instance", "spi.instances")
 @pytest.mark.matrix("spi.largest")
-def test_largest_transfer(fw, ad3, need, wiring, spi_cfg, instance, variant):
-    dios = spi_dios(need, instance)
-    loopback = prepare_miso(ad3, wiring, dios, 0 if wiring.has("loopback") else 1)
+def test_largest_transfer(fw, ad3, need, wiring, board_cfg, spi_cfg, instance, variant):
+    dios = spi_dios(need, wiring, instance)
+    loopback = prepare_miso(ad3, wiring, board_cfg, instance, dios, 0 if looped(wiring, board_cfg, instance) else 1)
     open_spi(fw, spi_cfg, instance, variant, baud=1000000)
     size = spi_cfg["max_transfer"]
     payload = bytes((i * 11 + 5) & 0xFF for i in range(size))
