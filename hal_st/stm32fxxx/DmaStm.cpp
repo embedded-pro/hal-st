@@ -568,8 +568,20 @@ namespace hal
     bool DmaStm::Stream::StopTransfer() const
     {
         bool finished = Finished();
+#if defined(DMA_SxCR_EN)
+        // A stream sets TCIF once clearing EN has taken effect, which would report the aborted transfer as complete
+        auto streamRegister = DmaChannel[dmaIndex][streamIndex];
+        auto interrupts = streamRegister->CR & (DMA_SxCR_TCIE | DMA_SxCR_HTIE);
+        streamRegister->CR &= ~interrupts;
+        Disable();
+        while (!Finished())
+            ;
+        *dmaIFCR[dmaIndex][streamIndex] |= streamToTCIF[streamIndex] | streamToHTIF[streamIndex];
+        streamRegister->CR |= interrupts;
+#else
         Disable();
         *dmaIFCR[dmaIndex][streamIndex] |= streamToTCIF[streamIndex] | streamToHTIF[streamIndex];
+#endif
         return !finished;
     }
 
@@ -584,6 +596,8 @@ namespace hal
                 ;
         }
         streamRegister->CCR |= DMA_CCR_RESET;
+        // A stale SUSPF would end the wait above early on the next stop, before the channel is suspended
+        streamRegister->CFCR = DMA_CFCR_SUSPF;
 #elif defined(DMA_CCR_EN)
         streamRegister->CCR &= ~DMA_CCR_EN;
 #else
