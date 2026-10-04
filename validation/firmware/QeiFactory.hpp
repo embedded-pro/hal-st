@@ -6,6 +6,7 @@
 #include "services/hil/commands/HilQeiCommands.hpp"
 #include "services/util/Terminal.hpp"
 #include "validation/firmware/BoardTypes.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
 #include <array>
 #include <cstdint>
@@ -18,7 +19,14 @@ namespace validation
         : public services::HilQeiFactory
     {
     public:
-        QeiFactoryStm(const services::HilPinNaming& naming, TimerAllocation& timers);
+        enum class LowPowerDecode : uint8_t
+        {
+            bothEdges,
+            risingEdges,
+            fallingEdges,
+        };
+
+        QeiFactoryStm(const services::HilPinNaming& naming, TimerAllocation& timers, ResourceAllocation& resources);
 
         uint8_t Instances() const override;
         infra::MemoryRange<const char* const> OpenKeys() const override;
@@ -38,6 +46,7 @@ namespace validation
         struct Request
         {
             bool lowPower = false;
+            LowPowerDecode lowPowerDecode = LowPowerDecode::bothEdges;
             std::optional<HilPinId> a;
             std::optional<HilPinId> b;
             std::optional<HilPinId> index;
@@ -63,11 +72,13 @@ namespace validation
         services::HilStatus ParsePins(uint8_t timer, const services::HilArguments& arguments, Request& request) const;
         services::HilStatus Claim(uint8_t timer, const Request& request, services::HilPinOwner& pins, ClaimedPins& claimed) const;
         hal::SynchronousQuadratureEncoder& Construct(uint8_t timer, const Request& request, const ClaimedPins& claimed);
+        services::HilStatus ClaimTimer(uint8_t timer, bool lowPower);
         void ReleaseTimer(uint8_t timer, bool lowPower);
 
     private:
         const services::HilPinNaming& naming;
         TimerAllocation& timers;
+        ResourceAllocation& resources;
         Driver driver;
         std::optional<OpenedInstance> opened;
     };

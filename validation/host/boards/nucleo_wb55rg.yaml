@@ -20,6 +20,10 @@ clocks:
   uart:
     usart1: 64000000
     lpuart1: 64000000
+  # LPTIM1SEL/LPTIM2SEL reset value: PCLK1.
+  lptim:
+    1: 64000000
+    2: 64000000
 
 terminal:
   baud: 921600
@@ -724,12 +728,17 @@ tests:
       ab: 4
       a: 2
       b: 2
+      # LPTIM capture modes: both edges of both inputs (x4) or the rising or
+      # falling edges only (x2).
+      rise: 2
+      fall: 2
     lp_position:
       freq: [100, 1000, 10000]
       cycles: [1, 10, 250]
       direction: [fwd, rev]
       inva: [0, 1]
       filter: [0, 2, 4, 8]
+      cap: [ab, rise, fall]
     velocity:
       freq: [1000, 10000]
       vel: [1000, 10000]
@@ -895,6 +904,116 @@ tests:
     lsb: [0, 1]
     baud: 1000000
     payload: "a53c0f8001fe7e42"
+  timer:
+    # bundle1: the marker (gpio0, DIO11) toggles once per update interrupt.
+    timers:
+      - name: tim1
+        timer: 1
+      - name: tim2
+        timer: 2
+      - name: tim16
+        timer: 16
+      - name: tim17
+        timer: 17
+    marker: gpio0
+    # TIM numbers the MCU lacks: ERR range.
+    missing: [3, 15, 18]
+    # No counter mode select (up counting only): mode=down is ERR unsupported.
+    up_only: [16, 17]
+    # Update rate timclk / ((prescaler + 1) (period + 1)); `dispatched:
+    # false` marks rates above 1 kHz, where dispatched callbacks coalesce.
+    interrupt:
+      irq: [immediate, dispatched]
+      update:
+        - name: 100hz
+          prescaler: 639
+          period: 999
+        - name: 1khz
+          prescaler: 63
+          period: 999
+        - name: 20khz
+          prescaler: 0
+          period: 3199
+          dispatched: false
+    # Free running (irq=none): a 1 kHz counter that wraps after 65.5 s.
+    free_running:
+      prescaler: 63999
+      period: 65535
+    window_s: 0.5
+    record_periods: 10
+    tolerance:
+      frequency: 0.01
+      count: 0.05
+      latency_s: 0.02
+  timer_pwm:
+    # Every channel pin of bundle1 in channel order (null = `-`); TIM1 CH4
+    # (PA11) is on no header of a stock board, so TIM1 runs N = 3.
+    timers:
+      - name: tim1
+        timer: 1
+        pins: [tim1ch1, tim1ch2, tim1ch3]
+      - name: tim2
+        timer: 2
+        pins: [tim2ch1, tim2ch2, tim2ch3, tim2ch4]
+      - name: tim16
+        timer: 16
+        pins: [tim16ch1]
+      - name: tim17
+        timer: 17
+        pins: [tim17ch1]
+    # 1 MHz counter (64 MHz / 64), 10 kHz period: the low tick of 100 %
+    # lasts 1 us.
+    prescaler: 63
+    period: 99
+    duties: [0, 50, 100]
+    channel_duties: [20, 40, 60, 80]
+    # tpwm.pulse <timer> 1 <ccr> <period>
+    pulse:
+      ccr: 30
+      period: 199
+    # A pin without a channel function of any timer under test.
+    foreign_pin: gpio0
+    record_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 0.01
+  lptim:
+    instances:
+      - name: lptim1
+        index: 1
+      - name: lptim2
+        index: 2
+    marker: gpio0
+    missing: [0, 3]
+    # Update rate lptimclk / prescaler / (period + 1) at 64 MHz.
+    interrupt:
+      irq: [immediate, dispatched]
+      update:
+        - name: 100hz
+          prescaler: 128
+          period: 4999
+        - name: 1khz
+          prescaler: 64
+          period: 999
+        - name: 16khz
+          prescaler: 1
+          period: 3999
+          dispatched: false
+    # Every divider with this period, immediate interrupt (500 Hz .. 64 kHz).
+    prescalers: [1, 2, 4, 8, 16, 32, 64, 128]
+    prescaler_period: 999
+    # The STM32WB LPTIM has no repetition counter: `rep` is ERR unsupported.
+    repetition: false
+    repetitions: []
+    free_running:
+      prescaler: 128
+      period: 65535
+    window_s: 0.5
+    record_periods: 10
+    tolerance:
+      frequency: 0.01
+      count: 0.05
+      latency_s: 0.02
   unsupported:
     commands:
       - comp.open 1

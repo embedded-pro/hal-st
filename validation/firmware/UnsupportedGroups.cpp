@@ -6,6 +6,27 @@ namespace validation
 {
     namespace
     {
+#if defined(STM32WB)
+        constexpr std::array<const char*, 17> commandNames{ {
+            "comp.open",
+            "comp.read",
+            "comp.irq",
+            "comp.count",
+            "comp.close",
+            "can.open",
+            "can.send",
+            "can.close",
+            "eth.open",
+            "eth.status",
+            "eth.close",
+            "lptpwm.open",
+            "lptpwm.duty",
+            "lptpwm.pulse",
+            "lptpwm.start",
+            "lptpwm.stop",
+            "lptpwm.close",
+        } };
+#elif defined(STM32WBA)
         constexpr std::array<const char*, 11> commandNames{ {
             "comp.open",
             "comp.read",
@@ -19,6 +40,7 @@ namespace validation
             "eth.status",
             "eth.close",
         } };
+#endif
     }
 
     void CreateUnsupportedGroups(services::HilContext& context)

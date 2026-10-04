@@ -41,6 +41,10 @@ target_sources(hal_st.validation_firmware PRIVATE
     I2cTarget.hpp
     I2cTiming.cpp
     I2cTiming.hpp
+    LpTimerGroup.cpp
+    LpTimerGroup.hpp
+    LpTimerPwmGroup.cpp
+    LpTimerPwmGroup.hpp
     Main.cpp
     Owners.hpp
     Payload.cpp
@@ -62,6 +66,10 @@ target_sources(hal_st.validation_firmware PRIVATE
     Stopwatch.hpp
     TimerAllocation.cpp
     TimerAllocation.hpp
+    TimerGroup.cpp
+    TimerGroup.hpp
+    TimerPwmGroup.cpp
+    TimerPwmGroup.hpp
     UartFactory.cpp
     UartFactory.hpp
     UnsupportedGroups.cpp

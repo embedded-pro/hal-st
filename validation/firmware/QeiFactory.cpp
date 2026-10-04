@@ -13,6 +13,7 @@ namespace validation
     namespace
     {
         using Config = hal::SynchronousQuadratureEncoderStm::Config;
+        using LowPowerDecode = QeiFactoryStm::LowPowerDecode;
         using services::HilChoice;
         using services::HilStatus;
 
@@ -27,6 +28,12 @@ namespace validation
             { "a", Config::DecodeMode::x2OnPhaseA },
             { "b", Config::DecodeMode::x2OnPhaseB },
             { "ab", Config::DecodeMode::x4OnBothPhases },
+        } };
+
+        constexpr std::array<HilChoice<LowPowerDecode>, 3> lowPowerDecodeModes{ {
+            { "ab", LowPowerDecode::bothEdges },
+            { "rise", LowPowerDecode::risingEdges },
+            { "fall", LowPowerDecode::fallingEdges },
         } };
 
         constexpr std::array<hal::PinConfigTypeStm, 2> timerInputs{ { hal::PinConfigTypeStm::timerChannel1, hal::PinConfigTypeStm::timerChannel2 } };
@@ -69,6 +76,11 @@ namespace validation
             return samples == 0 || samples == 2 || samples == 4 || samples == 8;
         }
 
+        bool IsSinglePhase(std::optional<infra::BoundedConstString> decodeMode)
+        {
+            return decodeMode && (*decodeMode == "a" || *decodeMode == "b");
+        }
+
 #if defined(HAS_PERIPHERAL_LPTIMER)
         hal::SynchronousQuadratureEncoderLpTimStm::Config::Filter LowPowerFilter(uint8_t samples)
         {
@@ -87,10 +99,26 @@ namespace validation
             }
         }
 
-        hal::SynchronousQuadratureEncoderLpTimStm::Config LowPowerConfig(const Config& config)
+        hal::SynchronousQuadratureEncoderLpTimStm::Config::DecodeMode LowPowerDecodeMode(LowPowerDecode decode)
+        {
+            using DecodeMode = hal::SynchronousQuadratureEncoderLpTimStm::Config::DecodeMode;
+
+            switch (decode)
+            {
+                case LowPowerDecode::risingEdges:
+                    return DecodeMode::x2OnRisingEdges;
+                case LowPowerDecode::fallingEdges:
+                    return DecodeMode::x2OnFallingEdges;
+                default:
+                    return DecodeMode::x4OnBothEdges;
+            }
+        }
+
+        hal::SynchronousQuadratureEncoderLpTimStm::Config LowPowerConfig(const Config& config, LowPowerDecode decode)
         {
             hal::SynchronousQuadratureEncoderLpTimStm::Config result;
             result.resolution = config.resolution;
+            result.decodeMode = LowPowerDecodeMode(decode);
             result.filter = LowPowerFilter(config.filter);
             result.reverseForMirroredMounting = config.invertPhaseA;
             result.speedSamplePeriod = config.speedSamplePeriod;
@@ -108,9 +136,10 @@ namespace validation
         }
     }
 
-    QeiFactoryStm::QeiFactoryStm(const services::HilPinNaming& naming, TimerAllocation& timers)
+    QeiFactoryStm::QeiFactoryStm(const services::HilPinNaming& naming, TimerAllocation& timers, ResourceAllocation& resources)
         : naming(naming)
         , timers(timers)
+        , resources(resources)
     {}
 
     uint8_t QeiFactoryStm::Instances() const
@@ -136,12 +165,9 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
-        if (!request.lowPower)
-        {
-            status = timers.Claim(index, services::HilOwners::qei);
-            if (status != HilStatus::done)
-                return status;
-        }
+        status = ClaimTimer(index, request.lowPower);
+        if (status != HilStatus::done)
+            return status;
 
         ClaimedPins claimed;
         status = Claim(index, request, pins, claimed);
@@ -207,7 +233,7 @@ namespace validation
 
     HilStatus QeiFactoryStm::ParseSettings(uint8_t timer, const services::HilArguments& arguments, Request& request) const
     {
-        if (request.lowPower && (arguments.Has("cap") || arguments.Has("offset") || arguments.Has("invb")))
+        if (request.lowPower && (arguments.Has("offset") || arguments.Has("invb") || IsSinglePhase(arguments.Key("cap"))))
             return HilStatus::unsupported;
 
         auto& config = request.config;
@@ -221,7 +247,10 @@ namespace validation
         uint32_t filter = 0;
         arguments.Flag("inva", config.invertPhaseA, status);
         arguments.Flag("invb", config.invertPhaseB, status);
-        arguments.Select("cap", config.decodeMode, decodeModes, status);
+        if (request.lowPower)
+            arguments.Select("cap", request.lowPowerDecode, lowPowerDecodeModes, status);
+        else
+            arguments.Select("cap", config.decodeMode, decodeModes, status);
         arguments.Number("filter", filter, 0, maximumFilter, status);
         config.filter = static_cast<uint8_t>(filter);
 
@@ -289,15 +318,25 @@ namespace validation
     {
 #if defined(HAS_PERIPHERAL_LPTIMER)
         if (request.lowPower)
-            return WithIndex(driver.emplace<hal::SynchronousQuadratureEncoderLpTimStm>(timer, PinOrDummy(claimed.a), PinOrDummy(claimed.b), PinOrDummy(claimed.index), LowPowerConfig(request.config)), claimed.index);
+            return WithIndex(driver.emplace<hal::SynchronousQuadratureEncoderLpTimStm>(timer, PinOrDummy(claimed.a), PinOrDummy(claimed.b), PinOrDummy(claimed.index), LowPowerConfig(request.config, request.lowPowerDecode)), claimed.index);
 #endif
 
         return WithIndex(driver.emplace<hal::SynchronousQuadratureEncoderStm>(timer, PinOrDummy(claimed.a), PinOrDummy(claimed.b), PinOrDummy(claimed.index), request.config), claimed.index);
     }
 
+    HilStatus QeiFactoryStm::ClaimTimer(uint8_t timer, bool lowPower)
+    {
+        if (lowPower)
+            return resources.Claim(Resource::lpTimer, timer, services::HilOwners::qei);
+
+        return timers.Claim(timer, services::HilOwners::qei);
+    }
+
     void QeiFactoryStm::ReleaseTimer(uint8_t timer, bool lowPower)
     {
-        if (!lowPower)
+        if (lowPower)
+            resources.Release(Resource::lpTimer, timer, services::HilOwners::qei);
+        else
             timers.Release(timer, services::HilOwners::qei);
     }
 

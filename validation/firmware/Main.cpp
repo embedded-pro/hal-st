@@ -20,6 +20,8 @@
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
+#include "validation/firmware/LpTimerGroup.hpp"
+#include "validation/firmware/LpTimerPwmGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
@@ -27,6 +29,8 @@
 #include "validation/firmware/SpiFactory.hpp"
 #include "validation/firmware/SpiSlaveGroup.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
+#include "validation/firmware/TimerGroup.hpp"
+#include "validation/firmware/TimerPwmGroup.hpp"
 #include "validation/firmware/UartFactory.hpp"
 #include "validation/firmware/UnsupportedGroups.hpp"
 #include "validation/firmware/WatchDogFactory.hpp"
@@ -67,7 +71,7 @@ int main()
     static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers };
     static services::HilAdcCommands::WithCapacity<validation::AdcFactoryStm::slots, 64> adc{ context, adcFactory };
 
-    static validation::QeiFactoryStm qeiFactory{ naming, timers };
+    static validation::QeiFactoryStm qeiFactory{ naming, timers, resources };
     static services::HilQeiCommands qei{ context, qeiFactory };
     static validation::QeiExtensionCommands qeiExtension{ context, qeiFactory };
 
@@ -83,6 +87,19 @@ int main()
 
     static validation::SpiSlaveFactory spiSlaveFactory{ naming, console.dma, resources };
     static validation::SpiSlaveCommands spiSlave{ context, spiSlaveFactory };
+
+    static validation::TimerFactoryStm timerFactory{ naming, timers };
+    static validation::TimerGroup timer{ context, timerFactory };
+    static validation::TimerPwmFactoryStm timerPwmFactory{ naming, timers };
+    static validation::TimerPwmGroup timerPwm{ context, timerPwmFactory };
+#if defined(HAS_PERIPHERAL_LPTIMER)
+    static validation::LpTimerFactoryStm lpTimerFactory{ naming, resources };
+    static validation::LpTimerGroup lpTimer{ context, lpTimerFactory };
+#endif
+#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB)
+    static validation::LpTimerPwmFactoryStm lpTimerPwmFactory{ naming, resources };
+    static validation::LpTimerPwmGroup lpTimerPwm{ context, lpTimerPwmFactory };
+#endif
 
     validation::CreateUnsupportedGroups(context);
 

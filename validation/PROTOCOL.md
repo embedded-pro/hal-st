@@ -177,17 +177,58 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 ## Quadrature encoder (`hal::SynchronousQuadratureEncoderStm`, `lp=1` selects `hal::SynchronousQuadratureEncoderLpTimStm`)
 
-- `qei.open <timer> [lp=0|1] [a=<pin>] [b=<pin>] [idx=<pin>] [res=<n>] [offset=<n>] [inva=0|1] [invb=0|1] [cap=a|b|ab] [filter=<0-15>] [vel=<us>|off]` → `OK`
+- `qei.open <timer> [lp=0|1] [a=<pin>] [b=<pin>] [idx=<pin>] [res=<n>] [offset=<n>] [inva=0|1] [invb=0|1] [cap=a|b|ab|rise|fall] [filter=<0-15>] [vel=<us>|off]` → `OK`
   - defaults `res=4096 offset=0 inva=0 invb=0 cap=ab filter=0 vel=1000`; without pins the default encoder takes its default pins, other instances need `a` and `b`
   - `a` and `b` are channels 1 and 2 of the timer; the timer must offer encoder mode (TIM1, TIM2, TIM3; `ERR unsupported` for TIM16/TIM17)
   - `res` is the count at which the counter wraps (2 to 65536, up to 4294967295 on TIM2), `offset` the starting count (below `res`, `ERR range` otherwise)
-  - `cap=ab` counts both edges of both phases, `cap=a` and `cap=b` both edges of one phase
+  - `cap=ab` counts both edges of both phases, `cap=a` and `cap=b` both edges of one phase; `cap=rise` and `cap=fall` need `lp=1` (`ERR usage` otherwise)
   - `vel` is the speed sampling period in µs (1-1000000), `off` leaves speed at 0
   - `idx` is a plain input read by `qei.index`; it never changes the count
-  - `lp=1` (LPTIM1, WB55 only, `ERR unsupported` elsewhere) takes `a`/`b` on the LPTIM inputs 1/2 (`lptim1in1`/`lptim1in2`), `res` up to 65536, `inva=1` as the mirrored-mounting reversal and `filter` 0, 2, 4 or 8 (consecutive samples); `cap`, `offset` and `invb` return `ERR unsupported`
+  - `lp=1` selects the LPTIM encoder: LPTIM1 on STM32WB55 (LPTIM2 has no encoder interface, `ERR range`), LPTIM1 and LPTIM2 on STM32WBA55. It takes `a`/`b` on the LPTIM inputs 1/2 (`lptim<n>in1`/`lptim<n>in2`), `res` up to 65536, `inva=1` as the mirrored-mounting reversal and `filter` 0, 2, 4 or 8 (consecutive samples)
+  - with `lp=1`, `cap=ab` (default) counts both edges of both inputs, `cap=rise` and `cap=fall` only the rising or falling edges of both inputs (two counts per quadrature cycle); `cap=a`, `cap=b`, `offset` and `invb` return `ERR unsupported`
+  - the LPTIM of an `lp=1` encoder is held against `lptim` and `lptpwm` (`ERR busy`)
 - `qei.read <timer>` → `OK pos=<n> dir=<fwd|rev> speed=<n> res=<n>` (`speed` is in counts per second, `res` is the driver's `Resolution()`)
 - `qei.index <timer>` → `OK idx=<0|1>`, the level of the index input; `ERR unsupported` when the encoder was opened without `idx`
 - `qei.close <timer>` → `OK`
+
+## Timer (`hal::FreeRunningTimerStm`, `irq=immediate|dispatched` selects `hal::TimerWithInterruptStm`)
+
+- `tim.open <timer> [prescaler=<0-65535>] [period=<n>] [irq=immediate|dispatched|none] [mode=up|down] [pin=<pin>]` → `OK timclk=<hz>`
+  - defaults `prescaler=0 period=999 irq=dispatched mode=up`; `period` is the auto-reload, 1-65535 (1-4294967295 on TIM2); `timclk` is the timer kernel clock
+  - one update per `period + 1` ticks of `timclk / (prescaler + 1)`
+  - `irq=none` builds a `FreeRunningTimerStm` without interrupt; `immediate` and `dispatched` build a `TimerWithInterruptStm` whose update callback runs in the interrupt or from the event loop. Dispatched callbacks coalesce while one is queued: above about 1 kHz `irqs` counts fewer than the updates
+  - `pin` (any free bonded pin) is driven low and toggled by every update callback, so it runs at half the update rate; `pin` with `irq=none` returns `ERR usage`
+  - `mode=down` counts down from `period`; it needs `irq=none` and a timer with a counter mode select (TIM1, TIM2, TIM3), `ERR unsupported` otherwise
+- `tim.start <timer>`, `tim.stop <timer>` → `OK`; starting a running or stopping a stopped timer changes nothing
+- `tim.count <timer>` → `OK cnt=<n> irqs=<n>`: the counter register and the update callbacks since `tim.open`
+- `tim.close <timer>` → `OK`
+
+## Timer PWM (`hal::TimerPwmWithChannels<N>`)
+
+- `tpwm.open <timer> pins=<pin|->[,<pin|->...] [prescaler=<0-65535>] [period=<n>]` → `OK timclk=<hz>`
+  - N is the number of entries (1-4) and entry n is channel n; `-` leaves a channel unused (a `hal::DummyPinStm`: the channel is configured but drives no pin, and the pin stays free); at least one entry is a pin (`ERR usage`)
+  - defaults `prescaler=0 period=6399` (10 kHz at 64 MHz); the PWM frequency is `timclk / ((prescaler + 1) (period + 1))`, `period` 1-65535 (1-4294967295 on TIM2)
+  - a pin that is not channel n of the timer returns `ERR pin`; a channel the timer does not have (CH2-CH4 on TIM16/TIM17) `ERR unsupported`
+- `tpwm.duty <timer> <channel> <0-100>` → `OK`: integer percent, compare value = `period` × duty / 100 (`PwmChannelGpio::SetDuty`, 32-bit arithmetic); the output is high while the counter is below the compare value, so 100 keeps one low counter tick per period
+- `tpwm.pulse <timer> <channel> <on> <period>` → `OK`: compare value `on` (0 to the counter maximum) and auto-reload `period` (1 to the counter maximum, `PwmChannelGpio::SetPulse`); the period applies to every channel
+- `tpwm.start <timer> [ch=<channel>]`, `tpwm.stop <timer> [ch=<channel>]` → `OK`: one channel, or every channel through `TimerPwmBaseStm::Start`/`Stop`; starting a running channel changes nothing
+- `tpwm.close <timer>` → `OK`; every channel stops first
+
+## Low-power timer (`hal::FreeRunningLowPowerTimerStm`, `irq=immediate|dispatched` selects `hal::LowPowerTimerWithInterruptStm`)
+
+- `lptim.open <index> [period=<1-65535>] [prescaler=1|2|4|8|16|32|64|128] [irq=immediate|dispatched|none] [rep=<0-255>] [pin=<pin>]` → `OK lptimclk=<hz>`
+  - LPTIM 1-2; defaults `period=999 prescaler=1 irq=dispatched rep=0`; `prescaler` is the clock divider, another number returns `ERR range`
+  - one update per `period + 1` ticks of `lptimclk / prescaler`, and with `rep` once every `rep + 1` periods; `lptimclk` is the LPTIM kernel clock (PCLK1 on STM32WB55; PCLK7 for LPTIM1 and PCLK1 for LPTIM2 on STM32WBA55)
+  - `rep` is the repetition counter of the STM32WBA LPTIM (`ERR unsupported` on STM32WB55, whose LPTIM has none)
+  - `irq` and `pin` as for `tim.open`
+- `lptim.start <index>`, `lptim.stop <index>`, `lptim.count <index>` → `OK cnt=<n> irqs=<n>`, `lptim.close <index>` as for `tim`
+
+## LPTIM PWM (`hal::LpTimerPwmWithChannels<N>`, NUCLEO-WBA55CG only)
+
+- `lptpwm.open <index> pins=<pin|->[,<pin|->] [prescaler=1|2|4|8|16|32|64|128] [period=<1-65535>]` → `OK lptimclk=<hz>`
+  - N is the number of entries (1-2), `-` as for `tpwm`; defaults `prescaler=1 period=6399`; the PWM frequency is `lptimclk / prescaler / (period + 1)`
+  - LPTIM1 channel 1 (PB11) is not bonded out on the UFQFPN48, so LPTIM1 runs as `pins=-,<channel 2 pin>`
+- `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop` and `lptpwm.close` as for `tpwm`; the LPTIM takes compare and period writes only while it is enabled, so set them after `lptpwm.start`
 
 ## Watchdog (`hal::WatchDogStm`, the window watchdog)
 
