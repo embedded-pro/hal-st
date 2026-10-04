@@ -7,10 +7,10 @@ namespace hal
 {
     RandomDataGeneratorStm::RandomDataGeneratorStm()
     {
-#if defined(STM32F7)
-        Register(RNG_IRQn);
-#else
+#if defined(STM32F4)
         Register(HASH_RNG_IRQn);
+#else
+        Register(RNG_IRQn);
 #endif
         __HAL_RCC_RNG_CLK_ENABLE();
         RNG->CR |= RNG_CR_RNGEN;
