@@ -149,6 +149,12 @@ namespace hal
 
         for (std::size_t i = 0; i != analogPins.size(); ++i)
         {
+            channelConfig.Channel = adc.Channel(analogPins[i]);
+
+            // The sampling time is selected per channel, not per rank
+            for (std::size_t j = 0; j != i; ++j)
+                really_assert(adc.Channel(analogPins[j]) != channelConfig.Channel || configs[j].samplingTime == configs[i].samplingTime);
+
 #if defined(ADC_SMPR_SMP1)
             channelConfig.SamplingTime = SelectSamplingTimeCommon(adc.Handle().Instance, assignedSamplingTimes, configs[i].samplingTime);
 #else
@@ -157,7 +163,6 @@ namespace hal
 #ifdef ADC_SINGLE_ENDED
             channelConfig.SingleDiff = configs[i].differential ? ADC_DIFFERENTIAL_ENDED : ADC_SINGLE_ENDED;
 #endif
-            channelConfig.Channel = adc.Channel(analogPins[i]);
             channelConfig.Rank = rank[i];
             auto result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
             assert(result == HAL_OK);
