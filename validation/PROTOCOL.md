@@ -11,34 +11,34 @@ The terminal is a `hal::UartStmDuplexDma` on USART1, the ST-LINK virtual COM por
 
 Aliases name the pins by peripheral function:
 
-| Alias                                         | NUCLEO-WB55RG           | NUCLEO-WBA55CG          | Function                                   |
-|-----------------------------------------------|-------------------------|-------------------------|--------------------------------------------|
-| `terminaltx` `terminalrx`                     | PB6 PB7                 | PB12 PA8                | terminal USART1 TX / RX                    |
-| `ain1` `ain2` `ain3` `ain4` `ain5` `ain6`     | PC0 PC1 PC2 PC3 PA0 PA1 | -                       | ADC1 inputs IN1-IN6                        |
-| `ain2` `ain3` `ain4` `ain7` `ain8` `ain9`     | -                       | PA7 PA6 PA5 PA2 PA1 PA0 | ADC4 inputs                                |
-| `ain10`                                       | -                       | PB9                     | ADC4 input IN10                            |
-| `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`       | PA8 PA9 PA10 PA11       | PA11 PA12 PB4 PB3       | TIM1 channels 1-4                          |
-| `tim1ch1n` `tim1ch2n` `tim1ch3n`              | PA7 PB8 PB9             | PB2 PB1 PB0             | TIM1 complementary channels 1N-3N          |
-| `tim1bkin`                                    | PB12                    | PA2                     | TIM1 break input                           |
-| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PA1 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)         |
-| `tim2ch1` `tim2ch3` `tim2ch4`                 | -                       | PA5 PA7 PA6             | TIM2 channels 1, 3, 4 (CH2 is the terminal RX pin) |
-| `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`       | -                       | PA10 PA1 PB14 PB9       | TIM3 channels 1-4                          |
-| `tim16ch1` `tim17ch1`                         | PA6 PB9                 | PB9 PA1                 | TIM16 / TIM17 channel 1                    |
-| `tim17ch1n`                                   | -                       | PB3                     | TIM17 complementary channel 1N             |
-| `qei1a` `qei1b`                               | PA8 PA9                 | PA11 PA12               | TIM1 encoder phase A / B                   |
-| `qei1idx`                                     | -                       | PA15                    | index input of the default encoder         |
-| `qei2a` `qei2b` `qei2idx`                     | PA15 PA1 PC6            | -                       | TIM2 encoder phase A / B, index input      |
-| `qei3a` `qei3b`                               | -                       | PA10 PA1                | TIM3 encoder phase A / B                   |
-| `lptim1in1` `lptim1in2`                       | PC0 PC2                 | -                       | LPTIM1 encoder inputs                      |
-| `spi1clk` `spi1miso` `spi1mosi` `spi1cs`      | PA5 PA6 PA7 PA4         | PB4 PB3 PA15 PA12       | SPI1 (Arduino D13/D12/D11/D10)             |
-| `lpuart1tx` `lpuart1rx`                       | PA2 PA3                 | PB5 PA10                | LPUART1 TX / RX (Arduino D1/D0)            |
-| `lpuart1rts` `lpuart1cts`                     | PB12 PA6                | PB9 PB15                | LPUART1 RTS / CTS                          |
-| `usart2tx` `usart2rx` `usart2rts` `usart2cts` | -                       | PB0 PA11 PB1 PB2        | USART2                                     |
+| Alias                                         | NUCLEO-WB55RG           | NUCLEO-WBA55CG          | Function                                             |
+|-----------------------------------------------|-------------------------|-------------------------|------------------------------------------------------|
+| `terminaltx` `terminalrx`                     | PB6 PB7                 | PB12 PA8                | terminal USART1 TX / RX                              |
+| `ain1` `ain2` `ain3` `ain4` `ain5` `ain6`     | PC0 PC1 PC2 PC3 PA0 PA1 | -                       | ADC1 inputs IN1-IN6                                  |
+| `ain2` `ain3` `ain4` `ain7` `ain8` `ain9`     | -                       | PA7 PA6 PA5 PA2 PA1 PA0 | ADC4 inputs                                          |
+| `ain10`                                       | -                       | PB9                     | ADC4 input IN10                                      |
+| `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`       | PA8 PA9 PA10 PA11       | PA11 PA12 PB4 PB3       | TIM1 channels 1-4                                    |
+| `tim1ch1n` `tim1ch2n` `tim1ch3n`              | PA7 PB8 PB9             | PB2 PB1 PB0             | TIM1 complementary channels 1N-3N                    |
+| `tim1bkin`                                    | PB12                    | PA2                     | TIM1 break input                                     |
+| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PA1 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)                   |
+| `tim2ch1` `tim2ch3` `tim2ch4`                 | -                       | PA5 PA7 PA6             | TIM2 channels 1, 3, 4 (CH2 is the terminal RX pin)   |
+| `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`       | -                       | PA10 PA1 PB14 PB9       | TIM3 channels 1-4                                    |
+| `tim16ch1` `tim17ch1`                         | PA6 PB9                 | PB9 PA1                 | TIM16 / TIM17 channel 1                              |
+| `tim17ch1n`                                   | -                       | PB3                     | TIM17 complementary channel 1N                       |
+| `qei1a` `qei1b`                               | PA8 PA9                 | PA11 PA12               | TIM1 encoder phase A / B                             |
+| `qei1idx`                                     | -                       | PA15                    | index input of the default encoder                   |
+| `qei2a` `qei2b` `qei2idx`                     | PA15 PA1 PC6            | -                       | TIM2 encoder phase A / B, index input                |
+| `qei3a` `qei3b`                               | -                       | PA10 PA1                | TIM3 encoder phase A / B                             |
+| `lptim1in1` `lptim1in2`                       | PC0 PC2                 | -                       | LPTIM1 encoder inputs                                |
+| `spi1clk` `spi1miso` `spi1mosi` `spi1cs`      | PA5 PA6 PA7 PA4         | PB4 PB3 PA15 PA12       | SPI1 (Arduino D13/D12/D11/D10)                       |
+| `lpuart1tx` `lpuart1rx`                       | PA2 PA3                 | PB5 PA10                | LPUART1 TX / RX (Arduino D1/D0)                      |
+| `lpuart1rts` `lpuart1cts`                     | PB12 PA6                | PB9 PB15                | LPUART1 RTS / CTS                                    |
+| `usart2tx` `usart2rx` `usart2rts` `usart2cts` | -                       | PB0 PA11 PB1 PB2        | USART2                                               |
 | `led0` `led1`                                 | PB0 PB1                 | PB4 PA9                 | user LEDs (green LD2, red LD3 / blue LD1, green LD2) |
-| `gpio0`                                       | PC6                     | PB14                    | general-purpose test pin, watchdog warning toggle |
-| `gpio1` `gpio2`                               | PC10 PC12               | PA5 PA0                 | general-purpose test pins                  |
-| `gpio3` `gpio4`                               | PC13 PE4                | -                       | general-purpose test pins                  |
-| `sw1` `sw2` `sw3`                             | PC4 PD0 PD1             | PC13 PB6 PB7            | user buttons (input only, pulled up)       |
+| `gpio0`                                       | PC6                     | PB14                    | general-purpose test pin, watchdog warning toggle    |
+| `gpio1` `gpio2`                               | PC10 PC12               | PA5 PA0                 | general-purpose test pins                            |
+| `gpio3` `gpio4`                               | PC13 PE4                | -                       | general-purpose test pins                            |
+| `sw1` `sw2` `sw3`                             | PC4 PD0 PD1             | PC13 PB6 PB7            | user buttons (input only, pulled up)                 |
 
 - Wherever a pin is expected, an alias from this table may be used instead of `P<port><index>`; several aliases may name the same pin, and no alias carries a default pull.
 - Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`). Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
