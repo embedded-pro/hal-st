@@ -3,6 +3,12 @@
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
 
+#if defined(STM32WB)
+#include "stm32wbxx_ll_i2c.h"
+#elif defined(STM32WBA)
+#include "stm32wbaxx_ll_i2c.h"
+#endif
+
 namespace hal
 {
     I2cStm::I2cStm(uint8_t oneBasedI2cIndex, hal::GpioPinStm& scl, hal::GpioPinStm& sda, const Config& config)
@@ -36,6 +42,9 @@ namespace hal
         i2cHandle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
         i2cHandle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
         HAL_I2C_Init(&i2cHandle);
+#if defined(STM32WB) || defined(STM32WBA)
+        LL_I2C_DisableOwnAddress1(i2cHandle.Instance);
+#endif
 
 #if defined(STM32F427xx) || defined(STM32F437xx) || defined(STM32F429xx) || defined(STM32F439xx) || \
     defined(STM32F401xC) || defined(STM32F401xE) || defined(STM32F411xE) || defined(STM32F446xx) || \
@@ -47,6 +56,9 @@ namespace hal
 
     I2cStm::~I2cStm()
     {
+#if defined(STM32WB) || defined(STM32WBA)
+        HAL_I2C_DeInit(&i2cHandle);
+#endif
         DisableClockI2c(instance);
     }
 
@@ -62,6 +74,9 @@ namespace hal
         this->address = address;
 #endif
         sent = 0;
+#if defined(STM32WB) || defined(STM32WBA)
+        received = 0;
+#endif
 
         __DMB();
 
@@ -90,6 +105,9 @@ namespace hal
         this->address = address;
 #endif
         received = 0;
+#if defined(STM32WB) || defined(STM32WBA)
+        sent = 0;
+#endif
 
         __DMB();
 
@@ -129,6 +147,33 @@ namespace hal
 #if defined(I2C_ISR_TXE)
         if ((peripheralI2c[instance]->ISR & I2C_ISR_NACKF) != 0)
         {
+#if defined(STM32WB) || defined(STM32WBA)
+            const bool txPending = (peripheralI2c[instance]->ISR & I2C_ISR_TXE) == 0;
+            peripheralI2c[instance]->CR1 &= ~(I2C_CR1_TXIE | I2C_CR1_RXIE | I2C_CR1_TCIE | I2C_CR1_NACKIE | I2C_CR1_ERRIE);
+            __HAL_I2C_CLEAR_FLAG(&i2cHandle, I2C_FLAG_AF);
+            __HAL_I2C_CLEAR_FLAG(&i2cHandle, I2C_FLAG_TXE);
+            continuingPrevious = false;
+
+            infra::EventDispatcher::Instance().Schedule([this, txPending]()
+                {
+                    const uint32_t shifted = (txPending && sent != 0) ? sent - 1 : sent;
+                    if (onSent != nullptr)
+                    {
+                        if (shifted == 0)
+                            DeviceNotFound();
+                        sendData.clear();
+                        onSent(hal::Result::partialComplete, shifted == 0 ? 0 : shifted - 1);
+                    }
+                    else if (onReceived != nullptr)
+                    {
+                        if (received == 0)
+                            DeviceNotFound();
+                        receiveData.clear();
+                        onReceived(hal::Result::partialComplete);
+                    }
+                });
+            return;
+#else
             peripheralI2c[instance]->CR1 &= ~(I2C_CR1_TXIE | I2C_CR1_RXIE | I2C_CR1_TCIE | I2C_CR1_NACKIE | I2C_CR1_ERRIE);
 
             infra::EventDispatcher::Instance().Schedule([this]()
@@ -146,6 +191,7 @@ namespace hal
                         onReceived(hal::Result::partialComplete);
                     }
                 });
+#endif
         }
 
         if ((peripheralI2c[instance]->ISR & I2C_ISR_TXIS) != 0)
@@ -166,10 +212,25 @@ namespace hal
                 if (nextAction == Action::stop)
                     peripheralI2c[instance]->CR2 = I2C_CR2_STOP;
                 continuingPrevious = nextAction == Action::continueSession;
+#if defined(STM32WB) || defined(STM32WBA)
+                if (onSent != nullptr)
+                    infra::EventDispatcher::Instance().Schedule([this]()
+                        {
+                            if (onSent != nullptr)
+                                onSent(hal::Result::complete, sent);
+                        });
+                else
+                    infra::EventDispatcher::Instance().Schedule([this]()
+                        {
+                            if (onReceived != nullptr)
+                                onReceived(hal::Result::complete);
+                        });
+#else
                 infra::EventDispatcher::Instance().Schedule([this]()
                     {
                         onSent(hal::Result::complete, sent);
                     });
+#endif
             }
             else if (!receiveData.empty())
                 peripheralI2c[instance]->CR2 = (std::min<uint32_t>(receiveData.size(), 255) << 16) | (receiveData.size() > 255 || nextAction == Action::continueSession ? I2C_CR2_RELOAD : 0);
@@ -186,6 +247,20 @@ namespace hal
             if (nextAction == Action::stop)
                 peripheralI2c[instance]->CR2 = I2C_CR2_STOP;
             continuingPrevious = nextAction == Action::continueSession;
+#if defined(STM32WB) || defined(STM32WBA)
+            if (onSent != nullptr)
+                infra::EventDispatcher::Instance().Schedule([this]()
+                    {
+                        if (onSent != nullptr)
+                            onSent(hal::Result::complete, sent);
+                    });
+            else
+                infra::EventDispatcher::Instance().Schedule([this]()
+                    {
+                        if (onReceived != nullptr)
+                            onReceived(hal::Result::complete);
+                    });
+#else
             if (onSent != nullptr)
                 infra::EventDispatcher::Instance().Schedule([this]()
                     {
@@ -196,6 +271,7 @@ namespace hal
                     {
                         onReceived(hal::Result::complete);
                     });
+#endif
         }
 #else
         auto sr1 = peripheralI2c[instance]->SR1;
@@ -309,6 +385,45 @@ namespace hal
     void I2cStm::ErrorInterrupt()
     {
 #if defined(I2C_ISR_BERR)
+#if defined(STM32WB) || defined(STM32WBA)
+        const bool active = (peripheralI2c[instance]->CR1 & I2C_CR1_TCIE) != 0;
+        const bool busError = (peripheralI2c[instance]->ISR & I2C_ISR_BERR) != 0;
+        const bool arbitrationLost = (peripheralI2c[instance]->ISR & I2C_ISR_ARLO) != 0;
+
+        if (busError)
+            peripheralI2c[instance]->ICR |= I2C_ISR_BERR;
+
+        if (arbitrationLost)
+            peripheralI2c[instance]->ICR |= I2C_ISR_ARLO;
+
+        really_assert(
+            (peripheralI2c[instance]->ISR & I2C_ISR_OVR) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_PECERR) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_TIMEOUT) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_ALERT) == 0);
+
+        if (busError || arbitrationLost)
+        {
+            peripheralI2c[instance]->CR1 &= ~(I2C_CR1_TXIE | I2C_CR1_RXIE | I2C_CR1_TCIE | I2C_CR1_NACKIE | I2C_CR1_ERRIE);
+            __HAL_I2C_CLEAR_FLAG(&i2cHandle, I2C_FLAG_TXE);
+            continuingPrevious = false;
+
+            __HAL_I2C_DISABLE(&i2cHandle);
+            // Each APB access lasts at least one APB clock, so PE stays low for >= 3 APB cycles
+            (void)peripheralI2c[instance]->CR1;
+            (void)peripheralI2c[instance]->CR1;
+            (void)peripheralI2c[instance]->CR1;
+            __HAL_I2C_ENABLE(&i2cHandle);
+
+            if (busError)
+                BusError();
+
+            if (arbitrationLost)
+                ArbitrationLost();
+
+            if (active && onSent != nullptr)
+                onSent(hal::Result::busError, sent);
+            else if (active && onReceived != nullptr)
+                onReceived(hal::Result::busError);
+        }
+#else
         if ((peripheralI2c[instance]->ISR & I2C_ISR_BERR) != 0)
         {
             peripheralI2c[instance]->ICR |= I2C_ISR_BERR;
@@ -323,6 +438,7 @@ namespace hal
 
         really_assert(
             (peripheralI2c[instance]->ISR & I2C_ISR_OVR) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_PECERR) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_TIMEOUT) == 0 && (peripheralI2c[instance]->ISR & I2C_ISR_ALERT) == 0);
+#endif
 #else
         if ((peripheralI2c[instance]->SR1 & I2C_SR1_AF) != 0)
         {
