@@ -14,7 +14,7 @@ namespace validation
         using services::HilStatus;
         using FlowControl = hal::SynchronousUartStm::HwFlowControl;
 
-        constexpr std::array<const char*, 12> openKeys{ { "lp", "tx", "rx", "rts", "cts", "baud", "parity", "flow", "swap", "dma", "duplex", "sync" } };
+        constexpr std::array<const char*, 13> openKeys{ { "lp", "tx", "rx", "rts", "cts", "baud", "parity", "flow", "swap", "dma", "duplex", "sync", "sendonly" } };
 
         constexpr std::array<HilChoice<uint32_t>, 3> parities{ {
             { "none", USART_PARITY_NONE },
@@ -35,6 +35,13 @@ namespace validation
         // The HAL keeps UART_BRR_MIN and LPUART_BRR_MIN private to *_hal_uart.c
         constexpr uint32_t usartMinimumDivider = 0x10;
         constexpr uint32_t lpuartMinimumDivider = 0x300;
+
+        // SynchronousUartStmSendOnly has SyncLpUart constructors on STM32WB only
+#if defined(STM32WB)
+        constexpr bool lpuartSendOnly = true;
+#else
+        constexpr bool lpuartSendOnly = false;
+#endif
 
         struct PinFunctions
         {
@@ -115,9 +122,14 @@ namespace validation
             return divider >= usartMinimumDivider && divider <= static_cast<uint32_t>(USART_BRR_BRR);
         }
 
-        bool PinsSupportFunctions(uint8_t index, const PinFunctions& functions, HilPinId tx, HilPinId rx, const std::optional<HilPinId>& rts, const std::optional<HilPinId>& cts)
+        bool Supports(const std::optional<HilPinId>& pin, hal::PinConfigTypeStm function, uint8_t index)
         {
-            return SupportsFunction(tx, functions.tx, index) && SupportsFunction(rx, functions.rx, index) && (!rts || SupportsFunction(*rts, functions.rts, index)) && (!cts || SupportsFunction(*cts, functions.cts, index));
+            return !pin || SupportsFunction(*pin, function, index);
+        }
+
+        bool PinsSupportFunctions(uint8_t index, const PinFunctions& functions, HilPinId tx, const std::optional<HilPinId>& rx, const std::optional<HilPinId>& rts, const std::optional<HilPinId>& cts)
+        {
+            return SupportsFunction(tx, functions.tx, index) && Supports(rx, functions.rx, index) && Supports(rts, functions.rts, index) && Supports(cts, functions.cts, index);
         }
 
         template<class Driver, class Variant, class... Streams>
@@ -135,6 +147,27 @@ namespace validation
                 return driver.template emplace<Driver>(streams..., index, pins.tx, pins.rx, pins.rts, pins.cts, config);
 
             return driver.template emplace<Driver>(streams..., index, pins.tx, pins.rx, config);
+        }
+
+        template<class Driver, class Variant>
+        Driver& EmplaceSendOnly(Variant& driver, uint8_t index, bool lpuart, bool rts, const DriverPins& pins, uint32_t baud)
+        {
+            constexpr auto rtsOnly = Driver::HwFlowControl::hwControlRtsEnable;
+
+#if defined(STM32WB)
+            if (lpuart)
+            {
+                if (rts)
+                    return driver.template emplace<Driver>(index, pins.tx, pins.rts, hal::SyncLpUart{}, rtsOnly, baud);
+
+                return driver.template emplace<Driver>(index, pins.tx, hal::SyncLpUart{}, baud);
+            }
+#endif
+
+            if (rts)
+                return driver.template emplace<Driver>(index, pins.tx, pins.rts, rtsOnly, baud);
+
+            return driver.template emplace<Driver>(index, pins.tx, baud);
         }
     }
 
@@ -196,7 +229,7 @@ namespace validation
         if (!InstanceExists(index, request.lpuart))
             return HilStatus::range;
 
-        if (request.dma + request.duplex + request.synchronous > 1)
+        if (request.dma + request.duplex + request.synchronous + request.sendOnly > 1)
             return HilStatus::usage;
 
         if (UsesRts(request.flow) != request.rts.has_value() || UsesCts(request.flow) != request.cts.has_value())
@@ -205,10 +238,14 @@ namespace validation
         if (request.lpuart && (request.duplex || request.synchronous))
             return HilStatus::unsupported;
 
-        if (request.synchronous && (request.parity != USART_PARITY_NONE || request.swap))
+        const bool polled = request.synchronous || request.sendOnly;
+        if (polled && (request.parity != USART_PARITY_NONE || request.swap))
             return HilStatus::unsupported;
 
-        if (!request.synchronous && request.flow != FlowControl::hwControlDisable && request.flow != FlowControl::hwControlRtsCtsEnable)
+        if (request.sendOnly && ((request.flow != FlowControl::hwControlDisable && request.flow != FlowControl::hwControlRtsEnable) || (request.lpuart && !lpuartSendOnly)))
+            return HilStatus::unsupported;
+
+        if (!polled && request.flow != FlowControl::hwControlDisable && request.flow != FlowControl::hwControlRtsCtsEnable)
             return HilStatus::unsupported;
 
         if ((request.dma || request.duplex) && !board::UartDma(index, request.lpuart))
@@ -224,10 +261,10 @@ namespace validation
             request.rx = defaults->rx;
         }
 
-        if (!request.tx || !request.rx)
+        if (!request.tx || (!request.rx && !request.sendOnly))
             return HilStatus::usage;
 
-        if (!PinsSupportFunctions(index, FunctionsOf(request.lpuart), *request.tx, *request.rx, request.rts, request.cts))
+        if (!PinsSupportFunctions(index, FunctionsOf(request.lpuart), *request.tx, request.rx, request.rts, request.cts))
             return HilStatus::pin;
 
         if (IsTerminal(index, request.lpuart))
@@ -251,6 +288,7 @@ namespace validation
         arguments.Flag("dma", request.dma, status);
         arguments.Flag("duplex", request.duplex, status);
         arguments.Flag("sync", request.synchronous, status);
+        arguments.Flag("sendonly", request.sendOnly, status);
         return status;
     }
 
@@ -274,6 +312,12 @@ namespace validation
         const DriverPins pins{ PinOrDummy(claimed.tx), PinOrDummy(claimed.rx), PinOrDummy(claimed.rts), PinOrDummy(claimed.cts) };
         const bool handshake = request.flow != FlowControl::hwControlDisable;
         handle.baudRate = request.baud;
+
+        if (request.sendOnly)
+        {
+            handle.synchronous = &EmplaceSendOnly<SendOnlyUart>(driver, index, request.lpuart, handshake, pins, request.baud);
+            return;
+        }
 
         if (request.synchronous)
         {

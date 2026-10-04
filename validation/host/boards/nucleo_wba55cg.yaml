@@ -1249,6 +1249,85 @@ tests:
     tolerance:
       rate: 0.01
       bit: 0.25
+  uart_sendonly:
+    # hal::SynchronousUartStmSendOnly on USART2. `rx` only gives the AD3
+    # UART a transmit DIO: the send-only driver leaves the pin alone.
+    instances:
+      - name: usart2
+        index: 2
+        lp: 0
+        tx: usart2tx
+        rx: usart2rx
+        rts: usart2rts
+        cts: usart2cts
+    bauds: [9600, 115200, 921600]
+    payloads: ["55", "00ff", "0123456789abcdef", "48656c6c6f2c20484954"]
+    # uart.close right after uart.send: SendData returns at TXE, so the
+    # last frame (1 ms at 9600 Bd) may be cut.
+    cut:
+      baud: 9600
+      payload: 16
+    # The SyncLpUart constructors exist on STM32WB only: ERR unsupported.
+    unsupported:
+      - name: lpuart1
+        index: 1
+        lp: 1
+        tx: lpuart1tx
+  sgpio:
+    # SynchronousOutputPinStm; led0 (PB4) carries the blue LD1.
+    out_pins: [led0, tim1ch1]
+    # Output pins without a board load, for the input-without-pull check.
+    float_pins: [tim1ch1]
+    speeds: [low, medium, fast, high]
+    # Five free pins for the four output and four alternate-function slots
+    # (not PA0/PB9, which solder bridges may tie to ST-LINK lines).
+    limit_pins: [led0, tim1ch1, gpio0, gpio1, spi1cs]
+    # SmallPeripheralPinStm on TIM3 CH1 (AF2).
+    af:
+      pin: tim3ch1
+      timer: 3
+      ch: 1
+      af: 2
+    # MultiGpioPinStm + MultiPeripheralPinStm: TIM3 CH1 on PA10, PB5, PA2.
+    multi:
+      pins: [tim3ch1, PB5, PA2]
+      timer: 3
+      ch: 1
+    # tpwm runs TIM3 CH1 without a pin of its own (`-`); CH2 drives
+    # tim3ch2. 100 MHz / 64 / 1000 = 1.5625 kHz.
+    tpwm:
+      timer: 3
+      pins: ["-", tim3ch2]
+      prescaler: 63
+      period: 999
+      duty: 50
+    record_periods: 50
+    tolerance:
+      frequency: 0.01
+      duty: 0.02
+    # No TIM3 CH1 function (TIM3 CH3); a timer the MCU lacks.
+    foreign_pin: gpio0
+    missing_timer: 4
+  clock:
+    frequencies:
+      sysclk: 100000000
+      hclk: 100000000
+      pclk1: 100000000
+      pclk2: 100000000
+      pclk7: 100000000
+    # Oscillator ready flags after ConfigureDefaultClockNucleoWBA55CG; the
+    # LSE lives in the backup domain, which a reset keeps, so it is not
+    # asserted.
+    flags:
+      hse: 1
+      hsi: 1
+      pll: 1
+    # RNG on HSI16 (B.7).
+    rngsel: hsi
+    # No MCO: its only pin, PA8, is the terminal RX.
+  uid:
+    # Bytes [5, 12) of `info uid=` hold the lot number in ASCII.
+    lot: [5, 12]
   unsupported:
     commands:
       - comp.open 1

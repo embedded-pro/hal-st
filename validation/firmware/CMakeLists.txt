@@ -29,6 +29,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     BoardInfoStm.hpp
     BoardTypes.hpp
     ChannelPins.hpp
+    ClockGroup.cpp
+    ClockGroup.hpp
     Console.cpp
     Console.hpp
     DmaGroup.cpp
@@ -68,6 +70,10 @@ target_sources(hal_st.validation_firmware PRIVATE
     SpiSlaveGroup.cpp
     SpiSlaveGroup.hpp
     Stopwatch.hpp
+    SyncGpioDriver.cpp
+    SyncGpioDriver.hpp
+    SyncGpioGroup.cpp
+    SyncGpioGroup.hpp
     TimerAllocation.cpp
     TimerAllocation.hpp
     TimerGroup.cpp

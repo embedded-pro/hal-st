@@ -17,6 +17,7 @@
 #include "validation/firmware/AdcFactory.hpp"
 #include "validation/firmware/AnalogInputGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
+#include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/Console.hpp"
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
@@ -30,6 +31,7 @@
 #include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/SpiFactory.hpp"
 #include "validation/firmware/SpiSlaveGroup.hpp"
+#include "validation/firmware/SyncGpioGroup.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
 #include "validation/firmware/TimerGroup.hpp"
 #include "validation/firmware/TimerPwmGroup.hpp"
@@ -105,6 +107,9 @@ int main()
 
     static validation::AnalogInputCommands analogInput{ context, naming, console.dma, timers, resources };
     static validation::DmaCommands dmaWave{ context, naming, console.dma, timers, resources };
+
+    static validation::SyncGpioCommands syncGpio{ context };
+    static validation::ClockCommands clocks{ context };
 
     validation::CreateUnsupportedGroups(context);
 

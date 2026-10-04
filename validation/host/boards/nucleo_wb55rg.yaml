@@ -1109,6 +1109,118 @@ tests:
     tolerance:
       rate: 0.01
       bit: 0.25
+  uart_sendonly:
+    # hal::SynchronousUartStmSendOnly; on STM32WB the LPUART goes through
+    # the SyncLpUart constructors. `rx` only gives the AD3 UART a transmit
+    # DIO: the send-only driver leaves the pin alone.
+    instances:
+      - name: lpuart1
+        index: 1
+        lp: 1
+        tx: lpuart1tx
+        rx: lpuart1rx
+        rts: lpuart1rts
+        cts: lpuart1cts
+        # Opens on lpuart1tx/lpuart1rx without pins.
+        default_pins: true
+    # LPUART1 at 64 MHz takes 15626 Bd and more.
+    bauds: [19200, 115200, 921600]
+    payloads: ["55", "00ff", "0123456789abcdef", "48656c6c6f2c20484954"]
+    # uart.close right after uart.send: SendData returns at TXE, so the
+    # last frame (0.5 ms at 19200 Bd) may be cut.
+    cut:
+      baud: 19200
+      payload: 16
+    # LPUARTs without send-only constructors: none on STM32WB.
+    unsupported: []
+  sgpio:
+    # SynchronousOutputPinStm; led0 carries LED2 and 680 ohm to GND.
+    out_pins: [tim1ch1, led0]
+    # Output pins without a board load, for the input-without-pull check.
+    float_pins: [tim1ch1]
+    speeds: [low, medium, fast, high]
+    # Five free pins for the four output and four alternate-function slots.
+    limit_pins: [gpio0, gpio1, gpio2, gpio3, gpio4]
+    # SmallPeripheralPinStm on TIM2 CH1 (AF1).
+    af:
+      pin: tim2ch1
+      timer: 2
+      ch: 1
+      af: 1
+    # MultiGpioPinStm + MultiPeripheralPinStm: TIM2 CH1 on PA15 and PA5.
+    multi:
+      pins: [tim2ch1, spi1clk]
+      timer: 2
+      ch: 1
+    # tpwm runs TIM2 CH1 without a pin of its own (`-`); CH2 drives
+    # tim2ch2. 64 MHz / 64 / 1000 = 1 kHz.
+    tpwm:
+      timer: 2
+      pins: ["-", tim2ch2]
+      prescaler: 63
+      period: 999
+      duty: 50
+    record_periods: 50
+    tolerance:
+      frequency: 0.01
+      duty: 0.02
+    # No TIM2 CH1 function; a timer the MCU lacks.
+    foreign_pin: gpio0
+    missing_timer: 4
+  clock:
+    frequencies:
+      sysclk: 64000000
+      hclk: 64000000
+      pclk1: 64000000
+      pclk2: 64000000
+    # Oscillator ready flags after ConfigureDefaultClockNucleoWB55RG.
+    flags:
+      hse: 1
+      lse: 1
+      hsi: 1
+      hsi48: 1
+      pll: 1
+    # RNG on CLK48, CLK48 on HSI48 (reset defaults of RCC_CCIPR).
+    rngsel: clk48
+    clk48: hsi48
+    # MCO on PA8 (AF0, DIO0 of bundle1), muxed with `sgpio.af PA8 af=0`.
+    mco:
+      pin: PA8
+      af: 0
+      # Rising edges of the least-squares fit.
+      periods: 1000
+      outputs:
+        # SYSCLK = PLL from HSI16 (+-1 %).
+        - name: sysclk-div16
+          source: sysclk
+          div: 16
+          hz: 4000000
+          tolerance: 0.01
+        - name: hsi-div16
+          source: hsi
+          div: 16
+          hz: 1000000
+          tolerance: 0.01
+        # 32 MHz crystal.
+        - name: hse-div16
+          source: hse
+          div: 16
+          hz: 2000000
+          tolerance: 0.001
+        # 32.768 kHz crystal, +-100 ppm including the AD3 time base.
+        - name: lse
+          source: lse
+          div: 1
+          hz: 32768
+          tolerance: 0.0001
+      # HSI48 without CRS trimming.
+      hsi48:
+        div: 16
+        hz: 3000000
+        tolerance: 0.05
+  uid:
+    # Bytes [5, 12) of `info uid=` hold the lot number in ASCII.
+    lot: [5, 12]
   unsupported:
     commands:
       - comp.open 1

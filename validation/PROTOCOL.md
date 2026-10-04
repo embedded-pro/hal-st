@@ -86,6 +86,16 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `reset` → no final line; the board resets and prints `EVT boot ...` with `reset=sw`
 - `delay <ms>` → `OK` after the given time (lets the host synchronise with firmware timing)
 
+## Clock (hal-st default clocks, `ConfigureDefaultClockNucleoWB55RG` and `ConfigureDefaultClockNucleoWBA55CG`)
+
+- `clock.info` → `OK sysclk=<hz> hclk=<hz> pclk1=<hz> pclk2=<hz> [pclk7=<hz>] hse=0|1 lse=0|1 hsi=0|1 [hsi48=0|1] pll=0|1 rngsel=<source> [clk48=<source>]`
+  - the frequencies come from `HAL_RCC_Get*Freq`, the flags are the oscillator ready flags (`LL_RCC_*_IsReady`; `pll` is PLL1 on STM32WBA55)
+  - `pclk7` on STM32WBA55 only; `hsi48` and `clk48` on STM32WB55 only
+  - `rngsel` is the RNG kernel clock selection: `clk48`, `lsi` or `lse` on STM32WB55, where `clk48` names the CLK48 source (`hsi48`, `pllsai1`, `pll` or `msi`); `lse`, `lsi`, `hsi` or `pll` (PLL1 Q) on STM32WBA55
+- `clock.mco <sysclk|hse|hsi|lse|hsi48|off> [div=1|2|4|8|16]` → `OK` (STM32WB55): MCO source and divider (`LL_RCC_ConfigMCO`, default `div=1`); `off` stops the output. Validation scaffolding: `sgpio.af PA8 af=0` puts MCO on the pin
+- `clock.hsi48 <0|1>` → `OK` (STM32WB55): switches HSI48 off or on and waits for its ready flag (`ERR timeout` after 10 ms). Validation scaffolding for the RNG tests; switch it back on afterwards
+- `clock.mco` and `clock.hsi48` return `ERR unsupported` on STM32WBA55: its only MCO pin is the terminal RX (PA8), and it has no HSI48
+
 ## GPIO (`hal::GpioPinStm`)
 
 - `gpio.cfg <pin> <in|out|od> [pull=none|up|down] [drive=low|medium|fast|high]` → `OK`; `out` starts low, `od` starts released and takes no pull; `pull` defaults to `none`, `drive` (the `hal::Speed` of the output stage) to `low`
@@ -96,6 +106,18 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - an EXTI line serves one port at a time: a pin whose line (its index) already counts edges for a pin of another port returns `ERR unsupported` until that pin's interrupt is turned `off` or the pin is released
 - `gpio.count <pin> [clear=0|1]` → `OK count=<n>`
 - `gpio.release <pin>` → `OK`; the pin returns to a digital input with its configured pull
+
+## Synchronous GPIO (`hal::SynchronousOutputPinStm`, `hal::SmallPeripheralPinStm`, `hal::MultiGpioPinStm` with `hal::MultiPeripheralPinStm`)
+
+- `sgpio.out <pin> <0|1> [od=0|1] [speed=low|medium|fast|high]` → `OK`: the first use of a pin builds a `SynchronousOutputPinStm` (push-pull, `speed=low` unless given), later uses set the level; an `od` or `speed` that differs from the pin's rebuilds it, an omitted one keeps its value. The pin has no pull: an open-drain high only releases it
+- `sgpio.latch <pin>` → `OK value=<0|1>`: the output latch (`GetOutputLatch`); `ERR notopen` for a pin `sgpio.out` does not hold
+- `sgpio.af <pin> timer=<1-17> [ch=<1-4>]` → `OK af=<n>`: a `SmallPeripheralPinStm` (push-pull, low speed, no pull) on the alternate function of channel `ch` (default 1) of TIM`timer` in the hal-st pinout table; a timer the MCU lacks returns `ERR range`, a pin without that channel `ERR pin`
+  - `sgpio.af <pin> af=<0-15>` muxes a raw alternate function instead (MCO is AF0 on PA8, alias `mco`); exactly one of `timer` and `af`, and `ch` only with `timer` (`ERR usage`)
+  - the group only muxes the pin: what drives the function (a `tpwm` channel with no pin of its own, `clock.mco`) is set up by its own group
+- `sgpio.multi <pin>,<pin>[,...] timer=<1-17> [ch=<1-4>]` → `OK`: a `MultiGpioPinStm` over 1-4 different pins (`ERR usage` otherwise) muxed together to channel `ch` (default 1) of TIM`timer` by a `MultiPeripheralPinStm`; a pin without that channel returns `ERR pin`
+- `sgpio.release <pin>` → `OK`: the pin returns to an input without pull; any pin of the `multi` set releases the whole set; `ERR notopen` for a pin the group does not hold
+- The group holds up to 4 output pins, 4 alternate-function pins and one `multi` set (one more returns `ERR busy`); a pin serves one of them at a time, and a pin another group holds returns `ERR busy`
+- `sgpio.out` checks the level, `od` and `speed` before the pin; `sgpio.af` and `sgpio.multi` check `timer`, `ch` and `af` (`usage`, then `range`) before the pins
 
 ## PWM (`hal::PwmStm`, `sync=1` selects `hal::SynchronousPwmStm`)
 
@@ -122,17 +144,19 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - A frequency whose period is under 2 counter ticks, or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
 - `pwm.close <timer>` → `OK`
 
-## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`)
+## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`, `sendonly=1` selects `hal::SynchronousUartStmSendOnly`)
 
-- `uart.open <index> [lp=0|1] [tx=<pin>] [rx=<pin>] [rts=<pin>] [cts=<pin>] [baud=<bps>] [parity=none|even|odd] [flow=none|rts|cts|rtscts] [swap=0|1] [dma=0|1] [duplex=0|1] [sync=0|1]` → `OK`
+- `uart.open <index> [lp=0|1] [tx=<pin>] [rx=<pin>] [rts=<pin>] [cts=<pin>] [baud=<bps>] [parity=none|even|odd] [flow=none|rts|cts|rtscts] [swap=0|1] [dma=0|1] [duplex=0|1] [sync=0|1] [sendonly=0|1]` → `OK`
   - `lp=1` selects LPUART`<index>` instead of USART`<index>`; USART1 is the terminal (`ERR busy`)
   - default 115200 8N1 (8 data bits, plus the parity bit when `parity` is not `none`; one stop bit)
   - `baud` is 300-12000000, at most 8000000 on STM32WB55 where the HAL asserts that limit (`ERR range` outside); a rate whose divider does not fit the baud-rate register of the instance at its kernel clock returns `ERR range` (USART: 16 to 65535 with 8× oversampling; LPUART: 0x300 to 0xFFFFF)
-  - without pins LPUART1 uses `lpuart1tx`/`lpuart1rx`; every other instance needs `tx` and `rx`
-  - `flow` needs the matching `rts`/`cts` pins; `rts` and `cts` alone are only offered by `sync=1` (`ERR unsupported` otherwise)
-  - `swap=1` exchanges the TX and RX functions of the two pins (`ERR unsupported` with `sync=1`)
-  - at most one of `dma`, `duplex` and `sync` (`ERR usage`)
+  - without pins LPUART1 uses `lpuart1tx`/`lpuart1rx`; every other instance needs `tx` and `rx` (`rx` is optional with `sendonly=1`)
+  - `flow` needs the matching `rts`/`cts` pins; `rts` and `cts` alone are only offered by `sync=1`, and `rts` alone by `sendonly=1` (`ERR unsupported` otherwise)
+  - `swap=1` exchanges the TX and RX functions of the two pins (`ERR unsupported` with `sync=1` or `sendonly=1`)
+  - at most one of `dma`, `duplex`, `sync` and `sendonly` (`ERR usage`)
   - `sync=1` supports only `parity=none` and not `lp=1` (`ERR unsupported`); `duplex=1` does not support `lp=1` (`ERR unsupported`)
+  - `sendonly=1` transmits only, polling the data register: `flow` is `none` or `rts` (`cts` and `rtscts` return `ERR unsupported`), `parity=none` only; a given (or default) `rx` pin is held but left unconfigured. With `lp=1` it uses the `SyncLpUart` constructors, which exist on STM32WB55 only: `lp=1 sendonly=1` returns `ERR unsupported` on STM32WBA55
+  - with `sendonly=1`, `uart.send` answers once the last byte has left the data register (TXE), while its frame is still on the wire: a `uart.close` right after it may cut that frame; `uart.recv` returns no data
 - `uart.send <index> <hex>` → `OK` once the driver reports completion (up to 112 bytes; `ERR timeout` if the driver never completes)
 - `uart.recv <index> [timeout=<ms>] [len=<n>]` → `OK data=<hex>` with everything received since the last `uart.recv`, at most 256 bytes (waits up to `timeout`, default 1000, at most 10000, for `len` bytes when given, and returns what arrived even if fewer)
 - `uart.close <index>` → `OK`
