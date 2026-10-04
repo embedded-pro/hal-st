@@ -739,6 +739,65 @@ tests:
     feed_seconds: 2.0
     observe_periods: 3
     period_tolerance: 0.03
+  i2c:
+    # Standalone cases on bundle1 with the MCU pull-ups (pull=up), each
+    # instance on its own pins; `observed` names the lines with a DIO
+    # (PB8 DIO3, PB9 DIO5, PA9 DIO2, PA10 DIO4, PA7 DIO1; PB4 has none).
+    instances:
+      - name: i2c1
+        index: 1
+        scl: PB8
+        sda: PB9
+        observed: [scl, sda]
+      - name: i2c1alt
+        index: 1
+        scl: PA9
+        sda: PA10
+        observed: [scl, sda]
+      - name: i2c3
+        index: 3
+        scl: PA7
+        sda: PB4
+        observed: [scl]
+    # --with i2c: I2C3 master on PC0/PC1, the i2cs target on I2C1 PB8/PB9
+    # (jumpered PB8-PC0, PB9-PC1; DIO3 sees SCL, DIO5 SDA), 4.7 kOhm
+    # pull-ups and the 24LC256 at 0x50 on the same rows.
+    loop:
+      master: {index: 3, scl: PC0, sda: PC1}
+      target: {index: 1, scl: PB8, sda: PB9, addr: 0x42}
+    freqs:
+      standalone: [100000]
+      option: [100000, 400000]
+    # Nobody answers these: an address NACK (absent_addr) and the
+    # arbitration-loss address (all ones, so the injected 0 always loses).
+    absent_addr: 0x10
+    arbitration_addr: 0x7f
+    payload_lengths: [1, 2, 255, 256, 257, 300, 1024]
+    # nack=k for k in nack_positions and nack_length - 1, nack_length.
+    nack_positions: [1, 2, 5]
+    nack_length: 8
+    stretch_us: [100, 2000]
+    # Measured SCL frequency / nominal: I2cTiming never runs faster than
+    # nominal; a slow rise lowers it.
+    tolerance: [0.8, 1.01]
+    # 30-70 % rise time limit per mode (needs a scope on the bus rows; the
+    # WB55 scopes stay on the ADC inputs, so test_rise_time skips here).
+    rise_ns: {sm: 1000, fm: 300}
+    # D.2: the target's misplaced STOP needs tHIGH >= 4 us.
+    fault_freq: 100000
+  eeprom:
+    # The adapter on the loop master's instance and pins; the i2cs target
+    # sits on the other instance for the 1-byte-address case.
+    index: 3
+    scl: PC0
+    sda: PC1
+    addr: 0x50
+    size: 32768
+    page: 64
+    abytes: 2
+    wcycle_ms: 10
+    erase_size: 8192
+    freq: 400000
   unsupported:
     commands:
       - comp.open 1

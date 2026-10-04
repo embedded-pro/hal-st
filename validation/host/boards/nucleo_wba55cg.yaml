@@ -823,6 +823,57 @@ tests:
     feed_seconds: 2.0
     observe_periods: 3
     period_tolerance: 0.03
+  i2c:
+    # Standalone cases on bundle1 (or bundle2) with the MCU pull-ups
+    # (pull=up): PB2 DIO5, PB1 DIO6, PA15 DIO2, PB3 DIO1. I2C3 reaches
+    # PB2/PB1 through AF6.
+    instances:
+      - name: i2c1
+        index: 1
+        scl: PB2
+        sda: PB1
+        observed: [scl, sda]
+      - name: i2c3
+        index: 3
+        scl: PB2
+        sda: PB1
+        observed: [scl, sda]
+      - name: i2c1alt
+        index: 1
+        scl: PA15
+        sda: PB3
+        observed: [scl, sda]
+    # bundle2 --with i2c: I2C3 master on PA6/PA7 (DIO9/DIO8), the i2cs
+    # target on I2C1 PB2/PB1 (DIO5/DIO6; jumpered PB2-PA6, PB1-PA7), scope
+    # 1/2 on the SCL/SDA rows, 4.7 kOhm pull-ups and the 24LC256 at 0x50.
+    loop:
+      master: {index: 3, scl: PA6, sda: PA7}
+      target: {index: 1, scl: PB2, sda: PB1, addr: 0x42}
+    freqs:
+      standalone: [100000]
+      option: [100000, 400000]
+    absent_addr: 0x10
+    arbitration_addr: 0x7f
+    payload_lengths: [1, 2, 255, 256, 257, 300, 1024]
+    nack_positions: [1, 2, 5]
+    nack_length: 8
+    stretch_us: [100, 2000]
+    tolerance: [0.8, 1.01]
+    # 30-70 % rise time on the bundle2 scopes; with two DIOs and a probe
+    # per row a 4.7 kOhm pull-up may miss Fast mode: use 2.2 kOhm then.
+    rise_ns: {sm: 1000, fm: 300}
+    fault_freq: 100000
+  eeprom:
+    index: 3
+    scl: PA6
+    sda: PA7
+    addr: 0x50
+    size: 32768
+    page: 64
+    abytes: 2
+    wcycle_ms: 10
+    erase_size: 8192
+    freq: 400000
   unsupported:
     commands:
       - comp.open 1

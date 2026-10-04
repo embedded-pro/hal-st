@@ -6,7 +6,7 @@ namespace validation
 {
     namespace
     {
-        constexpr std::array<const char*, 14> commandNames{ {
+        constexpr std::array<const char*, 11> commandNames{ {
             "comp.open",
             "comp.read",
             "comp.irq",
@@ -15,9 +15,6 @@ namespace validation
             "can.open",
             "can.send",
             "can.close",
-            "eeprom.write",
-            "eeprom.read",
-            "eeprom.erase",
             "eth.open",
             "eth.status",
             "eth.close",

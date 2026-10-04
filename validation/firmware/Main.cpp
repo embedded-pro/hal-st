@@ -6,6 +6,7 @@
 #include "services/hil/HilPinPool.hpp"
 #include "services/hil/HilSystemCommands.hpp"
 #include "services/hil/commands/HilAdcCommands.hpp"
+#include "services/hil/commands/HilEepromCommands.hpp"
 #include "services/hil/commands/HilGpioCommands.hpp"
 #include "services/hil/commands/HilPwmCommands.hpp"
 #include "services/hil/commands/HilQeiCommands.hpp"
@@ -16,6 +17,9 @@
 #include "validation/firmware/AdcFactory.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/EepromGroup.hpp"
+#include "validation/firmware/I2cGroup.hpp"
+#include "validation/firmware/I2cTarget.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
@@ -68,6 +72,13 @@ int main()
 
     static validation::WatchDogFactoryStm watchDogFactory{ naming, pins };
     static services::HilWatchDogCommands watchDog{ context, watchDogFactory };
+
+    static validation::I2cFactoryStm i2cFactory{ naming, resources };
+    static validation::I2cCommands i2c{ context, i2cFactory };
+    static validation::I2cTargetFactory i2cTargetFactory{ naming, resources };
+    static validation::I2cTargetCommands i2cTarget{ context, i2cTargetFactory };
+    static validation::EepromGroup eepromGroup{ context, naming, resources };
+    static services::HilEepromCommands::WithCapacity<128> eeprom{ context, eepromGroup };
 
     validation::CreateUnsupportedGroups(context);
 

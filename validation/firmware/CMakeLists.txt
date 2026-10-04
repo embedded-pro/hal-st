@@ -29,8 +29,18 @@ target_sources(hal_st.validation_firmware PRIVATE
     ChannelPins.hpp
     Console.cpp
     Console.hpp
+    EepromGroup.cpp
+    EepromGroup.hpp
     HsemMaster.cpp
     HsemMaster.hpp
+    I2cEepromStm.cpp
+    I2cEepromStm.hpp
+    I2cGroup.cpp
+    I2cGroup.hpp
+    I2cTarget.cpp
+    I2cTarget.hpp
+    I2cTiming.cpp
+    I2cTiming.hpp
     Main.cpp
     Owners.hpp
     Payload.cpp

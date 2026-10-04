@@ -177,6 +177,73 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `wdt.feed <index>` → `OK`
 - Early warning: `EVT wdt index=0 warning=<n>`. After a watchdog reset the next `EVT boot` reports `reset=wwdg`.
 
+## I2C master (`hal::I2cStm`)
+
+- `i2c.open <index> scl=<pin> sda=<pin> [freq=<hz>] [timing=<hex>] [pull=none|up]` → `OK timing=<0x........> kernel=<hz>`
+  - checks in order: `scl` or `sda` missing, or `freq` together with `timing` → `ERR usage`; an index other than 1 and 3, `freq` outside 20000-400000 → `ERR range`; a pin without the `i2cScl`/`i2cSda` function of that instance → `ERR pin`; the instance held by `i2c`, `i2cs` or `eeprom.attach`, or a pin held → `ERR busy`
+  - neither `freq` nor `timing`: the driver's default `Config` (TIMINGR 0x70B03D3D on STM32WB/WBA: Standard mode at 63.8 kHz with a 64 MHz kernel clock, 99.2 kHz at 100 MHz); `freq` takes the TIMINGR below; `timing` is written as given (`HAL_I2C_Init` drops the reserved bits 24-27)
+  - `timing` in the reply is TIMINGR read back from the peripheral, `kernel` the I2C kernel clock
+  - `pull=up` turns on the MCU pull-ups of both pins after the driver configured them (validation scaffolding; the pinout table configures the I2C pins open drain without pull): enough for Standard mode on a short bus without resistors; Fast mode needs external pull-ups. Default `none`
+- `freq` → TIMINGR (`I2cTiming`, validation/firmware/I2cTiming.cpp), in integer picoseconds (`tclk = 10^12 / kernel`, `target = 10^12 / freq`, both rounded down)
+  - Standard mode up to 100 kHz, Fast mode above: tLOW > 4700/1300 ns, tHIGH >= 4000/600 ns, rise 640/250 ns, fall 20/100 ns, tSU;DAT 250/100 ns, tVD;DAT 3450/900 ns; analog filter 50-260 ns, digital filter off
+  - per prescaler 0-15: the first SCLDEL with `(SCLDEL + 1) × tpresc >= rise + tSU;DAT` and the first SDADEL with `fall - 50 ns - 3 × tclk <= (SDADEL × (PRESC + 1) + 1) × tclk <= tVD;DAT - rise - 260 ns - 4 × tclk` (both bounds at least 0)
+  - then the minimal SCLL/SCLH meeting tLOW/tHIGH, with `sync = 50 ns + 2 × tclk` added to each phase, and the fewest `SCLL + SCLH + 2` clock units with `2 × sync + fall + units × tpresc >= target`, the extra units going to SCLL first
+  - SCLL and SCLH stay within 255; the prescaler with the shortest such period wins (ties: the smaller prescaler). With a zero rise time the bus never runs faster than `freq`; a slow rise makes it slower
+  - examples:
+
+    | kernel  | 20 kHz     | 50 kHz     | 100 kHz    | 400 kHz    |
+    |---------|------------|------------|------------|------------|
+    | 16 MHz  | 0x20408186 | 0x00e097a2 | 0x00e04752 | 0x00500916 |
+    | 32 MHz  | 0x80305659 | 0x2090656c | 0x10e04853 | 0x00b0162e |
+    | 64 MHz  | 0x90509ca1 | 0x80604348 | 0x40b03943 | 0x10b0172f |
+    | 100 MHz | 0xd060aeb4 | 0x70b0777f | 0x50e04b57 | 0x20b11931 |
+
+- `i2c.write <index> <addr> <hex|-> [next=stop|restart|continue] [len=<n>] [pattern=] [seed=]` → `OK sent=<n> result=<complete|nack|buserror>`
+  - `addr` 0-0x7f, 0 being the general call; the data is hex or generated with `len` (1-1024, `pattern=inc|const|prbs` `seed=`, see "Line length" in General); `-` without `len` writes no data (an address probe, NBYTES=0)
+  - `next` maps to `hal::Action`: `stop` (default), `restart` (no STOP, the next transfer starts with a repeated START), `continue` (the next transfer continues the same transaction without START or address)
+  - `sent` is `numberOfBytesSent`, the acknowledged data bytes; `result` maps `Result::complete`, `partialComplete` (`nack`: the address or a data byte was not acknowledged) and `busError` (`buserror`: bus error or arbitration lost)
+  - `ERR timeout` after 1000 ms without completion; the group then answers `ERR busy` until `i2c.close`
+- `i2c.read <index> <addr> <len> [next=stop|restart|continue] [out=hex|crc]` → `OK result=complete data=<hex>` or, with `out=crc`, `OK result=complete len=<n> crc=<crc32>`; `OK result=nack` or `OK result=buserror` without data
+  - `len` 1-1024, above 128 only with `out=crc`; `next` and the timeout as for `i2c.write`
+- `i2c.close <index>` → `OK`; disables the interrupts and destroys the driver one event-loop turn later, so completions already queued run first; a held bus (`next=continue`) is released
+- `EVT i2c index=<i> hook=notfound|buserror|arblost` when the driver calls `DeviceNotFound`, `BusError` or `ArbitrationLost`, printed before the final line of the transfer
+
+## I2C target (validation scaffolding, LL on the other instance)
+
+Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the `i2c` tests, written with the LL I2C functions on the EV/ER interrupts of its instance (`hal::cortex::ImmediateInterruptHandler`). Writes use slave byte control: every received byte stops SCL before its acknowledge, so the target decides ACK or NACK per byte; reads load one byte per transmit request.
+
+- `i2cs.open <index> scl=<pin> sda=<pin> [addr=<0x08-0x77>] [mode=regs|sink] [timing=<hex>]` → `OK addr=<0x..>`
+  - checks as for `i2c.open`; the instance must not be held by `i2c` or `eeprom.attach` (`ERR busy`)
+  - default `addr=0x42` (0x50-0x57 stay free for an EEPROM)
+  - `mode=regs` (default): a 256-byte register file; the first byte of a write sets the pointer, the following bytes are stored at pointer++ (wrapping at 256), reads return the registers from the pointer on; `mode=sink`: written bytes only update the counters and the CRC, reads return the pattern of `i2cs.cfg`, from its start in every read
+  - `timing` only sets the data setup and hold times (SCLDEL, SDADEL); default the 400 kHz `I2cTiming` value for the kernel clock
+- `i2cs.cfg <index> [nack=<k>] [addrnack=0|1] [stretch=<us>] [stretchat=<k>] [fault=none|stop] [faultat=<k>] [pattern=inc|const|prbs] [seed=<n>]` → `OK`
+  - replaces the whole behaviour: options left out take their defaults `nack=0 addrnack=0 stretch=0 stretchat=0 fault=none faultat=1 pattern=inc seed=0`
+  - `nack=k` NACKs data byte k (1-based) of every write (0 = never); the NACKed byte is not counted or stored
+  - `addrnack=1` turns the own address off: the address is NACKed
+  - `stretch` (0-10000 us) holds SCL low at byte `stretchat`: 0 is the address phase (both directions), k >= 1 a written byte before its acknowledge, or a read byte before it is loaded; for read bytes after the first the byte in flight shortens the visible gap. The target busy-waits in its interrupt, which blocks the terminal meanwhile
+  - `fault=stop faultat=k` (k >= 1) applies to the next read once: when byte k is requested, the target drives SDA and SCL low as GPIO open-drain outputs, releases SCL, waits up to 1 ms for SCL to read high and releases SDA: a STOP in the middle of a byte, which the master reports as a bus error. The target then resets (PE off and on, own address kept) and restores the pins. Run it at 100 kHz
+- `i2cs.status <index> [clear=0|1]` → `OK rx=<n> tx=<n> crc=<crc32> writes=<n> reads=<n> stops=<n> nacked=<n> errors=<n> last=<hex>`
+  - since the open or the last `clear=1` (which clears after printing): received and transmitted data bytes, the CRC-32 of the received bytes, addressed writes and reads, STOP conditions, NACKed data bytes, bus errors, arbitration losses and overruns seen by the target, and the first 32 data bytes of the last write
+- `i2cs.regs <index> <offset> <hex>` → `OK`; preloads the register file (offset + length at most 256)
+- `i2cs.dump <index> <offset> <len>` → `OK data=<hex>`; `len` 1-128, offset + length at most 256
+- `i2cs.close <index>` → `OK`
+
+## EEPROM (`services::HilEepromCommands` over the `I2cEepromStm` adapter)
+
+- `eeprom.attach <index> scl=<pin> sda=<pin> [addr=<0x08-0x77>] [size=<bytes>] [page=<bytes>] [abytes=1|2] [freq=<hz>] [wcycle=<ms>]` → `OK`
+  - defaults for a 24LC256/AT24C256: `addr=0x50 size=32768 page=64 abytes=2 freq=400000 wcycle=10`
+  - `size` 1-65536, `page` 8-256 and a power of two, `abytes` the word address bytes (with `abytes=1` at most 256 bytes), `wcycle` 0-20 ms, `freq` as for `i2c.open` (`ERR range` outside); checks in the order of `i2c.open`
+  - the adapter builds its own `hal::I2cStm`, whose hooks only count (no `EVT i2c`); `ERR busy` when attached already or when the instance or a pin is held
+- `eeprom.detach` → `OK`; `ERR busy` while an adapter transfer is in flight, `ERR notopen` when nothing is attached; after an error (below) it first completes the pending `eeprom.*` command (which prints nothing if it timed out already) and then detaches, so the group works again
+- `eeprom.write <address> <hex>` → `OK`, `eeprom.read <address> <len>` → `OK data=<hex>` (`len` 1-128), `eeprom.erase` → `OK`: EMIL's group (`HilEepromCommands`), `ERR range` beyond `size`, `ERR timeout` after 5 s. Without an attached EEPROM the size is 0: writes and reads answer `ERR range`, `eeprom.erase` `OK` at once
+- the adapter:
+  - writes page by page: each page is one transfer of the word address and the data, ending with a STOP
+  - after each page it polls: it repeats only the word address (which starts no write cycle) from each completion until the chip acknowledges, at most `wcycle` ms; `wcycle=0` does not poll
+  - reads send the word address, then read after a repeated START
+  - `eeprom.erase` writes 0xFF pages over `size` (about 6.7 ms per 64-byte page at 400 kHz: attach with a `size` that fits EMIL's 5 s)
+  - a NACK or bus error outside the polling prints `EVT eeprom error=<nack|buserror> address=<a>` and leaves the command pending (EMIL answers `ERR timeout`); `eeprom.detach` recovers
+
 ## Not available on these boards
 
 hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55, so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.

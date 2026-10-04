@@ -463,7 +463,13 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 - `test_adc.py` - wavegen DC levels against raw 12-bit codes (checked against the scope when it is wired), sequences of up to 8 conversions, every sampling time, timer-triggered rates and the measure timeout, timer sharing with PWM and the encoder, unsupported trigger timers, argument errors and limits, and ADC pins against GPIO.
 - `test_qei.py` - position counts for frequency x cycles x direction x decoding x phase inversion, physically inverted phases restored by `inva`/`invb`, offset and rollover, speed, the index input through `qei.index`, the LPTIM1 encoder on the NUCLEO-WB55RG, default pins, the resolution limits, argument errors, one encoder at a time and timer sharing.
 - `test_watchdog.py` - the window watchdog with timeouts across its range x automatic or manual feeding (warnings, no reset while fed, `reset=wwdg` otherwise), the early-warning period measured on the `pin=` toggle, manual feeding, a single watchdog at a time, the timeout limits and argument errors.
-- `test_unsupported.py` - every comparator, CAN, EEPROM and Ethernet command answers `ERR unsupported`.
+- `test_i2c.py` - `I2cStm` on both instances.
+  Without wiring, each instance on its own pins with the MCU pull-ups (`pull=up`): the default and computed TIMINGR (reply and bus timing against the Standard mode minima), address NACK and its recovery in both directions, the zero-length probe, arbitration loss with SDA held before `i2c.open` and pulled low by the AD3 inside the second address bit, and argument errors.
+  With `--with i2c` (the master against the `i2cs` LL target on the other instance, 4.7 kOhm pull-ups): Standard and Fast mode timing and the rise time, data NACK at every position, the address NACK after the other direction, writes and reads of 1-1024 bytes across the NBYTES/RELOAD boundaries, repeated START, continued sessions in both directions,
+  clock stretching, a bus error from a misplaced STOP, the general call, close while the bus is held and both instance directions.
+- `test_eeprom.py` - EMIL's `eeprom.*` over the `I2cEepromStm` adapter on the external 24Cxx (`--with i2c`): the address probe, attach/detach, writes inside and across pages, reads across pages, write-read-write-read, erase, data across a reset, the size limit,
+  ACK polling on the logic analyzer, recovery from an absent chip, detach while busy, and 1-byte word addresses against the `i2cs` register file.
+- `test_unsupported.py` - every comparator, CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 
 ## Customising
 
@@ -500,6 +506,7 @@ In `hal_st_validation` (hal-st specific):
 - `groups/` - `Group` (`groups/base.py`: `_cmd`, `begin` for commands whose final line comes later, pin resolution) and one module per area exporting `GROUPS = {"name": GroupClass}`.
 - `fakes/` - `FakeGroup` and the argument helpers (`fakes/base.py`); one module per area with the fake firmware's model of its command groups, found automatically.
 - `patterns.py` - the payloads the firmware generates (`len=`, `pattern=inc|const|prbs`, `seed=`) and their CRC-32 (`crc=`).
+- `i2c.py` - I2C bus helpers: decoding SCL/SDA captures (`i2c_decode`), SCL timing and rise times, `expected_timing` (the host twin of the firmware's TIMINGR computation), and AD3 captures and SDA pulses started by a START condition; `groups/i2c.py` - the `fw.i2c`, `fw.i2cs` and `fw.eeprom` wrappers; `fakes/i2c.py` - their fake groups with one shared bus, the target and a 24LC256.
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
 - `pairwise.py` - the full product and the deterministic pairwise generator behind `--depth`.
@@ -512,3 +519,4 @@ In the firmware (`firmware/`):
 - `PinFactoryStm` builds `hal::GpioPinStm`s over the generated pinout tables (bonded pins only, analog sharing, one EXTI line per port); `BoardInfoStm` reports the board, clock and reset cause; `TimerAllocation` keeps PWM, encoder and timer-triggered ADC off each other's timer.
 - `ResourceAllocation` keeps the groups that share an I2C, SPI, ADC or LPTIM instance, a DMA channel or an HSEM semaphore off each other, with the owner ids of `Owners.hpp`; `Payload` generates the `len=`/`pattern=` payloads and the `out=crc` CRCs; `ChannelPins`, `Stopwatch` (microseconds from the cycle counter) and `HsemMaster` (the one HSEM master of the STM32WB55) serve the newer groups.
 - One factory per command group (`UartFactory`, `SpiFactory`, `AdcFactory`, `PwmFactory`, `QeiFactory` with the `qei.index` command, `WatchDogFactory`) parses the hal-st options and builds the driver; `UnsupportedGroups` answers the rest.
+- `I2cGroup` (`i2c.*` over `I2cStmForHil`, an `I2cStm` whose hooks report `EVT i2c`), `I2cTiming` (TIMINGR from kernel clock and bus frequency), `I2cTarget` (`i2cs.*`, the LL I2C target scaffold), `I2cEepromStm` (a `hal::Eeprom` over `hal::I2cMaster` with page writes and ACK polling) and `EepromGroup` (`eeprom.attach`/`eeprom.detach`, the factory of EMIL's `eeprom` group).
