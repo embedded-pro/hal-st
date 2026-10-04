@@ -1,5 +1,6 @@
 #include "hal_st/synchronous_stm32fxxx/SynchronousHardwareSemaphoreStm.hpp"
 #include "stm32wbxx.h"
+#include "stm32wbxx_ll_hsem.h"
 
 namespace hal
 {
@@ -17,8 +18,9 @@ namespace hal
     {
         HSEM->C1IER |= 1 << static_cast<uint32_t>(semaphore);
 
-        while (!IsLockedByCurrentCore(semaphore))
-        {}
+        while (HAL_HSEM_FastTake(static_cast<uint32_t>(semaphore)) != HAL_OK)
+        {
+        }
     }
 
     void SynchronousHardwareSemaphoreMasterStm::Release(hal::Semaphore semaphore) const
@@ -31,7 +33,7 @@ namespace hal
 
     bool SynchronousHardwareSemaphoreMasterStm::IsLockedByCurrentCore(hal::Semaphore semaphore) const
     {
-        return HSEM->RLR[static_cast<uint32_t>(semaphore)] == HSEM_R_LOCK | HSEM_CR_COREID_CURRENT;
+        return LL_HSEM_IsSemaphoreLocked(HSEM, static_cast<uint32_t>(semaphore)) != 0 && LL_HSEM_GetCoreId(HSEM, static_cast<uint32_t>(semaphore)) == LL_HSEM_COREID;
     }
 
     SynchronousHardwareSemaphoreStm::SynchronousHardwareSemaphoreStm(SynchronousHardwareSemaphoreMasterStm& synchronousHardwareSemaphoreMaster, Semaphore semaphore)
