@@ -1,8 +1,10 @@
 #include "validation/firmware/SpiFactory.hpp"
 #include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <limits>
 
@@ -11,6 +13,9 @@ namespace validation
     namespace
     {
         using services::HilStatus;
+
+        // Longer than the slowest 64-byte transfer (2.05 ms at 250 kHz on WB55); one still running by then never completes
+        constexpr infra::Duration quiesceTimeout = std::chrono::milliseconds(10);
 
         constexpr std::array<const char*, 8> openKeys{ { "clk", "mosi", "miso", "cs", "baud", "mode", "dma", "sync" } };
 
@@ -47,16 +52,53 @@ namespace validation
         {
             return SupportsFunction(clock, hal::PinConfigTypeStm::spiClock, index) && SupportsFunction(mosi, hal::PinConfigTypeStm::spiMosi, index) && SupportsFunction(miso, hal::PinConfigTypeStm::spiMiso, index);
         }
+    }
 
-        template<class Config>
-        Config MakeConfig(const auto& request)
-        {
-            Config config;
-            config.polarityLow = (request.mode & 2) == 0;
-            config.phase1st = (request.mode & 1) == 0;
-            config.baudRatePrescaler = request.baudRatePrescaler;
-            return config;
-        }
+    template<class Config>
+    Config SpiFactoryStm::MakeConfig(const Request& request)
+    {
+        Config config;
+        config.polarityLow = (request.mode & 2) == 0;
+        config.phase1st = (request.mode & 1) == 0;
+        config.baudRatePrescaler = request.baudRatePrescaler;
+        return config;
+    }
+
+    SpiFactoryStm::TrackedSpiMaster::TrackedSpiMaster(hal::SpiMaster& spi, const infra::Function<void()>& onIdle)
+        : spi(spi)
+        , onIdle(onIdle)
+    {}
+
+    void SpiFactoryStm::TrackedSpiMaster::SendAndReceive(infra::ConstByteRange sendData, infra::ByteRange receiveData, hal::SpiAction nextAction, const infra::Function<void()>& onDone)
+    {
+        busy = true;
+        this->onDone = onDone;
+        spi.SendAndReceive(sendData, receiveData, nextAction, [this]()
+            {
+                busy = false;
+                this->onDone();
+                onIdle();
+            });
+    }
+
+    void SpiFactoryStm::TrackedSpiMaster::SetChipSelectConfigurator(hal::ChipSelectConfigurator& configurator)
+    {
+        spi.SetChipSelectConfigurator(configurator);
+    }
+
+    void SpiFactoryStm::TrackedSpiMaster::SetCommunicationConfigurator(hal::CommunicationConfigurator& configurator)
+    {
+        spi.SetCommunicationConfigurator(configurator);
+    }
+
+    void SpiFactoryStm::TrackedSpiMaster::ResetCommunicationConfigurator()
+    {
+        spi.ResetCommunicationConfigurator();
+    }
+
+    bool SpiFactoryStm::TrackedSpiMaster::Busy() const
+    {
+        return busy;
     }
 
     SpiFactoryStm::SpiFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma)
@@ -98,8 +140,38 @@ namespace validation
 
     void SpiFactoryStm::Close(uint8_t, const infra::Function<void()>& onClosed)
     {
+        this->onClosed = onClosed;
+
+        // SpiMasterStm schedules its completion from the interrupt with no stale-event guard, and a WB55 DMA
+        // channel left enabled ignores the next open's count and address: let a running transfer finish first
+        if (tracked && tracked->Busy())
+            quiesceTimer.Start(quiesceTimeout, [this]()
+                {
+                    Destroy();
+                });
+        else
+            Destroy();
+    }
+
+    void SpiFactoryStm::TransferDone()
+    {
+        if (!quiesceTimer.Armed())
+            return;
+
+        quiesceTimer.Cancel();
+
+        // Called from inside the driver's completion, which must not destroy its own driver
+        infra::EventDispatcher::Instance().Schedule([this]()
+            {
+                Destroy();
+            });
+    }
+
+    void SpiFactoryStm::Destroy()
+    {
         // The driver goes first: an end-of-transfer interrupt must not reach a destroyed chip-select wrapper
         driver.emplace<std::monostate>();
+        tracked.reset();
         chipSelect.reset();
         synchronousChipSelect.reset();
         receiveStream.reset();
@@ -181,12 +253,15 @@ namespace validation
             return;
         }
 
-        auto& spi = ConstructAsynchronous(index, request, claimed);
+        hal::SpiMaster* spi = &ConstructAsynchronous(index, request, claimed);
 
         if (claimed.chipSelect != nullptr)
-            handle.spi = &chipSelect.emplace(spi, *claimed.chipSelect);
-        else
-            handle.spi = &spi;
+            spi = &chipSelect.emplace(*spi, *claimed.chipSelect);
+
+        handle.spi = &tracked.emplace(*spi, [this]()
+            {
+                TransferDone();
+            });
     }
 
     hal::SpiMaster& SpiFactoryStm::ConstructAsynchronous(uint8_t index, const Request& request, const ClaimedPins& claimed)

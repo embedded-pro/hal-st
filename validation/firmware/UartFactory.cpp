@@ -3,6 +3,8 @@
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include <array>
+#include <cstdint>
+#include <optional>
 
 namespace validation
 {
@@ -30,7 +32,7 @@ namespace validation
         constexpr uint32_t minimumBaudRate = 300;
         constexpr uint32_t maximumBaudRate = 12000000;
 
-        // The HAL keeps its BRR lower limits (UART_BRR_MIN, LPUART_BRR_MIN) private to *_hal_uart.c
+        // The HAL keeps UART_BRR_MIN and LPUART_BRR_MIN private to *_hal_uart.c
         constexpr uint32_t usartMinimumDivider = 0x10;
         constexpr uint32_t lpuartMinimumDivider = 0x300;
 
@@ -72,6 +74,28 @@ namespace validation
         {
             const auto& table = lpuart ? hal::peripheralLpuart : hal::peripheralUart;
             return index >= 1 && index <= table.size() && table[index - 1] != nullptr;
+        }
+
+        bool Selects(const UartPins& pins, uint8_t index, bool lpuart)
+        {
+            return pins.index == index && pins.lpuart == lpuart;
+        }
+
+        bool IsTerminal(uint8_t index, bool lpuart)
+        {
+            return Selects(board::terminal, index, lpuart);
+        }
+
+        // The terminal defaults to its own pins, so a bare uart.open of it passes every argument check and answers busy
+        std::optional<UartPins> DefaultPins(uint8_t index, bool lpuart)
+        {
+            if (IsTerminal(index, lpuart))
+                return board::terminal;
+
+            if (board::defaultUart && Selects(*board::defaultUart, index, lpuart))
+                return board::defaultUart;
+
+            return std::nullopt;
         }
 
         bool BaudRateFits(uint8_t index, bool lpuart, uint32_t baud)
@@ -193,15 +217,11 @@ namespace validation
         if (!BaudRateFits(index, request.lpuart, request.baud))
             return HilStatus::range;
 
-        // The terminal has no default pins: checked after this, a bare uart.open of it would answer usage instead of busy
-        if (index == board::terminal.index && request.lpuart == board::terminal.lpuart)
-            return HilStatus::busy;
-
-        const bool noPins = !request.tx && !request.rx && !request.rts && !request.cts;
-        if (noPins && board::defaultUart && board::defaultUart->index == index && board::defaultUart->lpuart == request.lpuart)
+        const auto defaults = DefaultPins(index, request.lpuart);
+        if (defaults && !request.tx && !request.rx && !request.rts && !request.cts)
         {
-            request.tx = board::defaultUart->tx;
-            request.rx = board::defaultUart->rx;
+            request.tx = defaults->tx;
+            request.rx = defaults->rx;
         }
 
         if (!request.tx || !request.rx)
@@ -209,6 +229,9 @@ namespace validation
 
         if (!PinsSupportFunctions(index, FunctionsOf(request.lpuart), *request.tx, *request.rx, request.rts, request.cts))
             return HilStatus::pin;
+
+        if (IsTerminal(index, request.lpuart))
+            return HilStatus::busy;
 
         return HilStatus::done;
     }
@@ -270,7 +293,7 @@ namespace validation
             transmitStream.emplace(dma, hal::DmaChannelId(1, board::uartDmaChannel, requests.transmit));
 
             if (request.duplex)
-                receiveStream.emplace(dma, hal::DmaChannelId(1, board::uartDmaChannel + 1, requests.receive));
+                receiveStream.emplace(dma, hal::DmaChannelId(1, static_cast<uint8_t>(board::uartDmaChannel + 1), requests.receive));
         }
 
         if (request.duplex)

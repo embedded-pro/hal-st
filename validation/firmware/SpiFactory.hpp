@@ -4,6 +4,8 @@
 #include "hal_st/stm32fxxx/SpiMasterStm.hpp"
 #include "hal_st/stm32fxxx/SpiMasterStmDma.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.hpp"
+#include "infra/timer/Timer.hpp"
+#include "infra/util/AutoResetFunction.hpp"
 #include "services/hil/commands/HilSpiCommands.hpp"
 #include "services/peripheral/SpiMasterWithChipSelect.hpp"
 #include "services/synchronous_peripheral/SynchronousSpiMasterWithChipSelect.hpp"
@@ -48,11 +50,36 @@ namespace validation
             hal::GpioPin* chipSelect = nullptr;
         };
 
+        class TrackedSpiMaster
+            : public hal::SpiMaster
+        {
+        public:
+            TrackedSpiMaster(hal::SpiMaster& spi, const infra::Function<void()>& onIdle);
+
+            void SendAndReceive(infra::ConstByteRange sendData, infra::ByteRange receiveData, hal::SpiAction nextAction, const infra::Function<void()>& onDone) override;
+            void SetChipSelectConfigurator(hal::ChipSelectConfigurator& configurator) override;
+            void SetCommunicationConfigurator(hal::CommunicationConfigurator& configurator) override;
+            void ResetCommunicationConfigurator() override;
+
+            bool Busy() const;
+
+        private:
+            hal::SpiMaster& spi;
+            infra::Function<void()> onIdle;
+            infra::AutoResetFunction<void()> onDone;
+            bool busy = false;
+        };
+
+        template<class Config>
+        static Config MakeConfig(const Request& request);
+
         services::HilStatus Evaluate(uint8_t index, const services::HilArguments& arguments, Request& request) const;
         services::HilStatus Parse(const services::HilArguments& arguments, Request& request) const;
         services::HilStatus Claim(uint8_t index, const Request& request, services::HilPinOwner& pins, ClaimedPins& claimed) const;
         void Construct(uint8_t index, const Request& request, const ClaimedPins& claimed, services::HilSpiHandle& handle);
         hal::SpiMaster& ConstructAsynchronous(uint8_t index, const Request& request, const ClaimedPins& claimed);
+        void TransferDone();
+        void Destroy();
 
     private:
         const services::HilPinNaming& naming;
@@ -62,5 +89,8 @@ namespace validation
         std::variant<std::monostate, hal::SpiMasterStm, hal::SpiMasterStmDma, hal::SynchronousSpiMasterStm> driver;
         std::optional<services::SpiMasterWithChipSelect> chipSelect;
         std::optional<services::SynchronousSpiMasterWithChipSelect> synchronousChipSelect;
+        std::optional<TrackedSpiMaster> tracked;
+        infra::TimerSingleShot quiesceTimer;
+        infra::AutoResetFunction<void()> onClosed;
     };
 }

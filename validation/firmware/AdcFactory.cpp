@@ -6,7 +6,6 @@
 #include "validation/firmware/PeripheralClocks.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include <algorithm>
-#include <initializer_list>
 #include <limits>
 #include DEVICE_HEADER
 
@@ -20,10 +19,9 @@ namespace validation
 
         constexpr uint32_t defaultRate = 1000;
         constexpr uint32_t maximumRate = 100000;
-        constexpr uint32_t maximumPrescale = 1u << 16;
         constexpr uint64_t minimumTicks = 2;
 
-        // A Stop from the event loop must not interleave with the DMA interrupt, which disables the ADC on its own
+        // A Stop from the event loop must not interleave with the DMA interrupt, which disables the ADC itself in one-shot mode and stops a timer-triggered sequence from EMIL's last-run callback
         class InterruptsDisabled
         {
         public:
@@ -55,38 +53,18 @@ namespace validation
             return a > b ? a - b : b - a;
         }
 
+        // The smallest prescaler that fits is at most 1 / maximumTicks off the best divider; searching every prescaler for that one blocks the event loop for tens of milliseconds
         hal::TimerBaseStm::Timing TriggerTiming(uint8_t timer, uint32_t rate)
         {
-            const uint32_t clock = TimerClock(timer);
+            const uint64_t clock = TimerClock(timer);
             const uint64_t maximumTicks = IS_TIM_32B_COUNTER_INSTANCE(hal::peripheralTimer[timer - 1]) ? uint64_t{ 1 } << 32 : uint64_t{ 1 } << 16;
 
-            uint32_t bestPrescale = 1;
-            uint64_t bestTicks = minimumTicks;
-            uint64_t bestError = Distance(clock, rate * minimumTicks);
+            const uint64_t prescale = clock / (rate * (maximumTicks + 1)) + 1;
+            const uint64_t floorTicks = std::max(clock / (prescale * rate), minimumTicks);
+            const uint64_t ceilTicks = std::min(floorTicks + 1, maximumTicks);
+            const bool roundUp = Distance(clock, prescale * ceilTicks * rate) * floorTicks < Distance(clock, prescale * floorTicks * rate) * ceilTicks;
 
-            for (uint32_t prescale = 1; prescale <= maximumPrescale && prescale * minimumTicks * rate <= clock && bestError != 0; ++prescale)
-            {
-                const uint32_t floorTicks = clock / (prescale * rate);
-
-                for (const uint64_t ticks : { uint64_t{ floorTicks }, uint64_t{ floorTicks } + 1 })
-                {
-                    const uint64_t divider = prescale * ticks;
-                    const uint64_t error = Distance(clock, divider * rate);
-
-                    if (ticks <= maximumTicks && error * (bestPrescale * bestTicks) < bestError * divider)
-                    {
-                        bestPrescale = prescale;
-                        bestTicks = ticks;
-                        bestError = error;
-                    }
-                }
-
-                // Without prescaling every divider up to maximumTicks is available, so the two around the ideal one cannot be beaten
-                if (prescale == 1 && floorTicks < maximumTicks)
-                    break;
-            }
-
-            return { bestPrescale - 1, static_cast<uint32_t>(bestTicks - 1) };
+            return { static_cast<uint32_t>(prescale - 1), static_cast<uint32_t>((roundUp ? ceilTicks : floorTicks) - 1) };
         }
     }
 
@@ -119,6 +97,7 @@ namespace validation
 
     void AdcFactoryStm::TriggeredSequence::Stop()
     {
+        InterruptsDisabled interruptsDisabled;
         Sequence::Stop();
         StopTimer();
         measuring = false;
@@ -256,6 +235,9 @@ namespace validation
 
     HilStatus AdcFactoryStm::Parse(const services::HilArguments& arguments, Request& request) const
     {
+        if (arguments.Has("rate") && !arguments.Has("timer"))
+            return HilStatus::usage;
+
         HilStatus status = HilStatus::done;
         request.samplingTime = board::adcDefaultSamplingTime;
         request.rate = defaultRate;
@@ -270,9 +252,6 @@ namespace validation
         arguments.Number("rate", request.rate, 1, maximumRate, status);
         if (status != HilStatus::done)
             return status;
-
-        if (arguments.Has("rate") && !request.timer)
-            return HilStatus::usage;
 
         status = ParsePins(arguments, request);
         if (status != HilStatus::done)

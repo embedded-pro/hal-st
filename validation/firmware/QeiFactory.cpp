@@ -207,6 +207,9 @@ namespace validation
 
     HilStatus QeiFactoryStm::ParseSettings(uint8_t timer, const services::HilArguments& arguments, Request& request) const
     {
+        if (request.lowPower && (arguments.Has("cap") || arguments.Has("offset") || arguments.Has("invb")))
+            return HilStatus::unsupported;
+
         auto& config = request.config;
 
         HilStatus status = HilStatus::done;
@@ -233,9 +236,6 @@ namespace validation
 
         if (status != HilStatus::done)
             return status;
-
-        if (request.lowPower && (arguments.Has("cap") || arguments.Has("offset") || arguments.Has("invb")))
-            return HilStatus::unsupported;
 
         if (request.lowPower && !IsLowPowerFilter(config.filter))
             return HilStatus::range;
@@ -306,7 +306,7 @@ namespace validation
         , context(context)
         , factory(factory)
         , commands{ {
-              services::HilBind<QeiExtensionCommands, &QeiExtensionCommands::Index>("qei.index", "qei.index <timer>", *this, context.response),
+              services::HilBind<QeiExtensionCommands, &QeiExtensionCommands::Index>("qei.index", "<index>", *this, context.response),
           } }
     {}
 
