@@ -1,0 +1,665 @@
+---
+# NUCLEO-WB55RG (STM32WB55RG, VFQFPN68), 64 MHz from the HSI PLL with every
+# APB prescaler at 1. Pins may be written as P<port><index> or as an alias
+# from `pins`.
+board: nucleo_wb55rg
+firmware_name: NUCLEO-WB55RG
+family: stm32wb55
+description: NUCLEO-WB55RG (Nucleo-64 with STM32WB55RG)
+sysclk: 64000000
+
+# Kernel clocks the expectations use (expect.py), in Hz.
+clocks:
+  sysclk: 64000000
+  pclk1: 64000000
+  pclk2: 64000000
+  timer: 64000000
+  spi:
+    1: 64000000
+    2: 64000000
+  uart:
+    usart1: 64000000
+    lpuart1: 64000000
+
+terminal:
+  baud: 921600
+  interface: ST-LINK virtual COM port (USART1)
+  uart: 1
+  pins: [terminaltx, terminalrx]
+  max_command_length: 255
+  command_timeout: 2.0
+  boot_timeout: 5.0
+
+# PROTOCOL.md board profile, compared with `board.pins` in both directions.
+pins:
+  terminaltx: PB6
+  terminalrx: PB7
+  ain1: PC0
+  ain2: PC1
+  ain3: PC2
+  ain4: PC3
+  ain5: PA0
+  ain6: PA1
+  tim1ch1: PA8
+  tim1ch2: PA9
+  tim1ch3: PA10
+  tim1ch4: PA11
+  tim1ch1n: PA7
+  tim1ch2n: PB8
+  tim1ch3n: PB9
+  tim1bkin: PB12
+  tim2ch1: PA15
+  tim2ch2: PB3
+  tim2ch3: PA2
+  tim2ch4: PA3
+  tim16ch1: PA6
+  tim17ch1: PB9
+  qei1a: PA8
+  qei1b: PA9
+  qei2a: PA15
+  qei2b: PB3
+  qei2idx: PC6
+  lptim1in1: PC0
+  lptim1in2: PC2
+  spi1clk: PA5
+  spi1miso: PA6
+  spi1mosi: PA7
+  spi1cs: PA4
+  lpuart1tx: PA2
+  lpuart1rx: PA3
+  lpuart1rts: PB12
+  lpuart1cts: PA6
+  led0: PB0
+  led1: PB1
+  gpio0: PC6
+  gpio1: PC10
+  gpio2: PC12
+  gpio3: PC13
+  gpio4: PE4
+  sw1: PC4
+  sw2: PD0
+  sw3: PD1
+
+ad3:
+  # V+/V- stay off (null): the Nucleo is powered from the ST-LINK USB.
+  vplus: null
+  vminus: null
+  # Wavegen levels are refused outside this range (3.3 V I/O).
+  analog_limits: [0.0, 3.3]
+
+# Two fixed bundles: wire one, run its tests, then switch. Header positions
+# follow the Nucleo-64 Arduino mapping; the CN10 morpho positions and the
+# solder bridges are to be checked against UM2435. Always connect AD3 GND to
+# a Nucleo GND pin.
+wiring_sets:
+  bundle1:
+    description: >-
+      PWM (TIM1 channels, complementary outputs and break; TIM2; TIM16/17),
+      SPI1, LPUART1 with flow control, the TIM1/TIM2 encoders, GPIO, EXTI,
+      LED, watchdog toggle and ADC1; W1/W2 on two ADC inputs
+    options:
+      loopback: >-
+        jumper PA7 (SPI1 MOSI, D11) to PA6 (SPI1 MISO, D12); DIO7 then only
+        listens
+    jumpers:
+      - >-
+        D10 is PA4 only with the default solder bridges (SB41 on, SB42 off;
+        otherwise PB10), check against UM2435
+    dio:
+      0:
+        pin: tim1ch1
+        note: TIM1 CH1, encoder TIM1 A, GPIO (D6)
+      1:
+        pin: tim1ch1n
+        note: TIM1 CH1N, SPI1 MOSI, GPIO (D11)
+      2:
+        pin: tim1ch2
+        note: TIM1 CH2, encoder TIM1 B, GPIO (D9)
+      3:
+        pin: tim1ch2n
+        note: TIM1 CH2N, GPIO (D15)
+      4:
+        pin: tim1ch3
+        note: TIM1 CH3, TIM17 break, GPIO (D3)
+      5:
+        pin: tim1ch3n
+        note: TIM1 CH3N, TIM17 CH1, GPIO (D14)
+      6:
+        pin: spi1clk
+        note: SPI1 SCK, GPIO (D13)
+      7:
+        pin: spi1miso
+        note: SPI1 MISO, LPUART1 CTS, TIM16 CH1, GPIO (D12)
+      8:
+        pin: spi1cs
+        note: SPI1 chip select, GPIO (D10, see jumpers)
+      9:
+        pin: qei2a
+        note: TIM2 CH1, encoder TIM2 A, GPIO (D5)
+      10:
+        pin: qei2b
+        note: TIM2 CH2, encoder TIM2 B, GPIO (CN10, check UM2435)
+      11:
+        pin: gpio0
+        note: >-
+          GPIO/EXTI, encoder TIM2 index, watchdog warning toggle (D2)
+      12:
+        pin: lpuart1tx
+        note: LPUART1 TX, TIM2 CH3, GPIO (D1)
+      13:
+        pin: lpuart1rx
+        note: LPUART1 RX, TIM2 CH4, GPIO (D0)
+      14:
+        pin: lpuart1rts
+        note: LPUART1 RTS, TIM1 break, GPIO (CN10, check UM2435)
+      15:
+        pin: led0
+        note: green LED output, GPIO (CN10, check UM2435)
+    wavegen:
+      1:
+        pin: ain4
+        note: ADC1 IN4 (A4)
+      2:
+        pin: ain3
+        note: ADC1 IN3 (A5)
+    scope:
+      1: ain4
+      2: ain3
+  bundle2:
+    description: >-
+      bundle1 with DIO9 on PC0 and DIO10 on PC2 for the LPTIM1 encoder; W2
+      and scope 2 are unplugged because DIO10 now drives PC2. Only the
+      LPTIM encoder tests and tests that need nothing on DIO9/DIO10/W2 run
+      with it
+    options:
+      loopback: >-
+        jumper PA7 (SPI1 MOSI, D11) to PA6 (SPI1 MISO, D12); DIO7 then only
+        listens
+    jumpers:
+      - >-
+        D10 is PA4 only with the default solder bridges (SB41 on, SB42 off;
+        otherwise PB10), check against UM2435
+    dio:
+      0:
+        pin: tim1ch1
+        note: TIM1 CH1, encoder TIM1 A, GPIO (D6)
+      1:
+        pin: tim1ch1n
+        note: TIM1 CH1N, SPI1 MOSI, GPIO (D11)
+      2:
+        pin: tim1ch2
+        note: TIM1 CH2, encoder TIM1 B, GPIO (D9)
+      3:
+        pin: tim1ch2n
+        note: TIM1 CH2N, GPIO (D15)
+      4:
+        pin: tim1ch3
+        note: TIM1 CH3, TIM17 break, GPIO (D3)
+      5:
+        pin: tim1ch3n
+        note: TIM1 CH3N, TIM17 CH1, GPIO (D14)
+      6:
+        pin: spi1clk
+        note: SPI1 SCK, GPIO (D13)
+      7:
+        pin: spi1miso
+        note: SPI1 MISO, LPUART1 CTS, TIM16 CH1, GPIO (D12)
+      8:
+        pin: spi1cs
+        note: SPI1 chip select, GPIO (D10, see jumpers)
+      9:
+        pin: lptim1in1
+        note: LPTIM1 IN1, encoder LPTIM1 A, ADC1 IN1 (A0)
+      10:
+        pin: lptim1in2
+        note: LPTIM1 IN2, encoder LPTIM1 B, ADC1 IN3 (A5)
+      11:
+        pin: gpio0
+        note: GPIO/EXTI, watchdog warning toggle (D2)
+      12:
+        pin: lpuart1tx
+        note: LPUART1 TX, TIM2 CH3, GPIO (D1)
+      13:
+        pin: lpuart1rx
+        note: LPUART1 RX, TIM2 CH4, GPIO (D0)
+      14:
+        pin: lpuart1rts
+        note: LPUART1 RTS, TIM1 break, GPIO (CN10, check UM2435)
+      15:
+        pin: led0
+        note: green LED output, GPIO (CN10, check UM2435)
+    wavegen:
+      1:
+        pin: ain4
+        note: ADC1 IN4 (A4)
+    scope:
+      1: ain4
+
+# Driver gaps the HIL tests run into (tests/conftest.py): `tests` match the
+# test ids relative to tests/hil (`*` and `?` are wildcards, brackets are
+# literal); `hangs` gaps abort or hang the firmware, so their tests are
+# skipped unless --run-known-gaps; the others are expected failures. --fake
+# ignores them. The centre-aligned period of PwmStm.cpp:381-390 is off the
+# frequency tolerance at short periods only, so test_pwm.py::test_waveform
+# expects that failure per case (expect.pwm_frequency_driver).
+known_gaps:
+  - tests:
+      - test_pwm.py::test_waveform*
+      - test_pwm.py::test_frequency_limits*
+      - test_pwm.py::test_channels*
+      - test_pwm.py::test_complementary*
+      - test_pwm.py::test_dead_time_limits[1000000]
+      - test_pwm.py::test_idle_levels*
+      - test_pwm.py::test_break_input*
+      - test_pwm.py::test_frequency_change_and_stop*
+      - test_pwm.py::test_duty_errors
+      - test_pwm.py::test_one_timer_at_a_time
+      - test_pwm.py::test_reopen_forgets_dead_time_and_break
+    reason: >-
+      hal_st/stm32fxxx/PwmStm.cpp:256-261 - every pwm.open aborts the
+      firmware: ConfigureTimeBase calls HAL_TIM_PWM_Init with Period = 0, the
+      IS_TIM_PERIOD assert (USE_FULL_ASSERT) ends in assert_failed and abort()
+    hangs: true
+  - tests:
+      - test_pwm.py::test_reopen_forgets_dead_time_and_break
+    reason: >-
+      hal_st/stm32fxxx/PwmStm.cpp:238-250 - dead time, break and idle settings
+      (BDTR, AF1) survive into the next open of the same timer
+    hangs: false
+  - tests:
+      - test_uart.py::test_close_during_stalled_send[*variant=interrupt*]
+    reason: >-
+      hal_st/stm32fxxx/UartStm.cpp:102 - closing a UART during a stalled send
+      leaves TXEIE set: the next open of that instance ends in an interrupt
+      storm
+    hangs: true
+  - tests:
+      - test_pwm.py::test_break_input[*brkpol=low*]
+    reason: >-
+      hal_st/stm32fxxx/PwmStm.cpp:318,349 - brkpol=low sets BDTR.BKP=0 and
+      AF1.BKINP=1, which inverts the input a second time: the break acts
+      active high
+    hangs: false
+  - tests:
+      - test_uart.py::test_swap_does_not_survive_close*
+    reason: >-
+      hal_st/stm32fxxx/UartStm.cpp:82-88 - CR2.SWAP is only written when
+      swapTxRx is set, so a swap=1 session leaves the instance swapped for
+      every later open until reset
+    hangs: false
+
+# Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
+# per key: `--depth full` runs the cartesian product, `--depth quick` a
+# pairwise subset. Lists used by `@pytest.mark.board_params` are one
+# dimension each; a list of mappings with a `name` uses it as the test id.
+tests:
+  system:
+    boot_timeout: 5.0
+    # USART1 is the terminal: `uart.open 1` answers busy.
+    reserved_uarts: [1]
+    # Blinking debug LED (blue LD1), reserved by the firmware.
+    debug_led: PB5
+    # SWD, LSE crystal and BOOT0: reserved like the terminal pins.
+    reserved_pins: [PA13, PA14, PC14, PC15, PH3]
+    # Instances the MCU lacks: ERR range (0 too, the peripherals start at 1).
+    missing_instances:
+      - uart.open 0
+      - spi.open 0
+      - pwm.open 0
+      - qei.open 0
+      - uart.open 2
+      - spi.open 3
+      - pwm.open 3
+      - qei.open 3
+      - adc.open 4
+      - wdt.start 1 timeout=100
+    # Features the MCU lacks: ERR unsupported.
+    unsupported_instances:
+      - qei.open 16
+    # A pin the package does not bond out: ERR pin.
+    unbonded_pins: [PC7, PD2, PE0]
+    # Names that are no pin: ERR pin.
+    invalid_pins: [PA16, PA08, PF0, LED0, nosuchalias]
+    delays_ms: [10, 200]
+  gpio:
+    # bundle1 pins used as plain GPIO, on ports A, B and C.
+    loop_pins: [gpio0, PA8, PB8, PA4, PB12]
+    output_pins: [led0]
+    # hal::Speed of the output stage.
+    drives: [low, medium, fast, high]
+    pulls: [up, down]
+    input_pulls: [none, up, down]
+    # RAM holds `limit` GPIO pins; `limit_pins` names one more.
+    limit: 8
+    limit_pins: [gpio0, gpio1, gpio2, gpio3, gpio4, led0, led1, PA8, PB8]
+    irq:
+      edge: [rising, falling, both]
+      handler: [immediate, dispatched]
+      pulses: [1, 10, 100]
+      frequency: [100, 1000, 10000]
+    pulse:
+      count: 10
+      periods_ms: [1, 5, 20]
+      tolerance: 0.05
+      jitter_ms: 0.5
+    # Two wired pins on the same EXTI line (index) of different ports: while
+    # `counting` counts edges, `sharing` answers ERR unsupported.
+    exti_sharing:
+      counting: gpio0
+      sharing: PA6
+  pwm:
+    # Timers with their wired outputs, in the order the tests use them;
+    # `npin` is the complementary output, `brk` a wired break input.
+    timers:
+      - name: tim1
+        timer: 1
+        channels:
+          - channel: 1
+            pin: tim1ch1
+            npin: tim1ch1n
+          - channel: 2
+            pin: tim1ch2
+            npin: tim1ch2n
+          - channel: 3
+            pin: tim1ch3
+            npin: tim1ch3n
+        brk: tim1bkin
+      - name: tim2
+        timer: 2
+        channels:
+          - channel: 1
+            pin: tim2ch1
+          - channel: 2
+            pin: tim2ch2
+          - channel: 3
+            pin: tim2ch3
+          - channel: 4
+            pin: tim2ch4
+      - name: tim16
+        timer: 16
+        channels:
+          - channel: 1
+            pin: tim16ch1
+      - name: tim17
+        timer: 17
+        channels:
+          - channel: 1
+            pin: tim17ch1
+        brk: PA10
+    # One channel of each timer; ERR range exactly where the period does
+    # not fit (expect.pwm_fits), unsupported for center on TIM16/TIM17.
+    waveform:
+      freq: [100, 1000, 10000, 20000, 100000, 1000000]
+      duty: [0, 12.5, 50, 90, 100]
+      mode: [edge, center]
+      prescaler: [0, 1, 63, 999, 65535]
+      sync: [0, 1]
+    # 1-4 channels of a timer (as many as it has wired), aligned edges.
+    channels:
+      count: [1, 2, 3, 4]
+      mode: [edge, center]
+      sync: [0, 1]
+    channels_frequency: 10000
+    channel_duties: [20, 40, 60, 80]
+    # Channel and complementary output (timers with `npin`): dead time in ns
+    # (saturating at expect.PWM_DEAD_MAX_TICKS), inversion [inv, invn].
+    complementary:
+      dead: [0, 100, 500, 2000, 20000]
+      inversion: [[0, 0], [1, 0], [0, 1], [1, 1]]
+      mode: [edge, center]
+      sync: [0, 1]
+    complementary_frequency: 20000
+    # Output levels while stopped (timers with a break function).
+    idle:
+      idle: [0, 1]
+      idlen: [0, 1]
+    # Break input (timers with `brk`) driven by its DIO.
+    break:
+      brkpol: [low, high]
+      brkauto: [0, 1]
+    break_settle_s: 0.01
+    # A pin without any function of the first timer.
+    foreign_pin: gpio0
+    dead_limit_ns: [1000000, 1000001]
+    frequency_changes: [10000, 25000]
+    frequency_change:
+      mode: [edge, center]
+      sync: [0, 1]
+    # Lowest and highest frequency of each timer (expect.pwm_frequency_limits).
+    limits:
+      mode: [edge, center]
+      prescaler: [0, 63, 65535]
+    capture_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 1.0
+      dead_ticks: 2
+      alignment_s: 2.0e-7
+      static_fraction: 0.99
+  uart:
+    # USART1 is the terminal: LPUART1 is the only UART under test.
+    instances:
+      - name: lpuart1
+        index: 1
+        lp: 1
+        tx: lpuart1tx
+        rx: lpuart1rx
+        rts: lpuart1rts
+        cts: lpuart1cts
+        variants: [interrupt, dma]
+        # Opens on lpuart1tx/lpuart1rx without pins.
+        default_pins: true
+    variants:
+      interrupt:
+        dma: 0
+        duplex: 0
+        sync: 0
+      dma:
+        dma: 1
+        duplex: 0
+        sync: 0
+      duplex:
+        dma: 0
+        duplex: 1
+        sync: 0
+      sync:
+        dma: 0
+        duplex: 0
+        sync: 1
+    transfer:
+      baud: [38400, 57600, 115200, 230400, 460800, 921600]
+      parity: [none, even, odd]
+      variant: [interrupt, dma, duplex, sync]
+    # Asynchronous drivers take rtscts only; rts and cts alone need sync=1.
+    flow:
+      flow: [rts, cts, rtscts]
+      variant: [interrupt, dma, duplex, sync]
+    swap:
+      variant: [interrupt, dma, duplex]
+    # CTS held off: uart.send answers ERR timeout.
+    stall:
+      variant: [interrupt, dma, duplex, sync]
+    stall_payload: 64
+    flow_baud: 115200
+    reopen_settings: [[38400, even], [460800, none], [921600, odd]]
+    large:
+      baud: [115200, 921600]
+      variant: [interrupt, dma, duplex, sync]
+    # `uart.open` succeeds exactly when expect.uart_baud_fits (LPUART1 at
+    # 64 MHz: 15626 to 8000000, the limit the WB HAL asserts).
+    open_bauds: [299, 300, 15625, 15626, 921600, 8000000, 8000001, 12000001]
+    payloads: ["55", "00ff", "0123456789abcdef", "48656c6c6f2c20484954"]
+    # uart.send takes at most 112 bytes, uart.recv returns at most 256.
+    large_payload: 112
+    large_payload_to_firmware: 240
+    stream_rounds: 8
+    stream_size: 64
+    bit_rate_tolerance: 0.03
+  spi:
+    instances:
+      - name: spi1
+        index: 1
+        clk: spi1clk
+        mosi: spi1mosi
+        miso: spi1miso
+        cs: spi1cs
+    variants:
+      interrupt:
+        dma: 0
+        sync: 0
+      dma:
+        dma: 1
+        sync: 0
+      sync:
+        dma: 0
+        sync: 1
+    # The clock is the fastest spiclk / 2^n not above baud
+    # (expect.spi_clock): 3 MHz runs at 2 MHz.
+    transfer:
+      mode: [0, 1, 2, 3]
+      baud: [250000, 400000, 1000000, 3000000, 8000000, 32000000]
+      variant: [interrupt, dma, sync]
+      cs: [gpio, none]
+    sessions:
+      mode: [0, 1, 2, 3]
+      variant: [interrupt, dma, sync]
+    receive_only:
+      variant: [interrupt, dma, sync]
+    largest:
+      variant: [interrupt, dma, sync]
+    session_baud: 250000
+    # ERR range outside spiclk/256 .. spiclk/2.
+    open_bauds: [249999, 250000, 32000000, 32000001]
+    payloads: ["a5", "0102030405060708", "ff00aa55"]
+    miso_levels: [0, 1]
+    max_transfer: 64
+    tolerance:
+      baud: 0.05
+  adc:
+    adc: 1
+    vref: 3.3
+    bits: 12
+    tolerance_codes: 40
+    spread_codes: 180
+    samples: 16
+    # The two inputs driven by W1/W2.
+    inputs: [ain4, ain3]
+    # Analog-capable pins the sequence tests may add (unwired, any reading).
+    spare_inputs: [ain1, ain2, ain5, ain6]
+    levels:
+      pin: [ain4, ain3]
+      level: [0.2, 0.8, 1.65, 2.5, 3.1]
+      trigger: [software, timer]
+    # Sequences alternate the two driven inputs; every third position takes
+    # the next spare input (test_adc.sequence_pins).
+    sequence:
+      length: [1, 2, 3, 4, 8]
+      trigger: [software, timer]
+    timing:
+      sampling: ["2.5", "6.5", "12.5", "24.5", "47.5", "92.5", "247.5", "640.5"]
+      trigger: [software, timer]
+    # Timer-triggered runs: TRGO of `timer` at `rate` runs per second;
+    # `trigger_rate` times `adc.measure` against the rate.
+    trigger_rate:
+      timer: [1, 2]
+      rate: [100, 1000, 10000]
+    trigger:
+      missing_timers: [3]
+      unsupported_timers: [16, 17]
+      timer: 2
+      rate: 1000
+      runs: 64
+      # test_trigger_rate compares n=runs with n=1, the shortest of `repeats`
+      # round trips each, so the command round trip cancels; `jitter_s` is
+      # what the link's scheduling leaves on top.
+      repeats: 3
+      rate_tolerance: 0.2
+      jitter_s: 0.002
+  qei:
+    instances:
+      - name: tim2
+        index: 2
+        a: qei2a
+        b: qei2b
+        idx: qei2idx
+        # TIM2 counts up to 2^32 - 1 (EMIL's number parser stops there).
+        max_res: 4294967295
+      - name: tim1
+        index: 1
+        a: qei1a
+        b: qei1b
+        idx: gpio0
+        max_res: 65536
+    # Opens on its default pins without a and b.
+    default_instance: 2
+    # LPTIM1 (`lp=1`), wired in bundle2 only.
+    lp_instances:
+      - name: lptim1
+        index: 1
+        a: lptim1in1
+        b: lptim1in2
+        max_res: 65536
+    # LPTIM numbers without an encoder interface: ERR range.
+    lp_missing_instances: [2]
+    resolution: 4096
+    position:
+      freq: [100, 1000, 10000, 50000]
+      cycles: [1, 10, 250]
+      direction: [fwd, rev]
+      cap: [ab, a, b]
+      inva: [0, 1]
+      invb: [0, 1]
+    inversions: [[1, 0], [0, 1], [1, 1]]
+    counts_per_cycle:
+      ab: 4
+      a: 2
+      b: 2
+    lp_position:
+      freq: [100, 1000, 10000]
+      cycles: [1, 10, 250]
+      direction: [fwd, rev]
+      inva: [0, 1]
+      filter: [0, 2, 4, 8]
+    velocity:
+      freq: [1000, 10000]
+      vel: [1000, 10000]
+    speed_tolerance: 0.03
+    rollover:
+      res: [100, 4096]
+      offset: [0, 50]
+  watchdog:
+    index: 0
+    # Warning period 63 * 4096 * prescaler / pclk1 for the smallest
+    # prescaler not below the timeout (expect.wwdg_warning_period): 5 ms ->
+    # 8.064 ms, 20 -> 32.256, 100 -> 129.024, 300 -> 516.096. With
+    # feed=manual the reset one counter tick after the warning can cut the
+    # EVT wdt line at 5 and 20 ms, so test_behaviour checks the line from
+    # 100 ms on (expect.wwdg_warning_outruns_reset).
+    behaviour:
+      timeout_ms: [5, 20, 100, 300]
+      feed: [auto, manual]
+    period:
+      timeout_ms: [5, 20, 100, 300]
+    # 516 ms is the longest; above it ERR range.
+    open_timeouts_ms: [1, 516, 517, 30000, 30001]
+    pin: gpio0
+    manual_timeout_ms: 100
+    feed_seconds: 2.0
+    observe_periods: 3
+    period_tolerance: 0.03
+  unsupported:
+    commands:
+      - comp.open 1
+      - comp.read 1
+      - comp.irq 1 rising
+      - comp.count 1
+      - comp.close 1
+      - can.open 1
+      - can.send 1 0x123 01
+      - can.close 1
+      - eeprom.write 0 00
+      - eeprom.read 0 1
+      - eeprom.erase
+      - eth.open
+      - eth.status
+      - eth.close

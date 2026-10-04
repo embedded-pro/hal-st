@@ -16,6 +16,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `st/` — CMSIS headers, STM32 HAL driver sources (per family), `hal_conf/`, `ldscripts/`
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
+- `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
 - `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`
 
 ## Memory — no heap
@@ -54,7 +55,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 
 ## Testing
 
-No unit tests in this repo. hal-st is validated by manual testing on Nucleo/Discovery boards, logic-analyser/scope verification, and the `integration_test/` hardware-in-the-loop rig — not by GoogleTest suites. Don't add unit tests for new or changed drivers. (`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
+No unit tests in this repo. hal-st is validated on real hardware — the `validation/` app (firmware + pytest/AD3 host suite, see `validation/README.md`), manual testing on Nucleo/Discovery boards, logic-analyser/scope verification and the `integration_test/` rig — not by GoogleTest suites. A driver change on STM32WB55/WBA55 should keep `validation/PROTOCOL.md`, the firmware factory and the host tests in step. `validation/host/tests/unit` tests the host harness itself (`pytest validation/host/tests/unit`), not the drivers. Don't add unit tests for new or changed drivers. (`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
 
 ## Build
 
@@ -64,6 +65,8 @@ cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # 
 ```
 
 Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`.
+
+Validation firmware (stm32wb55, stm32wba55): `cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware`.
 
 ## Assistant behavior — be terse
 

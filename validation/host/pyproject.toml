@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hal_st_validation"
+version = "0.1.0"
+description = "Hardware-in-the-loop validation of hal-st drivers with a Digilent Analog Discovery 3"
+requires-python = ">=3.10"
+# ad3-waveforms-bench brings the AD3 wrapper, the terminal client and the pytest plugin (--ad3-serial,
+# --no-ad3, --fake, the ad3 fixture). Pinned past v0.2.0 for the UART parity and logic-analyzer reset fixes;
+# move back to a tag with the next release.
+dependencies = [
+    "ad3-waveforms-bench @ git+https://github.com/embedded-pro/ad3-waveforms-bench@dcb3754fd4a4997e4e78cd824f48bc13b0c2435a",
+    "pyserial>=3.5",
+    "pyyaml>=6.0",
+    "pytest>=7.4",
+]
+
+[project.optional-dependencies]
+# The WaveForms SDK is reached through ctypes (in ad3-waveforms-bench); it needs the Digilent WaveForms
+# runtime installed system wide, not a Python package, so this extra is empty and only marks the intent.
+ad3 = []
+dev = ["ruff>=0.5"]
+
+[project.scripts]
+hal-st-console = "hal_st_validation.console:main"
+
+[tool.setuptools.packages.find]
+include = ["hal_st_validation*"]
+
+[tool.pytest.ini_options]
+minversion = "7.4"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers --import-mode=importlib"
+markers = [
+    "hil: needs the firmware on a Nucleo board (skipped without --port)",
+    "board_params(argnames, path=None, values=None): one parameter dimension from tests.<path> of the board YAML or from values",
+    "matrix(path): one parameter dimension per key of the tests.<path> mapping of the board YAML",
+    "constraint(valid): keep a parameter combination only when valid(argname -> value) is true",
+    "family(name): only run on boards of this family (stm32wb55 or stm32wba55)",
+    "requires_option(tag): only run when enabled with --with <tag>",
+    "resets_board: the test resets the board on purpose",
+    "slow: takes more than a few seconds",
+]
+filterwarnings = ["error::pytest.PytestUnknownMarkWarning"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+ignore = ["B008", "B905"]
