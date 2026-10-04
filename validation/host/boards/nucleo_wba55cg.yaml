@@ -110,9 +110,19 @@ ad3:
   # Wavegen levels are refused outside this range (3.3 V I/O).
   analog_limits: [0.0, 3.3]
 
-# One fixed bundle covers every test. Header positions follow the Nucleo-64
-# Arduino mapping (check against UM3390). Always connect AD3 GND to a Nucleo
-# GND pin.
+# Wiring sets: wire one, run its tests, then switch. The board manual is
+# UM3301, which could not be fetched, so every position names its source:
+# Arduino labels (Dn, An) from Zephyr's nucleo_wba55cg
+# arduino_r3_connector.dtsi; CN3/CN4 morpho and CN6-CN8 Arduino positions
+# from the STM32CubeWBA v1.10.0 example readmes ("readmes xN": N readmes
+# agree); CN4-35/CN4-37 from modm-data's transcription of UM3301 Table 8;
+# 3V3 CN5-4 and GND CN5-6 from the STM32-Sidewalk-SDK README (a single
+# source: do the pre-power check of validation/README.md). AD3 leads sit
+# on male morpho pins where a sourced position exists; DIO11/DIO13 use a
+# male pin in their Arduino socket, and the A1/A4 sockets are named by
+# their label only. Options as on the NUCLEO-WB55RG (`jumpered` key pin =
+# the end test_wiring.py drives); bundle1 offers only the loopback (its
+# W1/W2 sit on the I2C3 pins), bundle2 also the I2C and SPI loops.
 wiring_sets:
   bundle1:
     description: >-
@@ -121,74 +131,308 @@ wiring_sets:
       TIM1/TIM3 encoders, GPIO, EXTI, LED, watchdog toggle and ADC4; W1/W2
       on two ADC inputs
     options:
-      loopback: >-
-        jumper PA15 (SPI1 MOSI, D11) to PB3 (SPI1 MISO, D12); the SPI tests
-        then leave DIO1 an input and check the read-back
+      loopback:
+        description: >-
+          jumper the D11 socket (CN6-4, PA15, SPI1 MOSI) to the D12 socket
+          (CN6-5, PB3, SPI1 MISO): labels from Zephyr, positions from the
+          CubeWBA readmes (x14, x11); CN4-15 and CN4-10 carry the DIO2 and
+          DIO1 leads. The SPI tests then leave DIO1 an input and check the
+          read-back. Fit the jumper only with --with loopback
+        jumpered:
+          PA15: [PB3]
+        loads: [PA15, PB3]
+        excludes: [spiloop]
     jumpers:
+      - >-
+        AD3 GND to CN5-6 (Sidewalk SDK README: GND on CN5 pin 6, the only
+        sourced GND pin). Scope 1- and 2- need GND as well: feed a
+        breadboard GND rail from CN5-6 and put the AD3 GND, 1- and 2- leads
+        on male pins in that rail
+      - >-
+        check before wiring (modm-data, UM3301 Table 8): MB1801 SB7/SB8
+        connect PA10/PB5 to the ST-LINK VCP2; MB1801 SB25 with MB1803 SB8
+        on and SB9 off routes STLINK_RTS to PA0 (with MB1803 SB32 on and
+        SB31 off to PB15); SB23/SB25 route STLINK_CTS to PB9. None is the
+        stock setting; test_wiring.py::test_no_foreign_drivers checks that
+        PA0, PB9, PA10, PB5 and PB15 follow the MCU pulls
       - >-
         PB4 (D13) also drives the blue LED LD1, which loads the SPI1 clock
         line
+      - >-
+        PB8 carries the red LED LD3 (active low, Zephyr board file): the LED
+        and its resistor pull PB8 towards 3V3, so no pull-level or idle
+        assertion uses PB8. PA9 is the green LD2, the firmware's debug LED,
+        dark unless SB28 is closed (open on a stock board)
     dio:
       0:
         pin: spi1clk
-        note: SPI1 SCK, TIM1 CH3, blue LED (led0), GPIO (D13)
+        note: >-
+          SPI1 SCK, TIM1 CH3, blue LED LD1 (led0), GPIO (CN4-6, readmes x15;
+          D13)
       1:
         pin: spi1miso
-        note: SPI1 MISO, TIM1 CH4, TIM17 CH1N, GPIO (D12)
+        note: >-
+          SPI1 MISO, I2C1 SDA, TIM1 CH4, TIM17 CH1N, GPIO (CN4-10, readmes
+          x13; D12)
       2:
         pin: spi1mosi
-        note: SPI1 MOSI, encoder TIM1 index, TIM17 break, GPIO (D11)
+        note: >-
+          SPI1 MOSI, I2C1 SCL, LPTIM1 CH2, encoder TIM1 index, TIM17 break,
+          GPIO (CN4-15, readmes x12; D11)
       3:
         pin: spi1cs
-        note: SPI1 chip select, TIM1 CH2, encoder TIM1 B, GPIO (D10)
+        note: >-
+          SPI1 chip select and NSS, TIM1 CH2, encoder TIM1 B, GPIO (CN4-17,
+          readmes x10; D10)
       4:
         pin: tim1ch1
-        note: TIM1 CH1, encoder TIM1 A, USART2 RX, GPIO (D4)
+        note: >-
+          TIM1 CH1, encoder TIM1 A, USART2 RX, LPTIM2 CH1, GPIO (CN4-24,
+          readmes x7; D4)
       5:
         pin: tim1ch1n
-        note: TIM1 CH1N, USART2 CTS, GPIO (D15)
+        note: >-
+          TIM1 CH1N, USART2 CTS, I2C1 SCL, I2C3 SCL, GPIO (CN4-3, readmes
+          x31; D15)
       6:
         pin: tim1ch2n
-        note: TIM1 CH2N, USART2 RTS, GPIO (D14)
+        note: >-
+          TIM1 CH2N, USART2 RTS, I2C1 SDA, I2C3 SDA, GPIO (CN4-5, readmes
+          x31; D14)
       7:
         pin: tim1ch3n
-        note: TIM1 CH3N, USART2 TX, GPIO (D6)
+        note: >-
+          TIM1 CH3N, USART2 TX, encoder LPTIM2 B (LPTIM2 IN2), GPIO (CN4-25,
+          readme x1; D6)
       8:
         pin: lpuart1tx
-        note: LPUART1 TX, GPIO (D1)
+        note: >-
+          LPUART1 TX, GPIO (CN4-35, modm-data UM3301 Table 8; D1)
       9:
         pin: lpuart1rx
-        note: LPUART1 RX, TIM3 CH1, encoder TIM3 A, GPIO (D0)
+        note: >-
+          LPUART1 RX, TIM3 CH1, encoder TIM3 A, GPIO (CN4-37, modm-data
+          UM3301 Table 8; D0)
       10:
         pin: lpuart1rts
-        note: LPUART1 RTS, TIM3 CH4, TIM16 CH1, GPIO (D7)
+        note: >-
+          LPUART1 RTS, TIM3 CH4, TIM16 CH1, encoder LPTIM2 A (LPTIM2 IN1),
+          GPIO (CN4-23, readmes x4; D7)
       11:
         pin: lpuart1cts
-        note: LPUART1 CTS, TIM16 break, GPIO (D8)
+        note: >-
+          LPUART1 CTS, TIM16 break, GPIO (male pin in the D8 socket: no
+          sourced morpho position)
       12:
         pin: tim3ch2
-        note: TIM3 CH2, encoder TIM3 B, TIM17 CH1, GPIO (A3)
+        note: >-
+          TIM3 CH2, encoder TIM3 B, TIM17 CH1, LPTIM2 CH2, GPIO (CN3-34,
+          readme x1; A3)
       13:
         pin: gpio0
         note: >-
           GPIO/EXTI, TIM3 CH3, encoder TIM3 index, watchdog warning toggle
-          (D5)
+          (male pin in the D5 socket: no sourced morpho position)
       14:
         pin: tim1bkin
-        note: TIM1 break input, GPIO (A2)
+        note: >-
+          TIM1 break input, GPIO (CN3-32, readmes x8; A2)
       15:
         pin: tim2ch1
-        note: TIM2 CH1, GPIO (A4)
+        note: >-
+          TIM2 CH1, GPIO (CN3-36, readmes x7; A4)
     wavegen:
       1:
         pin: ain2
-        note: ADC4 IN2 (A0)
+        note: ADC4 IN2 (CN3-28, readmes x23; A0)
       2:
         pin: ain3
-        note: ADC4 IN3 (A1)
+        note: ADC4 IN3 (CN3-30, readmes x10; A1)
     scope:
-      1: ain2
-      2: ain3
+      1:
+        pin: ain2
+        note: >-
+          same net as W1: male pin in the A0 socket (CN7-1, readmes x12),
+          1- on the GND rail
+      2:
+        pin: ain3
+        note: >-
+          same net as W2: male pin in the A1 socket (label only), 2- on the
+          GND rail
+  bundle2:
+    description: >-
+      bundle1 with DIO8 on PA7, DIO9 on PA6, DIO11 on PB8 and DIO14 on PA0;
+      W1, W2 and both scopes unplugged (with --with i2c the scopes sit in
+      the I2C rows). SPI3 master and slave, PWM TIM2 CH3/CH4 and TIM16
+      CH1N, timer PWM TIM2 with four channels, the LPTIM1 encoder (PA0,
+      PB3), the I2C and SPI loop options, and everything of bundle1 that
+      needs none of PB5, PA10, PB15, PA2, W1 and W2. The LPUART1 tests, the
+      TIM1/TIM16 break tests and the ADC tests skip
+    options:
+      loopback:
+        description: >-
+          jumper the D11 socket (CN6-4, PA15, SPI1 MOSI) to the D12 socket
+          (CN6-5, PB3, SPI1 MISO): labels from Zephyr, positions from the
+          CubeWBA readmes (x14, x11); CN4-15 and CN4-10 carry the DIO2 and
+          DIO1 leads. The SPI tests then leave DIO1 an input and check the
+          read-back. Fit the jumper only with --with loopback
+        jumpered:
+          PA15: [PB3]
+        loads: [PA15, PB3]
+        excludes: [spiloop]
+      i2c:
+        description: >-
+          I2C1 (PB2 SCL, PB1 SDA) to I2C3 (PA6 SCL, PA7 SDA) with a 24Cxx
+          EEPROM, ST's pairing (STM32CubeWBA
+          Examples_MIX/I2C/I2C_OneBoard_ComSlave7_10bits_IT README), built on
+          a breadboard: D15 socket (CN6-10, PB2) and A1 socket (PA6, label
+          only) to the SCL row; D14 socket (CN6-9, PB1) and A0 socket (CN7-1,
+          PA7) to the SDA row (labels from Zephyr, positions from the CubeWBA
+          readmes); CN5-4 (3V3) to the 3V3 rail and CN5-6 (GND) to the GND
+          rail (Sidewalk SDK README); the AD3 GND lead moves from CN5-6 to
+          the GND rail. 4.7 kOhm from the SCL row and from the SDA row to
+          the 3V3 rail (2.2 kOhm when test_rise_time fails). EEPROM wired as
+          on the NUCLEO-WB55RG (validation/README.md). Scope 1+ on a male pin
+          in the SCL row, 2+ in the SDA row, 1- and 2- on the GND rail.
+          DIO5 (CN4-3) and DIO9 (CN3-30) observe SCL, DIO6 (CN4-5) and DIO8
+          (CN3-28) SDA. Measure 3.3 V between the rails before inserting the
+          EEPROM
+        jumpered:
+          PB2: [PA6]
+          PB1: [PA7]
+        loads: [PB2, PB1, PA6, PA7]
+        pullups: [PB2, PB1, PA6, PA7]
+      spiloop:
+        description: >-
+          SPI1 (PB4 SCK, PB3 MISO, PA15 MOSI, PA12 NSS) to SPI3 (PA0, PB9,
+          PB8, PA5): D13 socket (CN6-6, PB4) to the A5 socket (CN7-6, PA0);
+          D12 socket (CN6-5, PB3) to the D7 socket (CN8-8, PB9); D11 socket
+          (CN6-4, PA15) to a breadboard row, CN4-38 (PB8, its only position)
+          to the same row with an M-F wire, and the DIO11 lead moved from
+          CN4-38 to a male pin in that row; D10 socket (CN6-3, PA12) to the
+          A4 socket (PA5, label only). Labels from Zephyr, positions from
+          the CubeWBA readmes. SPI3 is observed through DIO14, DIO10, DIO11
+          and DIO15. Not together with --with loopback (both use D11/D12)
+        jumpered:
+          PB8: [PA15]
+          PA0: [PB4]
+          PB9: [PB3]
+          PA5: [PA12]
+        loads: [PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5]
+        excludes: [loopback]
+    jumpers:
+      - >-
+        AD3 GND to CN5-6 (Sidewalk SDK README: GND on CN5 pin 6, the only
+        sourced GND pin); with --with i2c the lead moves to the breadboard
+        GND rail fed from CN5-6
+      - >-
+        check before wiring (modm-data, UM3301 Table 8): MB1801 SB7/SB8
+        connect PA10/PB5 to the ST-LINK VCP2; MB1801 SB25 with MB1803 SB8
+        on and SB9 off routes STLINK_RTS to PA0 (with MB1803 SB32 on and
+        SB31 off to PB15); SB23/SB25 route STLINK_CTS to PB9. None is the
+        stock setting; test_wiring.py::test_no_foreign_drivers checks that
+        PA0, PB9, PA10, PB5 and PB15 follow the MCU pulls
+      - >-
+        PB4 (D13) also drives the blue LED LD1, which loads the SPI1 clock
+        line
+      - >-
+        PB8 (DIO11) carries the red LED LD3 (active low, Zephyr board
+        file): the LED and its resistor pull PB8 towards 3V3, so no
+        pull-level or idle assertion uses PB8, and the TIM16 entry of this
+        set has no break input. PA9 is the green LD2, the firmware's debug
+        LED, dark unless SB28 is closed (open on a stock board)
+    dio:
+      0:
+        pin: spi1clk
+        note: >-
+          SPI1 SCK, TIM1 CH3, blue LED LD1 (led0), GPIO (CN4-6, readmes x15;
+          D13)
+      1:
+        pin: spi1miso
+        note: >-
+          SPI1 MISO, I2C1 SDA, TIM1 CH4, TIM17 CH1N, encoder LPTIM1 B
+          (LPTIM1 IN2), GPIO (CN4-10, readmes x13; D12)
+      2:
+        pin: spi1mosi
+        note: >-
+          SPI1 MOSI, I2C1 SCL, LPTIM1 CH2, encoder TIM1 index, TIM17 break,
+          GPIO (CN4-15, readmes x12; D11)
+      3:
+        pin: spi1cs
+        note: >-
+          SPI1 chip select and NSS, TIM1 CH2, encoder TIM1 B, GPIO (CN4-17,
+          readmes x10; D10)
+      4:
+        pin: tim1ch1
+        note: >-
+          TIM1 CH1, encoder TIM1 A, USART2 RX, LPTIM2 CH1, GPIO (CN4-24,
+          readmes x7; D4)
+      5:
+        pin: tim1ch1n
+        note: >-
+          TIM1 CH1N, USART2 CTS, I2C1 SCL, I2C3 SCL, GPIO (CN4-3, readmes
+          x31; D15)
+      6:
+        pin: tim1ch2n
+        note: >-
+          TIM1 CH2N, USART2 RTS, I2C1 SDA, I2C3 SDA, GPIO (CN4-5, readmes
+          x31; D14)
+      7:
+        pin: tim1ch3n
+        note: >-
+          TIM1 CH3N, USART2 TX, encoder LPTIM2 B (LPTIM2 IN2), GPIO (CN4-25,
+          readme x1; D6)
+      8:
+        pin: i2c3sda
+        note: >-
+          I2C3 SDA, TIM2 CH3, GPIO (CN3-28, readmes x23; A0)
+      9:
+        pin: i2c3scl
+        note: >-
+          I2C3 SCL, TIM2 CH4, GPIO (CN3-30, readmes x10; A1)
+      10:
+        pin: lpuart1rts
+        note: >-
+          SPI3 MISO, LPUART1 RTS, TIM3 CH4, TIM16 CH1, encoder LPTIM2 A
+          (LPTIM2 IN1), GPIO (CN4-23, readmes x4; D7)
+      11:
+        pin: spi3mosi
+        note: >-
+          SPI3 MOSI, TIM16 CH1N, GPIO; red LED LD3 (CN4-38, readmes x12; no
+          Arduino socket; with --with spiloop the lead sits in the PB8
+          breadboard row)
+      12:
+        pin: tim3ch2
+        note: >-
+          TIM3 CH2, encoder TIM3 B, TIM17 CH1, LPTIM2 CH2, GPIO (CN3-34,
+          readme x1; A3)
+      13:
+        pin: gpio0
+        note: >-
+          GPIO/EXTI, TIM3 CH3, encoder TIM3 index, watchdog warning toggle
+          (male pin in the D5 socket: no sourced morpho position)
+      14:
+        pin: spi3clk
+        note: >-
+          SPI3 SCK, encoder LPTIM1 A (LPTIM1 IN1), GPIO (CN3-38, readmes x3;
+          A5)
+      15:
+        pin: tim2ch1
+        note: >-
+          TIM2 CH1, SPI3 NSS, GPIO (CN3-36, readmes x7; A4)
+    scope:
+      1:
+        pin: i2c1scl
+        requires: i2c
+        note: >-
+          male pin in the SCL breadboard row (PB2 and PA6), 1- on the GND
+          rail
+      2:
+        pin: i2c1sda
+        requires: i2c
+        note: >-
+          male pin in the SDA breadboard row (PB1 and PA7), 2- on the GND
+          rail
 
 # Driver gaps the HIL tests run into (tests/conftest.py): `tests` match the
 # test ids relative to tests/hil (`*` and `?` are wildcards, brackets are
@@ -239,6 +483,11 @@ tests:
     # Names that are no pin: ERR pin.
     invalid_pins: [PA16, PA08, PD0, LED0, nosuchalias]
     delays_ms: [10, 200]
+  wiring:
+    # Pins nothing on the board may drive: ST-LINK lines reach them only
+    # through solder bridges that are open on a stock board
+    # (test_wiring.py::test_no_foreign_drivers).
+    undriven: [PA0, PB9, PA10, PB5, PB15]
   gpio:
     # bundle1 pins used as plain GPIO, on ports A and B.
     loop_pins: [gpio0, PA11, PB0, PA12, PA5]

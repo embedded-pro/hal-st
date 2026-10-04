@@ -79,7 +79,41 @@ def test_bundles_wire_each_dio_once(name):
 
 def test_bundle_sets():
     assert set(load_board("nucleo_wb55rg").wiring_sets) == {"bundle1", "bundle2"}
-    assert set(load_board("nucleo_wba55cg").wiring_sets) == {"bundle1"}
+    assert set(load_board("nucleo_wba55cg").wiring_sets) == {"bundle1", "bundle2"}
+
+
+@pytest.mark.parametrize(
+    ("name", "offered"),
+    [
+        ("nucleo_wb55rg", {"bundle1": {"loopback", "i2c", "spiloop"}, "bundle2": {"loopback"}}),
+        ("nucleo_wba55cg", {"bundle1": {"loopback"}, "bundle2": {"loopback", "i2c", "spiloop"}}),
+    ],
+)
+def test_bundle_options(name, offered):
+    """The options each set offers; loopback and spiloop share pins, so they exclude each other."""
+    board = load_board(name)
+    assert {bundle: set(wiring_set.options) for bundle, wiring_set in board.wiring_sets.items()} == offered
+    for bundle, tags in offered.items():
+        if {"loopback", "spiloop"} <= tags:
+            with pytest.raises(ConfigError):
+                board.wiring([bundle], ["loopback", "spiloop"])
+        for tag in tags:
+            option = board.wiring([bundle], [tag]).options[tag]
+            assert option.loads and set(option.jumpered) <= set(option.loads), (bundle, tag)
+            assert set(option.pullups) <= set(option.loads), (bundle, tag)
+
+
+def test_wba55_bundle2_moves_four_dios():
+    board = load_board("nucleo_wba55cg")
+    bundle1, bundle2 = board.wiring(["bundle1"]), board.wiring(["bundle2"])
+    assert [bundle1.dio(pin) for pin in ("PB5", "PA10", "PB15", "PA2")] == [8, 9, 11, 14]
+    assert [bundle2.dio(pin) for pin in ("PA7", "PA6", "PB8", "PA0")] == [8, 9, 11, 14]
+    assert bundle2.wavegen("PA7") is None and bundle2.scope("PB2") is None
+    with_i2c = board.wiring(["bundle2"], ["i2c"])
+    assert with_i2c.scope("PB2") == 1 and with_i2c.scope("PA6", allowed=["i2c"]) == 1
+    assert with_i2c.loaded("PA6") == ("i2c",) and with_i2c.scope("PA6") is None
+    with pytest.raises(ConfigError):
+        board.wiring(["bundle1", "bundle2"])
 
 
 def test_wb55_bundle2_moves_the_encoder_inputs():

@@ -11,34 +11,46 @@ The terminal is a `hal::UartStmDuplexDma` on USART1, the ST-LINK virtual COM por
 
 Aliases name the pins by peripheral function:
 
-| Alias                                         | NUCLEO-WB55RG           | NUCLEO-WBA55CG          | Function                                             |
-|-----------------------------------------------|-------------------------|-------------------------|------------------------------------------------------|
-| `terminaltx` `terminalrx`                     | PB6 PB7                 | PB12 PA8                | terminal USART1 TX / RX                              |
-| `ain1` `ain2` `ain3` `ain4` `ain5` `ain6`     | PC0 PC1 PC2 PC3 PA0 PA1 | -                       | ADC1 inputs IN1-IN6                                  |
-| `ain2` `ain3` `ain4` `ain7` `ain8` `ain9`     | -                       | PA7 PA6 PA5 PA2 PA1 PA0 | ADC4 inputs                                          |
-| `ain10`                                       | -                       | PB9                     | ADC4 input IN10                                      |
-| `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`       | PA8 PA9 PA10 PA11       | PA11 PA12 PB4 PB3       | TIM1 channels 1-4                                    |
-| `tim1ch1n` `tim1ch2n` `tim1ch3n`              | PA7 PB8 PB9             | PB2 PB1 PB0             | TIM1 complementary channels 1N-3N                    |
-| `tim1bkin`                                    | PB12                    | PA2                     | TIM1 break input                                     |
-| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PA1 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)                   |
-| `tim2ch1` `tim2ch3` `tim2ch4`                 | -                       | PA5 PA7 PA6             | TIM2 channels 1, 3, 4 (CH2 is the terminal RX pin)   |
-| `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`       | -                       | PA10 PA1 PB14 PB9       | TIM3 channels 1-4                                    |
-| `tim16ch1` `tim17ch1`                         | PA6 PB9                 | PB9 PA1                 | TIM16 / TIM17 channel 1                              |
-| `tim17ch1n`                                   | -                       | PB3                     | TIM17 complementary channel 1N                       |
-| `qei1a` `qei1b`                               | PA8 PA9                 | PA11 PA12               | TIM1 encoder phase A / B                             |
-| `qei1idx`                                     | -                       | PA15                    | index input of the default encoder                   |
-| `qei2a` `qei2b` `qei2idx`                     | PA15 PA1 PC6            | -                       | TIM2 encoder phase A / B, index input                |
-| `qei3a` `qei3b`                               | -                       | PA10 PA1                | TIM3 encoder phase A / B                             |
-| `lptim1in1` `lptim1in2`                       | PC0 PC2                 | -                       | LPTIM1 encoder inputs                                |
-| `spi1clk` `spi1miso` `spi1mosi` `spi1cs`      | PA5 PA6 PA7 PA4         | PB4 PB3 PA15 PA12       | SPI1 (Arduino D13/D12/D11/D10)                       |
-| `lpuart1tx` `lpuart1rx`                       | PA2 PA3                 | PB5 PA10                | LPUART1 TX / RX (Arduino D1/D0)                      |
-| `lpuart1rts` `lpuart1cts`                     | PB12 PA6                | PB9 PB15                | LPUART1 RTS / CTS                                    |
-| `usart2tx` `usart2rx` `usart2rts` `usart2cts` | -                       | PB0 PA11 PB1 PB2        | USART2                                               |
-| `led0` `led1`                                 | PB0 PB1                 | PB4 PA9                 | user LEDs (green LD2, red LD3 / blue LD1, green LD2) |
-| `gpio0`                                       | PC6                     | PB14                    | general-purpose test pin, watchdog warning toggle    |
-| `gpio1` `gpio2`                               | PC10 PC12               | PA5 PA0                 | general-purpose test pins                            |
-| `gpio3` `gpio4`                               | PC13 PE4                | -                       | general-purpose test pins                            |
-| `sw1` `sw2` `sw3`                             | PC4 PD0 PD1             | PC13 PB6 PB7            | user buttons (input only, pulled up)                 |
+| Alias                                         | NUCLEO-WB55RG           | NUCLEO-WBA55CG          | Function                                                         |
+|-----------------------------------------------|-------------------------|-------------------------|------------------------------------------------------------------|
+| `terminaltx` `terminalrx`                     | PB6 PB7                 | PB12 PA8                | terminal USART1 TX / RX                                          |
+| `ain1` `ain2` `ain3` `ain4` `ain5` `ain6`     | PC0 PC1 PC2 PC3 PA0 PA1 | -                       | ADC1 inputs IN1-IN6                                              |
+| `ain2` `ain3` `ain4` `ain7` `ain8` `ain9`     | -                       | PA7 PA6 PA5 PA2 PA1 PA0 | ADC4 inputs                                                      |
+| `ain10`                                       | -                       | PB9                     | ADC4 input IN10                                                  |
+| `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`       | PA8 PA9 PA10 PA11       | PA11 PA12 PB4 PB3       | TIM1 channels 1-4                                                |
+| `tim1ch1n` `tim1ch2n` `tim1ch3n`              | PA7 PB8 PB9             | PB2 PB1 PB0             | TIM1 complementary channels 1N-3N                                |
+| `tim1bkin`                                    | PB12                    | PA2                     | TIM1 break input                                                 |
+| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PA1 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)                               |
+| `tim2ch1` `tim2ch3` `tim2ch4`                 | -                       | PA5 PA7 PA6             | TIM2 channels 1, 3, 4 (CH2 is the terminal RX pin)               |
+| `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`       | -                       | PA10 PA1 PB14 PB9       | TIM3 channels 1-4                                                |
+| `tim16ch1` `tim17ch1`                         | PA6 PB9                 | PB9 PA1                 | TIM16 / TIM17 channel 1                                          |
+| `tim16ch1n`                                   | -                       | PB8                     | TIM16 complementary channel 1N (red LD3 on the pin)              |
+| `tim17ch1n`                                   | -                       | PB3                     | TIM17 complementary channel 1N                                   |
+| `qei1a` `qei1b`                               | PA8 PA9                 | PA11 PA12               | TIM1 encoder phase A / B                                         |
+| `qei1idx`                                     | -                       | PA15                    | index input of the default encoder                               |
+| `qei2a` `qei2b` `qei2idx`                     | PA15 PA1 PC6            | -                       | TIM2 encoder phase A / B, index input                            |
+| `qei3a` `qei3b`                               | -                       | PA10 PA1                | TIM3 encoder phase A / B                                         |
+| `lptim1in1` `lptim1in2`                       | PC0 PC2                 | PA0 PB3                 | LPTIM1 encoder inputs                                            |
+| `lptim2in1` `lptim2in2`                       | -                       | PB9 PB0                 | LPTIM2 encoder inputs                                            |
+| `lptim1ch2`                                   | -                       | PA15                    | LPTIM1 channel 2 (CH1, PB11, is not bonded out)                  |
+| `lptim2ch1` `lptim2ch2`                       | -                       | PA11 PA1                | LPTIM2 channels 1-2                                              |
+| `spi1clk` `spi1miso` `spi1mosi` `spi1cs`      | PA5 PA6 PA7 PA4         | PB4 PB3 PA15 PA12       | SPI1 (Arduino D13/D12/D11/D10)                                   |
+| `spi1nss`                                     | PA4                     | PA12                    | SPI1 hardware NSS (the pin of `spi1cs`)                          |
+| `spi2clk` `spi2miso` `spi2mosi` `spi2nss`     | PB13 PB14 PB15 PB12     | -                       | SPI2                                                             |
+| `spi3clk` `spi3miso` `spi3mosi` `spi3nss`     | -                       | PA0 PB9 PB8 PA5         | SPI3 (8- and 16-bit frames only)                                 |
+| `i2c1scl` `i2c1sda`                           | PB8 PB9                 | PB2 PB1                 | I2C1 SCL / SDA (Arduino D15/D14)                                 |
+| `i2c3scl` `i2c3sda`                           | PC0 PC1                 | PA6 PA7                 | I2C3 SCL / SDA                                                   |
+| `qspiclk` `qspincs`                           | PA3 PA2                 | -                       | QUADSPI clock / chip select                                      |
+| `qspiio0` `qspiio1` `qspiio2` `qspiio3`       | PB9 PB8 PA7 PA6         | -                       | QUADSPI IO0-IO3                                                  |
+| `lpuart1tx` `lpuart1rx`                       | PA2 PA3                 | PB5 PA10                | LPUART1 TX / RX (Arduino D1/D0)                                  |
+| `lpuart1rts` `lpuart1cts`                     | PB12 PA6                | PB9 PB15                | LPUART1 RTS / CTS                                                |
+| `usart2tx` `usart2rx` `usart2rts` `usart2cts` | -                       | PB0 PA11 PB1 PB2        | USART2                                                           |
+| `mco`                                         | PA8                     | -                       | clock output MCO (`clock.mco`)                                   |
+| `led0` `led1`                                 | PB0 PB1                 | PB4 PA9                 | user LEDs (green LD2, red LD3 / blue LD1, green LD2 = debug LED) |
+| `gpio0`                                       | PC6                     | PB14                    | general-purpose test pin, watchdog warning toggle                |
+| `gpio1` `gpio2`                               | PC10 PC12               | PA5 PA0                 | general-purpose test pins                                        |
+| `gpio3` `gpio4`                               | PC13 PE4                | -                       | general-purpose test pins                                        |
+| `sw1` `sw2` `sw3`                             | PC4 PD0 PD1             | PC13 PB6 PB7            | user buttons (input only, pulled up)                             |
 
 - Wherever a pin is expected, an alias from this table may be used instead of `P<port><index>`; several aliases may name the same pin, and no alias carries a default pull.
 - Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`). Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
@@ -50,14 +62,22 @@ Aliases name the pins by peripheral function:
 The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix, number, hex and list syntax, open/close semantics) is specified in EMIL's [hardware-in-the-loop terminal documentation](https://github.com/embedded-pro/embedded-infra-lib/blob/main/docs/Hil.md). hal-st adds:
 
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
-- Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55 and A-C and H on STM32WBA55, index 0-15; a pin the package does not bond out returns `ERR pin`.
-- Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), SPI 1-3, TIM 1-17 (PWM and encoder) and LPTIM 1 (encoder, `lp=1`), ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG). A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`.
-- The terminal UART and its pins, the debug LED (WB55 PB5, the blue LD1; WBA55 PB8, the red LD3; blinking while the firmware runs), the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3)
-  are reserved and cannot be opened (`ERR busy`); any other pin, aliased or not, can be reconfigured freely. A pin held by another open instance returns `ERR busy`; a pin the hal-st pinout table does
-  not offer for the requested function and instance returns `ERR pin`.
-- A timer serves one group at a time: a timer held by an open PWM, encoder or timer-triggered ADC returns `ERR busy` to the other groups.
-- RAM limits how many instances are open at the same time: 1 PWM timer, 1 UART besides the terminal, 1 SPI, 1 ADC, 1 encoder, 1 watchdog and 8 GPIO pins; one more returns `ERR busy`.
+- Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55 and A-C and H on STM32WBA55, index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
+- Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
+  A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
+- The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); any other pin, aliased or not, can be reconfigured freely.
+  The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
+  A pin held by another open instance returns `ERR busy`; a pin the hal-st pinout table does not offer for the requested function and instance returns `ERR pin`.
+- A timer serves one group at a time: a timer held by an open PWM, encoder, timer-triggered ADC, timer (`tim`) or timer PWM (`tpwm`), by a running `ain.burst` or `dma.wave` (both TIM2), or by the scaffold timer TIM17 while `lpm.enter` or `hsem.lock hold=` uses it, returns `ERR busy` to the other groups.
+- One peripheral instance serves one group at a time: an I2C instance is shared by `i2c`, `i2cs` and `eeprom`, an SPI instance by `spi` and `spis`, the ADC by `adc` and `ain`, an LPTIM by `qei` (`lp=1`), `lptim` and `lptpwm`, and HSEM semaphore 0 by `flash ... variant=coord` and `hsem.lock` (WB55).
+  So are the DMA channels some groups share: WB55 DMA1 channel 7 (`adc`, `ain.burst`); WBA55 GPDMA1 channel 7 (`adc`, `ain.burst`, `spis` receive) and channel 8 (`spis` transmit, `dma.wave`). An instance or channel another group holds returns `ERR busy`.
+- RAM limits how many instances are open at the same time: 1 PWM timer, 1 UART besides the terminal, 1 SPI master, 1 SPI slave, 1 I2C master, 1 I2C target, 1 attached EEPROM, 1 ADC, 1 encoder, 1 timer (`tim`), 1 timer PWM (`tpwm`), 1 LPTIM, 1 LPTIM PWM, 1 QUADSPI, 1 watchdog and 8 GPIO pins; one more returns `ERR busy`.
 - Argument errors (`usage`, `range`, `pin`, `unsupported`) are reported before `ERR busy`.
+- Line length: a command line holds at most 255 characters (`terminal.max_command_length` in the board files). Commands that move more data than fits take a payload the firmware generates and can answer with a CRC instead of the data:
+  - in place of a hex payload, `-` with `len=<n>` (1 up to the command's capacity, `ERR range` above) `[pattern=inc|const|prbs]` (default `inc`) `[seed=<0..0xFFFFFFFF>]` (default 0); `len` with a hex payload, or `pattern`/`seed` without `len`, returns `ERR usage`
+  - `inc`: byte i is (seed + i) & 0xFF; `const`: every byte is seed & 0xFF; `prbs`: per byte, a 32-bit xorshift `x ^= x << 13; x ^= x >> 17; x ^= x << 5` then `x & 0xFF`, starting from `seed` (1 when `seed` is 0). `inc` with seed 0xFE gives `fe ff 00 01`, `prbs` with seed 1 gives `21 01 c5 4f d1 d0 1a b2`
+  - `out=hex|crc` (default `hex`) where a command returns data: `hex` returns at most 128 bytes (`ERR range` above); `crc` returns `len=<n> crc=<8 lower-case hex digits>`, the CRC-32 of zlib (`zlib.crc32`; `inc` seed 0 with 256 bytes gives `29058c73`)
+  - durations in replies are `us=<n>` microseconds
 
 ## General
 
@@ -159,4 +179,10 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 ## Not available on these boards
 
-hal-st has no comparator, CAN, EEPROM or Ethernet driver for STM32WB55/STM32WBA55, so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eeprom.write`, `eeprom.read`, `eeprom.erase`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55, so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+The groups one MCU lacks return `ERR unsupported` on that MCU:
+
+- STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB).
+- STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48).
+
+The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

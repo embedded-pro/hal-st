@@ -110,6 +110,14 @@ ad3:
 # stock board. CN10-6 (PB7) and CN10-34 (PB6) next to DIO5 and DIO11 are
 # the terminal to the ST-LINK: keep them free. PB3 (SWO) is on no header
 # of a stock board, so TIM2 CH2 / encoder B use PA1.
+# Options (--with <tag>) are fitted on top of a bundle, and only together
+# with their tag: `jumpered` ties each key pin (the end test_wiring.py
+# drives) to the listed pins, `loads` are the pins the wiring loads,
+# `pullups` the pins it pulls up to 3V3, `excludes` the options that cannot
+# be fitted at the same time. The I2C option sits on a breadboard
+# (validation/README.md, "Optional wiring") with its rails fed from CN6-4
+# (3V3, UM2435 Table 10 and 7.5.2) and CN6-6 (GND, UM2435 Table 10, CN6
+# pins 6 and 7). bundle2 offers only the loopback: its DIO9 sits on PC0.
 wiring_sets:
   bundle1:
     description: >-
@@ -117,10 +125,58 @@ wiring_sets:
       SPI1, LPUART1 with flow control, the TIM1/TIM2 encoders, GPIO, EXTI,
       LED, watchdog toggle and ADC1; W1/W2 on two ADC inputs
     options:
-      loopback: >-
-        jumper CN10-15 (PA7, SPI1 MOSI) to CN10-13 (PA6, SPI1 MISO), or D11
-        to D12; the SPI tests then leave DIO7 an input and check the
-        read-back
+      loopback:
+        description: >-
+          jumper the D11 socket (CN5-4, PA7, SPI1 MOSI) to the D12 socket
+          (CN5-5, PA6, SPI1 MISO), UM2435 Table 10; CN10-15 and CN10-13
+          carry the DIO1 and DIO7 leads. The SPI tests then leave DIO7 an
+          input and check the read-back. Fit the jumper only with --with
+          loopback; not together with --with spiloop (both use D11/D12)
+        jumpered:
+          PA7: [PA6]
+        loads: [PA6, PA7]
+        excludes: [spiloop]
+      i2c:
+        description: >-
+          I2C1 (PB8 SCL, PB9 SDA) to I2C3 (PC0 SCL, PC1 SDA) with a 24Cxx
+          EEPROM, ST's one-board pairing (STM32CubeWB
+          Examples_LL/I2C/I2C_OneBoard_Communication_IT readme), built on a
+          breadboard: D15 socket (CN5-10, PB8) and A0 socket (CN8-1, PC0)
+          to the SCL row; D14 socket (CN5-9, PB9) and A1 socket (CN8-2, PC1)
+          to the SDA row (UM2435 Table 10); CN6-4 (3V3, UM2435 Table 10 and
+          7.5.2) to the 3V3 rail; CN6-6 (GND, UM2435 Table 10 CN6 pins 6
+          and 7; CN6-7 spare) to the GND rail. 4.7 kOhm from the SCL row
+          and from the SDA row to the 3V3 rail. EEPROM (24LC256/AT24C256,
+          DIP-8): pins 1-3 (A0-A2, address 0x50), 4 (VSS) and 7 (WP) to the
+          GND rail, 5 to the SDA row, 6 to the SCL row, 8 (VCC) to the 3V3
+          rail, 100 nF from VCC to GND at the part. The AD3 leads stay:
+          DIO3 (CN10-3) observes SCL, DIO5 (CN10-5) SDA. Measure 3.3 V
+          between the rails before inserting the EEPROM
+        jumpered:
+          PB8: [PC0]
+          PB9: [PC1]
+        loads: [PB8, PB9, PC0, PC1]
+        pullups: [PB8, PB9, PC0, PC1]
+      spiloop:
+        description: >-
+          SPI1 (PA5 SCK, PA6 MISO, PA7 MOSI, PA4 NSS) to SPI2 (PB13, PB14,
+          PB15, PB12), ST's one-board pairing (STM32CubeWB
+          Examples_LL/SPI/SPI_OneBoard_HalfDuplex_IT_Init readme): D13
+          socket (CN5-6, PA5) to CN10-30 (PB13, via SB12); D12 socket
+          (CN5-5, PA6) to CN10-28 (PB14); D11 socket (CN5-4, PA7) to CN10-26
+          (PB15, via SB9); D10 socket (CN5-3, PA4 via SB41) to a breadboard
+          row, CN10-16 (PB12, its only position) to the same row with an
+          M-F wire, and the DIO14 lead moved from CN10-16 to a male pin in
+          that row (UM2435 Tables 10 and 11, Fig. 8). SPI2 is observed
+          through DIO6, DIO7, DIO1 and DIO14. Not together with --with
+          loopback (both use D11/D12)
+        jumpered:
+          PA5: [PB13]
+          PA6: [PB14]
+          PA7: [PB15]
+          PA4: [PB12]
+        loads: [PA4, PA5, PA6, PA7, PB12, PB13, PB14, PB15]
+        excludes: [loopback]
     jumpers:
       - >-
         AD3 GND to CN10-9 and CN10-20; scope 1- and 2- to CN7-19 and CN7-20
@@ -132,27 +188,31 @@ wiring_sets:
       0:
         pin: tim1ch1
         note: >-
-          TIM1 CH1, encoder TIM1 A, GPIO (CN10-25; D6 = CN9-7)
+          TIM1 CH1, encoder TIM1 A, MCO, GPIO (CN10-25; D6 = CN9-7)
       1:
         pin: tim1ch1n
         note: >-
-          TIM1 CH1N, SPI1 MOSI, GPIO (CN10-15 via SB1; D11 = CN5-4)
+          TIM1 CH1N, SPI1 MOSI, I2C3 SCL, QUADSPI IO2, GPIO (CN10-15 via
+          SB1; D11 = CN5-4)
       2:
         pin: tim1ch2
         note: >-
-          TIM1 CH2, encoder TIM1 B, GPIO (CN10-19 via SB8; D9 = CN5-2)
+          TIM1 CH2, encoder TIM1 B, I2C1 SCL, GPIO (CN10-19 via SB8; D9 =
+          CN5-2)
       3:
         pin: tim1ch2n
         note: >-
-          TIM1 CH2N, GPIO (CN10-3; D15 = CN5-10)
+          TIM1 CH2N, I2C1 SCL, QUADSPI IO1, GPIO (CN10-3; D15 = CN5-10)
       4:
         pin: tim1ch3
         note: >-
-          TIM1 CH3, TIM17 break, GPIO (CN10-31 via SB11; D3 = CN9-4)
+          TIM1 CH3, TIM17 break, I2C1 SDA, GPIO (CN10-31 via SB11; D3 =
+          CN9-4)
       5:
         pin: tim1ch3n
         note: >-
-          TIM1 CH3N, TIM17 CH1, GPIO (CN10-5; D14 = CN5-9)
+          TIM1 CH3N, TIM17 CH1, I2C1 SDA, QUADSPI IO0, GPIO (CN10-5; D14 =
+          CN5-9)
       6:
         pin: spi1clk
         note: >-
@@ -160,12 +220,13 @@ wiring_sets:
       7:
         pin: spi1miso
         note: >-
-          SPI1 MISO, LPUART1 CTS, TIM16 CH1, EXTI line 6 partner of PC6,
-          GPIO (CN10-13; D12 = CN5-5)
+          SPI1 MISO, LPUART1 CTS, TIM16 CH1, QUADSPI IO3, EXTI line 6
+          partner of PC6, GPIO (CN10-13; D12 = CN5-5)
       8:
         pin: spi1cs
         note: >-
-          SPI1 chip select, GPIO (CN10-17 via SB5; D10 = CN5-3 via SB41)
+          SPI1 chip select and NSS, GPIO (CN10-17 via SB5; D10 = CN5-3 via
+          SB41)
       9:
         pin: qei2a
         note: >-
@@ -182,15 +243,17 @@ wiring_sets:
       12:
         pin: lpuart1tx
         note: >-
-          LPUART1 TX, TIM2 CH3, GPIO (CN10-35 via SB15; D1 = CN9-2)
+          LPUART1 TX, TIM2 CH3, QUADSPI NCS, GPIO (CN10-35 via SB15; D1 =
+          CN9-2)
       13:
         pin: lpuart1rx
         note: >-
-          LPUART1 RX, TIM2 CH4, GPIO (CN10-37; D0 = CN9-1)
+          LPUART1 RX, TIM2 CH4, QUADSPI CLK, GPIO (CN10-37; D0 = CN9-1)
       14:
         pin: lpuart1rts
         note: >-
-          LPUART1 RTS, TIM1 break, GPIO (CN10-16)
+          LPUART1 RTS, TIM1 break, SPI2 NSS, GPIO (CN10-16; with --with
+          spiloop the lead sits in the PB12 breadboard row)
       15:
         pin: led0
         note: >-
@@ -212,10 +275,17 @@ wiring_sets:
       LPTIM encoder tests and tests that need nothing on DIO9/DIO10/W2 run
       with it
     options:
-      loopback: >-
-        jumper CN10-15 (PA7, SPI1 MOSI) to CN10-13 (PA6, SPI1 MISO), or D11
-        to D12; the SPI tests then leave DIO7 an input and check the
-        read-back
+      loopback:
+        description: >-
+          jumper the D11 socket (CN5-4, PA7, SPI1 MOSI) to the D12 socket
+          (CN5-5, PA6, SPI1 MISO), UM2435 Table 10; CN10-15 and CN10-13
+          carry the DIO1 and DIO7 leads. The SPI tests then leave DIO7 an
+          input and check the read-back. Fit the jumper only with --with
+          loopback
+        jumpered:
+          PA7: [PA6]
+        loads: [PA6, PA7]
+        excludes: [spiloop]
     jumpers:
       - >-
         AD3 GND to CN10-9 and CN10-20; scope 1- and 2- to CN7-19 and CN7-20
@@ -227,27 +297,31 @@ wiring_sets:
       0:
         pin: tim1ch1
         note: >-
-          TIM1 CH1, encoder TIM1 A, GPIO (CN10-25; D6 = CN9-7)
+          TIM1 CH1, encoder TIM1 A, MCO, GPIO (CN10-25; D6 = CN9-7)
       1:
         pin: tim1ch1n
         note: >-
-          TIM1 CH1N, SPI1 MOSI, GPIO (CN10-15 via SB1; D11 = CN5-4)
+          TIM1 CH1N, SPI1 MOSI, I2C3 SCL, QUADSPI IO2, GPIO (CN10-15 via
+          SB1; D11 = CN5-4)
       2:
         pin: tim1ch2
         note: >-
-          TIM1 CH2, encoder TIM1 B, GPIO (CN10-19 via SB8; D9 = CN5-2)
+          TIM1 CH2, encoder TIM1 B, I2C1 SCL, GPIO (CN10-19 via SB8; D9 =
+          CN5-2)
       3:
         pin: tim1ch2n
         note: >-
-          TIM1 CH2N, GPIO (CN10-3; D15 = CN5-10)
+          TIM1 CH2N, I2C1 SCL, QUADSPI IO1, GPIO (CN10-3; D15 = CN5-10)
       4:
         pin: tim1ch3
         note: >-
-          TIM1 CH3, TIM17 break, GPIO (CN10-31 via SB11; D3 = CN9-4)
+          TIM1 CH3, TIM17 break, I2C1 SDA, GPIO (CN10-31 via SB11; D3 =
+          CN9-4)
       5:
         pin: tim1ch3n
         note: >-
-          TIM1 CH3N, TIM17 CH1, GPIO (CN10-5; D14 = CN5-9)
+          TIM1 CH3N, TIM17 CH1, I2C1 SDA, QUADSPI IO0, GPIO (CN10-5; D14 =
+          CN5-9)
       6:
         pin: spi1clk
         note: >-
@@ -255,12 +329,13 @@ wiring_sets:
       7:
         pin: spi1miso
         note: >-
-          SPI1 MISO, LPUART1 CTS, TIM16 CH1, EXTI line 6 partner of PC6,
-          GPIO (CN10-13; D12 = CN5-5)
+          SPI1 MISO, LPUART1 CTS, TIM16 CH1, QUADSPI IO3, EXTI line 6
+          partner of PC6, GPIO (CN10-13; D12 = CN5-5)
       8:
         pin: spi1cs
         note: >-
-          SPI1 chip select, GPIO (CN10-17 via SB5; D10 = CN5-3 via SB41)
+          SPI1 chip select and NSS, GPIO (CN10-17 via SB5; D10 = CN5-3 via
+          SB41)
       9:
         pin: lptim1in1
         note: >-
@@ -277,15 +352,16 @@ wiring_sets:
       12:
         pin: lpuart1tx
         note: >-
-          LPUART1 TX, TIM2 CH3, GPIO (CN10-35 via SB15; D1 = CN9-2)
+          LPUART1 TX, TIM2 CH3, QUADSPI NCS, GPIO (CN10-35 via SB15; D1 =
+          CN9-2)
       13:
         pin: lpuart1rx
         note: >-
-          LPUART1 RX, TIM2 CH4, GPIO (CN10-37; D0 = CN9-1)
+          LPUART1 RX, TIM2 CH4, QUADSPI CLK, GPIO (CN10-37; D0 = CN9-1)
       14:
         pin: lpuart1rts
         note: >-
-          LPUART1 RTS, TIM1 break, GPIO (CN10-16)
+          LPUART1 RTS, TIM1 break, SPI2 NSS, GPIO (CN10-16)
       15:
         pin: led0
         note: >-
