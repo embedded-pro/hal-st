@@ -49,7 +49,7 @@ pins:
   tim1ch3n: PB9
   tim1bkin: PB12
   tim2ch1: PA15
-  tim2ch2: PB3
+  tim2ch2: PA1
   tim2ch3: PA2
   tim2ch4: PA3
   tim16ch1: PA6
@@ -57,7 +57,7 @@ pins:
   qei1a: PA8
   qei1b: PA9
   qei2a: PA15
-  qei2b: PB3
+  qei2b: PA1
   qei2idx: PC6
   lptim1in1: PC0
   lptim1in2: PC2
@@ -87,10 +87,13 @@ ad3:
   # Wavegen levels are refused outside this range (3.3 V I/O).
   analog_limits: [0.0, 3.3]
 
-# Two fixed bundles: wire one, run its tests, then switch. Header positions
-# follow the Nucleo-64 Arduino mapping; the CN10 morpho positions and the
-# solder bridges are to be checked against UM2435. Always connect AD3 GND to
-# a Nucleo GND pin.
+# Two fixed bundles: wire one, run its tests, then switch. Positions are from
+# UM2435 Rev 2 (MB1355C) Table 10, Table 11, Fig. 8 and Fig. 24: CNx-n is
+# a male ST morpho pin (CN7, CN10), Dn/An the female Arduino socket (CN5,
+# CN6, CN8, CN9). "via SBn" names a solder bridge that is closed on a
+# stock board. CN10-6 (PB7) and CN10-34 (PB6) next to DIO5 and DIO11 are
+# the terminal to the ST-LINK: keep them free. PB3 (SWO) is on no header
+# of a stock board, so TIM2 CH2 / encoder B use PA1.
 wiring_sets:
   bundle1:
     description: >-
@@ -99,69 +102,90 @@ wiring_sets:
       LED, watchdog toggle and ADC1; W1/W2 on two ADC inputs
     options:
       loopback: >-
-        jumper PA7 (SPI1 MOSI, D11) to PA6 (SPI1 MISO, D12); DIO7 then only
-        listens
+        jumper CN10-15 (PA7, SPI1 MOSI) to CN10-13 (PA6, SPI1 MISO), or D11
+        to D12; the SPI tests then leave DIO7 an input and check the
+        read-back
     jumpers:
       - >-
-        D10 is PA4 only with the default solder bridges (SB41 on, SB42 off;
-        otherwise PB10), check against UM2435
+        AD3 GND to CN10-9 and CN10-20; scope 1- and 2- to CN7-19 and CN7-20
+        (or CN7-8); not CN7-22, which the schematic leaves unconnected
+      - >-
+        D10 and CN10-17 carry PA4 with the default solder bridges (SB41 and
+        SB5 closed, SB42 and SB6 open; PB10 otherwise), UM2435 Fig. 8
     dio:
       0:
         pin: tim1ch1
-        note: TIM1 CH1, encoder TIM1 A, GPIO (D6)
+        note: >-
+          TIM1 CH1, encoder TIM1 A, GPIO (CN10-25; D6 = CN9-7)
       1:
         pin: tim1ch1n
-        note: TIM1 CH1N, SPI1 MOSI, GPIO (D11)
+        note: >-
+          TIM1 CH1N, SPI1 MOSI, GPIO (CN10-15 via SB1; D11 = CN5-4)
       2:
         pin: tim1ch2
-        note: TIM1 CH2, encoder TIM1 B, GPIO (D9)
+        note: >-
+          TIM1 CH2, encoder TIM1 B, GPIO (CN10-19 via SB8; D9 = CN5-2)
       3:
         pin: tim1ch2n
-        note: TIM1 CH2N, GPIO (D15)
+        note: >-
+          TIM1 CH2N, GPIO (CN10-3; D15 = CN5-10)
       4:
         pin: tim1ch3
-        note: TIM1 CH3, TIM17 break, GPIO (D3)
+        note: >-
+          TIM1 CH3, TIM17 break, GPIO (CN10-31 via SB11; D3 = CN9-4)
       5:
         pin: tim1ch3n
-        note: TIM1 CH3N, TIM17 CH1, GPIO (D14)
+        note: >-
+          TIM1 CH3N, TIM17 CH1, GPIO (CN10-5; D14 = CN5-9)
       6:
         pin: spi1clk
-        note: SPI1 SCK, GPIO (D13)
+        note: >-
+          SPI1 SCK, GPIO (CN10-11; D13 = CN5-6)
       7:
         pin: spi1miso
-        note: SPI1 MISO, LPUART1 CTS, TIM16 CH1, GPIO (D12)
+        note: >-
+          SPI1 MISO, LPUART1 CTS, TIM16 CH1, EXTI line 6 partner of PC6,
+          GPIO (CN10-13; D12 = CN5-5)
       8:
         pin: spi1cs
-        note: SPI1 chip select, GPIO (D10, see jumpers)
+        note: >-
+          SPI1 chip select, GPIO (CN10-17 via SB5; D10 = CN5-3 via SB41)
       9:
         pin: qei2a
-        note: TIM2 CH1, encoder TIM2 A, GPIO (D5)
+        note: >-
+          TIM2 CH1, encoder TIM2 A, GPIO (CN10-27; D5 = CN9-6)
       10:
         pin: qei2b
-        note: TIM2 CH2, encoder TIM2 B, GPIO (CN10, check UM2435)
+        note: >-
+          TIM2 CH2, encoder TIM2 B, GPIO (CN7-32 via SB14; A2 = CN8-3)
       11:
         pin: gpio0
         note: >-
-          GPIO/EXTI, encoder TIM2 index, watchdog warning toggle (D2)
+          GPIO/EXTI, encoder TIM1 and TIM2 index, watchdog warning toggle
+          (CN10-33; D2 = CN9-3)
       12:
         pin: lpuart1tx
-        note: LPUART1 TX, TIM2 CH3, GPIO (D1)
+        note: >-
+          LPUART1 TX, TIM2 CH3, GPIO (CN10-35 via SB15; D1 = CN9-2)
       13:
         pin: lpuart1rx
-        note: LPUART1 RX, TIM2 CH4, GPIO (D0)
+        note: >-
+          LPUART1 RX, TIM2 CH4, GPIO (CN10-37; D0 = CN9-1)
       14:
         pin: lpuart1rts
-        note: LPUART1 RTS, TIM1 break, GPIO (CN10, check UM2435)
+        note: >-
+          LPUART1 RTS, TIM1 break, GPIO (CN10-16)
       15:
         pin: led0
-        note: green LED output, GPIO (CN10, check UM2435)
+        note: >-
+          green LED2 output, GPIO; LED2 and 680 ohm load the pin (CN10-22)
     wavegen:
       1:
         pin: ain4
-        note: ADC1 IN4 (A4)
+        note: ADC1 IN4 (CN7-36; A4 = CN8-5)
       2:
         pin: ain3
-        note: ADC1 IN3 (A5)
+        note: ADC1 IN3 (CN7-38; A5 = CN8-6)
     scope:
       1: ain4
       2: ain3
@@ -173,65 +197,87 @@ wiring_sets:
       with it
     options:
       loopback: >-
-        jumper PA7 (SPI1 MOSI, D11) to PA6 (SPI1 MISO, D12); DIO7 then only
-        listens
+        jumper CN10-15 (PA7, SPI1 MOSI) to CN10-13 (PA6, SPI1 MISO), or D11
+        to D12; the SPI tests then leave DIO7 an input and check the
+        read-back
     jumpers:
       - >-
-        D10 is PA4 only with the default solder bridges (SB41 on, SB42 off;
-        otherwise PB10), check against UM2435
+        AD3 GND to CN10-9 and CN10-20; scope 1- and 2- to CN7-19 and CN7-20
+        (or CN7-8); not CN7-22, which the schematic leaves unconnected
+      - >-
+        D10 and CN10-17 carry PA4 with the default solder bridges (SB41 and
+        SB5 closed, SB42 and SB6 open; PB10 otherwise), UM2435 Fig. 8
     dio:
       0:
         pin: tim1ch1
-        note: TIM1 CH1, encoder TIM1 A, GPIO (D6)
+        note: >-
+          TIM1 CH1, encoder TIM1 A, GPIO (CN10-25; D6 = CN9-7)
       1:
         pin: tim1ch1n
-        note: TIM1 CH1N, SPI1 MOSI, GPIO (D11)
+        note: >-
+          TIM1 CH1N, SPI1 MOSI, GPIO (CN10-15 via SB1; D11 = CN5-4)
       2:
         pin: tim1ch2
-        note: TIM1 CH2, encoder TIM1 B, GPIO (D9)
+        note: >-
+          TIM1 CH2, encoder TIM1 B, GPIO (CN10-19 via SB8; D9 = CN5-2)
       3:
         pin: tim1ch2n
-        note: TIM1 CH2N, GPIO (D15)
+        note: >-
+          TIM1 CH2N, GPIO (CN10-3; D15 = CN5-10)
       4:
         pin: tim1ch3
-        note: TIM1 CH3, TIM17 break, GPIO (D3)
+        note: >-
+          TIM1 CH3, TIM17 break, GPIO (CN10-31 via SB11; D3 = CN9-4)
       5:
         pin: tim1ch3n
-        note: TIM1 CH3N, TIM17 CH1, GPIO (D14)
+        note: >-
+          TIM1 CH3N, TIM17 CH1, GPIO (CN10-5; D14 = CN5-9)
       6:
         pin: spi1clk
-        note: SPI1 SCK, GPIO (D13)
+        note: >-
+          SPI1 SCK, GPIO (CN10-11; D13 = CN5-6)
       7:
         pin: spi1miso
-        note: SPI1 MISO, LPUART1 CTS, TIM16 CH1, GPIO (D12)
+        note: >-
+          SPI1 MISO, LPUART1 CTS, TIM16 CH1, EXTI line 6 partner of PC6,
+          GPIO (CN10-13; D12 = CN5-5)
       8:
         pin: spi1cs
-        note: SPI1 chip select, GPIO (D10, see jumpers)
+        note: >-
+          SPI1 chip select, GPIO (CN10-17 via SB5; D10 = CN5-3 via SB41)
       9:
         pin: lptim1in1
-        note: LPTIM1 IN1, encoder LPTIM1 A, ADC1 IN1 (A0)
+        note: >-
+          LPTIM1 IN1, encoder LPTIM1 A, ADC1 IN1 (CN7-28; A0 = CN8-1)
       10:
         pin: lptim1in2
-        note: LPTIM1 IN2, encoder LPTIM1 B, ADC1 IN3 (A5)
+        note: >-
+          LPTIM1 IN2, encoder LPTIM1 B, ADC1 IN3 (CN7-38; A5 = CN8-6)
       11:
         pin: gpio0
-        note: GPIO/EXTI, watchdog warning toggle (D2)
+        note: >-
+          GPIO/EXTI, encoder TIM1 and TIM2 index, watchdog warning toggle
+          (CN10-33; D2 = CN9-3)
       12:
         pin: lpuart1tx
-        note: LPUART1 TX, TIM2 CH3, GPIO (D1)
+        note: >-
+          LPUART1 TX, TIM2 CH3, GPIO (CN10-35 via SB15; D1 = CN9-2)
       13:
         pin: lpuart1rx
-        note: LPUART1 RX, TIM2 CH4, GPIO (D0)
+        note: >-
+          LPUART1 RX, TIM2 CH4, GPIO (CN10-37; D0 = CN9-1)
       14:
         pin: lpuart1rts
-        note: LPUART1 RTS, TIM1 break, GPIO (CN10, check UM2435)
+        note: >-
+          LPUART1 RTS, TIM1 break, GPIO (CN10-16)
       15:
         pin: led0
-        note: green LED output, GPIO (CN10, check UM2435)
+        note: >-
+          green LED2 output, GPIO; LED2 and 680 ohm load the pin (CN10-22)
     wavegen:
       1:
         pin: ain4
-        note: ADC1 IN4 (A4)
+        note: ADC1 IN4 (CN7-36; A4 = CN8-5)
     scope:
       1: ain4
 
@@ -498,7 +544,7 @@ tests:
     samples: 16
     # The two inputs driven by W1/W2.
     inputs: [ain4, ain3]
-    # Analog-capable pins the sequence tests may add (unwired, any reading).
+    # Analog-capable pins the sequence tests may add (codes not checked).
     spare_inputs: [ain1, ain2, ain5, ain6]
     levels:
       pin: [ain4, ain3]

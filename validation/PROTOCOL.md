@@ -20,14 +20,14 @@ Aliases name the pins by peripheral function:
 | `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`       | PA8 PA9 PA10 PA11       | PA11 PA12 PB4 PB3       | TIM1 channels 1-4                          |
 | `tim1ch1n` `tim1ch2n` `tim1ch3n`              | PA7 PB8 PB9             | PB2 PB1 PB0             | TIM1 complementary channels 1N-3N          |
 | `tim1bkin`                                    | PB12                    | PA2                     | TIM1 break input                           |
-| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PB3 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)         |
+| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`       | PA15 PA1 PA2 PA3        | -                       | TIM2 channels 1-4 (32-bit counter)         |
 | `tim2ch1` `tim2ch3` `tim2ch4`                 | -                       | PA5 PA7 PA6             | TIM2 channels 1, 3, 4 (CH2 is the terminal RX pin) |
 | `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`       | -                       | PA10 PA1 PB14 PB9       | TIM3 channels 1-4                          |
 | `tim16ch1` `tim17ch1`                         | PA6 PB9                 | PB9 PA1                 | TIM16 / TIM17 channel 1                    |
 | `tim17ch1n`                                   | -                       | PB3                     | TIM17 complementary channel 1N             |
 | `qei1a` `qei1b`                               | PA8 PA9                 | PA11 PA12               | TIM1 encoder phase A / B                   |
 | `qei1idx`                                     | -                       | PA15                    | index input of the default encoder         |
-| `qei2a` `qei2b` `qei2idx`                     | PA15 PB3 PC6            | -                       | TIM2 encoder phase A / B, index input      |
+| `qei2a` `qei2b` `qei2idx`                     | PA15 PA1 PC6            | -                       | TIM2 encoder phase A / B, index input      |
 | `qei3a` `qei3b`                               | -                       | PA10 PA1                | TIM3 encoder phase A / B                   |
 | `lptim1in1` `lptim1in2`                       | PC0 PC2                 | -                       | LPTIM1 encoder inputs                      |
 | `spi1clk` `spi1miso` `spi1mosi` `spi1cs`      | PA5 PA6 PA7 PA4         | PB4 PB3 PA15 PA12       | SPI1 (Arduino D13/D12/D11/D10)             |

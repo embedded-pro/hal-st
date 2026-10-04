@@ -105,8 +105,8 @@ wiring_sets:
       on two ADC inputs
     options:
       loopback: >-
-        jumper PA15 (SPI1 MOSI, D11) to PB3 (SPI1 MISO, D12); DIO1 then only
-        listens
+        jumper PA15 (SPI1 MOSI, D11) to PB3 (SPI1 MISO, D12); the SPI tests
+        then leave DIO1 an input and check the read-back
     jumpers:
       - >-
         PB4 (D13) also drives the blue LED LD1, which loads the SPI1 clock

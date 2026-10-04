@@ -39,7 +39,7 @@ namespace validation::board
     } };
 
     inline constexpr std::optional<UartPins> defaultUart = UartPins{ 1, true, Pin(Port::A, 2), Pin(Port::A, 3) };
-    inline constexpr QeiPins defaultQei{ 2, Pin(Port::A, 15), Pin(Port::B, 3), Pin(Port::C, 6) };
+    inline constexpr QeiPins defaultQei{ 2, Pin(Port::A, 15), Pin(Port::A, 1), Pin(Port::C, 6) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({
         { "terminaltx", terminal.tx },
@@ -59,7 +59,7 @@ namespace validation::board
         { "tim1ch3n", Pin(Port::B, 9) },
         { "tim1bkin", Pin(Port::B, 12) },
         { "tim2ch1", Pin(Port::A, 15) },
-        { "tim2ch2", Pin(Port::B, 3) },
+        { "tim2ch2", Pin(Port::A, 1) },
         { "tim2ch3", Pin(Port::A, 2) },
         { "tim2ch4", Pin(Port::A, 3) },
         { "tim16ch1", Pin(Port::A, 6) },

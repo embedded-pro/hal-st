@@ -173,7 +173,7 @@ def test_adc_formatting(fw, fake):
 
 def test_qei_formatting(fw, fake):
     fw.qei.open(2, a="qei2a", b="qei2b", idx="qei2idx", res=100, offset=5, inva=True, invb=False, cap="b", filter=3, vel=500)
-    assert last(fake) == "qei.open 2 a=PA15 b=PB3 idx=PC6 res=100 offset=5 inva=1 invb=0 cap=b filter=3 vel=500"
+    assert last(fake) == "qei.open 2 a=PA15 b=PA1 idx=PC6 res=100 offset=5 inva=1 invb=0 cap=b filter=3 vel=500"
     reading = fw.qei.read(2)
     assert (reading.pos, reading.dir, reading.speed, reading.res) == (5, "fwd", 0, 100)
     fake.gpio_levels["PC6"] = 1

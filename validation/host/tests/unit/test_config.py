@@ -85,7 +85,7 @@ def test_bundle_sets():
 def test_wb55_bundle2_moves_the_encoder_inputs():
     board = load_board("nucleo_wb55rg")
     bundle1, bundle2 = board.wiring(["bundle1"]), board.wiring(["bundle2"])
-    assert bundle1.dio("PA15") == 9 and bundle1.dio("PB3") == 10
+    assert bundle1.dio("PA15") == 9 and bundle1.dio("PA1") == 10
     assert bundle2.dio("PC0") == 9 and bundle2.dio("PC2") == 10
     assert bundle2.wavegen("PC2") is None and bundle2.scope("PC2") is None
     assert bundle1.wavegen("PC2") == 2
