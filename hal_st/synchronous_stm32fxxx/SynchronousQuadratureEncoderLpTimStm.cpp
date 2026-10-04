@@ -10,6 +10,52 @@ namespace
         really_assert(oneBasedIndex >= 1 && oneBasedIndex <= hal::peripheralLpTimer.size());
         return oneBasedIndex - 1;
     }
+
+    void ResetLpTimer(const LPTIM_TypeDef* instance)
+    {
+#if defined(LPTIM1)
+        if (instance == LPTIM1)
+        {
+            __HAL_RCC_LPTIM1_FORCE_RESET();
+            __HAL_RCC_LPTIM1_RELEASE_RESET();
+        }
+#endif
+#if defined(LPTIM2)
+        if (instance == LPTIM2)
+        {
+            __HAL_RCC_LPTIM2_FORCE_RESET();
+            __HAL_RCC_LPTIM2_RELEASE_RESET();
+        }
+#endif
+#if defined(LPTIM3)
+        if (instance == LPTIM3)
+        {
+            __HAL_RCC_LPTIM3_FORCE_RESET();
+            __HAL_RCC_LPTIM3_RELEASE_RESET();
+        }
+#endif
+#if defined(LPTIM4)
+        if (instance == LPTIM4)
+        {
+            __HAL_RCC_LPTIM4_FORCE_RESET();
+            __HAL_RCC_LPTIM4_RELEASE_RESET();
+        }
+#endif
+#if defined(LPTIM5)
+        if (instance == LPTIM5)
+        {
+            __HAL_RCC_LPTIM5_FORCE_RESET();
+            __HAL_RCC_LPTIM5_RELEASE_RESET();
+        }
+#endif
+#if defined(LPTIM6)
+        if (instance == LPTIM6)
+        {
+            __HAL_RCC_LPTIM6_FORCE_RESET();
+            __HAL_RCC_LPTIM6_RELEASE_RESET();
+        }
+#endif
+    }
 }
 
 namespace hal
@@ -28,6 +74,8 @@ namespace hal
         really_assert(IS_LPTIM_ENCODER_INTERFACE_INSTANCE(instance));
 
         EnableClockLpTimer(timerIndex);
+        // HAL_LPTIM_Init ORs CKFLT/TRGFLT into CFGR without clearing them, so a previous user's filter would persist
+        ResetLpTimer(instance);
         handle.Instance = instance;
 
         handle.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
