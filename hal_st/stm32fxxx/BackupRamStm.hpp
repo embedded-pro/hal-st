@@ -7,9 +7,11 @@
 namespace hal
 {
     class BackupRamStm
-        : hal::BackupRam<volatile uint32_t>
+        : public hal::BackupRam<volatile uint32_t>
     {
     public:
+        BackupRamStm();
+
         infra::MemoryRange<volatile uint32_t> Get() const override;
     };
 }
