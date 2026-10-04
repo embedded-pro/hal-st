@@ -81,6 +81,7 @@ namespace hal
 
         uint32_t Channel(const hal::AnalogPinStm& pin) const;
         ADC_HandleTypeDef& Handle();
+        void SelectSingleConversion();
 
         void EnableOverrunInterrupt();
 

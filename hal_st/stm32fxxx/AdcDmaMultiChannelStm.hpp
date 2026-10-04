@@ -15,7 +15,11 @@ namespace hal
         : public AdcMultiChannel
     {
     public:
+#if defined(ADC_REGULAR_RANK_8) && !defined(ADC_REGULAR_RANK_9)
+        static constexpr std::size_t MaxChannels{ 8 };
+#else
         static constexpr std::size_t MaxChannels{ 16 };
+#endif
 
         struct OneShot
         {};

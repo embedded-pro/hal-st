@@ -78,6 +78,13 @@ namespace
 #else
         TriggerUnsupported,
 #endif
+#if defined(ADC_EXTERNALTRIGCONV_T10_TRGO)
+        ADC_EXTERNALTRIGCONV_T10_TRGO,
+#elif defined(ADC_EXTERNALTRIG_T10_TRGO)
+        ADC_EXTERNALTRIG_T10_TRGO,
+#else
+        TriggerUnsupported,
+#endif
 #if defined(ADC_EXTERNALTRIGCONV_T11_TRGO)
         ADC_EXTERNALTRIGCONV_T11_TRGO,
 #elif defined(ADC_EXTERNALTRIG_T11_TRGO)
@@ -121,13 +128,23 @@ namespace
         assert(triggers[index] != TriggerUnsupported);
         return triggers[index];
     }
+
+    hal::TimerBaseStm::Trigger TimerTrigger(uint8_t index)
+    {
+        hal::TimerBaseStm::Trigger trigger{ hal::TimerBaseStm::Trigger::TriggerOutput::update, false };
+#if defined(ADC_EXTERNALTRIG_T1_TRGO2) && defined(TIM_TRGO2_RESET)
+        if (index == 0 && triggers[index] == ADC_EXTERNALTRIG_T1_TRGO2)
+            trigger.triggerOutput2 = hal::TimerBaseStm::Trigger::TriggerOutput2::update;
+#endif
+        return trigger;
+    }
 }
 
 namespace hal
 {
     AdcTimerTriggeredBase::AdcTimerTriggeredBase(AdcStm& adc, uint8_t oneBasedTimerIndex, TimerBaseStm::Timing timing)
         : adc(adc)
-        , timer(oneBasedTimerIndex, timing, { TimerBaseStm::CounterMode::up, std:: make_optional<TimerBaseStm::Trigger>({ TimerBaseStm::Trigger::TriggerOutput::update, false }) })
+        , timer(oneBasedTimerIndex, timing, { TimerBaseStm::CounterMode::up, std::make_optional(TimerTrigger(oneBasedTimerIndex - 1)) })
         , timerIndex(oneBasedTimerIndex - 1)
     {}
 

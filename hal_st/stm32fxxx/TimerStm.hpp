@@ -37,8 +37,20 @@ namespace hal
                 update = TIM_TRGO_UPDATE,
             };
 
+#if defined(TIM_TRGO2_RESET)
+            enum class TriggerOutput2 : uint32_t
+            {
+                reset = TIM_TRGO2_RESET,
+                enable = TIM_TRGO2_ENABLE,
+                update = TIM_TRGO2_UPDATE,
+            };
+#endif
+
             TriggerOutput triggerOutput;
             bool isSlaveMode;
+#if defined(TIM_TRGO2_RESET)
+            TriggerOutput2 triggerOutput2{ TriggerOutput2::reset };
+#endif
         };
 
         struct Config

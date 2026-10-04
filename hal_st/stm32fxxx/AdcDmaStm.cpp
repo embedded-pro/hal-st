@@ -41,6 +41,7 @@ namespace hal
 #endif
         ReconfigureTrigger();
 
+        adc.SelectSingleConversion();
         auto result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
         assert(result == HAL_OK);
 
