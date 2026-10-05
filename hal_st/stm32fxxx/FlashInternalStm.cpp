@@ -89,19 +89,16 @@ namespace hal
     {
         HAL_FLASH_Unlock();
 
-#if defined(STM32WB) || defined(STM32G4) || defined(STM32G0) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA)
+        const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
+        detail::ErasePages((regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, (regionOffset + AddressOfSector(endIndex)) / FLASH_PAGE_SIZE);
+#elif defined(STM32G4) || defined(STM32G0)
         uint32_t pageError = 0;
 
         FLASH_EraseInitTypeDef eraseInitStruct;
         eraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-#if defined(STM32WB) || defined(STM32WBA)
-        const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
-        eraseInitStruct.Page = (regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE;
-        eraseInitStruct.NbPages = (AddressOfSector(endIndex) - AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE;
-#else
         eraseInitStruct.Page = beginIndex;
         eraseInitStruct.NbPages = endIndex - beginIndex;
-#endif
 
         auto result = HAL_FLASHEx_Erase(&eraseInitStruct, &pageError);
         really_assert(result == HAL_OK);

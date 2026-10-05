@@ -14,7 +14,7 @@ namespace
 #endif
     };
 
-#if defined(FLASH_DBANK_SUPPORT)
+#if defined(STM32G0) && defined(FLASH_DBANK_SUPPORT)
     uint32_t GetBank(uint32_t sectorIndex)
     {
         return sectorIndex < FLASH_PAGE_NB ? FLASH_BANK_1 : FLASH_BANK_2;
@@ -72,7 +72,10 @@ namespace hal
     {
         HAL_FLASH_Unlock();
 
-#if defined(STM32WB) || defined(STM32G4) || defined(STM32G0) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA)
+        const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
+        detail::ErasePages((regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, (regionOffset + AddressOfSector(endIndex)) / FLASH_PAGE_SIZE);
+#elif defined(STM32G4) || defined(STM32G0)
 
         auto erase = [](uint32_t beginIndex, uint32_t nbPages, uint32_t bank)
         {
@@ -98,9 +101,6 @@ namespace hal
             erase(beginIndex, FLASH_PAGE_NB - beginIndex, FLASH_BANK_1);
             erase(0, endIndex - FLASH_PAGE_NB + 1, FLASH_BANK_2);
         }
-#elif defined(STM32WB) || defined(STM32WBA)
-        const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
-        erase((regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, (AddressOfSector(endIndex) - AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, 0);
 #else
         erase(beginIndex, endIndex - beginIndex, 0);
 #endif
