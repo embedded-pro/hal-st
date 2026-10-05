@@ -19,7 +19,9 @@ namespace hal
         handle.Instance = QUADSPI;
 
         handle.Init.ClockPrescaler = config.prescaler;
-        handle.Init.FifoThreshold = (QUADSPI_CR_FTHRES >> QUADSPI_CR_FTHRES_Pos) + 1;
+        // An indirect read stalls when the FIFO is full and resumes only once 4 bytes are free, so a threshold above
+        // the FIFO size minus 4 never raises FTF again while HAL_QSPI_Receive drains it one byte at a time
+        handle.Init.FifoThreshold = 1;
         handle.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_HALFCYCLE;
         handle.Init.FlashSize = config.flashSizeLog2 - 1;
         handle.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_2_CYCLE;
@@ -45,18 +47,10 @@ namespace hal
 
         QSPI_CommandTypeDef command = CreateConfig(header, data.size(), lines);
         HAL_StatusTypeDef status = HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-        assert(status == HAL_OK);
+        if (status == HAL_OK && !data.empty())
+            status = HAL_QSPI_Transmit(&handle, const_cast<uint8_t*>(data.begin()), HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
 
-        if (!data.empty())
-        {
-            HAL_StatusTypeDef status = HAL_QSPI_Transmit(&handle, const_cast<uint8_t*>(data.begin()), HAL_MAX_DELAY);
-            assert(status == HAL_OK);
-        }
-
-        infra::EventDispatcher::Instance().Schedule([this]()
-            {
-                onDone();
-            });
+        Complete(status);
     }
 
     void QuadSpiStm::ReceiveData(const Header& header, infra::ByteRange data, Lines lines, const infra::Function<void()>& actionOnCompletion)
@@ -66,18 +60,10 @@ namespace hal
 
         QSPI_CommandTypeDef command = CreateConfig(header, data.size(), lines);
         HAL_StatusTypeDef status = HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-        assert(status == HAL_OK);
+        if (status == HAL_OK && !data.empty())
+            status = HAL_QSPI_Receive(&handle, data.begin(), HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
 
-        if (!data.empty())
-        {
-            HAL_StatusTypeDef status = HAL_QSPI_Receive(&handle, data.begin(), HAL_MAX_DELAY);
-            assert(status == HAL_OK);
-        }
-
-        infra::EventDispatcher::Instance().Schedule([this]()
-            {
-                onDone();
-            });
+        Complete(status);
     }
 
     void QuadSpiStm::PollStatus(const Header& header, uint8_t nofBytes, uint32_t match, uint32_t mask, Lines lines, const infra::Function<void()>& actionOnCompletion)
@@ -96,6 +82,23 @@ namespace hal
 
         HAL_StatusTypeDef status = HAL_QSPI_AutoPolling(&handle, &command, &config, HAL_MAX_DELAY);
         assert(status == HAL_OK);
+
+        infra::EventDispatcher::Instance().Schedule([this]()
+            {
+                onDone();
+            });
+    }
+
+    void QuadSpiStm::Complete(HAL_StatusTypeDef status)
+    {
+        if (status != HAL_OK)
+        {
+            // The blocking HAL calls leave the handle READY or ERROR after a timeout, and HAL_QSPI_Abort acts only on a busy handle
+            handle.State = HAL_QSPI_STATE_BUSY;
+            HAL_QSPI_Abort(&handle);
+            onDone = nullptr;
+            return;
+        }
 
         infra::EventDispatcher::Instance().Schedule([this]()
             {
