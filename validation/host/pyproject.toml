@@ -40,7 +40,10 @@ markers = [
     "matrix(path): one parameter dimension per key of the tests.<path> mapping of the board YAML",
     "constraint(valid): keep a parameter combination only when valid(argname -> value) is true",
     "family(name): only run on boards of this family (stm32wb55 or stm32wba55)",
-    "requires_option(tag): only run when enabled with --with <tag>",
+    "requires_option(tag): only run when enabled with --with <tag> (implies uses_option(tag))",
+    "uses_option(tag): the test handles the wiring of --with <tag>: it may resolve the pins that option loads or jumpers",
+    "conflicts_option(tag): skip when enabled with --with <tag>",
+    "wiring_options(argname, enabled=True): one case per wiring option of the selected sets (enabled, or left out with enabled=False)",
     "resets_board: the test resets the board on purpose",
     "slow: takes more than a few seconds",
 ]

@@ -20,6 +20,9 @@ namespace validation
         services::HilStatus Prepare(uint8_t index, const services::HilArguments& arguments) override;
         services::HilStatus Create(uint8_t index, infra::Duration timeout, const services::HilArguments& arguments, hal::Watchdog*& watchDog) override;
 
+        hal::WatchDogStm& Borrow();
+        void Return();
+
     private:
         class WarningToggle
             : public hal::Watchdog
@@ -51,5 +54,6 @@ namespace validation
         services::HilPinOwner warningPins;
         std::optional<hal::WatchDogStm> watchDog;
         std::optional<WarningToggle> toggle;
+        bool started = false;
     };
 }

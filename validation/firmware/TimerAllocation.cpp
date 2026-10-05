@@ -21,4 +21,11 @@ namespace validation
         if (owners[timer] == owner)
             owners[timer] = std::nullopt;
     }
+
+    std::optional<services::HilOwner> TimerAllocation::Owner(uint8_t timer) const
+    {
+        really_assert(timer < owners.size());
+
+        return owners[timer];
+    }
 }

@@ -1,9 +1,10 @@
 """Quadrature encoder (`hal::SynchronousQuadratureEncoderStm`, LPTIM `SynchronousQuadratureEncoderLpTimStm`)
 driven by the AD3 pattern generator.
 
-Wiring set `bundle1`: A, B and index of each `tests.qei.instances` entry on DIOs; the LPTIM1 encoder of the
-NUCLEO-WB55RG (`tests.qei.lp_instances`) is wired in `bundle2`. The pattern generator produces an exact number of
-4-state cycles (A leads B for `fwd`).
+Wiring set `bundle1`: A, B and index of each `tests.qei.instances` entry on DIOs. The LPTIM encoders
+(`tests.qei.lp_instances`): NUCLEO-WB55RG LPTIM1 in `bundle2`; NUCLEO-WBA55CG LPTIM2 in `bundle1` and LPTIM1 in
+`bundle2`. The pattern generator produces an exact number of 4-state cycles (A leads B for `fwd`); the LPTIM counts
+both edges of both inputs (`cap=ab`) or the rising or falling edges only (`cap=rise|fall`, two counts per cycle).
 """
 
 from __future__ import annotations
@@ -44,6 +45,12 @@ def run_inverted(ad3, dios, frequency, cycles, invert_a, invert_b, direction="fw
         states = states[1:] + states[:1]
     ad3.pattern.custom({dios["a"]: [a for a, _ in states], dios["b"]: [b for _, b in states]}, frequency * 4, run_samples=4 * cycles)
     ad3.pattern.wait_done(timeout=cycles / frequency + 2)
+
+
+def lp_counts(qei, cycles, cap, direction, inva):
+    """Signed count change of the LPTIM encoder: `counts_per_cycle[cap]` per cycle, reversed by `inva`."""
+    sign = 1 if expect.qei_counts(1, "ab", direction, inva) > 0 else -1
+    return qei["counts_per_cycle"][cap] * cycles * sign
 
 
 def check_counts(fw, qei, index, before, counts, resolution=None):
@@ -125,17 +132,17 @@ def test_index_input(fw, ad3, need, qei, instance):
 
 
 @pytest.mark.ad3
-@pytest.mark.family("stm32wb55")
 @pytest.mark.board_params("instance", "qei.lp_instances")
 @pytest.mark.matrix("qei.lp_position")
-def test_lptim_position(fw, ad3, need, qei, instance, freq, cycles, direction, inva, filter):
-    """LPTIM1 (`lp=1`) counts both edges of both inputs; `inva=1` reverses the direction (mirrored mounting)."""
+def test_lptim_position(fw, ad3, need, qei, instance, freq, cycles, direction, inva, filter, cap):
+    """The LPTIM encoder (`lp=1`) counts both edges of both inputs (`ab`) or the rising or falling edges only;
+    `inva=1` reverses the direction (mirrored mounting)."""
     dios = instance_dios(need, instance, ("a", "b"))
     resolution = instance["max_res"]
-    fw.qei.open(instance["index"], lp=True, a=instance["a"], b=instance["b"], res=resolution, inva=inva, filter=filter)
+    fw.qei.open(instance["index"], lp=True, a=instance["a"], b=instance["b"], res=resolution, inva=inva, filter=filter, cap=cap)
     before = fw.qei.read(instance["index"]).pos
     run(ad3, dios, freq, cycles, direction)
-    check_counts(fw, qei, instance["index"], before, expect.qei_counts(cycles, "ab", direction, inva), resolution)
+    check_counts(fw, qei, instance["index"], before, lp_counts(qei, cycles, cap, direction, inva), resolution)
 
 
 def test_default_instance(fw, qei):
@@ -183,6 +190,8 @@ def test_open_errors(fw, instance):
     pins = {"a": instance["a"], "b": instance["b"]}
     cases = [
         ({**pins, "cap": "x"}, "usage"),
+        ({**pins, "cap": "rise"}, "usage"),
+        ({**pins, "cap": "fall"}, "usage"),
         ({**pins, "filter": 16}, "range"),
         ({**pins, "vel": 0}, "range"),
         ({**pins, "vel": 1000001}, "range"),
@@ -202,14 +211,24 @@ def test_open_errors(fw, instance):
     assert error.value.reason == "unsupported", "opened without idx"
 
 
-@pytest.mark.family("stm32wb55")
+@pytest.mark.board_params("instance", "qei.lp_instances")
+def test_lptim_capture_modes(fw, qei, instance):
+    """Every LPTIM capture mode opens and reads back the resolution."""
+    for cap in qei["lp_position"]["cap"]:
+        fw.qei.open(instance["index"], lp=True, a=instance["a"], b=instance["b"], cap=cap)
+        assert fw.qei.read(instance["index"]).res == qei["resolution"], cap
+        fw.qei.close(instance["index"])
+
+
 @pytest.mark.board_params("instance", "qei.lp_instances")
 def test_lptim_errors(fw, qei, instance):
     pins = {"lp": True, "a": instance["a"], "b": instance["b"]}
     cases = [
         ({**pins, "filter": 3}, "range"),
         ({**pins, "res": instance["max_res"] + 1}, "range"),
-        ({**pins, "cap": "ab"}, "unsupported"),
+        ({**pins, "cap": "x"}, "usage"),
+        ({**pins, "cap": "a"}, "unsupported"),
+        ({**pins, "cap": "b"}, "unsupported"),
         ({**pins, "offset": 0}, "unsupported"),
         ({**pins, "invb": 0}, "unsupported"),
         ({"lp": True}, "usage"),

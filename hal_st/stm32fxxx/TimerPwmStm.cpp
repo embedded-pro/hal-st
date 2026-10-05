@@ -65,7 +65,16 @@ namespace hal
 {
     TimerPwmBaseStm::TimerPwmBaseStm(uint8_t oneBasedIndex, TimerBaseStm::Timing timing)
         : timer(oneBasedIndex, timing, { TimerBaseStm::CounterMode::up })
-    {}
+    {
+        // Neither the HAL de-inits nor gating the clock reset BDTR, so a break input left
+        // enabled by an earlier user would keep MOE cleared.
+        if (IS_TIM_BREAK_INSTANCE(timer.Handle().Instance))
+        {
+            TIM_BreakDeadTimeConfigTypeDef breakDeadTime{};
+            auto result = HAL_TIMEx_ConfigBreakDeadTime(&timer.Handle(), &breakDeadTime);
+            really_assert(result == HAL_OK);
+        }
+    }
 
     PwmChannelGpio& TimerPwmBaseStm::Channel(uint8_t channelOneBasedIndex)
     {

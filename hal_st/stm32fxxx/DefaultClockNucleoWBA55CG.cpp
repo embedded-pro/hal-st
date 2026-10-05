@@ -16,6 +16,7 @@
  *            PLL_Q                          = 2
  *            PLL_R                          = 2
  *            Flash Latency(WS)              = 3
+ *            RNG kernel clock               = HSI
  */
 void ConfigureDefaultClockNucleoWBA55CG()
 {
@@ -52,4 +53,14 @@ void ConfigureDefaultClockNucleoWBA55CG()
     RCC_ClkInitStruct.AHB5_PLL1_CLKDivider = RCC_SYSCLK_PLL1_DIV4;
     RCC_ClkInitStruct.AHB5_HSEHSI_CLKDivider = RCC_SYSCLK_HSEHSI_DIV1;
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3);
+
+    LL_RCC_HSI_Enable();
+    while (!LL_RCC_HSI_IsReady())
+    {
+    }
+
+    RCC_PeriphCLKInitTypeDef RCC_PeriphClkInitStruct = { 0 };
+    RCC_PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RNG;
+    RCC_PeriphClkInitStruct.RngClockSelection = RCC_RNGCLKSOURCE_HSI;
+    HAL_RCCEx_PeriphCLKConfig(&RCC_PeriphClkInitStruct);
 }

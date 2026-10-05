@@ -43,9 +43,10 @@ def test_aliases_are_generic(board_cfg):
 
 
 def test_every_alias_is_accepted_as_pin(fw, board_cfg):
-    """Each alias names its pin in commands; the terminal pins stay reserved."""
+    """Each alias names its pin in commands; the terminal pins and the debug LED stay reserved."""
+    reserved = {*board_cfg.terminal.pins, board_cfg.resolve_pin(board_cfg.param("system.debug_led"))}
     for alias, pin in board_cfg.pins.items():
-        if pin in board_cfg.terminal.pins:
+        if pin in reserved:
             assert reason_of(fw, f"gpio.cfg {alias} in") == "busy", alias
             continue
         fw.command("gpio.cfg", alias, "in")

@@ -531,6 +531,13 @@ namespace hal
         auto streamRegister = DmaChannel[dmaIndex][streamIndex];
 
 #if defined(GPDMA1)
+#if defined(STM32WBA)
+        const uint32_t log2 = dataSizeInBytes == 4 ? 2 : (dataSizeInBytes == 2 ? 1 : 0);
+        if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY) && (streamRegister->CTR2 & DMA_MEMORY_TO_PERIPH))
+            MODIFY_REG(streamRegister->CTR1, DMA_CTR1_DDW_LOG2, log2 << DMA_CTR1_DDW_LOG2_Pos);
+        else if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY))
+            MODIFY_REG(streamRegister->CTR1, DMA_CTR1_SDW_LOG2, log2 << DMA_CTR1_SDW_LOG2_Pos);
+#else
         dataSizeInBytes &= 0x03;
         uint32_t mask{ 0 };
         if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY) && (streamRegister->CTR2 & DMA_MEMORY_TO_PERIPH))
@@ -539,8 +546,11 @@ namespace hal
             mask = (dataSizeInBytes >> 1) << DMA_CTR1_SDW_LOG2_Pos;
 
         streamRegister->CTR1 = (streamRegister->CTR1 & ~mask) | (streamRegister->CTR1 | mask);
+#endif
 #elif defined(DMA_SxCR_PSIZE)
         streamRegister->CR = (streamRegister->CR & ~DMA_SxCR_PSIZE) | ((dataSizeInBytes & 1) == 0 ? DMA_SxCR_PSIZE_0 : 0) | (dataSizeInBytes > 2 ? DMA_SxCR_PSIZE_1 : 0);
+#elif defined(STM32WB)
+        streamRegister->CCR = (streamRegister->CCR & ~DMA_CCR_PSIZE) | (dataSizeInBytes == 2 ? DMA_CCR_PSIZE_0 : 0) | (dataSizeInBytes == 4 ? DMA_CCR_PSIZE_1 : 0);
 #else
         streamRegister->CCR = (streamRegister->CCR & ~DMA_CCR_PSIZE) | ((dataSizeInBytes & 1) == 0 ? DMA_CCR_PSIZE_0 : 0) | (dataSizeInBytes > 2 ? DMA_CCR_PSIZE_1 : 0);
 #endif
@@ -550,6 +560,13 @@ namespace hal
     {
         auto streamRegister = DmaChannel[dmaIndex][streamIndex];
 #if defined(GPDMA1)
+#if defined(STM32WBA)
+        const uint32_t log2 = dataSizeInBytes == 4 ? 2 : (dataSizeInBytes == 2 ? 1 : 0);
+        if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY) && (streamRegister->CTR2 & DMA_MEMORY_TO_PERIPH))
+            MODIFY_REG(streamRegister->CTR1, DMA_CTR1_SDW_LOG2, log2 << DMA_CTR1_SDW_LOG2_Pos);
+        else if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY))
+            MODIFY_REG(streamRegister->CTR1, DMA_CTR1_DDW_LOG2, log2 << DMA_CTR1_DDW_LOG2_Pos);
+#else
         dataSizeInBytes &= 0x03;
         uint32_t mask{ 0 };
         if (!(streamRegister->CTR2 & DMA_MEMORY_TO_MEMORY) && (streamRegister->CTR2 & DMA_MEMORY_TO_PERIPH))
@@ -558,8 +575,11 @@ namespace hal
             mask = (dataSizeInBytes >> 1) << DMA_CTR1_DDW_LOG2_Pos;
 
         streamRegister->CTR1 = (streamRegister->CTR1 & ~mask) | (streamRegister->CTR1 | mask);
+#endif
 #elif defined(DMA_SxCR_MSIZE)
         streamRegister->CR = (streamRegister->CR & ~DMA_SxCR_MSIZE) | ((dataSizeInBytes & 1) == 0 ? DMA_SxCR_MSIZE_0 : 0) | (dataSizeInBytes > 2 ? DMA_SxCR_MSIZE_1 : 0);
+#elif defined(STM32WB)
+        streamRegister->CCR = (streamRegister->CCR & ~DMA_CCR_MSIZE) | (dataSizeInBytes == 2 ? DMA_CCR_MSIZE_0 : 0) | (dataSizeInBytes == 4 ? DMA_CCR_MSIZE_1 : 0);
 #else
         streamRegister->CCR = (streamRegister->CCR & ~DMA_CCR_MSIZE) | ((dataSizeInBytes & 1) == 0 ? DMA_CCR_MSIZE_0 : 0) | (dataSizeInBytes > 2 ? DMA_CCR_MSIZE_1 : 0);
 #endif

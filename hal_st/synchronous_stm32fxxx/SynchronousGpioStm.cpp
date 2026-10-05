@@ -1,4 +1,5 @@
 #include "hal_st/synchronous_stm32fxxx/SynchronousGpioStm.hpp"
+#include "infra/util/ReallyAssert.hpp"
 
 namespace hal
 {
@@ -10,21 +11,33 @@ namespace hal
             GPIOC,
 #if defined(GPIOD)
             GPIOD,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOE)
             GPIOE,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOF)
             GPIOF,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOG)
             GPIOG,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOH)
             GPIOH,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOI)
             GPIOI,
+#elif defined(STM32WB) || defined(STM32WBA)
+            nullptr,
 #endif
 #if defined(GPIOJ)
             GPIOJ,
@@ -83,6 +96,9 @@ namespace hal
         : port(port)
         , index(index)
     {
+#if defined(STM32WB) || defined(STM32WBA)
+        really_assert(portToGPIOPort[static_cast<uint8_t>(port)] != nullptr);
+#endif
         GPIO_InitTypeDef GPIO_InitStructure = {};
         GPIO_InitStructure.Pin = pinToGPIOPin[index];
         GPIO_InitStructure.Mode = driveToOutputMode[static_cast<uint8_t>(drive)];
@@ -118,6 +134,9 @@ namespace hal
 
     void SmallPeripheralPinStm::ConfigPeripheralPin(uint8_t af, Drive drive, Speed speed, WeakPull weakPull)
     {
+#if defined(STM32WB) || defined(STM32WBA)
+        really_assert(portToGPIOPort[static_cast<int>(port)] != nullptr);
+#endif
         GPIO_InitTypeDef GPIO_InitStructure = {};
         GPIO_InitStructure.Pin = pinToGPIOPin[index];
         GPIO_InitStructure.Mode = driveToAFMode[static_cast<int>(drive)];

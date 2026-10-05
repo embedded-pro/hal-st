@@ -11,6 +11,8 @@ from typing import Literal
 from ad3_waveforms_bench.protocol import Event, Response, format_command, format_decimal
 from ad3_waveforms_bench.terminal import FirmwareError, FirmwareTerminal, PendingCommand, TerminalError
 
+from .groups import discover as discover_groups
+from .groups.base import Group
 from .protocol import normalize_pin, parse_pin_map
 
 Pin = str
@@ -18,6 +20,8 @@ Level = Literal[0, 1]
 Edge = Literal["rising", "falling", "both", "off"]
 Drive = Literal["low", "medium", "fast", "high"]
 PwmOutput = Pin | None | tuple[Pin | None, Pin | None]
+PwmMode = Literal["edge", "edgedown", "center", "centerup", "centerboth"]
+TriggerOutput = Literal["reset", "enable", "update", "oc1", "oc1ref", "oc2ref", "oc3ref", "oc4ref"]
 
 
 @dataclass(frozen=True)
@@ -71,20 +75,7 @@ def quiesce(terminal: FirmwareTerminal, quiet: float = 0.1, limit: float = 3.0) 
     return False
 
 
-class _Group:
-    prefix = ""
-
-    def __init__(self, firmware: Firmware) -> None:
-        self._fw = firmware
-
-    def _cmd(self, name: str, *args: object, cmd_timeout: float | None = None, **options: object) -> Response:
-        return self._fw.command(f"{self.prefix}.{name}", *args, cmd_timeout=cmd_timeout, **options)
-
-    def _pin(self, pin: Pin | None) -> str | None:
-        return None if pin is None else self._fw.pin(pin)
-
-    def _pins(self, pins: Sequence[Pin] | None) -> list[str] | None:
-        return None if pins is None else [self._fw.pin(pin) for pin in pins]
+_Group = Group
 
 
 class System(_Group):
@@ -155,7 +146,7 @@ class Pwm(_Group):
         channels: Sequence[int] | None = None,
         pins: Sequence[PwmOutput] | None = None,
         freq: int | None = None,
-        mode: Literal["edge", "center"] | None = None,
+        mode: PwmMode | None = None,
         prescaler: int | None = None,
         dead: int | Literal["off"] | None = None,
         inv: bool | None = None,
@@ -166,9 +157,13 @@ class Pwm(_Group):
         brkpol: Literal["low", "high"] | None = None,
         brkauto: bool | None = None,
         sync: bool | None = None,
+        preload: bool | None = None,
+        brkfilter: int | None = None,
+        trgo: TriggerOutput | None = None,
     ) -> int:
         """Returns `pwmclk`. A `pins` entry is the channel output, `(output, complementary)` or None (`-`); a None
-        inside the tuple leaves that position unused (`-:PA7` drives only CH1N)."""
+        inside the tuple leaves that position unused (`-:PA7` drives only CH1N). `brkfilter` (0..15) needs `brk`;
+        `trgo` selects the trigger output an `adc.open trgo=` sequence runs on."""
         response = self._cmd(
             "open",
             timer,
@@ -186,6 +181,9 @@ class Pwm(_Group):
             brkpol=brkpol,
             brkauto=brkauto,
             sync=sync,
+            preload=preload,
+            brkfilter=brkfilter,
+            trgo=trgo,
         )
         self._fw.track(("pwm", timer), "pwm.close", timer)
         return response.as_int("pwmclk")
@@ -234,8 +232,10 @@ class Uart(_Group):
         dma: bool | None = None,
         duplex: bool | None = None,
         sync: bool | None = None,
+        sendonly: bool | None = None,
     ) -> None:
-        """`lp=True` selects LPUART<index>; the group keeps one instance, addressed by `index` afterwards."""
+        """`lp=True` selects LPUART<index>; the group keeps one instance, addressed by `index` afterwards.
+        `sendonly=True` opens a transmit-only synchronous UART: `rx` is optional and `recv` returns no data."""
         self._cmd(
             "open",
             index,
@@ -251,6 +251,7 @@ class Uart(_Group):
             dma=dma,
             duplex=duplex,
             sync=sync,
+            sendonly=sendonly,
         )
         self._fw.track(("uart", index), "uart.close", index)
 
@@ -282,7 +283,12 @@ class Spi(_Group):
         mode: int | None = None,
         dma: bool | None = None,
         sync: bool | None = None,
+        bits: int | None = None,
+        lsb: bool | None = None,
+        nss: Pin | None = None,
     ) -> None:
+        """`bits` (4..16, `dma=True` only) is the frame size, `lsb=True` sends the least significant bit first and
+        `nss` muxes the hardware slave select (exclusive with the GPIO chip select `cs`)."""
         self._cmd(
             "open",
             index,
@@ -294,6 +300,9 @@ class Spi(_Group):
             mode=mode,
             dma=dma,
             sync=sync,
+            bits=bits,
+            lsb=lsb,
+            nss=self._pin(nss),
         )
         self._fw.track(("spi", index), "spi.close", index)
 
@@ -315,9 +324,11 @@ class Adc(_Group):
         sampling: str | float | None = None,
         timer: int | None = None,
         rate: int | None = None,
+        trgo: int | None = None,
     ) -> None:
-        """`sampling` in ADC clock cycles (`2.5`, `"640.5"`); `timer` triggers the runs at `rate` per second."""
-        self._cmd("open", adc, pins=self._pins(pins), sampling=sampling, timer=timer, rate=rate)
+        """`sampling` in ADC clock cycles (`2.5`, `"640.5"`); `timer` triggers the runs at `rate` per second, or
+        `trgo` on the trigger output of a timer the pwm group drives."""
+        self._cmd("open", adc, pins=self._pins(pins), sampling=sampling, timer=timer, rate=rate, trgo=trgo)
         self._fw.track(("adc", adc), "adc.close", adc)
 
     def measure(self, adc: int, n: int | None = None, cmd_timeout: float | None = None) -> list[int]:
@@ -342,11 +353,11 @@ class Qei(_Group):
         offset: int | None = None,
         inva: bool | None = None,
         invb: bool | None = None,
-        cap: Literal["a", "b", "ab"] | None = None,
+        cap: Literal["a", "b", "ab", "rise", "fall"] | None = None,
         filter: int | None = None,
         vel: int | Literal["off"] | None = None,
     ) -> None:
-        """`lp=True` selects LPTIM<timer>; `vel` is the speed sampling period in µs."""
+        """`lp=True` selects LPTIM<timer> (`cap` ab, rise or fall); `vel` is the speed sampling period in µs."""
         self._cmd(
             "open",
             timer,
@@ -404,6 +415,7 @@ class Firmware:
 
     Open instances are tracked so `close_all()` can restore a clean state between tests.
     Pins are sent as `P<port><index>` after resolving aliases with `aliases` (when given).
+    The groups of `groups/*.py` are attached under the names of their `GROUPS` (`fw.i2c`, ...).
     """
 
     def __init__(self, terminal: FirmwareTerminal, aliases: Mapping[str, str] | None = None) -> None:
@@ -418,6 +430,10 @@ class Firmware:
         self.adc = Adc(self)
         self.qei = Qei(self)
         self.wdt = Watchdog(self)
+        for name, cls in discover_groups().items():
+            if hasattr(self, name):
+                raise ValueError(f"group {name!r} ({cls.__qualname__}) clashes with Firmware.{name}")
+            setattr(self, name, cls(self))
 
     def command(self, name: str, *args: object, cmd_timeout: float | None = None, **options: object) -> Response:
         return self.terminal.command(format_command(name, *args, **options), timeout=cmd_timeout)

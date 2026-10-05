@@ -102,6 +102,9 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
+        if (watchDog)
+            return HilStatus::busy;
+
         hal::GpioPin* gpio = nullptr;
         if (request.pin)
         {
@@ -118,7 +121,23 @@ namespace validation
         if (gpio != nullptr)
             created = &toggle.emplace(*watchDog, *gpio);
 
+        started = true;
         return HilStatus::done;
+    }
+
+    hal::WatchDogStm& WatchDogFactoryStm::Borrow()
+    {
+        // Until wdt.start, the borrowed WWDG only has its clock and interrupt; refreshing it does not start it
+        if (!watchDog)
+            watchDog.emplace();
+
+        return *watchDog;
+    }
+
+    void WatchDogFactoryStm::Return()
+    {
+        if (!started)
+            watchDog.reset();
     }
 
     HilStatus WatchDogFactoryStm::Parse(const services::HilArguments& arguments, Request& request) const

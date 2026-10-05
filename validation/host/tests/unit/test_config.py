@@ -79,7 +79,41 @@ def test_bundles_wire_each_dio_once(name):
 
 def test_bundle_sets():
     assert set(load_board("nucleo_wb55rg").wiring_sets) == {"bundle1", "bundle2"}
-    assert set(load_board("nucleo_wba55cg").wiring_sets) == {"bundle1"}
+    assert set(load_board("nucleo_wba55cg").wiring_sets) == {"bundle1", "bundle2"}
+
+
+@pytest.mark.parametrize(
+    ("name", "offered"),
+    [
+        ("nucleo_wb55rg", {"bundle1": {"loopback", "i2c", "spiloop"}, "bundle2": {"loopback"}}),
+        ("nucleo_wba55cg", {"bundle1": {"loopback"}, "bundle2": {"loopback", "i2c", "spiloop"}}),
+    ],
+)
+def test_bundle_options(name, offered):
+    """The options each set offers; loopback and spiloop share pins, so they exclude each other."""
+    board = load_board(name)
+    assert {bundle: set(wiring_set.options) for bundle, wiring_set in board.wiring_sets.items()} == offered
+    for bundle, tags in offered.items():
+        if {"loopback", "spiloop"} <= tags:
+            with pytest.raises(ConfigError):
+                board.wiring([bundle], ["loopback", "spiloop"])
+        for tag in tags:
+            option = board.wiring([bundle], [tag]).options[tag]
+            assert option.loads and set(option.jumpered) <= set(option.loads), (bundle, tag)
+            assert set(option.pullups) <= set(option.loads), (bundle, tag)
+
+
+def test_wba55_bundle2_moves_four_dios():
+    board = load_board("nucleo_wba55cg")
+    bundle1, bundle2 = board.wiring(["bundle1"]), board.wiring(["bundle2"])
+    assert [bundle1.dio(pin) for pin in ("PB5", "PA10", "PB15", "PA2")] == [8, 9, 11, 14]
+    assert [bundle2.dio(pin) for pin in ("PA7", "PA6", "PB8", "PA0")] == [8, 9, 11, 14]
+    assert bundle2.wavegen("PA7") is None and bundle2.scope("PB2") is None
+    with_i2c = board.wiring(["bundle2"], ["i2c"])
+    assert with_i2c.scope("PB2") == 1 and with_i2c.scope("PA6", allowed=["i2c"]) == 1
+    assert with_i2c.loaded("PA6") == ("i2c",) and with_i2c.scope("PA6") is None
+    with pytest.raises(ConfigError):
+        board.wiring(["bundle1", "bundle2"])
 
 
 def test_wb55_bundle2_moves_the_encoder_inputs():
@@ -95,11 +129,17 @@ def test_wb55_bundle2_moves_the_encoder_inputs():
 
 @pytest.mark.parametrize("name", BOARDS)
 def test_parameters_reference_wired_pins(name):
-    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2)."""
+    """Pins in the test parameters are wired in bundle1 (the LPTIM encoder in bundle2); PWM timers and SPI instances are
+    wired in some set, SPI instances through the jumpers of their `option` when they name one."""
     board = load_board(name)
 
     def wired(pin, kind="dio", bundle="bundle1"):
         return board.wiring([bundle]).channel(kind, board.resolve_pin(pin)) is not None
+
+    def wired_in_a_set(pin, option=None):
+        tags = [option] if option else []
+        sets = [set_name for set_name, wiring_set in board.wiring_sets.items() if option is None or option in wiring_set.options]
+        return any(board.wiring([bundle], tags).channel("dio", board.resolve_pin(pin), allowed=tags) is not None for bundle in sets)
 
     for pin in board.param("gpio.loop_pins") + board.param("gpio.output_pins"):
         assert wired(pin), pin
@@ -109,13 +149,13 @@ def test_parameters_reference_wired_pins(name):
     assert counting[2:] == other[2:] and counting[1] != other[1], "same EXTI line, other port"
     for timer in board.param("pwm.timers"):
         for channel in timer["channels"]:
-            assert wired(channel["pin"]), channel
-            assert channel.get("npin") is None or wired(channel["npin"]), channel
-        assert timer.get("brk") is None or wired(timer["brk"]), timer
+            assert wired_in_a_set(channel["pin"]), channel
+            assert channel.get("npin") is None or wired_in_a_set(channel["npin"]), channel
+        assert timer.get("brk") is None or wired_in_a_set(timer["brk"]), timer
     for instance in board.param("uart.instances"):
         assert all(wired(instance[key]) for key in ("tx", "rx", "rts", "cts")), instance
     for instance in board.param("spi.instances"):
-        assert all(wired(instance[key]) for key in ("clk", "cs", "mosi", "miso")), instance
+        assert all(wired_in_a_set(instance[key], instance.get("option")) for key in ("clk", "cs", "mosi", "miso")), instance
     for instance in board.param("qei.instances"):
         assert all(wired(instance[key]) for key in ("a", "b", "idx")), instance
     for instance in board.param("qei.lp_instances"):
@@ -208,11 +248,11 @@ def test_matrices_load(name):
 
 @pytest.mark.parametrize("name", BOARDS)
 def test_unsupported_commands_cover_the_protocol(name):
-    """`tests.unsupported.commands` names every command PROTOCOL.md lists as unavailable."""
+    """`tests.unsupported.commands` names every command PROTOCOL.md lists as unavailable on the board's MCU."""
     from hal_st_validation.fake_firmware import UNSUPPORTED_COMMANDS
 
     board = load_board(name)
-    assert {line.split()[0] for line in board.param("unsupported.commands")} == set(UNSUPPORTED_COMMANDS)
+    assert {line.split()[0] for line in board.param("unsupported.commands")} == set(UNSUPPORTED_COMMANDS[board.family])
 
 
 @pytest.mark.parametrize("name", BOARDS)
@@ -295,7 +335,9 @@ def test_optional_connections_and_roles():
         "board": "x",
         "family": "stm32wb55",
         "pins": {"gpio0": "PC6"},
-        "wiring_sets": {"s": {"dio": {0: "gpio0", 1: {"pin": "PB0", "role": "probe", "requires": "extra"}}}},
+        "wiring_sets": {
+            "s": {"options": {"extra": "a probe"}, "dio": {0: "gpio0", 1: {"pin": "PB0", "role": "probe", "requires": "extra"}}}
+        },
     }
     board = parse_board(raw)
     assert board.wiring(["s"]).dio(role="probe") is None
@@ -318,7 +360,7 @@ def test_params_and_overrides():
     assert board.param("new.value") == 1.5
     with pytest.raises(ConfigError):
         board.apply_overrides(["novalue"])
-    assert board.aliases_of("PA8") == ["tim1ch1", "qei1a"]
+    assert board.aliases_of("PA8")[:2] == ["tim1ch1", "qei1a"], "in table order (PA8 is also mco)"
     assert load_board("nucleo_wb55rg").matrix("pwm.waveform")["freq"] != [20000], "overrides stay in one BoardConfig"
 
 

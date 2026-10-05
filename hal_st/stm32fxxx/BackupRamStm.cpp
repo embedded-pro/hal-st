@@ -3,6 +3,14 @@
 
 namespace hal
 {
+    BackupRamStm::BackupRamStm()
+    {
+#if defined(STM32WBA)
+        __HAL_RCC_RTCAPB_CLK_ENABLE();
+        HAL_PWR_EnableBkUpAccess();
+#endif
+    }
+
     infra::MemoryRange<volatile uint32_t> BackupRamStm::Get() const
     {
 #if defined(STM32G0)

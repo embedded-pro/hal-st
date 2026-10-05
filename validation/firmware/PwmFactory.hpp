@@ -61,7 +61,7 @@ namespace validation
         {
             infra::BoundedVector<Output>::WithMaxSize<maximumChannels> outputs;
             uint32_t frequency = 10000;
-            bool centerAligned = false;
+            hal::PwmStmBase::Alignment alignment = hal::PwmStmBase::Alignment::edgeAligned;
             uint32_t prescaler = 0;
             std::optional<uint32_t> deadTime;
             bool inverted = false;
@@ -72,6 +72,9 @@ namespace validation
             bool breakActiveHigh = true;
             bool breakAutomaticOutput = false;
             bool synchronous = false;
+            bool preload = true;
+            std::optional<uint8_t> breakFilter;
+            std::optional<hal::PwmStmBase::TriggerOutput> triggerOutput;
         };
 
         struct ClaimedPins

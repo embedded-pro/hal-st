@@ -2,8 +2,8 @@
 #define HAL_I2C_STM_HPP
 
 #include DEVICE_HEADER
-#include "hal/interfaces/I2c.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
+#include "hal/interfaces/I2c.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 
@@ -19,7 +19,11 @@ namespace hal
             {}
 
 #if defined(I2C_TIMINGR_PRESC)
+#if defined(STM32WB) || defined(STM32WBA)
+            uint32_t timing = 0x70b03d3d;
+#else
             uint32_t timing = 0x00304d4d;
+#endif
 #endif
 #if defined(I2C_CCR_CCR)
             uint32_t clockSpeed = 400000;
@@ -52,7 +56,7 @@ namespace hal
         cortex::ImmediateInterruptHandler evInterruptHandler;
         cortex::DispatchedInterruptHandler erInterruptHandler;
 
-        I2C_HandleTypeDef i2cHandle;
+        I2C_HandleTypeDef i2cHandle{};
 
         Action nextAction;
 #if defined(STM32F2) || defined(STM32F4)

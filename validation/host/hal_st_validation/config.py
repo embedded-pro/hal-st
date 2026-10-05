@@ -17,6 +17,7 @@ from .protocol import is_alias, normalize_pin
 BOARDS_DIR = Path(__file__).resolve().parent.parent / "boards"
 ChannelKind = Literal["dio", "wavegen", "scope"]
 _KINDS: tuple[ChannelKind, ...] = ("dio", "wavegen", "scope")
+_OPTION_KEYS = frozenset({"description", "jumpered", "loads", "pullups", "excludes"})
 _MISSING = object()
 
 
@@ -54,42 +55,104 @@ class Connection:
 
 
 @dataclass(frozen=True)
+class WiringOption:
+    """Optional wiring a set offers (`--with <tag>`): `jumpered` ties each key pin to the listed pins (the key is the
+    end the wiring self-check drives), `loads` are pins the wiring loads, `pullups` pins it pulls up, and `excludes`
+    names options that cannot be fitted at the same time."""
+
+    tag: str
+    description: str = ""
+    jumpered: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    loads: tuple[str, ...] = ()
+    pullups: tuple[str, ...] = ()
+    excludes: frozenset[str] = frozenset()
+
+    def merged(self, other: WiringOption) -> WiringOption:
+        """The option as two selected sets offer it together."""
+        jumpered = {pin: tuple(dict.fromkeys((*self.jumpered.get(pin, ()), *others))) for pin, others in other.jumpered.items()}
+        return WiringOption(
+            tag=self.tag,
+            description=self.description or other.description,
+            jumpered={**self.jumpered, **jumpered},
+            loads=tuple(dict.fromkeys((*self.loads, *other.loads))),
+            pullups=tuple(dict.fromkeys((*self.pullups, *other.pullups))),
+            excludes=self.excludes | other.excludes,
+        )
+
+
+@dataclass(frozen=True)
 class WiringSet:
     name: str
     description: str
     connections: tuple[Connection, ...]
-    options: Mapping[str, str] = field(default_factory=dict)
+    options: Mapping[str, WiringOption] = field(default_factory=dict)
     jumpers: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
 class Wiring:
-    """The merged active wiring sets, restricted to the optional connections that are enabled."""
+    """The merged active wiring sets, restricted to the optional connections that are enabled.
+
+    `options` are the options the selected sets offer, `enabled` the tags of `--with`; `option_jumpers` holds the
+    `jumpered` pins of the enabled options. A channel reaches an option-jumpered pin only for lookups that pass
+    the tag in `allowed` (tests marked `uses_option`/`requires_option`), and pins an enabled option loads are
+    reported by `loaded()` so such lookups can be refused for other tests."""
 
     sets: tuple[str, ...]
     connections: tuple[Connection, ...]
     enabled: frozenset[str]
     jumpers: tuple[str, ...] = ()
+    options: Mapping[str, WiringOption] = field(default_factory=dict)
+    option_jumpers: Mapping[str, Mapping[str, tuple[str, ...]]] = field(default_factory=dict)
 
-    def channel(self, kind: ChannelKind, pin: str | None = None, role: str | None = None) -> int | None:
-        for connection in self.connections:
-            if connection.kind != kind:
+    def connection(
+        self, kind: ChannelKind, pin: str | None = None, role: str | None = None, allowed: Iterable[str] = ()
+    ) -> Connection | None:
+        """The first connection of `kind` (and `role`) on `pin`: its own pins first, then the pins the jumpers of the
+        enabled options in `allowed` tie to them."""
+        candidates = [c for c in self.connections if c.kind == kind and (role is None or c.role == role)]
+        if pin is None:
+            return candidates[0] if candidates else None
+        for connection in candidates:
+            if pin in connection.pins:
+                return connection
+        reach = self.jumpered_to(pin, allowed)
+        return next((connection for connection in candidates if reach & set(connection.pins)), None)
+
+    def channel(self, kind: ChannelKind, pin: str | None = None, role: str | None = None, allowed: Iterable[str] = ()) -> int | None:
+        connection = self.connection(kind, pin, role, allowed)
+        return None if connection is None else connection.channel
+
+    def dio(self, pin: str | None = None, role: str | None = None, allowed: Iterable[str] = ()) -> int | None:
+        return self.channel("dio", pin, role, allowed)
+
+    def wavegen(self, pin: str | None = None, role: str | None = None, allowed: Iterable[str] = ()) -> int | None:
+        return self.channel("wavegen", pin, role, allowed)
+
+    def scope(self, pin: str | None = None, role: str | None = None, allowed: Iterable[str] = ()) -> int | None:
+        return self.channel("scope", pin, role, allowed)
+
+    def jumpered_to(self, pin: str, allowed: Iterable[str] = ()) -> set[str]:
+        """Pins the jumpers of the enabled options in `allowed` tie to `pin`."""
+        tags = set(allowed)
+        reach: set[str] = set()
+        for tag, jumpers in self.option_jumpers.items():
+            if tag not in tags:
                 continue
-            if role is not None and connection.role != role:
-                continue
-            if pin is not None and pin not in connection.pins:
-                continue
-            return connection.channel
-        return None
+            for key, others in jumpers.items():
+                net = {key, *others}
+                if pin in net:
+                    reach |= net - {pin}
+        return reach
 
-    def dio(self, pin: str | None = None, role: str | None = None) -> int | None:
-        return self.channel("dio", pin, role)
+    def loaded(self, pin: str) -> tuple[str, ...]:
+        """The enabled options that load `pin`."""
+        return tuple(tag for tag, option in self.options.items() if tag in self.enabled and pin in option.loads)
 
-    def wavegen(self, pin: str | None = None, role: str | None = None) -> int | None:
-        return self.channel("wavegen", pin, role)
-
-    def scope(self, pin: str | None = None, role: str | None = None) -> int | None:
-        return self.channel("scope", pin, role)
+    def blocking(self, pin: str, allowed: Iterable[str] = ()) -> tuple[str, ...]:
+        """The enabled options that load `pin` and are not in `allowed`: a test outside them must leave it alone."""
+        tags = set(allowed)
+        return tuple(tag for tag in self.loaded(pin) if tag not in tags)
 
     def has(self, tag: str) -> bool:
         return tag in self.enabled
@@ -98,6 +161,12 @@ class Wiring:
         lines = [f"wiring sets: {', '.join(self.sets) or '(none)'}"]
         lines += [f"  {connection.describe()}" for connection in self.connections]
         lines += [f"  jumper: {jumper}" for jumper in self.jumpers]
+        for tag in sorted(self.enabled):
+            option = self.options[tag]
+            parts = [f"{key}-{'+'.join(others)}" for key, others in option.jumpered.items()]
+            if option.loads:
+                parts.append(f"loads {', '.join(option.loads)}")
+            lines.append(f"  --with {tag}: {'; '.join(parts) or option.description or 'enabled'}")
         return "\n".join(lines)
 
 
@@ -167,6 +236,8 @@ class BoardConfig:
     wiring_sets: dict[str, WiringSet]
     tests: dict[str, Any]
     path: Path | None = None
+    # `--board-extra` files merged over the board file, in order.
+    extras: tuple[Path, ...] = ()
     firmware_name: str | None = None
     # Kernel clocks in Hz (`sysclk`, `pclk1`, `pclk2`, `timer`, `spi.<n>`, `uart.<usartN|lpuartN>`).
     clocks: dict[str, Any] = field(default_factory=dict)
@@ -237,9 +308,13 @@ class BoardConfig:
             self.set_param(path.strip(), yaml.safe_load(text))
 
     def wiring(self, names: Iterable[str], enabled: Iterable[str] = ()) -> Wiring:
+        """The wiring of the sets `names` with the options `enabled`; `ConfigError` for an unknown set, for sets
+        that wire one AD3 channel differently, for an enabled option no selected set offers (or enabled options
+        without a set) and for enabled options that exclude each other."""
         tags = frozenset(enabled)
         selected: list[Connection] = []
         jumpers: list[str] = []
+        options: dict[str, WiringOption] = {}
         used: dict[tuple[str, int], str] = {}
         names = tuple(name for name in names if name)
         for name in names:
@@ -248,6 +323,8 @@ class BoardConfig:
                 raise ConfigError(f"{self.name}: unknown wiring set {name!r} (known: {known})")
             wiring_set = self.wiring_sets[name]
             jumpers += [jumper for jumper in wiring_set.jumpers if jumper not in jumpers]
+            for tag, option in wiring_set.options.items():
+                options[tag] = options[tag].merged(option) if tag in options else option
             for connection in wiring_set.connections:
                 if connection.requires and connection.requires not in tags:
                     continue
@@ -261,7 +338,21 @@ class BoardConfig:
                     continue
                 used[key] = name
                 selected.append(connection)
-        return Wiring(names, tuple(selected), tags, tuple(jumpers))
+        self._check_options(names, options, tags)
+        option_jumpers = {tag: options[tag].jumpered for tag in sorted(tags) if options[tag].jumpered}
+        return Wiring(names, tuple(selected), tags, tuple(jumpers), options, option_jumpers)
+
+    def _check_options(self, names: tuple[str, ...], options: Mapping[str, WiringOption], tags: frozenset[str]) -> None:
+        if tags and not names:
+            raise ConfigError(f"{self.name}: --with {', '.join(sorted(tags))} needs the --wiring-set that offers it")
+        missing = sorted(tags - set(options))
+        if missing:
+            offered = ", ".join(sorted(options)) or "none"
+            raise ConfigError(f"{self.name}: wiring set(s) {', '.join(names)} offer no --with {', '.join(missing)} (offered: {offered})")
+        for tag in sorted(tags):
+            clash = sorted(options[tag].excludes & tags)
+            if clash:
+                raise ConfigError(f"{self.name}: --with {tag} and --with {', '.join(clash)} exclude each other: fit one of them")
 
 
 def _connection(kind: ChannelKind, channel: Any, spec: Any, pins: Mapping[str, str]) -> Connection:
@@ -284,21 +375,63 @@ def _connection(kind: ChannelKind, channel: Any, spec: Any, pins: Mapping[str, s
     )
 
 
+def _pin_list(where: str, value: Any, pins: Mapping[str, str]) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
+        raise ConfigError(f"{where} must be a list of pins")
+    return tuple(normalize_pin(str(pin), pins, strict=True) for pin in value)
+
+
+def _option(set_name: str, tag: str, spec: Any, pins: Mapping[str, str]) -> WiringOption:
+    """An option is a description (the wiring is only described) or a mapping of `_OPTION_KEYS`."""
+    if spec is None or isinstance(spec, str):
+        return WiringOption(tag, str(spec or ""))
+    where = f"{set_name}: option {tag}"
+    if not isinstance(spec, Mapping):
+        raise ConfigError(f"{where} must be a description or a mapping")
+    unknown = sorted(str(key) for key in set(spec) - _OPTION_KEYS)
+    if unknown:
+        raise ConfigError(f"{where}: unknown keys {', '.join(unknown)} (known: {', '.join(sorted(_OPTION_KEYS))})")
+    jumpered_raw = spec.get("jumpered") or {}
+    if not isinstance(jumpered_raw, Mapping):
+        raise ConfigError(f"{where}: jumpered must map a pin to the pins it is tied to")
+    jumpered = {
+        normalize_pin(str(key), pins, strict=True): _pin_list(f"{where}: jumpered.{key}", others, pins)
+        for key, others in jumpered_raw.items()
+    }
+    excludes = spec.get("excludes") or []
+    if isinstance(excludes, str) or not isinstance(excludes, (list, tuple)):
+        raise ConfigError(f"{where}: excludes must be a list of option tags")
+    return WiringOption(
+        tag=tag,
+        description=str(spec.get("description", "")),
+        jumpered=jumpered,
+        loads=_pin_list(f"{where}: loads", spec.get("loads"), pins),
+        pullups=_pin_list(f"{where}: pullups", spec.get("pullups"), pins),
+        excludes=frozenset(str(other) for other in excludes),
+    )
+
+
 def _wiring_set(name: str, raw: Mapping[str, Any], pins: Mapping[str, str]) -> WiringSet:
     connections: list[Connection] = []
     for kind in _KINDS:
         for channel, spec in (raw.get(kind) or {}).items():
             connections.append(_connection(kind, channel, spec, pins))
+    options = {str(tag): _option(name, str(tag), spec, pins) for tag, spec in (raw.get("options") or {}).items()}
     for connection in connections:
         if connection.kind == "dio" and not 0 <= connection.channel <= 15:
             raise ConfigError(f"{name}: DIO{connection.channel} does not exist on the AD3")
         if connection.kind != "dio" and connection.channel not in (1, 2):
             raise ConfigError(f"{name}: {connection.kind} channel must be 1 or 2")
+        if connection.requires is not None and connection.requires not in options:
+            what = f"{connection.kind}{connection.channel}"
+            raise ConfigError(f"{name}: {what} requires option {connection.requires!r}, which the set does not offer")
     return WiringSet(
         name=name,
         description=str(raw.get("description", "")),
         connections=tuple(connections),
-        options=dict(raw.get("options") or {}),
+        options=options,
         jumpers=tuple(raw.get("jumpers") or ()),
     )
 
@@ -331,7 +464,7 @@ def _known_gaps(raw: Any) -> tuple[KnownGap, ...]:
     return tuple(gaps)
 
 
-def parse_board(raw: Mapping[str, Any], path: Path | None = None) -> BoardConfig:
+def parse_board(raw: Mapping[str, Any], path: Path | None = None, extras: Iterable[Path] = ()) -> BoardConfig:
     try:
         pins = {str(alias).lower(): normalize_pin(str(pin)) for alias, pin in (raw.get("pins") or {}).items()}
         unknown = sorted(alias for alias in pins if not is_alias(alias))
@@ -354,6 +487,7 @@ def parse_board(raw: Mapping[str, Any], path: Path | None = None) -> BoardConfig
             wiring_sets={name: _wiring_set(name, spec or {}, pins) for name, spec in (raw.get("wiring_sets") or {}).items()},
             tests=copy.deepcopy(dict(raw.get("tests") or {})),
             path=path,
+            extras=tuple(extras),
             firmware_name=raw.get("firmware_name"),
             clocks=_clocks(raw.get("clocks") or {}),
             known_gaps=_known_gaps(raw.get("known_gaps") or []),
@@ -373,11 +507,56 @@ def board_path(name_or_path: str | Path, boards_dir: Path = BOARDS_DIR) -> Path:
     raise ConfigError(f"no board {name_or_path!r} (known: {known})")
 
 
-def load_board(name_or_path: str | Path, boards_dir: Path = BOARDS_DIR) -> BoardConfig:
+def merge_board(base: Any, extra: Any) -> Any:
+    """`extra` deep-merged over `base`: mappings merge key by key, lists append, a scalar or a change of type
+    replaces, and a key ending in `!` replaces the value of the key without it (`limit_pins!: [...]`)."""
+    if isinstance(base, Mapping) and isinstance(extra, Mapping):
+        result = dict(base)
+        for key, value in extra.items():
+            if isinstance(key, str) and key.endswith("!"):
+                result[key[:-1]] = _without_bangs(value)
+            elif key in result:
+                result[key] = merge_board(result[key], value)
+            else:
+                result[key] = _without_bangs(value)
+        return result
+    if isinstance(base, list) and isinstance(extra, list):
+        return base + _without_bangs(extra)
+    return _without_bangs(extra)
+
+
+def _without_bangs(value: Any) -> Any:
+    """A copy of `value` whose `key!` mapping keys are plain keys (nothing to replace inside a new value)."""
+    if isinstance(value, Mapping):
+        return {(key[:-1] if isinstance(key, str) and key.endswith("!") else key): _without_bangs(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_without_bangs(item) for item in value]
+    return copy.deepcopy(value)
+
+
+def _read_yaml(path: Path) -> Any:
+    try:
+        with path.open(encoding="utf-8") as stream:
+            return yaml.safe_load(stream)
+    except (OSError, yaml.YAMLError) as error:
+        raise ConfigError(f"{path}: {error}") from error
+
+
+def load_board(name_or_path: str | Path, extras: Iterable[str | Path] = (), boards_dir: Path = BOARDS_DIR) -> BoardConfig:
+    """The board file, with the `extras` (`--board-extra` files) deep-merged over it in order (`merge_board`)."""
     path = board_path(name_or_path, boards_dir)
-    with path.open(encoding="utf-8") as stream:
-        raw = yaml.safe_load(stream)
-    return parse_board(raw, path)
+    raw = _read_yaml(path)
+    extra_paths = tuple(Path(extra) for extra in extras)
+    for extra_path in extra_paths:
+        if not extra_path.is_file():
+            raise ConfigError(f"no board extra file {extra_path}")
+        extra = _read_yaml(extra_path)
+        if extra is None:
+            continue
+        if not isinstance(extra, Mapping):
+            raise ConfigError(f"{extra_path}: a board extra file must be a mapping")
+        raw = merge_board(raw, extra)
+    return parse_board(raw, path, extra_paths)
 
 
 def available_boards(boards_dir: Path = BOARDS_DIR) -> list[str]:

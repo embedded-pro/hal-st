@@ -40,6 +40,12 @@ namespace validation::board
 
     inline constexpr std::optional<UartPins> defaultUart = UartPins{ 1, true, Pin(Port::A, 2), Pin(Port::A, 3) };
     inline constexpr QeiPins defaultQei{ 2, Pin(Port::A, 15), Pin(Port::A, 1), Pin(Port::C, 6) };
+    inline constexpr std::array<I2cPins, 2> i2cPins{ {
+        { 1, Pin(Port::B, 8), Pin(Port::B, 9) },
+        { 3, Pin(Port::C, 0), Pin(Port::C, 1) },
+    } };
+    inline constexpr QuadSpiPins qspiPins{ Pin(Port::A, 3), Pin(Port::A, 2), { { Pin(Port::B, 9), Pin(Port::B, 8), Pin(Port::A, 7), Pin(Port::A, 6) } } };
+    inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 6), Pin(Port::B, 0) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({
         { "terminaltx", terminal.tx },
@@ -89,11 +95,37 @@ namespace validation::board
         { "sw1", Pin(Port::C, 4) },
         { "sw2", Pin(Port::D, 0) },
         { "sw3", Pin(Port::D, 1) },
+        { "i2c1scl", i2cPins[0].scl },
+        { "i2c1sda", i2cPins[0].sda },
+        { "i2c3scl", i2cPins[1].scl },
+        { "i2c3sda", i2cPins[1].sda },
+        { "spi2clk", Pin(Port::B, 13) },
+        { "spi2miso", Pin(Port::B, 14) },
+        { "spi2mosi", Pin(Port::B, 15) },
+        { "spi2nss", Pin(Port::B, 12) },
+        { "spi1nss", Pin(Port::A, 4) },
+        { "qspiclk", qspiPins.clk },
+        { "qspincs", qspiPins.ncs },
+        { "qspiio0", qspiPins.io[0] },
+        { "qspiio1", qspiPins.io[1] },
+        { "qspiio2", qspiPins.io[2] },
+        { "qspiio3", qspiPins.io[3] },
+        { "mco", Pin(Port::A, 8) },
     });
 
     inline constexpr uint8_t uartDmaChannel = 3;
     inline constexpr uint8_t spiDmaChannel = 5;
     inline constexpr uint8_t adcDmaChannel = 7;
+    inline constexpr DmaChannel adcDma{ 1, adcDmaChannel };
+    inline constexpr DmaPair spiSlaveDma{ { 2, 1 }, { 2, 2 } };
+    inline constexpr DmaChannel qspiDma{ 2, 3 };
+    inline constexpr uint8_t qspiDmaRequest = DMA_REQUEST_QUADSPI;
+    inline constexpr DmaChannel dmaGroupDma{ 2, 4 };
+    inline constexpr uint8_t dmaGroupDmaRequest = DMA_REQUEST_TIM2_UP;
+
+    inline constexpr uint8_t scaffoldTimer = 17;
+    inline constexpr uint32_t flashScratchFirstPage = 64;
+    inline constexpr uint32_t flashScratchEndPage = 128;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)
     {

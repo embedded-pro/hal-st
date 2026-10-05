@@ -125,11 +125,25 @@ def test_sync_clears_partial_input():
     assert firmware.received[-1] == "ping"
 
 
-@pytest.mark.parametrize("command", UNSUPPORTED_COMMANDS)
-def test_unsupported_groups(command):
-    terminal, _ = make_terminal()
+@pytest.mark.parametrize(("family", "command"), [(family, command) for family, names in UNSUPPORTED_COMMANDS.items() for command in names])
+def test_unsupported_groups(family, command):
+    terminal, _ = make_terminal(family=family)
     assert reason(terminal, command) == "unsupported"
     assert reason(terminal, f"{command} 0 key=1") == "unsupported"
+
+
+def test_unsupported_names_follow_the_mcu():
+    """HSEM, QUADSPI, the wireless-stack flash steps, MCO and HSI48 exist on the WB55 only, LPTIM PWM on the WBA55
+    only; EMIL's EEPROM group is served on both."""
+    assert {"hsem.take", "qspi.open", "flash.stack", "clock.mco", "clock.hsi48"} <= set(UNSUPPORTED_COMMANDS["stm32wba55"])
+    assert {"lptpwm.open", "lptpwm.close"} <= set(UNSUPPORTED_COMMANDS["stm32wb55"])
+    common = set(UNSUPPORTED_COMMANDS["stm32wb55"]) & set(UNSUPPORTED_COMMANDS["stm32wba55"])
+    assert {name.split(".")[0] for name in common} == {"comp", "can", "eth"}
+    assert not any(name.startswith("eeprom.") for names in UNSUPPORTED_COMMANDS.values() for name in names)
+    terminal, _ = make_terminal()
+    assert reason(terminal, "hsem.take 0 procid=1") != "unsupported"
+    terminal, _ = wba()
+    assert reason(terminal, "lptpwm.close 1") != "unsupported"
 
 
 # board profiles against the board files
@@ -156,10 +170,11 @@ def test_board_file_system_lines(family):
 
 @pytest.mark.parametrize("family", sorted(BOARDS))
 def test_every_alias_is_a_pin(family):
+    """Every alias names a pin; the reserved ones (terminal, debug LED) answer busy."""
     board = load_board(BOARDS[family])
-    terminal, _ = make_terminal(family=family)
+    terminal, firmware = make_terminal(family=family)
     for alias, pin in board.pins.items():
-        expected = "busy" if pin in board.terminal.pins else "ok"
+        expected = "busy" if pin in firmware.reserved() else "ok"
         assert reason(terminal, f"gpio.cfg {alias} in") == expected, alias
         if expected == "ok":
             assert reason(terminal, f"gpio.get {pin}") == "ok"
@@ -618,7 +633,7 @@ def test_spi_wba55_instances_and_clock():
     assert reason(terminal, "spi.open 1 clk=PB4 mosi=PA15 miso=PB3 baud=3000000") == "ok"
     assert firmware.opened[("spi", "1")]["clock"] == 1_562_500
     terminal.command("spi.close 1")
-    assert reason(terminal, "spi.open 3 clk=PA0 mosi=PB8 miso=PB9") == "busy", "PB8 is the debug LED"
+    assert reason(terminal, "spi.open 3 clk=PA0 mosi=PB8 miso=PB9") == "ok", "PB8 is free since the debug LED moved to PA9"
 
 
 def test_spi_transfers():
@@ -780,7 +795,13 @@ def test_adc_pins_are_shared_only_with_analog_users():
         ("qei.open 1 lp=1 a=PC0 b=PC2 invb=1", "unsupported"),
         ("qei.open 1 lp=1 a=PC0 b=PC2 offset=0", "unsupported"),
         ("qei.open 1 lp=1 a=PC0 b=PC2 invb=0", "unsupported"),
-        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=ab", "unsupported"),
+        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=ab", "ok"),
+        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=rise", "ok"),
+        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=fall", "ok"),
+        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=b", "unsupported"),
+        ("qei.open 1 lp=1 a=PC0 b=PC2 cap=x", "usage"),
+        ("qei.open 2 cap=rise", "usage"),
+        ("qei.open 2 lp=1 a=PB1 b=PC2", "range"),
         ("qei.open 0 lp=1 a=PC0 b=PC2", "range"),
         ("qei.open 1 lp=1 a=PC0 b=PC2 inva=1 filter=8", "ok"),
         ("qei.open 1 lp=1 a=PC0 b=PC2 filter=3", "range"),
@@ -800,9 +821,15 @@ def test_qei_open_validation_wb55(line, expected):
         ("qei.open 3 a=PA10 b=PA1", "ok"),
         ("qei.open 3", "usage"),
         ("qei.open 2 a=PA5 b=PA8", "busy"),
-        ("qei.open 1 lp=1 a=PA0 b=PB3", "unsupported"),
-        ("qei.open 0 lp=1", "unsupported"),
-        ("qei.open 17 lp=1 filter=3", "unsupported"),
+        ("qei.open 1 lp=1 a=PA0 b=PB3", "ok"),
+        ("qei.open 2 lp=1 a=PB9 b=PB0", "ok"),
+        ("qei.open 2 lp=1 a=lptim2in1 b=lptim2in2 cap=fall filter=8", "ok"),
+        ("qei.open 1 lp=1 a=PA0 b=PB3 cap=a", "unsupported"),
+        ("qei.open 1 lp=1 a=PB9 b=PB0", "pin"),
+        ("qei.open 1 lp=1", "usage"),
+        ("qei.open 0 lp=1", "range"),
+        ("qei.open 3 lp=1", "range"),
+        ("qei.open 17 lp=1 filter=3", "range"),
         ("qei.open 4", "range"),
     ],
 )
@@ -979,3 +1006,296 @@ def test_argument_errors_come_before_busy():
     ]
     for line, expected in cases:
         assert reason(terminal, line) == expected, line
+
+
+# board profiles of the coverage extensions
+
+
+def test_wba55_bonding_and_debug_led():
+    """PA3, PA4, PB10, PB11 and PB13 are not bonded on the UFQFPN48; the debug LED is the green LD2 on PA9."""
+    terminal, firmware = wba()
+    for pin in ("PA3", "PA4", "PB10", "PB11", "PB13"):
+        assert reason(terminal, f"gpio.cfg {pin} in") == "pin", pin
+    assert reason(terminal, "gpio.cfg PA9 in") == "busy"
+    assert reason(terminal, "gpio.cfg led1 in") == "busy", "led1 names the debug LED pin"
+    assert reason(terminal, "gpio.cfg PB8 in") == "ok"
+    assert firmware.spec.debug_led == "PA9"
+
+
+@pytest.mark.parametrize(
+    ("family", "function", "instance", "pin"),
+    [
+        ("stm32wb55", "i2cScl", 1, "PB8"),
+        ("stm32wb55", "i2cSda", 1, "PB9"),
+        ("stm32wb55", "i2cScl", 3, "PC0"),
+        ("stm32wb55", "i2cSda", 3, "PC1"),
+        ("stm32wb55", "i2cScl", 3, "PA7"),
+        ("stm32wb55", "i2cSda", 3, "PB4"),
+        ("stm32wb55", "spiSlaveSelect", 1, "PA4"),
+        ("stm32wb55", "spiSlaveSelect", 2, "PB12"),
+        ("stm32wb55", "quadSpiClock", 0, "PA3"),
+        ("stm32wb55", "quadSpiSlaveSelect", 0, "PA2"),
+        ("stm32wb55", "quadSpiData0", 0, "PB9"),
+        ("stm32wb55", "quadSpiData3", 0, "PA6"),
+        ("stm32wb55", "lpTimerInput1", 2, "PB1"),
+        ("stm32wba55", "i2cScl", 1, "PB2"),
+        ("stm32wba55", "i2cSda", 1, "PB1"),
+        ("stm32wba55", "i2cScl", 1, "PA15"),
+        ("stm32wba55", "i2cSda", 1, "PB3"),
+        ("stm32wba55", "i2cScl", 3, "PA6"),
+        ("stm32wba55", "i2cSda", 3, "PA7"),
+        ("stm32wba55", "spiSlaveSelect", 3, "PA5"),
+        ("stm32wba55", "lpTimerChannel2", 1, "PA15"),
+        ("stm32wba55", "lpTimerChannel1", 2, "PA11"),
+        ("stm32wba55", "lpTimerChannel2", 2, "PA1"),
+        ("stm32wba55", "lpTimerInput1", 1, "PA0"),
+        ("stm32wba55", "lpTimerInput2", 2, "PB0"),
+        ("stm32wba55", "timerChannel1N", 16, "PB8"),
+    ],
+)
+def test_pin_functions_of_the_new_groups(family, function, instance, pin):
+    _, firmware = make_terminal(family=family)
+    assert firmware.supports(function, instance, pin)
+
+
+def test_unbonded_table_pins_offer_nothing():
+    _, firmware = wba()
+    assert not firmware.supports("lpTimerChannel1", 1, "PB11"), "LPTIM1 CH1 is on PB11 only, which is not bonded"
+    assert not firmware.supports("timerChannel1N", 16, "PA3")
+    assert firmware.first_function_pin("lpuartTx", 1) == "PA2"
+
+
+@pytest.mark.parametrize(("family", "pins"), [("stm32wb55", WB55_PINS), ("stm32wba55", WBA55_PINS)])
+def test_new_aliases_resolve(family, pins):
+    terminal, _ = make_terminal(family=family)
+    for alias in ("i2c1scl", "i2c1sda", "i2c3scl", "i2c3sda", "spi1nss"):
+        assert reason(terminal, f"gpio.cfg {alias} in") == "ok", alias
+        assert reason(terminal, f"gpio.release {pins[alias]}") == "ok"
+
+
+# spi extensions (D.4)
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=8", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=12", "unsupported"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=12 dma=1", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=4 dma=1", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=16 dma=1", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=16 sync=1", "unsupported"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=3 dma=1", "range"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=17 dma=1", "range"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 bits=wide", "usage"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 lsb=1", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 lsb=2", "range"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA4", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=spi1nss", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA15", "ok"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA4 cs=PB0", "usage"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PB12", "pin"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PB12 bits=12", "pin"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA16", "pin"),
+        ("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA5", "pin"),
+        ("spi.open 2 clk=spi2clk mosi=spi2mosi miso=spi2miso nss=spi2nss bits=16 dma=1 lsb=1", "ok"),
+    ],
+)
+def test_spi_open_extensions_wb55(line, expected):
+    terminal, _ = make_terminal()
+    assert reason(terminal, line) == expected
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("spi.open 3 clk=PA0 mosi=PB8 miso=PB9 bits=16 dma=1", "ok"),
+        ("spi.open 3 clk=PA0 mosi=PB8 miso=PB9 bits=8 dma=1", "ok"),
+        ("spi.open 3 clk=PA0 mosi=PB8 miso=PB9 bits=12 dma=1", "unsupported"),
+        ("spi.open 3 clk=PA0 mosi=PB8 miso=PB9 bits=4 dma=1", "unsupported"),
+        ("spi.open 3 clk=spi3clk mosi=spi3mosi miso=spi3miso nss=spi3nss", "ok"),
+        ("spi.open 3 clk=PA0 mosi=PB8 miso=PB9 nss=PA12", "pin"),
+        ("spi.open 1 clk=PB4 mosi=PA15 miso=PB3 bits=12 dma=1", "ok"),
+        ("spi.open 1 clk=PB4 mosi=PA15 miso=PB3 nss=PA12 lsb=1", "ok"),
+    ],
+)
+def test_spi_open_extensions_wba55(line, expected):
+    terminal, _ = wba()
+    assert reason(terminal, line) == expected
+
+
+def test_spi_holds_its_peripheral():
+    terminal, firmware = make_terminal()
+    terminal.command("spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA4 bits=16 dma=1 lsb=1")
+    state = firmware.opened[("spi", "1")]
+    assert (state["bits"], state["lsb"], state["nss"]) == (16, True, "PA4")
+    assert firmware.resources == {("spi", 1): ("spi", "1")}
+    assert reason(terminal, "gpio.cfg spi1nss in") == "busy"
+    terminal.command("spi.close 1")
+    assert firmware.resources == {}
+    terminal.command("gpio.cfg PA15 in")
+    assert reason(terminal, "spi.open 1 clk=PA5 mosi=PA7 miso=PA6 nss=PA15") == "busy"
+
+
+# pwm extensions (D.10)
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("pwm.open 1 channels=1 mode=edgedown", "ok"),
+        ("pwm.open 1 channels=1 mode=centerup freq=1000", "ok"),
+        ("pwm.open 1 channels=1 mode=centerboth freq=1000", "ok"),
+        ("pwm.open 1 channels=1 mode=centerup freq=488", "range"),
+        ("pwm.open 1 channels=1 mode=edgedown freq=976", "range"),
+        ("pwm.open 1 channels=1 mode=diagonal", "usage"),
+        ("pwm.open 16 channels=1 mode=edgedown", "unsupported"),
+        ("pwm.open 17 channels=1 mode=centerup", "unsupported"),
+        ("pwm.open 16 channels=1 mode=centerboth", "unsupported"),
+        ("pwm.open 1 channels=1 preload=0", "ok"),
+        ("pwm.open 1 channels=1 preload=2", "range"),
+        ("pwm.open 1 channels=1 brkfilter=3", "usage"),
+        ("pwm.open 1 channels=1 brkfilter=16", "range"),
+        ("pwm.open 1 channels=1 brk=PB12 brkfilter=15", "ok"),
+        ("pwm.open 1 channels=1 brk=PB12 brkfilter=0", "ok"),
+        ("pwm.open 1 channels=1 brk=PB12 brkfilter=16", "range"),
+        ("pwm.open 2 channels=1 brk=PB12 brkfilter=2", "unsupported"),
+        ("pwm.open 1 channels=1 trgo=update", "ok"),
+        ("pwm.open 1 channels=1 trgo=oc4ref", "ok"),
+        ("pwm.open 2 channels=1 trgo=oc1", "ok"),
+        ("pwm.open 1 channels=1 trgo=never", "usage"),
+        ("pwm.open 16 channels=1 trgo=update", "unsupported"),
+        ("pwm.open 17 channels=1 trgo=reset", "unsupported"),
+    ],
+)
+def test_pwm_open_extensions(line, expected):
+    terminal, _ = make_terminal()
+    assert reason(terminal, line) == expected
+
+
+def test_pwm_open_extensions_keep_their_settings():
+    terminal, firmware = make_terminal()
+    terminal.command("pwm.open 1 channels=1 mode=centerup preload=0 trgo=update brk=PB12 brkfilter=4 freq=1000")
+    state = firmware.opened[("pwm", "1")]
+    assert (state["mode"], state["alignment"], state["preload"], state["trgo"], state["brkfilter"]) == (
+        "centerup",
+        "center",
+        False,
+        "update",
+        4,
+    )
+    assert reason(terminal, "pwm.freq 1 488") == "range", "centre aligned: 2 * ARR ticks per period"
+
+
+# adc trgo (D.10)
+
+
+def test_adc_trgo_runs_on_a_pwm_timer():
+    terminal, firmware, clock = timed_terminal()
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=2") == "unsupported", "nobody drives TIM2"
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=3") == "range"
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=16") == "unsupported"
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=2 timer=2") == "usage"
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=2 rate=100") == "usage"
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=x") == "usage"
+    terminal.command("pwm.open 2 channels=1 freq=100 trgo=update")
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=2") == "ok"
+    assert firmware.timer_owners[2] == ("pwm", "2"), "the adc group does not take the timer"
+    firmware.adc_codes["PC3"] = 7
+    start = clock.now
+    assert reason(terminal, "adc.measure 1 n=10") == "timeout", "the timer does not run before pwm.duty"
+    assert clock.now - start == pytest.approx(1.0)
+    terminal.command("pwm.duty 2 50")
+    start = clock.now
+    assert terminal.command("adc.measure 1 n=10").as_ints("samples") == [7] * 10
+    reply = "OK samples=" + ",".join(["7"] * 10)
+    assert clock.now - start == pytest.approx(10 / 100 + expect.terminal_line_time(reply, 921600))
+
+
+def test_adc_trgo_on_a_timer_another_group_holds_is_busy():
+    terminal, _ = make_terminal()
+    terminal.command("qei.open 1 a=PA8 b=PA9")
+    assert reason(terminal, "adc.open 1 pins=PC3 trgo=1") == "busy"
+    assert reason(terminal, "adc.open 1 pins=PB0 trgo=1") == "pin", "argument errors come first"
+
+
+def test_adc_trgo_cannot_use_tim1_on_wba55():
+    terminal, _ = wba()
+    terminal.command("pwm.open 1 channels=1 trgo=update")
+    assert reason(terminal, "adc.open 4 pins=PA7 trgo=1") == "unsupported", "ADC4 reaches TIM1 through TRGO2 only"
+    terminal.command("pwm.close 1")
+    terminal.command("pwm.open 2 channels=1 trgo=update")
+    assert reason(terminal, "adc.open 4 pins=PA7 trgo=2") == "ok"
+
+
+def test_adc_holds_its_peripheral_and_dma_channel():
+    terminal, firmware = wba()
+    terminal.command("adc.open 4 pins=PA7")
+    assert firmware.resources == {("adc", 4): ("adc", "4"), ("dma1", 7): ("adc", "4")}
+    terminal.command("adc.close 4")
+    assert firmware.resources == {}
+
+
+# uart send-only (D.13)
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("uart.open 1 lp=1 sendonly=1", "ok"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1", "ok"),
+        ("uart.open 1 lp=1 tx=PA2", "usage"),
+        ("uart.open 1 lp=1 rx=PA3 sendonly=1", "usage"),
+        ("uart.open 1 lp=1 sendonly=2", "range"),
+        ("uart.open 1 lp=1 sendonly=1 dma=1", "usage"),
+        ("uart.open 1 lp=1 sendonly=1 sync=1", "usage"),
+        ("uart.open 1 lp=1 sendonly=1 duplex=1", "usage"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1 flow=rts rts=PB12", "ok"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1 flow=cts cts=PA6", "unsupported"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1 flow=rtscts rts=PB12 cts=PA6", "unsupported"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1 parity=even", "unsupported"),
+        ("uart.open 1 lp=1 tx=PA2 sendonly=1 swap=1", "unsupported"),
+        ("uart.open 1 lp=1 tx=PA3 sendonly=1", "pin"),
+        ("uart.open 1 sendonly=1", "busy"),
+    ],
+)
+def test_uart_sendonly_wb55(line, expected):
+    terminal, _ = make_terminal()
+    assert reason(terminal, line) == expected
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("uart.open 2 tx=PB0 sendonly=1", "ok"),
+        ("uart.open 2 tx=usart2tx rts=usart2rts flow=rts sendonly=1", "ok"),
+        ("uart.open 1 lp=1 tx=PB5 sendonly=1", "unsupported"),
+        ("uart.open 2 tx=PA11 sendonly=1", "pin"),
+    ],
+)
+def test_uart_sendonly_wba55(line, expected):
+    terminal, _ = wba()
+    assert reason(terminal, line) == expected
+
+
+def test_uart_sendonly_receives_nothing():
+    terminal, firmware = make_terminal()
+    terminal.command("uart.open 1 lp=1 tx=PA2 sendonly=1")
+    assert reason(terminal, "gpio.cfg PA3 in") == "ok", "no RX pin is claimed"
+    firmware.uart_rx[1] += b"\x55"
+    assert terminal.command("uart.send 1 55").ok
+    assert terminal.command("uart.recv 1").raw == "OK data=-"
+    assert reason(terminal, "uart.recv 1 len=0") == "range", "the options are still checked"
+
+
+# encoder on LPTIM (D.9)
+
+
+def test_lp_encoder_holds_its_lptim():
+    terminal, firmware = wba()
+    terminal.command("qei.open 2 lp=1 a=lptim2in1 b=lptim2in2 cap=rise")
+    assert firmware.resources == {("lpTimer", 2): ("qei", "2")}
+    assert firmware.opened[("qei", "2")]["cap"] == "rise"
+    assert reason(terminal, "pwm.open 2 channels=1") == "ok", "LPTIM2 is not TIM2"
+    terminal.command("qei.close 2")
+    assert firmware.resources == {}

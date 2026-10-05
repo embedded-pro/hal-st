@@ -22,7 +22,11 @@ namespace hal
     {
         EnableClockQuadSpi(0);
 
+#if defined(STM32WB)
+        QUADSPI->CR = (config.prescaler << 24) | QUADSPI_CR_APMS | QSPI_SAMPLE_SHIFTING_HALFCYCLE | QUADSPI_CR_EN;
+#else
         QUADSPI->CR = (config.prescaler << 24) | QUADSPI_CR_APMS | QSPI_SAMPLE_SHIFTING_HALFCYCLE | (32 << 8) | QUADSPI_CR_EN;
+#endif
         QUADSPI->DCR = ((config.flashSizeLog2 - 1) << 16) | QSPI_CS_HIGH_TIME_2_CYCLE;
     }
 
@@ -154,6 +158,15 @@ namespace hal
 
     void QuadSpiStmDma::OnDmaTransferDone()
     {
+#if defined(STM32WB)
+        // A write's DMA completes when the last byte enters the FIFO, not when it has left the pins
+        if (READ_BIT(QUADSPI->CCR, QUADSPI_CCR_FMODE) == 0)
+        {
+            MODIFY_REG(QUADSPI->CR, QUADSPI_CR_DMAEN, QUADSPI_CR_TCIE);
+            return;
+        }
+#endif
+
         QUADSPI->FCR |= QUADSPI_FCR_CTCF;
         QUADSPI->CR &= ~QUADSPI_CR_DMAEN;
         onDone();

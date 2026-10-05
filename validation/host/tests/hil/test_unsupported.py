@@ -1,4 +1,5 @@
-"""Groups hal-st has no driver for on these boards (comparator, CAN, EEPROM, Ethernet) answer `ERR unsupported`."""
+"""Groups hal-st has no driver for on these boards (comparator, CAN, Ethernet) and the groups the running MCU lacks
+answer `ERR unsupported`."""
 
 import pytest
 from ad3_waveforms_bench.terminal import FirmwareError

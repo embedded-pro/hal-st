@@ -23,24 +23,79 @@ target_link_libraries(hal_st.validation_firmware PRIVATE
 target_sources(hal_st.validation_firmware PRIVATE
     AdcFactory.cpp
     AdcFactory.hpp
+    AesGroup.cpp
+    AesGroup.hpp
+    AnalogInputGroup.cpp
+    AnalogInputGroup.hpp
+    BackupRamGroup.cpp
+    BackupRamGroup.hpp
     BoardInfoStm.cpp
     BoardInfoStm.hpp
     BoardTypes.hpp
+    ChannelPins.hpp
+    ClockGroup.cpp
+    ClockGroup.hpp
     Console.cpp
     Console.hpp
+    DmaGroup.cpp
+    DmaGroup.hpp
+    EepromGroup.cpp
+    EepromGroup.hpp
+    FlashGroup.cpp
+    FlashGroup.hpp
+    HsemGroup.cpp
+    HsemGroup.hpp
+    HsemMaster.cpp
+    HsemMaster.hpp
+    I2cEepromStm.cpp
+    I2cEepromStm.hpp
+    I2cGroup.cpp
+    I2cGroup.hpp
+    I2cTarget.cpp
+    I2cTarget.hpp
+    I2cTiming.cpp
+    I2cTiming.hpp
+    LowPowerGroup.cpp
+    LowPowerGroup.hpp
+    LpTimerGroup.cpp
+    LpTimerGroup.hpp
+    LpTimerPwmGroup.cpp
+    LpTimerPwmGroup.hpp
     Main.cpp
+    Owners.hpp
+    Payload.cpp
+    Payload.hpp
     PeripheralClocks.cpp
     PeripheralClocks.hpp
     PinFactoryStm.cpp
     PinFactoryStm.hpp
+    PkaGroup.cpp
+    PkaGroup.hpp
     PwmFactory.cpp
     PwmFactory.hpp
     QeiFactory.cpp
     QeiFactory.hpp
+    QuadSpiGroup.cpp
+    QuadSpiGroup.hpp
+    ResourceAllocation.cpp
+    ResourceAllocation.hpp
+    RngGroup.cpp
+    RngGroup.hpp
     SpiFactory.cpp
     SpiFactory.hpp
+    SpiSlaveGroup.cpp
+    SpiSlaveGroup.hpp
+    Stopwatch.hpp
+    SyncGpioDriver.cpp
+    SyncGpioDriver.hpp
+    SyncGpioGroup.cpp
+    SyncGpioGroup.hpp
     TimerAllocation.cpp
     TimerAllocation.hpp
+    TimerGroup.cpp
+    TimerGroup.hpp
+    TimerPwmGroup.cpp
+    TimerPwmGroup.hpp
     UartFactory.cpp
     UartFactory.hpp
     UnsupportedGroups.cpp

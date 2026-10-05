@@ -6,6 +6,7 @@
 #include "services/hil/HilPinPool.hpp"
 #include "services/hil/HilSystemCommands.hpp"
 #include "services/hil/commands/HilAdcCommands.hpp"
+#include "services/hil/commands/HilEepromCommands.hpp"
 #include "services/hil/commands/HilGpioCommands.hpp"
 #include "services/hil/commands/HilPwmCommands.hpp"
 #include "services/hil/commands/HilQeiCommands.hpp"
@@ -14,13 +15,34 @@
 #include "services/hil/commands/HilWatchDogCommands.hpp"
 #include "services/peripheral/DebugLed.hpp"
 #include "validation/firmware/AdcFactory.hpp"
+#include "validation/firmware/AesGroup.hpp"
+#include "validation/firmware/AnalogInputGroup.hpp"
+#include "validation/firmware/BackupRamGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
+#include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/DmaGroup.hpp"
+#include "validation/firmware/EepromGroup.hpp"
+#include "validation/firmware/FlashGroup.hpp"
+#include "validation/firmware/HsemGroup.hpp"
+#include "validation/firmware/I2cGroup.hpp"
+#include "validation/firmware/I2cTarget.hpp"
+#include "validation/firmware/LowPowerGroup.hpp"
+#include "validation/firmware/LpTimerGroup.hpp"
+#include "validation/firmware/LpTimerPwmGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
+#include "validation/firmware/PkaGroup.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
+#include "validation/firmware/QuadSpiGroup.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
+#include "validation/firmware/RngGroup.hpp"
 #include "validation/firmware/SpiFactory.hpp"
+#include "validation/firmware/SpiSlaveGroup.hpp"
+#include "validation/firmware/SyncGpioGroup.hpp"
 #include "validation/firmware/TimerAllocation.hpp"
+#include "validation/firmware/TimerGroup.hpp"
+#include "validation/firmware/TimerPwmGroup.hpp"
 #include "validation/firmware/UartFactory.hpp"
 #include "validation/firmware/UnsupportedGroups.hpp"
 #include "validation/firmware/WatchDogFactory.hpp"
@@ -43,6 +65,7 @@ int main()
     static services::HilPinNamingDefault naming{ validation::board::portLetters, validation::board::maximumPinIndex, infra::MakeRange(validation::board::aliases) };
     static services::HilContext context{ console.response, pins, naming, console.terminal };
     static validation::TimerAllocation timers;
+    static validation::ResourceAllocation resources;
 
     static hal::cortex::Reset reset;
     static services::HilSystemCommands system{ context, boardInfo, reset };
@@ -54,18 +77,63 @@ int main()
     static validation::UartFactoryStm uartFactory{ naming, console.dma };
     static services::HilUartCommands::WithCapacity<256, 112> uart{ context, uartFactory };
 
-    static validation::SpiFactoryStm spiFactory{ naming, console.dma };
+    static validation::SpiFactoryStm spiFactory{ naming, console.dma, resources };
     static services::HilSpiCommands::WithCapacity<64> spi{ context, spiFactory };
 
-    static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers };
+    static validation::AdcFactoryStm adcFactory{ naming, console.dma, timers, resources };
     static services::HilAdcCommands::WithCapacity<validation::AdcFactoryStm::slots, 64> adc{ context, adcFactory };
 
-    static validation::QeiFactoryStm qeiFactory{ naming, timers };
+    static validation::QeiFactoryStm qeiFactory{ naming, timers, resources };
     static services::HilQeiCommands qei{ context, qeiFactory };
     static validation::QeiExtensionCommands qeiExtension{ context, qeiFactory };
 
     static validation::WatchDogFactoryStm watchDogFactory{ naming, pins };
     static services::HilWatchDogCommands watchDog{ context, watchDogFactory };
+
+    static validation::I2cFactoryStm i2cFactory{ naming, resources };
+    static validation::I2cCommands i2c{ context, i2cFactory };
+    static validation::I2cTargetFactory i2cTargetFactory{ naming, resources };
+    static validation::I2cTargetCommands i2cTarget{ context, i2cTargetFactory };
+    static validation::EepromGroup eepromGroup{ context, naming, resources };
+    static services::HilEepromCommands::WithCapacity<128> eeprom{ context, eepromGroup };
+
+    static validation::SpiSlaveFactory spiSlaveFactory{ naming, console.dma, resources };
+    static validation::SpiSlaveCommands spiSlave{ context, spiSlaveFactory };
+
+    static validation::TimerFactoryStm timerFactory{ naming, timers };
+    static validation::TimerGroup timer{ context, timerFactory };
+    static validation::TimerPwmFactoryStm timerPwmFactory{ naming, timers };
+    static validation::TimerPwmGroup timerPwm{ context, timerPwmFactory };
+#if defined(HAS_PERIPHERAL_LPTIMER)
+    static validation::LpTimerFactoryStm lpTimerFactory{ naming, resources };
+    static validation::LpTimerGroup lpTimer{ context, lpTimerFactory };
+#endif
+#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB)
+    static validation::LpTimerPwmFactoryStm lpTimerPwmFactory{ naming, resources };
+    static validation::LpTimerPwmGroup lpTimerPwm{ context, lpTimerPwmFactory };
+#endif
+
+    static validation::AnalogInputCommands analogInput{ context, naming, console.dma, timers, resources };
+    static validation::DmaCommands dmaWave{ context, naming, console.dma, timers, resources };
+
+    static validation::SyncGpioCommands syncGpio{ context };
+    static validation::ClockCommands clocks{ context };
+
+    static validation::RngCommands rng{ context, resources };
+    static validation::AesCommands aes{ context };
+    static validation::PkaCommands pka{ context };
+
+    static validation::FlashCommands flash{ context, watchDogFactory, resources };
+#if defined(STM32WB)
+    static validation::HsemCommands hsem{ context, timers, resources };
+#endif
+    static validation::BackupRamCommands backupRam{ context };
+    static validation::LowPowerCommands lowPower{ context, timers };
+
+#if defined(HAS_PERIPHERAL_QUADSPI)
+    static validation::QuadSpiFactoryStm quadSpiFactory{ console.dma, resources };
+    static validation::QuadSpiGroup quadSpi{ context, quadSpiFactory };
+#endif
 
     validation::CreateUnsupportedGroups(context);
 

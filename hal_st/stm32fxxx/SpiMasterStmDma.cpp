@@ -169,7 +169,7 @@ namespace hal
         assert(dataSizeInBits >= 4 && dataSizeInBits <= 16);
         peripheralSpi[spiInstance]->CR2 = (peripheralSpi[spiInstance]->CR2 & ~SPI_CR2_DS) | ((dataSizeInBits - 1) << POSITION_VAL(SPI_CR2_DS)) | (dataSizeInBits <= 8 ? SPI_CR2_FRXTH : 0);
 #elif defined(SPI_CFG1_DSIZE)
-        assert(dataSizeInBits >= 4 || dataSizeInBits <= 32);
+        assert(dataSizeInBits >= 4 && dataSizeInBits <= 32);
         peripheralSpi[spiInstance]->CFG1 = (peripheralSpi[spiInstance]->CFG1 & ~SPI_CFG1_DSIZE) | ((dataSizeInBits - 1) << POSITION_VAL(SPI_CFG1_DSIZE));
 #else
         assert(dataSizeInBits == 8 || dataSizeInBits == 16);

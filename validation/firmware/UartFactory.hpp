@@ -30,6 +30,7 @@ namespace validation
         using DuplexUart = hal::UartStmDuplexDma::WithRxBuffer<64>;
         // The polled driver buffers everything until uart.recv drains it: one ring slot stays empty, uart.recv returns up to 256 bytes
         using SynchronousUart = hal::SynchronousUartStm::WithStorage<257>;
+        using SendOnlyUart = hal::SynchronousUartStmSendOnly;
 
         struct Request
         {
@@ -45,6 +46,7 @@ namespace validation
             bool dma = false;
             bool duplex = false;
             bool synchronous = false;
+            bool sendOnly = false;
         };
 
         struct ClaimedPins
@@ -65,7 +67,7 @@ namespace validation
         hal::DmaStm& dma;
         std::optional<hal::DmaStm::TransmitStream> transmitStream;
         std::optional<hal::DmaStm::ReceiveStream> receiveStream;
-        std::variant<std::monostate, hal::UartStm, hal::UartStmDma, DuplexUart, SynchronousUart> driver;
+        std::variant<std::monostate, hal::UartStm, hal::UartStmDma, DuplexUart, SynchronousUart, SendOnlyUart> driver;
         hal::SerialCommunication* serial = nullptr;
     };
 }

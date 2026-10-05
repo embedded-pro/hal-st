@@ -21,6 +21,10 @@ clocks:
     usart1: 100000000
     usart2: 100000000
     lpuart1: 100000000
+  # Reset kernel clock selection: LPTIM1 PCLK7, LPTIM2 PCLK1.
+  lptim:
+    1: 100000000
+    2: 100000000
 
 terminal:
   baud: 921600
@@ -85,6 +89,23 @@ pins:
   sw1: PC13
   sw2: PB6
   sw3: PB7
+  i2c1scl: PB2
+  i2c1sda: PB1
+  i2c3scl: PA6
+  i2c3sda: PA7
+  spi3clk: PA0
+  spi3miso: PB9
+  spi3mosi: PB8
+  spi3nss: PA5
+  spi1nss: PA12
+  lptim1ch2: PA15
+  lptim2ch1: PA11
+  lptim2ch2: PA1
+  lptim1in1: PA0
+  lptim1in2: PB3
+  lptim2in1: PB9
+  lptim2in2: PB0
+  tim16ch1n: PB8
 
 ad3:
   # V+/V- stay off (null): the Nucleo is powered from the ST-LINK USB.
@@ -93,9 +114,19 @@ ad3:
   # Wavegen levels are refused outside this range (3.3 V I/O).
   analog_limits: [0.0, 3.3]
 
-# One fixed bundle covers every test. Header positions follow the Nucleo-64
-# Arduino mapping (check against UM3390). Always connect AD3 GND to a Nucleo
-# GND pin.
+# Wiring sets: wire one, run its tests, then switch. The board manual is
+# UM3301, which could not be fetched, so every position names its source:
+# Arduino labels (Dn, An) from Zephyr's nucleo_wba55cg
+# arduino_r3_connector.dtsi; CN3/CN4 morpho and CN6-CN8 Arduino positions
+# from the STM32CubeWBA v1.10.0 example readmes ("readmes xN": N readmes
+# agree); CN4-35/CN4-37 from modm-data's transcription of UM3301 Table 8;
+# 3V3 CN5-4 and GND CN5-6 from the STM32-Sidewalk-SDK README (a single
+# source: do the pre-power check of validation/README.md). AD3 leads sit
+# on male morpho pins where a sourced position exists; DIO11/DIO13 use a
+# male pin in their Arduino socket, and the A1/A4 sockets are named by
+# their label only. Options as on the NUCLEO-WB55RG (`jumpered` key pin =
+# the end test_wiring.py drives); bundle1 offers only the loopback (its
+# W1/W2 sit on the I2C3 pins), bundle2 also the I2C and SPI loops.
 wiring_sets:
   bundle1:
     description: >-
@@ -104,74 +135,308 @@ wiring_sets:
       TIM1/TIM3 encoders, GPIO, EXTI, LED, watchdog toggle and ADC4; W1/W2
       on two ADC inputs
     options:
-      loopback: >-
-        jumper PA15 (SPI1 MOSI, D11) to PB3 (SPI1 MISO, D12); the SPI tests
-        then leave DIO1 an input and check the read-back
+      loopback:
+        description: >-
+          jumper the D11 socket (CN6-4, PA15, SPI1 MOSI) to the D12 socket
+          (CN6-5, PB3, SPI1 MISO): labels from Zephyr, positions from the
+          CubeWBA readmes (x14, x11); CN4-15 and CN4-10 carry the DIO2 and
+          DIO1 leads. The SPI tests then leave DIO1 an input and check the
+          read-back. Fit the jumper only with --with loopback
+        jumpered:
+          PA15: [PB3]
+        loads: [PA15, PB3]
+        excludes: [spiloop]
     jumpers:
+      - >-
+        AD3 GND to CN5-6 (Sidewalk SDK README: GND on CN5 pin 6, the only
+        sourced GND pin). Scope 1- and 2- need GND as well: feed a
+        breadboard GND rail from CN5-6 and put the AD3 GND, 1- and 2- leads
+        on male pins in that rail
+      - >-
+        check before wiring (modm-data, UM3301 Table 8): MB1801 SB7/SB8
+        connect PA10/PB5 to the ST-LINK VCP2; MB1801 SB25 with MB1803 SB8
+        on and SB9 off routes STLINK_RTS to PA0 (with MB1803 SB32 on and
+        SB31 off to PB15); SB23/SB25 route STLINK_CTS to PB9. None is the
+        stock setting; test_wiring.py::test_no_foreign_drivers checks that
+        PA0, PB9, PA10, PB5 and PB15 follow the MCU pulls
       - >-
         PB4 (D13) also drives the blue LED LD1, which loads the SPI1 clock
         line
+      - >-
+        PB8 carries the red LED LD3 (active low, Zephyr board file): the LED
+        and its resistor pull PB8 towards 3V3, so no pull-level or idle
+        assertion uses PB8. PA9 is the green LD2, the firmware's debug LED,
+        dark unless SB28 is closed (open on a stock board)
     dio:
       0:
         pin: spi1clk
-        note: SPI1 SCK, TIM1 CH3, blue LED (led0), GPIO (D13)
+        note: >-
+          SPI1 SCK, TIM1 CH3, blue LED LD1 (led0), GPIO (CN4-6, readmes x15;
+          D13)
       1:
         pin: spi1miso
-        note: SPI1 MISO, TIM1 CH4, TIM17 CH1N, GPIO (D12)
+        note: >-
+          SPI1 MISO, I2C1 SDA, TIM1 CH4, TIM17 CH1N, GPIO (CN4-10, readmes
+          x13; D12)
       2:
         pin: spi1mosi
-        note: SPI1 MOSI, encoder TIM1 index, TIM17 break, GPIO (D11)
+        note: >-
+          SPI1 MOSI, I2C1 SCL, LPTIM1 CH2, encoder TIM1 index, TIM17 break,
+          GPIO (CN4-15, readmes x12; D11)
       3:
         pin: spi1cs
-        note: SPI1 chip select, TIM1 CH2, encoder TIM1 B, GPIO (D10)
+        note: >-
+          SPI1 chip select and NSS, TIM1 CH2, encoder TIM1 B, GPIO (CN4-17,
+          readmes x10; D10)
       4:
         pin: tim1ch1
-        note: TIM1 CH1, encoder TIM1 A, USART2 RX, GPIO (D4)
+        note: >-
+          TIM1 CH1, encoder TIM1 A, USART2 RX, LPTIM2 CH1, GPIO (CN4-24,
+          readmes x7; D4)
       5:
         pin: tim1ch1n
-        note: TIM1 CH1N, USART2 CTS, GPIO (D15)
+        note: >-
+          TIM1 CH1N, USART2 CTS, I2C1 SCL, I2C3 SCL, GPIO (CN4-3, readmes
+          x31; D15)
       6:
         pin: tim1ch2n
-        note: TIM1 CH2N, USART2 RTS, GPIO (D14)
+        note: >-
+          TIM1 CH2N, USART2 RTS, I2C1 SDA, I2C3 SDA, GPIO (CN4-5, readmes
+          x31; D14)
       7:
         pin: tim1ch3n
-        note: TIM1 CH3N, USART2 TX, GPIO (D6)
+        note: >-
+          TIM1 CH3N, USART2 TX, encoder LPTIM2 B (LPTIM2 IN2), GPIO (CN4-25,
+          readme x1; D6)
       8:
         pin: lpuart1tx
-        note: LPUART1 TX, GPIO (D1)
+        note: >-
+          LPUART1 TX, GPIO (CN4-35, modm-data UM3301 Table 8; D1)
       9:
         pin: lpuart1rx
-        note: LPUART1 RX, TIM3 CH1, encoder TIM3 A, GPIO (D0)
+        note: >-
+          LPUART1 RX, TIM3 CH1, encoder TIM3 A, GPIO (CN4-37, modm-data
+          UM3301 Table 8; D0)
       10:
         pin: lpuart1rts
-        note: LPUART1 RTS, TIM3 CH4, TIM16 CH1, GPIO (D7)
+        note: >-
+          LPUART1 RTS, TIM3 CH4, TIM16 CH1, encoder LPTIM2 A (LPTIM2 IN1),
+          GPIO (CN4-23, readmes x4; D7)
       11:
         pin: lpuart1cts
-        note: LPUART1 CTS, TIM16 break, GPIO (D8)
+        note: >-
+          LPUART1 CTS, TIM16 break, GPIO (male pin in the D8 socket: no
+          sourced morpho position)
       12:
         pin: tim3ch2
-        note: TIM3 CH2, encoder TIM3 B, TIM17 CH1, GPIO (A3)
+        note: >-
+          TIM3 CH2, encoder TIM3 B, TIM17 CH1, LPTIM2 CH2, GPIO (CN3-34,
+          readme x1; A3)
       13:
         pin: gpio0
         note: >-
           GPIO/EXTI, TIM3 CH3, encoder TIM3 index, watchdog warning toggle
-          (D5)
+          (male pin in the D5 socket: no sourced morpho position)
       14:
         pin: tim1bkin
-        note: TIM1 break input, GPIO (A2)
+        note: >-
+          TIM1 break input, GPIO (CN3-32, readmes x8; A2)
       15:
         pin: tim2ch1
-        note: TIM2 CH1, GPIO (A4)
+        note: >-
+          TIM2 CH1, GPIO (CN3-36, readmes x7; A4)
     wavegen:
       1:
         pin: ain2
-        note: ADC4 IN2 (A0)
+        note: ADC4 IN2 (CN3-28, readmes x23; A0)
       2:
         pin: ain3
-        note: ADC4 IN3 (A1)
+        note: ADC4 IN3 (CN3-30, readmes x10; A1)
     scope:
-      1: ain2
-      2: ain3
+      1:
+        pin: ain2
+        note: >-
+          same net as W1: male pin in the A0 socket (CN7-1, readmes x12),
+          1- on the GND rail
+      2:
+        pin: ain3
+        note: >-
+          same net as W2: male pin in the A1 socket (label only), 2- on the
+          GND rail
+  bundle2:
+    description: >-
+      bundle1 with DIO8 on PA7, DIO9 on PA6, DIO11 on PB8 and DIO14 on PA0;
+      W1, W2 and both scopes unplugged (with --with i2c the scopes sit in
+      the I2C rows). SPI3 master and slave, PWM TIM2 CH3/CH4 and TIM16
+      CH1N, timer PWM TIM2 with four channels, the LPTIM1 encoder (PA0,
+      PB3), the I2C and SPI loop options, and everything of bundle1 that
+      needs none of PB5, PA10, PB15, PA2, W1 and W2. The LPUART1 tests, the
+      TIM1/TIM16 break tests and the ADC tests skip
+    options:
+      loopback:
+        description: >-
+          jumper the D11 socket (CN6-4, PA15, SPI1 MOSI) to the D12 socket
+          (CN6-5, PB3, SPI1 MISO): labels from Zephyr, positions from the
+          CubeWBA readmes (x14, x11); CN4-15 and CN4-10 carry the DIO2 and
+          DIO1 leads. The SPI tests then leave DIO1 an input and check the
+          read-back. Fit the jumper only with --with loopback
+        jumpered:
+          PA15: [PB3]
+        loads: [PA15, PB3]
+        excludes: [spiloop]
+      i2c:
+        description: >-
+          I2C1 (PB2 SCL, PB1 SDA) to I2C3 (PA6 SCL, PA7 SDA) with a 24Cxx
+          EEPROM, ST's pairing (STM32CubeWBA
+          Examples_MIX/I2C/I2C_OneBoard_ComSlave7_10bits_IT README), built on
+          a breadboard: D15 socket (CN6-10, PB2) and A1 socket (PA6, label
+          only) to the SCL row; D14 socket (CN6-9, PB1) and A0 socket (CN7-1,
+          PA7) to the SDA row (labels from Zephyr, positions from the CubeWBA
+          readmes); CN5-4 (3V3) to the 3V3 rail and CN5-6 (GND) to the GND
+          rail (Sidewalk SDK README); the AD3 GND lead moves from CN5-6 to
+          the GND rail. 4.7 kOhm from the SCL row and from the SDA row to
+          the 3V3 rail (2.2 kOhm when test_rise_time fails). EEPROM wired as
+          on the NUCLEO-WB55RG (validation/README.md). Scope 1+ on a male pin
+          in the SCL row, 2+ in the SDA row, 1- and 2- on the GND rail.
+          DIO5 (CN4-3) and DIO9 (CN3-30) observe SCL, DIO6 (CN4-5) and DIO8
+          (CN3-28) SDA. Measure 3.3 V between the rails before inserting the
+          EEPROM
+        jumpered:
+          PB2: [PA6]
+          PB1: [PA7]
+        loads: [PB2, PB1, PA6, PA7]
+        pullups: [PB2, PB1, PA6, PA7]
+      spiloop:
+        description: >-
+          SPI1 (PB4 SCK, PB3 MISO, PA15 MOSI, PA12 NSS) to SPI3 (PA0, PB9,
+          PB8, PA5): D13 socket (CN6-6, PB4) to the A5 socket (CN7-6, PA0);
+          D12 socket (CN6-5, PB3) to the D7 socket (CN8-8, PB9); D11 socket
+          (CN6-4, PA15) to a breadboard row, CN4-38 (PB8, its only position)
+          to the same row with an M-F wire, and the DIO11 lead moved from
+          CN4-38 to a male pin in that row; D10 socket (CN6-3, PA12) to the
+          A4 socket (PA5, label only). Labels from Zephyr, positions from
+          the CubeWBA readmes. SPI3 is observed through DIO14, DIO10, DIO11
+          and DIO15. Not together with --with loopback (both use D11/D12)
+        jumpered:
+          PB8: [PA15]
+          PA0: [PB4]
+          PB9: [PB3]
+          PA5: [PA12]
+        loads: [PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5]
+        excludes: [loopback]
+    jumpers:
+      - >-
+        AD3 GND to CN5-6 (Sidewalk SDK README: GND on CN5 pin 6, the only
+        sourced GND pin); with --with i2c the lead moves to the breadboard
+        GND rail fed from CN5-6
+      - >-
+        check before wiring (modm-data, UM3301 Table 8): MB1801 SB7/SB8
+        connect PA10/PB5 to the ST-LINK VCP2; MB1801 SB25 with MB1803 SB8
+        on and SB9 off routes STLINK_RTS to PA0 (with MB1803 SB32 on and
+        SB31 off to PB15); SB23/SB25 route STLINK_CTS to PB9. None is the
+        stock setting; test_wiring.py::test_no_foreign_drivers checks that
+        PA0, PB9, PA10, PB5 and PB15 follow the MCU pulls
+      - >-
+        PB4 (D13) also drives the blue LED LD1, which loads the SPI1 clock
+        line
+      - >-
+        PB8 (DIO11) carries the red LED LD3 (active low, Zephyr board
+        file): the LED and its resistor pull PB8 towards 3V3, so no
+        pull-level or idle assertion uses PB8, and the TIM16 entry of this
+        set has no break input. PA9 is the green LD2, the firmware's debug
+        LED, dark unless SB28 is closed (open on a stock board)
+    dio:
+      0:
+        pin: spi1clk
+        note: >-
+          SPI1 SCK, TIM1 CH3, blue LED LD1 (led0), GPIO (CN4-6, readmes x15;
+          D13)
+      1:
+        pin: spi1miso
+        note: >-
+          SPI1 MISO, I2C1 SDA, TIM1 CH4, TIM17 CH1N, encoder LPTIM1 B
+          (LPTIM1 IN2), GPIO (CN4-10, readmes x13; D12)
+      2:
+        pin: spi1mosi
+        note: >-
+          SPI1 MOSI, I2C1 SCL, LPTIM1 CH2, encoder TIM1 index, TIM17 break,
+          GPIO (CN4-15, readmes x12; D11)
+      3:
+        pin: spi1cs
+        note: >-
+          SPI1 chip select and NSS, TIM1 CH2, encoder TIM1 B, GPIO (CN4-17,
+          readmes x10; D10)
+      4:
+        pin: tim1ch1
+        note: >-
+          TIM1 CH1, encoder TIM1 A, USART2 RX, LPTIM2 CH1, GPIO (CN4-24,
+          readmes x7; D4)
+      5:
+        pin: tim1ch1n
+        note: >-
+          TIM1 CH1N, USART2 CTS, I2C1 SCL, I2C3 SCL, GPIO (CN4-3, readmes
+          x31; D15)
+      6:
+        pin: tim1ch2n
+        note: >-
+          TIM1 CH2N, USART2 RTS, I2C1 SDA, I2C3 SDA, GPIO (CN4-5, readmes
+          x31; D14)
+      7:
+        pin: tim1ch3n
+        note: >-
+          TIM1 CH3N, USART2 TX, encoder LPTIM2 B (LPTIM2 IN2), GPIO (CN4-25,
+          readme x1; D6)
+      8:
+        pin: i2c3sda
+        note: >-
+          I2C3 SDA, TIM2 CH3, GPIO (CN3-28, readmes x23; A0)
+      9:
+        pin: i2c3scl
+        note: >-
+          I2C3 SCL, TIM2 CH4, GPIO (CN3-30, readmes x10; A1)
+      10:
+        pin: lpuart1rts
+        note: >-
+          SPI3 MISO, LPUART1 RTS, TIM3 CH4, TIM16 CH1, encoder LPTIM2 A
+          (LPTIM2 IN1), GPIO (CN4-23, readmes x4; D7)
+      11:
+        pin: spi3mosi
+        note: >-
+          SPI3 MOSI, TIM16 CH1N, GPIO; red LED LD3 (CN4-38, readmes x12; no
+          Arduino socket; with --with spiloop the lead sits in the PB8
+          breadboard row)
+      12:
+        pin: tim3ch2
+        note: >-
+          TIM3 CH2, encoder TIM3 B, TIM17 CH1, LPTIM2 CH2, GPIO (CN3-34,
+          readme x1; A3)
+      13:
+        pin: gpio0
+        note: >-
+          GPIO/EXTI, TIM3 CH3, encoder TIM3 index, watchdog warning toggle
+          (male pin in the D5 socket: no sourced morpho position)
+      14:
+        pin: spi3clk
+        note: >-
+          SPI3 SCK, encoder LPTIM1 A (LPTIM1 IN1), GPIO (CN3-38, readmes x3;
+          A5)
+      15:
+        pin: tim2ch1
+        note: >-
+          TIM2 CH1, SPI3 NSS, GPIO (CN3-36, readmes x7; A4)
+    scope:
+      1:
+        pin: i2c1scl
+        requires: i2c
+        note: >-
+          male pin in the SCL breadboard row (PB2 and PA6), 1- on the GND
+          rail
+      2:
+        pin: i2c1sda
+        requires: i2c
+        note: >-
+          male pin in the SDA breadboard row (PB1 and PA7), 2- on the GND
+          rail
 
 # Driver gaps the HIL tests run into (tests/conftest.py): `tests` match the
 # test ids relative to tests/hil (`*` and `?` are wildcards, brackets are
@@ -187,6 +452,13 @@ known_gaps:
       and CTS held off SendData waits for TXE without a timeout and blocks the
       event loop for good
     hangs: true
+  - tests:
+      - test_spi_ext.py::test_hardware_nss*
+    reason: >-
+      hal_st/stm32fxxx/SpiMasterStm.cpp:24, SpiMasterStmDma.cpp:38 and
+      hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.cpp:23 - the SPI
+      masters mux slaveSelect to NSS but initialise SPI_NSS_SOFT, so NSS is
+      never driven; hardware NSS framing needs a decision (DESIGN B.14)
 
 # Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
 # per key: `--depth full` runs the cartesian product, `--depth quick` a
@@ -197,8 +469,9 @@ tests:
     boot_timeout: 5.0
     # USART1 is the terminal: `uart.open 1` answers busy.
     reserved_uarts: [1]
-    # Blinking debug LED (red LD3), reserved by the firmware.
-    debug_led: PB8
+    # Blinking debug LED (green LD2), reserved by the firmware; dark unless
+    # SB28 is closed (open on a stock board).
+    debug_led: PA9
     # SWD, LSE crystal and BOOT0: reserved like the terminal pins.
     reserved_pins: [PA13, PA14, PC14, PC15, PH3]
     # Instances the MCU lacks: ERR range (0 too, the peripherals start at 1).
@@ -212,15 +485,22 @@ tests:
       - pwm.open 4
       - qei.open 4
       - wdt.start 1 timeout=100
-    # Features the MCU lacks: ERR unsupported (no LPTIM encoder on the WBA55).
+      - spis.open 0
+      - spis.open 2
+    # Features the MCU lacks: ERR unsupported.
     unsupported_instances:
-      - qei.open 1 lp=1
       - qei.open 16
     # A pin the package does not bond out (or a port it lacks): ERR pin.
-    unbonded_pins: [PA4, PC0, PD0]
+    # PA3, PB10, PB11 and PB13 are SMPS and VDD11 pads on the UFQFPN48.
+    unbonded_pins: [PA4, PC0, PD0, PA3, PB10, PB11, PB13]
     # Names that are no pin: ERR pin.
     invalid_pins: [PA16, PA08, PD0, LED0, nosuchalias]
     delays_ms: [10, 200]
+  wiring:
+    # Pins nothing on the board may drive: ST-LINK lines reach them only
+    # through solder bridges that are open on a stock board
+    # (test_wiring.py::test_no_foreign_drivers).
+    undriven: [PA0, PB9, PA10, PB5, PB15]
   gpio:
     # bundle1 pins used as plain GPIO, on ports A and B.
     loop_pins: [gpio0, PA11, PB0, PA12, PA5]
@@ -231,7 +511,7 @@ tests:
     input_pulls: [none, up, down]
     # RAM holds `limit` GPIO pins; `limit_pins` names one more.
     limit: 8
-    limit_pins: [gpio0, gpio1, gpio2, led0, led1, PA11, PB0, PA12, PB2]
+    limit_pins: [gpio0, gpio1, gpio2, led0, PB8, PA11, PB0, PA12, PB2]
     irq:
       edge: [rising, falling, both]
       handler: [immediate, dispatched]
@@ -295,6 +575,22 @@ tests:
             pin: tim17ch1
             npin: tim17ch1n
         brk: PA15
+      # bundle2 only (DIO8/DIO9 on PA7/PA6, DIO11 on PB8; with bundle1 the
+      # tests that need their DIOs skip): TIM2 CH3/CH4 and TIM16 CH1 with
+      # CH1N, without break input (PB8 carries LD3).
+      - name: tim2_bundle2
+        timer: 2
+        channels:
+          - channel: 3
+            pin: tim2ch3
+          - channel: 4
+            pin: tim2ch4
+      - name: tim16_bundle2
+        timer: 16
+        channels:
+          - channel: 1
+            pin: tim16ch1
+            npin: tim16ch1n
     # One channel of each timer; ERR range exactly where the period does
     # not fit (expect.pwm_fits), unsupported for center on TIM16/TIM17.
     waveform:
@@ -419,6 +715,13 @@ tests:
         mosi: spi1mosi
         miso: spi1miso
         cs: spi1cs
+      # SPI3 is wired in bundle2 only (its tests skip in bundle1).
+      - name: spi3
+        index: 3
+        clk: spi3clk
+        mosi: spi3mosi
+        miso: spi3miso
+        cs: spi3nss
     variants:
       interrupt:
         dma: 0
@@ -507,8 +810,19 @@ tests:
         max_res: 65536
     # Opens on its default pins without a and b.
     default_instance: 1
-    # No LPTIM on the STM32WBA55.
-    lp_instances: []
+    # LPTIM2 is wired in bundle1 (DIO10 PB9, DIO7 PB0), LPTIM1 in bundle2
+    # (DIO14 PA0, DIO1 PB3).
+    lp_instances:
+      - name: lptim2
+        index: 2
+        a: lptim2in1
+        b: lptim2in2
+        max_res: 65536
+      - name: lptim1
+        index: 1
+        a: lptim1in1
+        b: lptim1in2
+        max_res: 65536
     lp_missing_instances: []
     resolution: 4096
     position:
@@ -523,12 +837,17 @@ tests:
       ab: 4
       a: 2
       b: 2
+      # LPTIM capture modes: both edges of both inputs (x4) or the rising or
+      # falling edges only (x2).
+      rise: 2
+      fall: 2
     lp_position:
       freq: [100, 1000, 10000]
       cycles: [1, 10, 250]
       direction: [fwd, rev]
       inva: [0, 1]
       filter: [0, 2, 4, 8]
+      cap: [ab, rise, fall]
     velocity:
       freq: [1000, 10000]
       vel: [1000, 10000]
@@ -556,6 +875,555 @@ tests:
     feed_seconds: 2.0
     observe_periods: 3
     period_tolerance: 0.03
+  i2c:
+    # Standalone cases on bundle1 (or bundle2) with the MCU pull-ups
+    # (pull=up): PB2 DIO5, PB1 DIO6, PA15 DIO2, PB3 DIO1. I2C3 reaches
+    # PB2/PB1 through AF6.
+    instances:
+      - name: i2c1
+        index: 1
+        scl: PB2
+        sda: PB1
+        observed: [scl, sda]
+      - name: i2c3
+        index: 3
+        scl: PB2
+        sda: PB1
+        observed: [scl, sda]
+      - name: i2c1alt
+        index: 1
+        scl: PA15
+        sda: PB3
+        observed: [scl, sda]
+    # bundle2 --with i2c: I2C3 master on PA6/PA7 (DIO9/DIO8), the i2cs
+    # target on I2C1 PB2/PB1 (DIO5/DIO6; jumpered PB2-PA6, PB1-PA7), scope
+    # 1/2 on the SCL/SDA rows, 4.7 kOhm pull-ups and the 24LC256 at 0x50.
+    loop:
+      master: {index: 3, scl: PA6, sda: PA7}
+      target: {index: 1, scl: PB2, sda: PB1, addr: 0x42}
+    freqs:
+      standalone: [100000]
+      option: [100000, 400000]
+    absent_addr: 0x10
+    arbitration_addr: 0x7f
+    payload_lengths: [1, 2, 255, 256, 257, 300, 1024]
+    nack_positions: [1, 2, 5]
+    nack_length: 8
+    stretch_us: [100, 2000]
+    tolerance: [0.8, 1.01]
+    # 30-70 % rise time on the bundle2 scopes; with two DIOs and a probe
+    # per row a 4.7 kOhm pull-up may miss Fast mode: use 2.2 kOhm then.
+    rise_ns: {sm: 1000, fm: 300}
+    fault_freq: 100000
+  eeprom:
+    index: 3
+    scl: PA6
+    sda: PA7
+    addr: 0x50
+    size: 32768
+    page: 64
+    abytes: 2
+    wcycle_ms: 10
+    erase_size: 8192
+    freq: 400000
+  # hal::SpiSlaveStmDma (`spis.*`): the AD3 SPI master (mode 0, MSB first,
+  # its chip select on `nss`) clocks the instances; SPI3 in bundle2 only.
+  spis:
+    instances:
+      - name: spi1
+        index: 1
+        clk: spi1clk
+        miso: spi1miso
+        mosi: spi1mosi
+        nss: spi1nss
+      - name: spi3
+        index: 3
+        clk: spi3clk
+        miso: spi3miso
+        mosi: spi3mosi
+        nss: spi3nss
+    freqs: [100000, 1000000, 4000000]
+    # Above 128 bytes the result is compared by CRC (`out=crc`).
+    lengths: [1, 2, 64, 255, 1024]
+    # The board's own master against the slave of the other instance
+    # (requires bundle2 --with spiloop); EMIL's spi.xfer holds 64 bytes. The
+    # master drives the slave's NSS with its GPIO chip select `cs`.
+    loop_lengths: [1, 2, 64]
+    loop_baud: 1000000
+    loop_variants: [interrupt, dma, sync]
+    loops:
+      - name: spi1-to-spi3
+        master:
+          index: 1
+          clk: spi1clk
+          mosi: spi1mosi
+          miso: spi1miso
+          cs: spi1cs
+        slave:
+          index: 3
+          clk: spi3clk
+          miso: spi3miso
+          mosi: spi3mosi
+          nss: spi3nss
+      - name: spi3-to-spi1
+        master:
+          index: 3
+          clk: spi3clk
+          mosi: spi3mosi
+          miso: spi3miso
+          cs: spi3nss
+        slave:
+          index: 1
+          clk: spi1clk
+          miso: spi1miso
+          mosi: spi1mosi
+          nss: spi1nss
+  # spi.open lsb=, bits= (dma=1, SpiDataSizeConfiguratorStm) and nss=. Frames
+  # above 8 bits take two buffer bytes, little endian (spiwords.spi_frames),
+  # so `payload` has an even length. `bits` lists the sizes decoded on the
+  # logic analyzer per instance; SPI3 is a limited instance
+  # (IS_SPI_LIMITED_INSTANCE): 8 and 16 bits only, other sizes answer
+  # ERR unsupported.
+  spi_ext:
+    instances:
+      - name: spi1
+        index: 1
+        clk: spi1clk
+        mosi: spi1mosi
+        miso: spi1miso
+        cs: spi1cs
+        nss: spi1nss
+        bits: [4, 8, 12, 16]
+      - name: spi3
+        index: 3
+        clk: spi3clk
+        mosi: spi3mosi
+        miso: spi3miso
+        cs: spi3nss
+        nss: spi3nss
+        bits: [8, 16]
+        limited: true
+    lsb: [0, 1]
+    baud: 1000000
+    payload: "a53c0f8001fe7e42"
+  timer:
+    # bundle1: the marker (gpio0, DIO13) toggles once per update interrupt.
+    timers:
+      - name: tim1
+        timer: 1
+      - name: tim2
+        timer: 2
+      - name: tim3
+        timer: 3
+      - name: tim16
+        timer: 16
+      - name: tim17
+        timer: 17
+    marker: gpio0
+    # TIM numbers the MCU lacks: ERR range.
+    missing: [4, 15, 18]
+    # No counter mode select (up counting only): mode=down is ERR unsupported.
+    up_only: [16, 17]
+    # Update rate timclk / ((prescaler + 1) (period + 1)); `dispatched:
+    # false` marks rates above 1 kHz, where dispatched callbacks coalesce.
+    interrupt:
+      irq: [immediate, dispatched]
+      update:
+        - name: 100hz
+          prescaler: 999
+          period: 999
+        - name: 1khz
+          prescaler: 99
+          period: 999
+        - name: 20khz
+          prescaler: 0
+          period: 4999
+          dispatched: false
+    # Free running (irq=none): a 2 kHz counter that wraps after 32.8 s.
+    free_running:
+      prescaler: 49999
+      period: 65535
+    window_s: 0.5
+    record_periods: 10
+    tolerance:
+      frequency: 0.01
+      count: 0.05
+      latency_s: 0.02
+  timer_pwm:
+    # Every channel pin in channel order (null = `-`). TIM2 CH2 is only on
+    # PA8, the terminal RX: bundle1 runs TIM2 with N = 1, bundle2 (TIM2
+    # CH3/CH4 on DIO8/DIO9) with N = 4 and CH2 unused.
+    timers:
+      - name: tim1
+        timer: 1
+        pins: [tim1ch1, tim1ch2, tim1ch3, tim1ch4]
+      - name: tim2
+        timer: 2
+        pins: [tim2ch1]
+      - name: tim2_bundle2
+        timer: 2
+        pins: [tim2ch1, null, tim2ch3, tim2ch4]
+      - name: tim3
+        timer: 3
+        pins: [tim3ch1, tim3ch2, tim3ch3, tim3ch4]
+      - name: tim16
+        timer: 16
+        pins: [tim16ch1]
+      - name: tim17
+        timer: 17
+        pins: [tim17ch1]
+    # 1 MHz counter (100 MHz / 100), 10 kHz period: the low tick of 100 %
+    # lasts 1 us.
+    prescaler: 99
+    period: 99
+    duties: [0, 50, 100]
+    channel_duties: [20, 40, 60, 80]
+    # tpwm.pulse <timer> 1 <ccr> <period>
+    pulse:
+      ccr: 30
+      period: 199
+    # A pin without a channel function of any timer under test.
+    foreign_pin: PB2
+    record_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 0.01
+  lptim:
+    instances:
+      - name: lptim1
+        index: 1
+      - name: lptim2
+        index: 2
+    marker: gpio0
+    missing: [0, 3]
+    # Update rate lptimclk / prescaler / (period + 1) at 100 MHz.
+    interrupt:
+      irq: [immediate, dispatched]
+      update:
+        - name: 100hz
+          prescaler: 128
+          period: 7811
+        - name: 1khz
+          prescaler: 128
+          period: 799
+        - name: 20khz
+          prescaler: 1
+          period: 4999
+          dispatched: false
+    # Every divider with this period, immediate interrupt (781 Hz .. 100 kHz).
+    prescalers: [1, 2, 4, 8, 16, 32, 64, 128]
+    prescaler_period: 999
+    # The WBA LPTIM repetition counter: one update every rep + 1 periods.
+    repetition: true
+    repetitions: [1, 3, 15]
+    repetition_timing:
+      prescaler: 128
+      period: 799
+    free_running:
+      prescaler: 128
+      period: 65535
+    window_s: 0.5
+    record_periods: 10
+    tolerance:
+      frequency: 0.01
+      count: 0.05
+      latency_s: 0.02
+  lptim_pwm:
+    # bundle1: LPTIM1 CH2 on PA15 (DIO2; CH1 is PB11, not bonded) and LPTIM2
+    # CH1/CH2 on PA11/PA1 (DIO4/DIO12).
+    instances:
+      - name: lptim1
+        index: 1
+        pins: [null, lptim1ch2]
+      - name: lptim2
+        index: 2
+        pins: [lptim2ch1, lptim2ch2]
+    # 25 MHz counter (100 MHz / 4), 25 kHz period.
+    prescaler: 4
+    period: 999
+    duties: [25, 50, 75]
+    pulse:
+      ccr: 300
+      period: 1999
+    # A bonded pin without an LPTIM channel function.
+    foreign_pin: PB2
+    record_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 0.01
+  pwm_ext:
+    # A pwm.timers entry with two wired channels and a counter mode select.
+    alignment_timer: tim1
+    modes: [edge, edgedown, center, centerup, centerboth]
+    alignment_frequency: 10000
+    alignment_duties: [30, 60]
+    # edgedown cannot reach 0 %: the output stays active for one counter
+    # tick per period (PwmStm.hpp). The prescaler makes a tick `tick_us`.
+    zero_duty:
+      tick_us: 10
+      frequency: 100
+      periods: 5
+    # pwm.duty 80 then 20, runt_repeats times while the LA records
+    # runt_window_s: with preload=0 at least one high pulse lies strictly
+    # between 20 % and 80 % of the period (beyond runt_margin), with
+    # preload=1 none. 1 MHz counter clock.
+    preload_timer: tim1
+    preload_frequency: 200
+    runt_repeats: 20
+    runt_window_s: 0.5
+    runt_margin: 0.03
+    # pwm.timers entries with `brk`, each hit by one AD3 pulse of `ticks`
+    # timer kernel clocks (brkpol=high, brkauto=0). BKF 15 samples 8 times
+    # at fDTS / 32: 256 kernel clocks.
+    break_filter_timers: [tim1, tim16, tim17]
+    break_filter_cases:
+      - name: unfiltered_short
+        filter: 0
+        ticks: 64
+        trips: true
+      - name: filtered_short
+        filter: 15
+        ticks: 64
+        trips: false
+      - name: filtered_long
+        filter: 15
+        ticks: 1024
+        trips: true
+    break_frequency: 10000
+    break_settle_s: 0.01
+    # adc.open trgo=<timer> runs one sequence per period of the pwm
+    # group's timer (pwm.timers names); test_trgo_paces_adc compares
+    # n=trgo_runs with n=1 like test_adc.py::test_trigger_rate.
+    trgo:
+      timer: [tim2]
+      source: [update, oc1ref]
+    trgo_frequency: 1000
+    trgo_runs: 64
+    trgo_repeats: 3
+    trgo_tolerance: 0.2
+    trgo_jitter_s: 0.002
+    # Driven by the pwm group, but no TRGO the ADC can trigger from: ADC4
+    # reaches TIM1 through TRGO2 only, which PwmStm leaves at reset.
+    trgo_unsupported_timers: [tim1, tim16]
+    capture_periods: 20
+    tolerance:
+      frequency: 0.01
+      duty: 1.0
+      alignment_s: 2.0e-7
+  ain:
+    # W1/W2 inputs (bundle1); codes against tests.adc vref/bits/tolerance.
+    pins: [ain2, ain3]
+    levels: [0.2, 1.65, 3.1]
+    # Accepted, but the STM32WBA driver samples every channel with
+    # SamplingTimeCommon1 (79.5 cycles, AnalogToDigitalPinStm.cpp).
+    sampling: ["3.5", "39.5", "814.5"]
+    # The sensor needs a long sampling time; the driver's default is below
+    # its minimum (B.14), so with it only "a code arrives" is checked.
+    temp_sampling: "814.5"
+    temp_range: [10, 45]
+    # One AdcTriggeredByTimerWithDma over a `buffer`-sample buffer per
+    # command, Measure(n) at `rate`: n samples in n / rate (B.12).
+    burst:
+      n: [16, 100]
+      rate: 1000
+      buffer: 256
+      tolerance: 0.1
+      latency_s: 0.01
+    # Wavegen ramp during an out=list burst: the codes rise with the ramp.
+    ramp:
+      low: 0.3
+      high: 3.0
+      frequency: 2
+      n: 64
+      rate: 1000
+  dma:
+    # dma.wave output pin, wired to a DIO in every wiring set.
+    pin: gpio0
+    wave:
+      rate: [1000, 100000, 1000000]
+      pattern: ["a5", "0ff0", "deadbeef", "0100000000000080"]
+    ms: 300
+    samples_per_bit: 8
+    record_bits: 200
+    start_delay_s: 0.05
+    tolerance:
+      rate: 0.01
+      bit: 0.25
+  uart_sendonly:
+    # hal::SynchronousUartStmSendOnly on USART2. `rx` only gives the AD3
+    # UART a transmit DIO: the send-only driver leaves the pin alone.
+    instances:
+      - name: usart2
+        index: 2
+        lp: 0
+        tx: usart2tx
+        rx: usart2rx
+        rts: usart2rts
+        cts: usart2cts
+    bauds: [9600, 115200, 921600]
+    payloads: ["55", "00ff", "0123456789abcdef", "48656c6c6f2c20484954"]
+    # uart.close right after uart.send: SendData returns at TXE, so the
+    # last frame (1 ms at 9600 Bd) may be cut.
+    cut:
+      baud: 9600
+      payload: 16
+    # The SyncLpUart constructors exist on STM32WB only: ERR unsupported.
+    unsupported:
+      - name: lpuart1
+        index: 1
+        lp: 1
+        tx: lpuart1tx
+  sgpio:
+    # SynchronousOutputPinStm; led0 (PB4) carries the blue LD1.
+    out_pins: [led0, tim1ch1]
+    # Output pins without a board load, for the input-without-pull check.
+    float_pins: [tim1ch1]
+    speeds: [low, medium, fast, high]
+    # Five free pins for the four output and four alternate-function slots
+    # (not PA0/PB9, which solder bridges may tie to ST-LINK lines).
+    limit_pins: [led0, tim1ch1, gpio0, gpio1, spi1cs]
+    # SmallPeripheralPinStm on TIM3 CH1 (AF2).
+    af:
+      pin: tim3ch1
+      timer: 3
+      ch: 1
+      af: 2
+    # MultiGpioPinStm + MultiPeripheralPinStm: TIM3 CH1 on PA10, PB5, PA2.
+    multi:
+      pins: [tim3ch1, PB5, PA2]
+      timer: 3
+      ch: 1
+    # tpwm runs TIM3 CH1 without a pin of its own (`-`); CH2 drives
+    # tim3ch2. 100 MHz / 64 / 1000 = 1.5625 kHz.
+    tpwm:
+      timer: 3
+      pins: ["-", tim3ch2]
+      prescaler: 63
+      period: 999
+      duty: 50
+    record_periods: 50
+    tolerance:
+      frequency: 0.01
+      duty: 0.02
+    # No TIM3 CH1 function (TIM3 CH3); a timer the MCU lacks.
+    foreign_pin: gpio0
+    missing_timer: 4
+  clock:
+    frequencies:
+      sysclk: 100000000
+      hclk: 100000000
+      pclk1: 100000000
+      pclk2: 100000000
+      pclk7: 100000000
+    # Oscillator ready flags after ConfigureDefaultClockNucleoWBA55CG; the
+    # LSE lives in the backup domain, which a reset keeps, so it is not
+    # asserted.
+    flags:
+      hse: 1
+      hsi: 1
+      pll: 1
+    # RNG on HSI16 (B.7).
+    rngsel: hsi
+    # No MCO: its only pin, PA8, is the terminal RX.
+  uid:
+    # Bytes [5, 12) of `info uid=` hold the lot number in ASCII.
+    lot: [5, 12]
+  rng:
+    # sync: SynchronousRandomDataGeneratorStm; async: RandomDataGeneratorStm
+    # (RNG kernel clock HSI16, B.7). The HSEM-synchronized variant exists on
+    # STM32WB only.
+    variants: [sync, async]
+    lengths: [1, 2, 3, 4, 5, 7, 16, 127, 128]
+    stats:
+      length: 65536
+      # Seconds the host waits for the rng.stats reply (the firmware gives
+      # the async variant 5 s).
+      timeout_s: 6.0
+    semaphores: []
+    # variant=hsem and lock5=1: STM32WB only.
+    unsupported:
+      - rng.read 4 variant=hsem
+      - rng.read 4 variant=hsem lock5=1
+      - rng.read 4 lock5=1
+      - rng.stats 16 variant=hsem
+  aes:
+    # FIPS-197 C.1 and NIST SP 800-38A F.1.1 (ECB-AES128, all four blocks);
+    # a list of hex strings is one byte string.
+    vectors:
+      - name: fips197-c1
+        key: "000102030405060708090a0b0c0d0e0f"
+        plaintext: "00112233445566778899aabbccddeeff"
+        ciphertext: "69c4e0d86a7b0430d8cdb78070b4c55a"
+      - name: sp800-38a-f11
+        key: "2b7e151628aed2a6abf7158809cf4f3c"
+        plaintext:
+          - "6bc1bee22e409f96e93d7e117393172a"
+          - "ae2d8a571e03ac9c9eb76fac45af8e51"
+          - "30c81c46a35ce411e5fbc1191a0a52ef"
+          - "f69f2445df4f9b17ad2b417be66c3710"
+        ciphertext:
+          - "3ad77bb40d7a3660a89ecaf32466ef97"
+          - "f5d3d58503b9699de785895a96fdbaaf"
+          - "43b1cd7f598ece23881b00e3ed030688"
+          - "7b0c785e27e8ad3f8223207104725dd4"
+    # AES_CR.DATATYPE of hal::detail::DataSwapping, against
+    # crypto_ref.aes_stm (model from the reference manual).
+    swaps: [none, half, byte, bit]
+    # Bytes per command: one to five blocks (the group holds 80).
+    lengths: [16, 32, 48, 64, 80]
+  pka:
+    # Multiples of G on services::secp256r1 (P-256): k -> (x, y).
+    multiples:
+      - name: k1
+        k: "01"
+        x: "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+        y: "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+      - name: k2
+        k: "02"
+        x: "7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978"
+        y: "07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1"
+      - name: k3
+        k: "03"
+        x: "5ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c"
+        y: "8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032"
+    # pka.cmp operand sizes in bytes (4..60; 60 keeps the line at 253).
+    compare_lengths: [4, 32, 60]
+    # One full-scalar multiplication at 100 MHz takes tens of ms.
+    max_us: 500000
+  flash:
+    # sync: SynchronousFlash*InternalStm; async: Flash*InternalStm. No
+    # wireless-stack coordination on the STM32WBA55.
+    variants: [sync, async]
+    # homogeneous: one sector per page; table: single pages, then the
+    # pattern 1, 1, 2, 4 pages twice (groups.system_ext.table_sectors).
+    layouts: [homogeneous, table]
+    # Scratch region: absolute pages 64-127 (0x08080000-0x080FFFFF, the
+    # upper half of the 1 MB flash), 8 KB pages, 128-bit flash words.
+    base: 0x08080000
+    first_page: 64
+    pages: 64
+    page: 8192
+    word: 16
+    # Page erase time, wide bounds per page.
+    erase_us_per_page: [200, 50000]
+  bkp:
+    # TAMP BKP0R-BKP15R.
+    words: 16
+  lowpower:
+    # Defaults of the firmware (BoardProfile lowPowerDefaults).
+    wake: gpio0
+    marker: tim1bkin
+    modes: [sleep, deep]
+    edges: [rising, falling]
+    # Wake edge to marker high.
+    latency_us: 50
+    # Host delay between lpm.enter and the AD3 edge.
+    wake_delay_s: 0.05
+    wake_timeout_ms: 2000
+    # test_timeout: no edge.
+    timeout_ms: 50
+    la_rate: 4000000
+    unbonded_pin: PA4
   unsupported:
     commands:
       - comp.open 1
@@ -566,9 +1434,19 @@ tests:
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1
-      - eeprom.write 0 00
-      - eeprom.read 0 1
-      - eeprom.erase
       - eth.open
       - eth.status
       - eth.close
+      - hsem.take 0 procid=1
+      - hsem.release 0 procid=1
+      - hsem.status 0
+      - hsem.lock 0
+      - hsem.mine 0
+      - qspi.open 1
+      - qspi.cmd 1 instr=0x9f rx=3
+      - qspi.poll 1 match=0x01 mask=0x01
+      - qspi.xfer 1 9f
+      - qspi.close 1
+      - flash.stack stopped
+      - clock.mco sysclk
+      - clock.hsi48 1

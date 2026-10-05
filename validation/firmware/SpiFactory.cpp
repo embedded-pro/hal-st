@@ -2,6 +2,7 @@
 #include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/event/EventDispatcher.hpp"
+#include "validation/firmware/PeripheralClocks.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include <array>
 #include <chrono>
@@ -17,7 +18,11 @@ namespace validation
         // Longer than the slowest 64-byte transfer (2.05 ms at 250 kHz on WB55); one still running by then never completes
         constexpr infra::Duration quiesceTimeout = std::chrono::milliseconds(10);
 
-        constexpr std::array<const char*, 8> openKeys{ { "clk", "mosi", "miso", "cs", "baud", "mode", "dma", "sync" } };
+        constexpr std::array<const char*, 11> openKeys{ { "clk", "mosi", "miso", "cs", "baud", "mode", "dma", "sync", "bits", "lsb", "nss" } };
+
+        constexpr uint32_t minimumBits = 4;
+        constexpr uint32_t maximumBits = 16;
+        constexpr uint32_t defaultBits = 8;
 
         constexpr std::array<uint32_t, 8> baudRatePrescalers{ {
             SPI_BAUDRATEPRESCALER_2,
@@ -29,11 +34,6 @@ namespace validation
             SPI_BAUDRATEPRESCALER_128,
             SPI_BAUDRATEPRESCALER_256,
         } };
-
-        bool InstanceExists(uint8_t index)
-        {
-            return index >= 1 && index <= hal::peripheralSpi.size() && hal::peripheralSpi[index - 1] != nullptr;
-        }
 
         std::optional<uint32_t> BaudRatePrescaler(uint32_t kernelClock, uint32_t baud)
         {
@@ -52,6 +52,14 @@ namespace validation
         {
             return SupportsFunction(clock, hal::PinConfigTypeStm::spiClock, index) && SupportsFunction(mosi, hal::PinConfigTypeStm::spiMosi, index) && SupportsFunction(miso, hal::PinConfigTypeStm::spiMiso, index);
         }
+
+        bool DataSizeSupported(uint8_t index, uint32_t bits, bool dma)
+        {
+            if (bits == defaultBits)
+                return true;
+
+            return dma && (!SpiLimited(index) || bits == 16);
+        }
     }
 
     template<class Config>
@@ -61,6 +69,7 @@ namespace validation
         config.polarityLow = (request.mode & 2) == 0;
         config.phase1st = (request.mode & 1) == 0;
         config.baudRatePrescaler = request.baudRatePrescaler;
+        config.msbFirst = !request.lsb;
         return config;
     }
 
@@ -101,9 +110,10 @@ namespace validation
         return busy;
     }
 
-    SpiFactoryStm::SpiFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma)
+    SpiFactoryStm::SpiFactoryStm(const services::HilPinNaming& naming, hal::DmaStm& dma, ResourceAllocation& resources)
         : naming(naming)
         , dma(dma)
+        , resources(resources)
     {}
 
     uint8_t SpiFactoryStm::Instances() const
@@ -131,9 +141,12 @@ namespace validation
 
         ClaimedPins claimed;
         status = Claim(index, request, pins, claimed);
+        if (status == HilStatus::done)
+            status = resources.Claim(Resource::spi, index, services::HilOwners::spi);
         if (status != HilStatus::done)
             return status;
 
+        this->index = index;
         Construct(index, request, claimed, handle);
         return HilStatus::done;
     }
@@ -169,6 +182,10 @@ namespace validation
 
     void SpiFactoryStm::Destroy()
     {
+        if (auto spi = std::get_if<hal::SpiMasterStmDma>(&driver); spi != nullptr && dataSize)
+            spi->ResetCommunicationConfigurator();
+        dataSize.reset();
+
         // The driver goes first: an end-of-transfer interrupt must not reach a destroyed chip-select wrapper
         driver.emplace<std::monostate>();
         tracked.reset();
@@ -176,12 +193,13 @@ namespace validation
         synchronousChipSelect.reset();
         receiveStream.reset();
         transmitStream.reset();
+        resources.Release(Resource::spi, index, services::HilOwners::spi);
         onClosed();
     }
 
     HilStatus SpiFactoryStm::Evaluate(uint8_t index, const services::HilArguments& arguments, Request& request) const
     {
-        if (!InstanceExists(index))
+        if (!SpiExists(index))
             return HilStatus::range;
 
         const HilStatus status = Parse(arguments, request);
@@ -191,7 +209,7 @@ namespace validation
         if (!request.clock || !request.mosi || !request.miso)
             return HilStatus::usage;
 
-        if (request.dma && request.synchronous)
+        if ((request.dma && request.synchronous) || (request.slaveSelect && request.chipSelect))
             return HilStatus::usage;
 
         const auto prescaler = BaudRatePrescaler(board::SpiKernelClock(index), request.baud);
@@ -203,10 +221,16 @@ namespace validation
         if (!PinsSupportFunctions(index, *request.clock, *request.mosi, *request.miso))
             return HilStatus::pin;
 
+        if (request.slaveSelect && !SupportsFunction(*request.slaveSelect, hal::PinConfigTypeStm::spiSlaveSelect, index))
+            return HilStatus::pin;
+
         if (request.chipSelect && !IsBonded(*request.chipSelect))
             return HilStatus::pin;
 
         if (request.dma && !board::SpiDma(index))
+            return HilStatus::unsupported;
+
+        if (!DataSizeSupported(index, request.bits, request.dma))
             return HilStatus::unsupported;
 
         return HilStatus::done;
@@ -219,10 +243,13 @@ namespace validation
         arguments.Pin("mosi", naming, request.mosi, status);
         arguments.Pin("miso", naming, request.miso, status);
         arguments.Pin("cs", naming, request.chipSelect, status);
+        arguments.Pin("nss", naming, request.slaveSelect, status);
         arguments.Number("baud", request.baud, 1, std::numeric_limits<uint32_t>::max(), status);
         arguments.Number("mode", request.mode, 0, 3, status);
+        arguments.Number("bits", request.bits, minimumBits, maximumBits, status);
         arguments.Flag("dma", request.dma, status);
         arguments.Flag("sync", request.synchronous, status);
+        arguments.Flag("lsb", request.lsb, status);
         return status;
     }
 
@@ -235,6 +262,8 @@ namespace validation
             status = pins.ClaimFunction(request.miso, Function(hal::PinConfigTypeStm::spiMiso), index, claimed.miso);
         if (status == HilStatus::done && request.chipSelect)
             status = pins.Claim(*request.chipSelect, services::HilPinPool::Use::exclusive, claimed.chipSelect);
+        if (status == HilStatus::done && request.slaveSelect)
+            status = pins.ClaimFunction(request.slaveSelect, Function(hal::PinConfigTypeStm::spiSlaveSelect), index, claimed.slaveSelect);
 
         return status;
     }
@@ -243,7 +272,7 @@ namespace validation
     {
         if (request.synchronous)
         {
-            auto& spi = driver.emplace<hal::SynchronousSpiMasterStm>(index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SynchronousSpiMasterStm::Config>(request));
+            auto& spi = driver.emplace<hal::SynchronousSpiMasterStm>(index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SynchronousSpiMasterStm::Config>(request), PinOrDummy(claimed.slaveSelect));
 
             if (claimed.chipSelect != nullptr)
                 handle.synchronous = &synchronousChipSelect.emplace(spi, *claimed.chipSelect);
@@ -267,12 +296,17 @@ namespace validation
     hal::SpiMaster& SpiFactoryStm::ConstructAsynchronous(uint8_t index, const Request& request, const ClaimedPins& claimed)
     {
         if (!request.dma)
-            return driver.emplace<hal::SpiMasterStm>(index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SpiMasterStm::Config>(request));
+            return driver.emplace<hal::SpiMasterStm>(index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SpiMasterStm::Config>(request), PinOrDummy(claimed.slaveSelect));
 
         const DmaRequests requests = *board::SpiDma(index);
         transmitStream.emplace(dma, hal::DmaChannelId(1, board::spiDmaChannel, requests.transmit));
         receiveStream.emplace(dma, hal::DmaChannelId(1, static_cast<uint8_t>(board::spiDmaChannel + 1), requests.receive));
 
-        return driver.emplace<hal::SpiMasterStmDma>(*transmitStream, *receiveStream, index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SpiMasterStmDma::Config>(request));
+        auto& spi = driver.emplace<hal::SpiMasterStmDma>(*transmitStream, *receiveStream, index, PinOrDummy(claimed.clock), PinOrDummy(claimed.miso), PinOrDummy(claimed.mosi), MakeConfig<hal::SpiMasterStmDma::Config>(request), PinOrDummy(claimed.slaveSelect));
+
+        if (request.bits != defaultBits)
+            spi.SetCommunicationConfigurator(dataSize.emplace(spi, request.bits));
+
+        return spi;
     }
 }

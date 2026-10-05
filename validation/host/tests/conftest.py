@@ -7,6 +7,11 @@ marker adds the dimensions of a YAML mapping; `--depth full` runs their cartesia
 `--ad3-serial`, `--no-ad3`, `--fake`, the `ad3` marker and the `ad3` fixture come from the
 `ad3_waveforms_bench` pytest plugin; `ad3_settings` below feeds it the board file's AD3 section.
 
+`--board-extra` files are deep-merged over the board file (`config.merge_board`). `--with` options must be
+offered by a `--wiring-set` and must not exclude each other, else the run stops with a usage error. A pin an
+enabled option loads (`loads:`) or ties to another pin (`jumpered:`) is only resolved by `need` for tests marked
+`uses_option(<tag>)` or `requires_option(<tag>)`; the others skip ("pin X loaded by --with T").
+
 The board file's `known_gaps` mark the HIL tests that run into a driver gap: a gap that aborts or hangs the
 firmware skips its tests (run them with `--run-known-gaps`), any other is an expected failure (xfail, not strict).
 They describe the firmware, so `--fake` ignores them.
@@ -14,8 +19,9 @@ They describe the firmware, so `--fake` ignores them.
 
 from __future__ import annotations
 
+import contextlib
 import os
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -23,17 +29,26 @@ import pytest
 from ad3_waveforms_bench.pytest_plugin import Ad3Settings
 from ad3_waveforms_bench.terminal import FirmwareTerminal, TerminalError
 
-from hal_st_validation.config import BoardConfig, ConfigError, Wiring, known_gap_outcome, load_board
+from hal_st_validation.config import BoardConfig, ChannelKind, ConfigError, Connection, Wiring, known_gap_outcome, load_board
 from hal_st_validation.firmware import Firmware, quiesce
 from hal_st_validation.pairwise import DEPTHS, combinations
 
 HIL_DIR = Path(__file__).parent / "hil"
 _BOARD_KEY = pytest.StashKey[BoardConfig]()
+_WIRING_KEY = pytest.StashKey[Wiring]()
+_OPTION_MARKERS = ("uses_option", "requires_option")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("hal-st validation")
     group.addoption("--board", default=os.environ.get("HAL_ST_BOARD", "nucleo_wb55rg"), help="board YAML name or path")
+    group.addoption(
+        "--board-extra",
+        dest="board_extras",
+        action="append",
+        default=[path for path in os.environ.get("HAL_ST_BOARD_EXTRA", "").split(os.pathsep) if path],
+        help="YAML deep-merged over the board file (repeatable; or HAL_ST_BOARD_EXTRA, a list separated by os.pathsep)",
+    )
     group.addoption("--port", default=os.environ.get("HAL_ST_PORT"), help="firmware terminal serial port; HIL tests skip without it")
     group.addoption("--baud", type=int, default=None, help="terminal baud rate (default from the board YAML)")
     group.addoption(
@@ -60,10 +75,23 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def board_config(config: pytest.Config) -> BoardConfig:
     if _BOARD_KEY not in config.stash:
-        board = load_board(config.getoption("--board"))
+        board = load_board(config.getoption("--board"), config.getoption("board_extras"))
         board.apply_overrides(config.getoption("overrides"))
         config.stash[_BOARD_KEY] = board
     return config.stash[_BOARD_KEY]
+
+
+def wiring_config(config: pytest.Config) -> Wiring:
+    """`--wiring-set` with the `--with` options, validated once (`BoardConfig.wiring`)."""
+    if _WIRING_KEY not in config.stash:
+        names = [name.strip() for name in config.getoption("--wiring-set").split(",") if name.strip()]
+        config.stash[_WIRING_KEY] = board_config(config).wiring(names, config.getoption("with_tags"))
+    return config.stash[_WIRING_KEY]
+
+
+def option_tags(node: pytest.Item) -> frozenset[str]:
+    """The options a test handles: its `uses_option` and `requires_option` markers."""
+    return frozenset(str(marker.args[0]) for name in _OPTION_MARKERS for marker in node.iter_markers(name))
 
 
 def _ids(value: Any) -> str:
@@ -125,13 +153,34 @@ def _dimensions(metafunc: pytest.Metafunc, board: BoardConfig) -> tuple[list[_Di
     return dimensions, None
 
 
+def _parametrize_options(metafunc: pytest.Metafunc, marker: pytest.Mark) -> None:
+    """`@pytest.mark.wiring_options("tag")` runs the test once per option the selected wiring sets offer: the
+    enabled ones (default), or with `enabled=False` the ones left out; each case is marked `uses_option(tag)`."""
+    argname = marker.args[0]
+    enabled = marker.kwargs.get("enabled", True)
+    try:
+        wiring = wiring_config(metafunc.config)
+    except ConfigError as error:
+        raise pytest.UsageError(str(error)) from error
+    tags = [tag for tag in wiring.options if (tag in wiring.enabled) == enabled]
+    if not tags:
+        reason = "no option enabled with --with" if enabled else "every offered option is enabled"
+        metafunc.parametrize(argname, [pytest.param(None, marks=pytest.mark.skip(reason=reason))])
+        return
+    metafunc.parametrize(argname, [pytest.param(tag, id=tag, marks=pytest.mark.uses_option(tag)) for tag in tags])
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     """`@pytest.mark.board_params("freq", "pwm.frequencies")` adds one dimension from the board YAML (or from
     `values=[...]`); for several argnames each item is a mapping (picked by name) or a sequence (positional).
     `@pytest.mark.matrix("pwm.waveform")` adds one dimension per key of a YAML mapping, named like the argnames.
     `@pytest.mark.constraint(valid=predicate)` keeps a combination only when `predicate(values)` is true; it receives
     a possibly partial `argname -> value` mapping and must return False only for impossible assignments.
+    `@pytest.mark.wiring_options(argname)` parametrizes over wiring options instead (`_parametrize_options`).
     """
+    options = metafunc.definition.get_closest_marker("wiring_options")
+    if options is not None:
+        _parametrize_options(metafunc, options)
     try:
         board = board_config(metafunc.config)
         dimensions, skip = _dimensions(metafunc, board)
@@ -204,6 +253,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         board: BoardConfig | None = board_config(config)
     except ConfigError:
         board = None
+    if board is not None:
+        try:
+            wiring_config(config)
+        except ConfigError as error:
+            raise pytest.UsageError(str(error)) from error
     family = None if board is None else board.family
     for item in items:
         if HIL_DIR in Path(str(item.path)).parents:
@@ -214,9 +268,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         marker = item.get_closest_marker("family")
         if marker and family and marker.args[0] != family:
             item.add_marker(pytest.mark.skip(reason=f"only for {marker.args[0]}"))
-        marker = item.get_closest_marker("requires_option")
-        if marker and marker.args[0] not in tags:
-            item.add_marker(pytest.mark.skip(reason=f"enable with --with {marker.args[0]}"))
+        for marker in item.iter_markers("requires_option"):
+            if marker.args[0] not in tags:
+                item.add_marker(pytest.mark.skip(reason=f"enable with --with {marker.args[0]}"))
+        for marker in item.iter_markers("conflicts_option"):
+            if marker.args[0] in tags:
+                item.add_marker(pytest.mark.skip(reason=f"disconnect --with {marker.args[0]}"))
 
 
 @pytest.fixture(scope="session")
@@ -225,50 +282,79 @@ def board_cfg(pytestconfig: pytest.Config) -> BoardConfig:
 
 
 @pytest.fixture(scope="session")
-def wiring(pytestconfig: pytest.Config, board_cfg: BoardConfig) -> Wiring:
-    names = [name.strip() for name in pytestconfig.getoption("--wiring-set").split(",") if name.strip()]
-    return board_cfg.wiring(names, pytestconfig.getoption("with_tags"))
+def wiring(pytestconfig: pytest.Config) -> Wiring:
+    return wiring_config(pytestconfig)
 
 
 class Need:
-    """Wiring lookups that skip the test when the active wiring lacks the connection."""
+    """Wiring lookups that skip the test when the active wiring lacks the connection, or when the pin is loaded by
+    an enabled option the test does not handle (`allowed`: the tags of its `uses_option`/`requires_option`
+    markers). Pins an enabled option ties to a channel by a jumper resolve only for the tags in `allowed`."""
 
-    def __init__(self, wiring: Wiring, board: BoardConfig) -> None:
+    def __init__(self, wiring: Wiring, board: BoardConfig, allowed: Iterable[str] = ()) -> None:
         self.wiring = wiring
         self.board = board
+        self.allowed = frozenset(allowed)
 
-    def _found(self, value: int | None, what: str) -> int:
-        if value is None:
-            pytest.skip(f"{what} is not wired in wiring set(s) {', '.join(self.wiring.sets) or '(none)'}")
-        return value
+    def _blocked(self, pins: Iterable[str]) -> str | None:
+        for pin in pins:
+            tags = self.wiring.blocking(pin, self.allowed)
+            if tags:
+                return f'pin {pin} loaded by --with {tags[0]} (mark the test uses_option("{tags[0]}") if it handles that wiring)'
+        return None
+
+    def _lookup(self, kind: ChannelKind, pin: str | None, role: str | None) -> tuple[Connection | None, str | None]:
+        """The connection and, when the test must leave its pins alone, why."""
+        resolved = None if pin is None else self.board.resolve_pin(pin)
+        connection = self.wiring.connection(kind, resolved, role, self.allowed)
+        if connection is None:
+            return None, None
+        pins = ([resolved] if resolved is not None else []) + list(connection.pins)
+        return connection, self._blocked(pins)
+
+    def _required(self, kind: ChannelKind, pin: str | None, role: str | None, what: str) -> int:
+        connection, blocked = self._lookup(kind, pin, role)
+        if connection is None:
+            pytest.skip(f"{what} for {pin or role} is not wired in wiring set(s) {', '.join(self.wiring.sets) or '(none)'}")
+        if blocked is not None:
+            pytest.skip(blocked)
+        assert connection is not None
+        return connection.channel
+
+    def _optional(self, kind: ChannelKind, pin: str | None, role: str | None) -> int | None:
+        connection, blocked = self._lookup(kind, pin, role)
+        return None if connection is None or blocked is not None else connection.channel
 
     def dio(self, pin: str | None = None, role: str | None = None) -> int:
-        resolved = None if pin is None else self.board.resolve_pin(pin)
-        return self._found(self.wiring.dio(resolved, role), f"DIO for {pin or role}")
+        return self._required("dio", pin, role, "DIO")
 
     def wavegen(self, pin: str | None = None, role: str | None = None) -> int:
-        resolved = None if pin is None else self.board.resolve_pin(pin)
-        return self._found(self.wiring.wavegen(resolved, role), f"wavegen for {pin or role}")
+        return self._required("wavegen", pin, role, "wavegen")
 
     def scope(self, pin: str | None = None, role: str | None = None) -> int:
-        resolved = None if pin is None else self.board.resolve_pin(pin)
-        return self._found(self.wiring.scope(resolved, role), f"scope for {pin or role}")
+        return self._required("scope", pin, role, "scope")
 
     def optional_scope(self, pin: str) -> int | None:
-        return self.wiring.scope(self.board.resolve_pin(pin))
+        return self._optional("scope", pin, None)
 
     def optional_dio(self, pin: str | None = None, role: str | None = None) -> int | None:
-        resolved = None if pin is None else self.board.resolve_pin(pin)
-        return self.wiring.dio(resolved, role)
+        return self._optional("dio", pin, role)
+
+    def unloaded(self, *pins: str) -> None:
+        """Skip when an enabled option the test does not handle loads one of `pins` (for pins used without an AD3
+        channel)."""
+        blocked = self._blocked(self.board.resolve_pin(pin) for pin in pins)
+        if blocked is not None:
+            pytest.skip(blocked)
 
     def tag(self, tag: str) -> None:
         if not self.wiring.has(tag):
             pytest.skip(f"enable with --with {tag}")
 
 
-@pytest.fixture(scope="session")
-def need(wiring: Wiring, board_cfg: BoardConfig) -> Need:
-    return Need(wiring, board_cfg)
+@pytest.fixture
+def need(request: pytest.FixtureRequest, wiring: Wiring, board_cfg: BoardConfig) -> Need:
+    return Need(wiring, board_cfg, option_tags(request.node))
 
 
 @pytest.fixture(scope="session")
@@ -334,6 +420,25 @@ def ad3_settings(board_cfg: BoardConfig) -> Ad3Settings:
     )
 
 
+def release_ad3(ad3: Any) -> None:
+    """Outputs off (`reset_outputs()`), then the weak pulls off and the I2C and SPI protocol engines reset, which
+    `reset_outputs()` leaves as they are. A device or runtime without them (or the `--fake` API) is fine."""
+    ad3.reset_outputs()
+    with contextlib.suppress(AttributeError, RuntimeError):
+        ad3.dio.pull()
+    for name in ("FDwfDigitalI2cReset", "FDwfDigitalSpiReset"):
+        with contextlib.suppress(AttributeError, RuntimeError):
+            getattr(ad3.api, name)(ad3.handle)
+
+
+@pytest.fixture
+def ad3_released(request: pytest.FixtureRequest) -> None:
+    """The AD3 outputs and pulls off before the test, so the pins see only the board and its wiring; without
+    `--no-ad3` this needs the AD3 (the test skips when none is found)."""
+    if not request.config.getoption("--no-ad3"):
+        release_ad3(request.getfixturevalue("ad3"))
+
+
 @pytest.fixture(autouse=True)
 def _hil_isolation(request: pytest.FixtureRequest) -> Iterator[None]:
     """Clear stale events before a HIL test; afterwards close what it opened and reset the AD3 outputs."""
@@ -347,7 +452,7 @@ def _hil_isolation(request: pytest.FixtureRequest) -> Iterator[None]:
     boots = firmware.terminal.drain_events("boot")
     failures = firmware.close_all()
     if "ad3" in request.fixturenames:
-        request.getfixturevalue("ad3").reset_outputs()
+        release_ad3(request.getfixturevalue("ad3"))
     if boots and request.node.get_closest_marker("resets_board") is None:
         pytest.fail(f"unexpected reset during the test: {boots[-1].raw}")
     if failures:

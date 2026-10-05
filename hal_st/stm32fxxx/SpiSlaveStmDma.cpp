@@ -2,6 +2,12 @@
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/util/BitLogic.hpp"
 
+#if defined(STM32WB)
+#include "stm32wbxx_ll_spi.h"
+#elif defined(STM32WBA)
+#include "stm32wbaxx_ll_spi.h"
+#endif
+
 namespace hal
 {
     SpiSlaveStmDma::SpiSlaveStmDma(hal::DmaStm::TransmitStream& transmitStream, hal::DmaStm::ReceiveStream& receiveStream, uint8_t oneBasedSpiIndex, GpioPinStm& clock, GpioPinStm& miso, GpioPinStm& mosi, GpioPinStm& slaveSelect)
@@ -68,8 +74,14 @@ namespace hal
         receiveDone = false;
         sendDone = false;
 
-#ifdef STM32H5
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
         DisableSpi();
+#endif
+#if defined(STM32WB)
+        // SPI v2 keeps RXFIFO data while SPE=0, so frames clocked after the previous transfer would lead this one
+        while (LL_SPI_GetRxFIFOLevel(peripheralSpi[spiInstance]) != LL_SPI_RX_FIFO_EMPTY)
+            LL_SPI_ReceiveData8(peripheralSpi[spiInstance]);
+        LL_SPI_ClearFlag_OVR(peripheralSpi[spiInstance]);
 #endif
 
         if (!sendData.empty() && !receiveData.empty())
@@ -91,7 +103,7 @@ namespace hal
         else
             std::abort();
 
-#ifdef STM32H5
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
         EnableSpi();
 #endif
     }
@@ -114,7 +126,7 @@ namespace hal
 
     void SpiSlaveStmDma::TransferDone()
     {
-#ifdef STM32H5
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
         DisableSpi();
 #endif
         onDone();
@@ -165,7 +177,11 @@ namespace hal
 
     void SpiSlaveStmDma::DisableSpi()
     {
+#if defined(STM32WB) || defined(STM32WBA)
+        LL_SPI_Disable(peripheralSpi[spiInstance]);
+#else
         peripheralSpi[spiInstance]->CR1 |= SPI_CR1_SPE;
+#endif
     }
 
     void SpiSlaveStmDma::EnableDma()

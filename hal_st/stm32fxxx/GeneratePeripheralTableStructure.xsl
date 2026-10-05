@@ -68,15 +68,15 @@
   <xsl:template match="mcu:IP">
     <xsl:param name="ip-name"/>
     <xsl:param name="prefix"/>
-    <xsl:if test="@Name = $ip-name">
+    <xsl:if test="@Name = $ip-name or @Name = concat('_', $ip-name)">
       <item>
         <xsl:attribute name="name"><xsl:value-of select="@InstanceName"/></xsl:attribute>
         <xsl:choose>
-          <xsl:when test="$prefix = '' and @InstanceName = @Name">
+          <xsl:when test="$prefix = '' and @InstanceName = $ip-name">
             <xsl:attribute name="position">1</xsl:attribute>
           </xsl:when>
-          <xsl:when test="$prefix = '' and @InstanceName != @Name">
-            <xsl:attribute name="position"><xsl:value-of select="substring(@InstanceName, string-length(@Name) + 1)"/></xsl:attribute>
+          <xsl:when test="$prefix = '' and @InstanceName != $ip-name">
+            <xsl:attribute name="position"><xsl:value-of select="substring(@InstanceName, string-length($ip-name) + 1)"/></xsl:attribute>
           </xsl:when>
           <xsl:otherwise>
             <xsl:attribute name="position"><xsl:value-of select="substring(@InstanceName, string-length($prefix) + 1)"/></xsl:attribute>

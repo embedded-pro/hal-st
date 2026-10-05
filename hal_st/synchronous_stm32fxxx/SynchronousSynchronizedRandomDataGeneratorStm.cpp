@@ -28,11 +28,12 @@ namespace hal
             // HSI48 should already be enabled when the clock configuration is locked. Don't manage its lifecycle.
             really_assert(LL_RCC_HSI48_IsReady());
         }
-        else
+        else if (!LL_RCC_HSI48_IsReady())
         {
             LL_RCC_HSI48_Enable();
             while (!LL_RCC_HSI48_IsReady())
-            {}
+            {
+            }
 
             disableHsi48OnFinalization = true;
         }
