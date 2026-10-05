@@ -1328,6 +1328,68 @@ tests:
   uid:
     # Bytes [5, 12) of `info uid=` hold the lot number in ASCII.
     lot: [5, 12]
+  rng:
+    # sync: SynchronousRandomDataGeneratorStm; async: RandomDataGeneratorStm
+    # (RNG kernel clock HSI16, B.7). The HSEM-synchronized variant exists on
+    # STM32WB only.
+    variants: [sync, async]
+    lengths: [1, 2, 3, 4, 5, 7, 16, 127, 128]
+    stats:
+      length: 65536
+      # Seconds the host waits for the rng.stats reply (the firmware gives
+      # the async variant 5 s).
+      timeout_s: 6.0
+    semaphores: []
+    # variant=hsem and lock5=1: STM32WB only.
+    unsupported:
+      - rng.read 4 variant=hsem
+      - rng.read 4 variant=hsem lock5=1
+      - rng.read 4 lock5=1
+      - rng.stats 16 variant=hsem
+  aes:
+    # FIPS-197 C.1 and NIST SP 800-38A F.1.1 (ECB-AES128, all four blocks);
+    # a list of hex strings is one byte string.
+    vectors:
+      - name: fips197-c1
+        key: "000102030405060708090a0b0c0d0e0f"
+        plaintext: "00112233445566778899aabbccddeeff"
+        ciphertext: "69c4e0d86a7b0430d8cdb78070b4c55a"
+      - name: sp800-38a-f11
+        key: "2b7e151628aed2a6abf7158809cf4f3c"
+        plaintext:
+          - "6bc1bee22e409f96e93d7e117393172a"
+          - "ae2d8a571e03ac9c9eb76fac45af8e51"
+          - "30c81c46a35ce411e5fbc1191a0a52ef"
+          - "f69f2445df4f9b17ad2b417be66c3710"
+        ciphertext:
+          - "3ad77bb40d7a3660a89ecaf32466ef97"
+          - "f5d3d58503b9699de785895a96fdbaaf"
+          - "43b1cd7f598ece23881b00e3ed030688"
+          - "7b0c785e27e8ad3f8223207104725dd4"
+    # AES_CR.DATATYPE of hal::detail::DataSwapping, against
+    # crypto_ref.aes_stm (model from the reference manual).
+    swaps: [none, half, byte, bit]
+    # Bytes per command: one to five blocks (the group holds 80).
+    lengths: [16, 32, 48, 64, 80]
+  pka:
+    # Multiples of G on services::secp256r1 (P-256): k -> (x, y).
+    multiples:
+      - name: k1
+        k: "01"
+        x: "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+        y: "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+      - name: k2
+        k: "02"
+        x: "7cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc47669978"
+        y: "07775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1"
+      - name: k3
+        k: "03"
+        x: "5ecbe4d1a6330a44c8f7ef951d4bf165e6c6b721efada985fb41661bc6e7fd6c"
+        y: "8734640c4998ff7e374b06ce1a64a2ecd82ab036384fb83d9a79b127a27d5032"
+    # pka.cmp operand sizes in bytes (4..60; 60 keeps the line at 253).
+    compare_lengths: [4, 32, 60]
+    # One full-scalar multiplication at 100 MHz takes tens of ms.
+    max_us: 500000
   unsupported:
     commands:
       - comp.open 1

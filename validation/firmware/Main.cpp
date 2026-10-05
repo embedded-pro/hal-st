@@ -15,6 +15,7 @@
 #include "services/hil/commands/HilWatchDogCommands.hpp"
 #include "services/peripheral/DebugLed.hpp"
 #include "validation/firmware/AdcFactory.hpp"
+#include "validation/firmware/AesGroup.hpp"
 #include "validation/firmware/AnalogInputGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
@@ -26,9 +27,11 @@
 #include "validation/firmware/LpTimerGroup.hpp"
 #include "validation/firmware/LpTimerPwmGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
+#include "validation/firmware/PkaGroup.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
 #include "validation/firmware/ResourceAllocation.hpp"
+#include "validation/firmware/RngGroup.hpp"
 #include "validation/firmware/SpiFactory.hpp"
 #include "validation/firmware/SpiSlaveGroup.hpp"
 #include "validation/firmware/SyncGpioGroup.hpp"
@@ -110,6 +113,10 @@ int main()
 
     static validation::SyncGpioCommands syncGpio{ context };
     static validation::ClockCommands clocks{ context };
+
+    static validation::RngCommands rng{ context };
+    static validation::AesCommands aes{ context };
+    static validation::PkaCommands pka{ context };
 
     validation::CreateUnsupportedGroups(context);
 

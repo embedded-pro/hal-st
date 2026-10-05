@@ -490,6 +490,10 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
   clock stretching, a bus error from a misplaced STOP, the general call, close while the bus is held and both instance directions.
 - `test_eeprom.py` - EMIL's `eeprom.*` over the `I2cEepromStm` adapter on the external 24Cxx (`--with i2c`): the address probe, attach/detach, writes inside and across pages, reads across pages, write-read-write-read, erase, data across a reset, the size limit,
   ACK polling on the logic analyzer, recovery from an absent chip, detach while busy, and 1-byte word addresses against the `i2cs` register file.
+- `test_rng.py` - for `SynchronousRandomDataGeneratorStm`, `RandomDataGeneratorStm` and (NUCLEO-WB55RG) `SynchronousSynchronizedRandomDataGeneratorStm`: exact lengths, two reads that differ, 64 KiB per variant through the monobit, byte chi-square and runs tests of `rngstats`, variants taking turns on the RNG.
+  - On the NUCLEO-WB55RG the synchronized variant keeps HSI48 running when it was on and switches it off again when it was off, takes its locked branch with semaphore 5 held (`lock5=1`), and leaves HSEM semaphores 0 and 5 free (`hsem.status`, when that group is built in).
+- `test_aes.py` - for `SynchronousAes128EcbStm`: the FIPS-197 C.1 and SP 800-38A F.1.1 known answers in both directions, block by block and four blocks at once, one to five blocks per command, a key change between commands, and every data swapping mode (`swap=none|half|byte|bit`) against the model of `crypto_ref`; argument errors.
+- `test_pka.py` - for `PkaStm` on secp256r1: G, 2G and 3G, the default operands, a short scalar padded by the firmware, (n - 1)G = -G, the NIST CAVP ECC CDH vector, a given base point, points on and off the curve, comparisons of 4, 32 and 60-byte numbers, the duration of one multiplication and argument errors; every result against the P-256 arithmetic of `crypto_ref`.
 - `test_unsupported.py` - every comparator, CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 
 ## Customising
@@ -532,6 +536,8 @@ In `hal_st_validation` (hal-st specific):
 - `groups/timers.py` - `fw.tim`, `fw.tpwm`, `fw.lptim`, `fw.lptpwm` and their expected waveforms (`timer_update_rate`, `lptim_update_rate`, `pwm_duty_fraction`); `fakes/timers.py` is their fake firmware model.
 - `groups/analog.py` - `fw.ain` (`read`, `burst` with one `BurstRun` per measurement) and `fw.dma` (`wave`), with the expectations of the TIM2 pacing (`trigger_timing`, `trigger_rate`, `burst_seconds`) and the wave bit order (`wave_bits`); `fakes/analog.py` models both groups and their deferred replies.
 - `groups/io.py` - `fw.sgpio`, `fw.clock` (`ClockInfo`; `clock.mco` and `clock.hsi48` register their undo with `close_all`), `edge_fit_frequency` and `parse_uid`; `fakes/io.py` is their fake firmware model, with a unique device ID of the real layout.
+- `crypto_ref.py` - pure-Python AES-128 with the data swapping model of the STM32 AES peripheral, and affine P-256 arithmetic, with the FIPS-197, SP 800-38A and CAVP ECC CDH vectors; `rngstats.py` - the `rng.stats` counts and the monobit, chi-square and runs bounds.
+- `groups/crypto.py` - `fw.rng`, `fw.aes`, `fw.pka`; `fakes/crypto.py` is their fake firmware model (a deterministic RNG, AES and PKA through `crypto_ref`).
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
 - `pairwise.py` - the full product and the deterministic pairwise generator behind `--depth`.
@@ -549,3 +555,4 @@ In the firmware (`firmware/`):
 - `SpiSlaveGroup` (`spis.*`: `SpiSlaveFactory` builds `SpiSlaveStmDma` on the board's slave DMA channels, `SpiSlaveCommands` arms one transfer at a time and answers `spis.result` from its own timer); `SpiFactory` also takes `bits`, `lsb` and `nss` and holds the SPI instance in `ResourceAllocation`.
 - `TimerGroup`, `TimerPwmGroup`, `LpTimerGroup` and `LpTimerPwmGroup` serve `tim.*`, `tpwm.*`, `lptim.*` and `lptpwm.*`, each a factory and a single-instance group; `QeiFactory` also builds the LPTIM encoder with `cap=rise|fall` and holds its LPTIM in `ResourceAllocation`.
 - `SyncGpioGroup` serves `sgpio.*` through `SyncGpioDriver`, the only translation unit that includes `SynchronousGpioStm.hpp`; `ClockGroup` serves `clock.*`; `UartFactory` also builds `SynchronousUartStmSendOnly` (`sendonly=1`).
+- `RngGroup`, `AesGroup` and `PkaGroup` are stateless command groups: `rng` and `aes` build their driver per command; `pka` builds one `PkaStm` on first use and keeps it.

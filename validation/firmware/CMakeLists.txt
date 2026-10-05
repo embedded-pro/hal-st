@@ -23,6 +23,8 @@ target_link_libraries(hal_st.validation_firmware PRIVATE
 target_sources(hal_st.validation_firmware PRIVATE
     AdcFactory.cpp
     AdcFactory.hpp
+    AesGroup.cpp
+    AesGroup.hpp
     AnalogInputGroup.cpp
     AnalogInputGroup.hpp
     BoardInfoStm.cpp
@@ -59,12 +61,16 @@ target_sources(hal_st.validation_firmware PRIVATE
     PeripheralClocks.hpp
     PinFactoryStm.cpp
     PinFactoryStm.hpp
+    PkaGroup.cpp
+    PkaGroup.hpp
     PwmFactory.cpp
     PwmFactory.hpp
     QeiFactory.cpp
     QeiFactory.hpp
     ResourceAllocation.cpp
     ResourceAllocation.hpp
+    RngGroup.cpp
+    RngGroup.hpp
     SpiFactory.cpp
     SpiFactory.hpp
     SpiSlaveGroup.cpp
