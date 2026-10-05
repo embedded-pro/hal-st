@@ -5,7 +5,7 @@ Every driver is exercised generically, with each variant it has (interrupt, DMA,
 The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardware-in-the-loop terminal and the host reuses the generic bench code of ad3-waveforms-bench.
 
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
-- `host/` - Python package `hal_st_validation` and a pytest suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK.
+- `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
 - hal-st has no comparator, CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards").
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
@@ -14,6 +14,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 
 - The firmware has to be C++: it is built from hal-st and EMIL exactly like an application would use them, so what is validated is the real driver code with the real interrupt table, clocks, DMA and pin muxing.
 - The host is Python because Digilent ships the WaveForms SDK with official Python bindings and samples, `pyserial` covers the terminal, and pytest brings parametrisation, fixtures, skips and JUnit/HTML reports for free.
+- pytest-bdd runs Gherkin scenarios as ordinary pytest tests, so every test reads as Given/When/Then while the board-file parametrisation, `--depth`, `--set`, `--with`, `--fake`, `known_gaps`, fixtures and reports stay those of pytest.
 - Python's latency does not matter: every timing-critical stimulus or measurement is done by the AD3 hardware (pattern generator, logic analyzer, wavegen, protocol engines) or by the firmware itself; the host only configures, triggers and evaluates.
 
 ## What the AD3 does
@@ -131,11 +132,13 @@ Options from the `ad3_waveforms_bench` pytest plugin (loaded automatically once 
   - It models no measured signal, so most tests that read the AD3 fail under `--fake --wiring-set ...`; `--fake --no-ad3` passes completely.
 
 Tests that need no AD3 (system, argument errors, limits, instance and timer sharing, watchdog behaviour) run with any wiring set.
-Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless it is marked `@pytest.mark.uses_option("T")` or `@pytest.mark.requires_option("T")`.
+Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless its scenario is tagged `@uses_option:T` or `@requires_option:T`.
 Pins an option ties to a channel with a jumper resolve only for such tests. `requires_option` skips the test without the option, `conflicts_option` skips it with the option.
 Tests that reset the board on purpose (watchdog, UART swap) are marked `resets_board`; any other unexpected `EVT boot` fails the test that caused it.
 Every instance a test opened is closed afterwards and the AD3 outputs are released, so tests are independent (the firmware keeps at most one instance of each group open at a time, see the Framing section of PROTOCOL.md).
 Use `-k`, `-m "not slow"` and `--junitxml report.xml` as usual.
+`-k` and the `known_gaps` patterns match the test function a scenario is bound to (`test_waveform`, `test_write_read`), so test ids are the same as before the scenarios were written in Gherkin.
+`-v --gherkin-terminal-reporter` prints the steps of every scenario, and `--cucumber-json report.json` writes a Cucumber JSON report.
 
 ## Known driver gaps
 
@@ -450,6 +453,8 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 
 ## What is tested
 
+Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature`, with one scenario per test, and a module `host/tests/hil/test_<peripheral>.py` that binds the scenarios to test functions and implements their steps.
+
 - `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled (`pass --with <tag> or remove the wiring`), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
 - `test_uid.py` - the 96-bit unique device ID of `info`: twelve bytes, not blank memory, the lot number in printable ASCII, the same after a reset.
@@ -523,11 +528,14 @@ Each board file (`host/boards/<board>.yaml`) holds:
 - `wiring_sets.<set>.options.<tag>` - the optional wiring a set offers: a description, or a mapping with `description`, `jumpered` (key pin -> pins the wiring ties to it; the self-check drives the key), `loads` (pins the wiring loads), `pullups` (pins it pulls up to 3V3) and `excludes` (options that cannot be fitted at the same time).
 - `known_gaps` - driver gaps with the test ids (wildcards `*` and `?`) they affect, the reason and whether they hang the firmware.
 - `tests` - the parameters of every test module: parameter matrices, pins and instances, levels and tolerances.
-  - `@pytest.mark.matrix("pwm.waveform")` turns every key of that mapping into one test parameter of the same name; `@pytest.mark.board_params("argname", "section.key")` adds one parameter from a list.
+  - `@pytest.mark.matrix("pwm.waveform")` turns every key of that mapping into one test parameter of the same name; `@pytest.mark.board_params("argname", "section.key")` adds one parameter from a list. These markers go on the function a scenario is bound to, which takes the parameters as arguments; the steps read them as fixtures.
   - All parameters of a test form one matrix: `--depth full` runs its product, `--depth quick` a pairwise subset (`hal_st_validation.pairwise`); `@pytest.mark.constraint(valid=...)` removes combinations a driver cannot take (for example parity with the synchronous UART).
   - Extending a sweep or moving a peripheral to other pins is a YAML change.
   - `tests.wiring.undriven` lists pins nothing on the board may drive (solder bridges to ST-LINK lines); `test_wiring.py` checks them.
   - `@pytest.mark.wiring_options("tag")` runs a test once per enabled option (`enabled=False`: per offered option that is not enabled), each case marked `uses_option`.
+
+The other markers are tags in the feature files: `@ad3` (also opens the AD3 for the scenario and resets its outputs afterwards), `@slow`, `@resets_board`, `@family:stm32wb55`, `@requires_option:i2c`, `@uses_option:spiloop` and `@conflicts_option:i2c`. A tag on the `Feature` line applies to all of its scenarios.
+To add a test, add a scenario to the feature file, bind it with `@scenario("<peripheral>.feature", "<scenario name>")` in the module and write the steps it is missing. `pytest tests/unit/test_features.py` fails while a scenario is not bound or a step has no definition. Without hardware most scenarios skip before their first step, so pytest-bdd would not report these until a run on the bench.
 
 To validate another board, add a board profile under `firmware/boards/<mcu>/` and the MCU to `emil_build_for` in `firmware/CMakeLists.txt`, copy a board file, adapt the pins, wiring sets and parameters, and pass `--board path/to/board.yaml`.
 
@@ -542,6 +550,13 @@ hal-st-console --port /dev/ttyACM0 -c info -c board.pins
 The console forwards commands, prints final lines and events, and keeps a history in `~/.hal_st_validation_history`. `:wait <s>` listens for events, `:raw` also shows non-protocol output, `:quit` leaves.
 
 ## Package layout
+
+In `tests`:
+
+- `hil/features/*.feature` - the scenarios, one feature per peripheral.
+- `hil/test_*.py` - the scenario bindings with their parametrisation markers, the step definitions and the helpers of one peripheral.
+- `conftest.py` - the command line options, the board-file parametrisation, `known_gaps`, the tag hook and the fixtures (`fw`, `need`, `board_cfg`, `ad3_released`, the per-test cleanup).
+- `unit/` - tests of `hal_st_validation` and of the scenario bindings that need no hardware.
 
 In `hal_st_validation` (hal-st specific):
 

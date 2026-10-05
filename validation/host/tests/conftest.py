@@ -15,13 +15,19 @@ enabled option loads (`loads:`) or ties to another pin (`jumpered:`) is only res
 The board file's `known_gaps` mark the HIL tests that run into a driver gap: a gap that aborts or hangs the
 firmware skips its tests (run them with `--run-known-gaps`), any other is an expected failure (xfail, not strict).
 They describe the firmware, so `--fake` ignores them.
+
+The HIL tests are pytest-bdd scenarios: `tests/hil/features/<peripheral>.feature` holds the Gherkin and
+`tests/hil/test_<peripheral>.py` binds each scenario to a test function (which carries the parametrisation
+markers above and takes their argnames) and defines its steps. Feature tags become markers, see
+`pytest_bdd_apply_tag`.
 """
 
 from __future__ import annotations
 
 import contextlib
+import inspect
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +77,30 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=os.environ.get("HAL_ST_DEPTH", "quick"),
         help="quick: pairwise subset of every parameter matrix (default); full: complete cartesian products",
     )
+
+
+def pytest_bdd_apply_tag(tag: str, function: Callable[..., Any]) -> Callable[..., Any] | None:
+    """`@ad3` also requests the `ad3` fixture, so the AD3 opens before the scenario and is reset after it;
+    `@name:argument` is `pytest.mark.name("argument")` (`@family:stm32wb55`, `@requires_option:i2c`,
+    `@uses_option:spiloop`). Other tags fall through to pytest-bdd, which makes them plain markers (`@slow`,
+    `@resets_board`)."""
+    name, separator, argument = tag.partition(":")
+    if separator:
+        return getattr(pytest.mark, name)(argument)(function)
+    if name == "ad3":
+        return pytest.mark.usefixtures("ad3")(pytest.mark.ad3(function))
+    return None
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_pycollect_makeitem(collector: pytest.Collector, name: str, obj: object) -> None:
+    """Locate a scenario at the test function it is bound to. pytest-bdd's scenario wrapper is defined in
+    pytest_bdd/scenario.py, so the skips pytest reports at the test (`-rs`: fixture skips, `family`/`requires_option`)
+    would otherwise point there instead of at tests/hil/test_<peripheral>.py."""
+    if inspect.isfunction(obj) and obj.__module__ == "pytest_bdd.scenario":
+        bound = inspect.getclosurevars(obj).nonlocals.get("fn")
+        if inspect.isfunction(bound):
+            obj.place_as = bound
 
 
 def board_config(config: pytest.Config) -> BoardConfig:

@@ -15,6 +15,8 @@ dependencies = [
     "pyserial>=3.5",
     "pyyaml>=6.0",
     "pytest>=7.4",
+    # The HIL scenarios are Gherkin (tests/hil/features) bound to step definitions in tests/hil/test_*.py.
+    "pytest-bdd>=9.0,<10",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +36,7 @@ minversion = "7.4"
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers --import-mode=importlib"
+bdd_features_base_dir = "tests/hil/features"
 markers = [
     "hil: needs the firmware on a Nucleo board (skipped without --port)",
     "board_params(argnames, path=None, values=None): one parameter dimension from tests.<path> of the board YAML or from values",
