@@ -4,7 +4,11 @@ title = "secret scan config"
 useDefault = true
 
 [allowlist]
-description = "Generated KiCad footprint cache — datasheet URLs, not secrets"
+description = "Generated KiCad footprint cache (datasheet URLs) and the public NIST AES-128 test-vector keys of the validation suite, not secrets"
 paths = [
   '''integration_test/pcb/integration_test_board/fp-info-cache''',
+]
+regexes = [
+  '''000102030405060708090a0b0c0d0e0f''',
+  '''2b7e151628aed2a6abf7158809cf4f3c''',
 ]
