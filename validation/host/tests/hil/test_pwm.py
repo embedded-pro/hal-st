@@ -519,12 +519,18 @@ def channels_aligned(pwm_cfg, state, mode):
     check_aligned(state["capture"], state["dios"], "center" if mode == "center" else "rising", tolerance(pwm_cfg, "alignment_s"))
 
 
-@then("the outputs with the inversion undone are never active together")
-def no_shoot_through(state):
+@then("the outputs with the inversion undone are never active together, for one sample at most when they switch on the same edge")
+def no_shoot_through(state, dead):
     capture = state["capture"]
     bits_a, bits_b = logical(capture, state["a"], state["inv"]), logical(capture, state["b"], state["invn"])
     rate = capture.rate
-    assert analysis.overlap_samples(bits_a, bits_b) == 0, "channel and complementary output active together (shoot-through)"
+    if dead == 0:
+        # Without a dead time both outputs switch on the same timer clock edge, so the pins' skew can show up as one sample
+        both = [1 if x and y else 0 for x, y in zip(bits_a, bits_b)]
+        longest = max((length for level, _, length in analysis.runs(both) if level), default=0)
+        assert longest <= 1, f"channel and complementary output active together for {longest} samples (shoot-through)"
+    else:
+        assert analysis.overlap_samples(bits_a, bits_b) == 0, "channel and complementary output active together (shoot-through)"
     state.update(bits_a=bits_a, bits_b=bits_b, rate=rate)
 
 

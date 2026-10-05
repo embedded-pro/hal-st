@@ -45,7 +45,7 @@ Feature: PWM
     When the channel and its complementary output are opened at the complementary frequency with the mode, dead time, inversion and sync
     And the duty is set to 40 %
     And both outputs are recorded
-    Then the outputs with the inversion undone are never active together
+    Then the outputs with the inversion undone are never active together, for one sample at most when they switch on the same edge
     And each switch-over waits the dead time in timer kernel clocks
     And the high times of both outputs plus two dead times add up to one period
 
