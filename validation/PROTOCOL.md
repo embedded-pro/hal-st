@@ -367,7 +367,7 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 
 ## Random number generator (`hal::SynchronousRandomDataGeneratorStm`, `variant=async` selects `hal::RandomDataGeneratorStm`, `variant=hsem` selects `hal::SynchronousSynchronizedRandomDataGeneratorStm`)
 
-- `rng.read <len> [variant=sync|async|hsem] [lock5=0|1]` → `OK data=<hex>`: `len` random bytes, 1-128; after a `variant=hsem` read the line ends with ` hsi48=<0|1>`, the HSI48 ready flag (`LL_RCC_HSI48_IsReady`) once the driver is done
+- `rng.read <len> [variant=sync|async|hsem] [lock5=0|1]` → `OK data=<hex>`: `len` random bytes, 1-128; after a `variant=hsem` read the line ends with `hsi48=<0|1>`, the HSI48 ready flag (`LL_RCC_HSI48_IsReady`) once the driver is done
   - every command builds the driver of its variant and destroys it afterwards; `variant` defaults to `sync`
   - `variant=async` answers from the driver's completion (RNG interrupt), `ERR timeout` after 1 s
   - `variant=hsem` exists on STM32WB55 only (`ERR unsupported` on STM32WBA55): the driver holds HSEM semaphore 0 during the read, through the firmware's one `SynchronousHardwareSemaphoreMasterStm` (shared with `hsem` and `flash`)
