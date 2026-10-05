@@ -10,7 +10,7 @@ from hal_st_validation.fake_firmware import WB55_PINS, WBA55_PINS, FakeFirmware,
 from hal_st_validation.firmware import Firmware
 from hal_st_validation.groups.system_ext import bkp_fill_value, flash_words, sector_addresses, table_sectors
 
-WB55_FIRST = 50
+WB55_FIRST = 60
 WBA55_FIRST = 24
 
 
@@ -66,26 +66,27 @@ def test_flash_words_and_fill_value():
         ("flash.info variant=fast", "usage"),
         ("flash.info layout=table variant=coord", "ok"),
         ("flash.erase", "usage"),
-        ("flash.erase 50", "usage"),
-        ("flash.erase x 51", "usage"),
-        ("flash.erase 50 51 variant=fast", "usage"),
-        ("flash.erase 49 50", "range"),
-        ("flash.erase 50 50", "range"),
-        ("flash.erase 63 65", "range"),
-        ("flash.erase 50 57 layout=table", "range"),
-        ("flash.erase 50 51", "ok"),
-        ("flash.write 204800 -", "usage"),
-        ("flash.write 204800 0011 len=2", "usage"),
-        ("flash.write 204800 - seed=1", "usage"),
-        ("flash.write 204800 001", "usage"),
-        ("flash.write 204800 - len=513", "range"),
-        ("flash.write 204799 00", "range"),
-        ("flash.write 262143 0011", "range"),
-        ("flash.read 262144 1", "range"),
+        ("flash.erase 60", "usage"),
+        ("flash.erase x 61", "usage"),
+        ("flash.erase 60 61 variant=fast", "usage"),
+        ("flash.erase 59 60", "range"),
+        ("flash.erase 60 60", "range"),
+        ("flash.erase 79 81", "range"),
+        ("flash.erase 60 73 layout=table", "range"),
+        ("flash.erase 64 72 layout=table", "ok"),
+        ("flash.erase 60 61", "ok"),
+        ("flash.write 245760 -", "usage"),
+        ("flash.write 245760 0011 len=2", "usage"),
+        ("flash.write 245760 - seed=1", "usage"),
+        ("flash.write 245760 001", "usage"),
+        ("flash.write 245760 - len=513", "range"),
+        ("flash.write 245759 00", "range"),
+        ("flash.write 327679 0011", "range"),
+        ("flash.read 327680 1", "range"),
         ("flash.read 0 0", "range"),
         ("flash.read 0 129", "range"),
         ("flash.read 0 4 out=bin", "usage"),
-        ("flash.read 0 262144 out=crc", "ok"),
+        ("flash.read 0 327680 out=crc", "ok"),
         ("flash.stack", "usage"),
         ("flash.stack running", "usage"),
         ("flash.stack fus layout=uneven", "usage"),
@@ -115,14 +116,16 @@ def test_flash_errors_wba55(line, expected):
 
 
 @pytest.mark.parametrize(
-    ("family", "first", "page", "base"), [("stm32wb55", WB55_FIRST, 4096, 0x08040000), ("stm32wba55", WBA55_FIRST, 8192, 0x08080000)]
+    ("family", "first", "page", "base", "pages", "table_count"),
+    [("stm32wb55", WB55_FIRST, 4096, 0x08040000, 80, 72), ("stm32wba55", WBA55_FIRST, 8192, 0x08080000, 64, 56)],
 )
-def test_flash_geometry(family, first, page, base):
+def test_flash_geometry(family, first, page, base, pages, table_count):
     _, _, fw = make(family)
     info = fw.flash.info()
-    assert (info.base, info.sectors, info.size, info.first, info.layout) == (base, 64, 64 * page, first, "homogeneous")
+    assert (info.base, info.sectors, info.size, info.first, info.layout) == (base, pages, pages * page, first, "homogeneous")
     table = fw.flash.info(layout="table")
-    assert (table.sectors, table.first) == (56, first)
+    assert (table.sectors, table.first) == (table_count, first)
+    assert table_sectors(pages)[first:].count(2) == 2
 
 
 @pytest.mark.parametrize("variant", ["sync", "async", "coord"])
@@ -130,9 +133,9 @@ def test_flash_geometry(family, first, page, base):
 def test_flash_memory_model(variant, layout):
     """Erase gives FF over the sector's pages only; writes land where addressed; a programmed word is refused."""
     terminal, _, fw = make()
-    sizes = table_sectors(64) if layout == "table" else [1] * 64
+    sizes = table_sectors(80) if layout == "table" else [1] * 80
     addresses = sector_addresses(sizes, 4096)
-    sector = 50
+    sector = WB55_FIRST
     start, end = addresses[sector], addresses[sector + 1]
     fw.flash.erase(sector, sector + 2, variant=variant, layout=layout)
     data = patterns.generate(20, "prbs", 3)

@@ -1,5 +1,5 @@
 Feature: Internal flash
-  Internal flash through the `flash` group, over the scratch region of the board (absolute pages 64-127):
+  Internal flash through the `flash` group, over the scratch region of the board (absolute pages 64-143 on STM32WB55, 64-127 on STM32WBA55):
   `hal::FlashHomogeneousInternalStm` / `hal::FlashInternalStm` (`variant=async`), their synchronous twins
   (`variant=sync`) and on STM32WB55 `hal::FlashCoordinatedWithWirelessStack` (`variant=coord`) over the async driver.
 

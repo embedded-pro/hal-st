@@ -125,7 +125,8 @@ namespace validation::board
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 64;
-    inline constexpr uint32_t flashScratchEndPage = 128;
+    // 80 pages: the multi-page table sectors (indices 64-71) stay at or past the end page of any image below the region
+    inline constexpr uint32_t flashScratchEndPage = 144;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)
     {
