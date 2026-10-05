@@ -395,8 +395,8 @@ known_gaps:
   - tests:
       - "test_qspi.py::test_poll_timeout[*poll*]"
     reason: >-
-      QuadSpiStm.cpp:52,73,97 - QuadSpiStm waits with HAL_MAX_DELAY, so a
-      PollStatus whose status never matches blocks the event loop for good
+      QuadSpiStm.cpp:83 - QuadSpiStm::PollStatus waits with HAL_MAX_DELAY, so
+      a PollStatus whose status never matches blocks the event loop for good
       instead of answering ERR timeout (B.14, needs a decision)
     hangs: true
 
@@ -1038,7 +1038,9 @@ tests:
     # pwm.duty 80 then 20, runt_repeats times while the LA records
     # runt_window_s: with preload=0 at least one high pulse lies strictly
     # between 20 % and 80 % of the period (beyond runt_margin), with
-    # preload=1 none. 1 MHz counter clock.
+    # preload=1 none. 1 MHz counter clock. The recording grows past
+    # runt_window_s to 1.5 times the writes at the measured pwm.duty round
+    # trip when a slow terminal link needs it.
     preload_timer: tim1
     preload_frequency: 200
     runt_repeats: 20
@@ -1297,11 +1299,13 @@ tests:
     # homogeneous: one sector per page; table: single pages, then the
     # pattern 1, 1, 2, 4 pages twice (groups.system_ext.table_sectors).
     layouts: [homogeneous, table]
-    # Scratch region: absolute pages 64-127 (0x08040000, below the 512 KB
-    # the linker script gives the firmware), 4 KB pages, 64-bit flash words.
+    # Scratch region: absolute pages 64-143 (0x08040000-0x0808FFFF, past the
+    # image and below the secure area of the wireless stack), 4 KB pages,
+    # 64-bit flash words. 80 pages keep the 2- and 4-page table sectors
+    # (indices 64-71) at or past the image end page (~60, 240 KB).
     base: 0x08040000
     first_page: 64
-    pages: 64
+    pages: 80
     page: 4096
     word: 8
     # Page erase time (DS11929: 22 ms typical), wide bounds per page.
