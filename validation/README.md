@@ -239,7 +239,7 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
 - One dupont housing per header pin. AD3 leads (female) sit on male morpho pins; jumper ends go to the free female Arduino sockets (male-ended wire) or to free morpho pins (female-ended wire).
 - Where the only header position of a pin already carries an AD3 lead (NUCLEO-WB55RG PB12 at CN10-16, NUCLEO-WBA55CG PB8 at CN4-38), the net goes through a breadboard row: one male-female wire from the header pin to the row, the AD3 lead on a male pin in that row, and the jumper into the same row.
 - The I2C option is built on a breadboard: an SCL row, an SDA row, a 3V3 rail and a GND rail. Each rail is fed by one wire from one named header pin; the pull-ups, the EEPROM VCC and GND and (NUCLEO-WBA55CG) the AD3 ground share the rail, never a header pin.
-- Fit option wiring only together with its `--with <tag>`, and remove it otherwise. `test_wiring.py` fails when it finds the jumpers of an option that is not enabled ("pass --with <tag> or remove the wiring").
+- Fit option wiring only together with its `--with <tag>`, and remove it otherwise. `test_wiring.py` fails when it finds the jumpers of an option that is not enabled (`pass --with <tag> or remove the wiring`).
 
 ### Parts for the I2C option
 
@@ -450,7 +450,7 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 
 ## What is tested
 
-- `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled ("pass --with <tag> or remove the wiring"), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
+- `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled (`pass --with <tag> or remove the wiring`), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
 - `test_uid.py` - the 96-bit unique device ID of `info`: twelve bytes, not blank memory, the lot number in printable ASCII, the same after a reset.
 - `test_clock.py` - `clock.info` against the board file: bus clocks, oscillator ready flags, the RNG kernel clock and (NUCLEO-WB55RG) the CLK48 source. On the NUCLEO-WB55RG also the clocks on the MCO pin (PA8, DIO0): SYSCLK/16 and HSI16/16 within 1 %, HSE/16 within 0.1 %, the LSE within 100 ppm (least-squares fit of the edge times), MCO off, and `clock.hsi48` stopping and restarting HSI48.
