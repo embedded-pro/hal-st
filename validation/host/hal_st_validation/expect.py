@@ -19,6 +19,7 @@ PwmMode = Literal["edge", "center"]
 # TIM16/TIM17 one channel with complementary output and break).
 TIMERS_32BIT = frozenset({2})
 BREAK_TIMERS = frozenset({1, 16, 17})
+BREAK_FILTER_TIMERS = {"stm32wb55": frozenset({1}), "stm32wba55": frozenset({1, 16, 17})}
 SINGLE_CHANNEL_TIMERS = frozenset({16, 17})
 ENCODER_TIMERS = frozenset({1, 2, 3})
 ADC_TRIGGER_TIMERS = frozenset({1, 2})
@@ -36,6 +37,11 @@ def timer_counter_max(timer: int) -> int:
 def timer_has_break(timer: int) -> bool:
     """Complementary outputs, dead time, idle levels and the break input need a timer with a break function."""
     return timer in BREAK_TIMERS
+
+
+def timer_has_break_filter(family: str, timer: int) -> bool:
+    """BDTR.BKF of TIM16/TIM17 reads as zero on the STM32WB55, so `brkfilter` is refused there."""
+    return timer in BREAK_FILTER_TIMERS[family]
 
 
 def timer_has_center_mode(timer: int) -> bool:

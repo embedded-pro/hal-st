@@ -61,6 +61,12 @@ Feature: PWM extensions
     When the AD3 pulses the break input once for the ticks of the case and the break settle time passes
     Then the channel stops switching exactly when the case trips
 
+  Scenario: A timer without a break filter refuses one
+    BDTR.BKF of TIM16/TIM17 reads as zero on the STM32WB55 whatever is written, so a non-zero `brkfilter` there
+    would be silently ignored; `pwm.open` refuses it instead. The timers are tests.pwm_ext.break_filter_unsupported_timers.
+    Given the break filter timer has a wired break input
+    Then opening its first channel with the break input and break filter 15 fails with "unsupported", and with filter 0 it opens
+
   Scenario: The TRGO of the timer paces the ADC
     `adc.open trgo=<t>` converts once per TRGO of the timer the pwm group drives: with `trgo=update` or
     `trgo=oc1ref` once per period, so `adc.measure n=<runs>` takes (runs - 1) periods longer than `n=1`.

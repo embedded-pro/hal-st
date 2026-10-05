@@ -1049,7 +1049,9 @@ tests:
     # pwm.timers entries with `brk`, each hit by one AD3 pulse of `ticks`
     # timer kernel clocks (brkpol=high, brkauto=0). BKF 15 samples 8 times
     # at fDTS / 32: 256 kernel clocks.
-    break_filter_timers: [tim1, tim17]
+    break_filter_timers: [tim1]
+    # BDTR.BKF of TIM16/TIM17 reads as zero on this part: brkfilter is refused.
+    break_filter_unsupported_timers: [tim17]
     break_filter_cases:
       - name: unfiltered_short
         filter: 0

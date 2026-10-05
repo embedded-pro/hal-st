@@ -165,6 +165,7 @@ namespace validation::board
     inline constexpr uint8_t adc = 4;
     inline constexpr uint8_t adcDmaRequest = GPDMA1_REQUEST_ADC4;
     inline constexpr std::array<uint8_t, 2> adcTriggerTimers{ { 1, 2 } };
+    inline constexpr std::array<uint8_t, 3> breakFilterTimers{ { 1, 16, 17 } };
     inline constexpr uint32_t adcDefaultSamplingTime = ADC_SAMPLETIME_3CYCLES_5;
     inline constexpr std::array<services::HilChoice<uint32_t>, 8> adcSamplingTimes{ {
         { "1.5", ADC_SAMPLETIME_1CYCLE_5 },

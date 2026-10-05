@@ -149,6 +149,12 @@ def test_break_filter(name, case):
     pass
 
 
+@pytest.mark.board_params("name", "pwm_ext.break_filter_unsupported_timers")
+@scenario("pwm_ext.feature", "A timer without a break filter refuses one")
+def test_break_filter_unsupported(name):
+    pass
+
+
 @pytest.mark.matrix("pwm_ext.trgo")
 @scenario("pwm_ext.feature", "The TRGO of the timer paces the ADC")
 def test_trgo_paces_adc(timer, source):
@@ -200,6 +206,18 @@ def break_filter_timer(board_cfg, state, name):
     if brk is None:
         pytest.skip(f"{name} has no wired break input")
     state.update(number=timer["timer"], pin=pin, brk=brk)
+
+
+@then(
+    parsers.parse(
+        'opening its first channel with the break input and break filter {value:d} fails with "{reason}", and with filter 0 it opens'
+    )
+)
+def break_filter_refused(fw, state, value, reason):
+    with pytest.raises(FirmwareError) as error:
+        fw.pwm.open(state["number"], pins=[state["pin"]], brk=state["brk"], brkfilter=value)
+    assert error.value.reason == reason
+    fw.pwm.open(state["number"], pins=[state["pin"]], brk=state["brk"], brkfilter=0)
 
 
 @given("its first channel and its break input are wired")
