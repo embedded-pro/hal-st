@@ -7,6 +7,7 @@
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/WithStorage.hpp"
 #include <atomic>
+#include <optional>
 
 namespace hal
 {
@@ -87,7 +88,7 @@ namespace hal
         void UartStmHalInit(HwFlowControl flowControl, uint32_t baudrate);
 
         USART_TypeDef* const uartBase;
-        PeripheralPinStm uartTx;
+        std::optional<PeripheralPinStm> uartTx;
         std::optional<PeripheralPinStm> uartRts;
     };
 }

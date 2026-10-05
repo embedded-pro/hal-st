@@ -159,7 +159,7 @@ namespace hal
     SynchronousUartStmSendOnly::SynchronousUartStmSendOnly(uint8_t aUartIndex, GpioPinStm& uartTx, GpioPinStm& uartRts,
         HwFlowControl flowControl, uint32_t baudrate)
         : uartBase(peripheralUart[aUartIndex - 1])
-        , uartTx(uartTx, PinConfigTypeStm::uartTx, aUartIndex)
+        , uartTx(std::in_place, uartTx, PinConfigTypeStm::uartTx, aUartIndex)
     {
         EnableClockUart(aUartIndex - 1);
 
@@ -176,7 +176,7 @@ namespace hal
 
     SynchronousUartStmSendOnly::SynchronousUartStmSendOnly(uint8_t aUartIndex, GpioPinStm& uartTx, GpioPinStm& uartRts, SyncLpUart lpUart, HwFlowControl flowControl, uint32_t baudrate)
         : uartBase(peripheralLpuart[aUartIndex - 1])
-        , uartTx(uartTx, PinConfigTypeStm::lpuartTx, aUartIndex)
+        , uartTx(std::in_place, uartTx, PinConfigTypeStm::lpuartTx, aUartIndex)
     {
         EnableClockLpuart(aUartIndex - 1);
 
@@ -189,6 +189,8 @@ namespace hal
 
     SynchronousUartStmSendOnly::~SynchronousUartStmSendOnly()
     {
+        // The AF output of a disabled transmitter is not the idle level: release TX before TE and UE drop so no falling edge reaches the line
+        uartTx.reset();
         uartBase->CR1 &= ~(USART_CR1_RXNEIE | USART_CR1_TE | USART_CR1_RE);
 
         UART_HandleTypeDef uartHandle = {};
@@ -249,7 +251,8 @@ namespace hal
         uartHandle.Init.WordLength = USART_WORDLENGTH_8B;
         uartHandle.Init.StopBits = USART_STOPBITS_1;
         uartHandle.Init.Parity = USART_PARITY_NONE;
-        uartHandle.Init.Mode = USART_MODE_TX_RX;
+        // No RX pin is muxed: an enabled receiver fills RDR from the unconnected input, nothing reads it, and RTS stays deasserted
+        uartHandle.Init.Mode = USART_MODE_TX;
         uartHandle.Init.HwFlowCtl = flowControl;
 #if defined(USART_OVERSAMPLING_8)
         uartHandle.Init.OverSampling = USART_OVERSAMPLING_8;
@@ -264,11 +267,5 @@ namespace hal
         HAL_UART_Init(&uartHandle);
 
         uartBase->CR2 &= ~USART_CLOCK_ENABLED;
-
-#if defined(STM32F4) || defined(STM32G0)
-        uartBase->CR1 |= USART_IT_RXNE & USART_IT_MASK;
-#else
-        uartBase->CR1 |= 1 << (USART_IT_RXNE & USART_IT_MASK);
-#endif
     }
 }
