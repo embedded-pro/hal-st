@@ -7,6 +7,8 @@ through that option's jumpers). Words are decoded with `spiwords` at the frame s
 frame model (`spiwords.spi_frames`: frames above 8 bits take two buffer bytes). MISO is a static AD3 level, or
 follows MOSI where the loopback jumper ties them (`--with loopback`). `nss=` is a known gap (DESIGN B.14): the
 masters initialise SPI_NSS_SOFT, so NSS is never driven and `test_hardware_nss` is an expected failure.
+
+Scenarios: features/spi_ext.feature.
 """
 
 from __future__ import annotations
@@ -14,11 +16,10 @@ from __future__ import annotations
 import pytest
 from ad3_waveforms_bench import analysis
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, scenario, then, when
 
 from hal_st_validation import expect
 from hal_st_validation.spiwords import BITS_MAX, BITS_MIN, spi_bytes, spi_decode_words, spi_frames, spi_join_words
-
-pytestmark = [pytest.mark.uses_option("loopback"), pytest.mark.uses_option("spiloop")]
 
 VARIANTS = ["interrupt", "dma", "sync"]
 LIMITED_BITS = (8, 16)
@@ -89,84 +90,213 @@ def decode(result, dios, bits=DEFAULT_BITS, msb_first=True):
     return spi_join_words(spi_decode_words(*lines, mode=0, bits=bits, msb_first=msb_first))
 
 
-@pytest.mark.ad3
 @pytest.mark.board_params("instance", "spi_ext.instances")
 @pytest.mark.board_params("lsb", "spi_ext.lsb")
 @pytest.mark.board_params("variant", values=VARIANTS)
-def test_bit_order(fw, ad3, need, wiring, board_cfg, ext_cfg, instance, lsb, variant):
-    """`lsb=1` sends and receives the least significant bit first (`Config::msbFirst`), on every driver."""
-    dios, loop = prepare(ad3, need, wiring, board_cfg, instance)
-    clock = open_master(fw, board_cfg, ext_cfg, instance, variant, lsb=bool(lsb))
+@scenario("spi_ext.feature", "The bit order holds on every driver")
+def test_bit_order(instance, lsb, variant):
+    pass
+
+
+@pytest.mark.board_params("instance", "spi_ext.instances")
+@pytest.mark.board_params("bits", values=list(range(BITS_MIN, BITS_MAX + 1)))
+@pytest.mark.constraint(valid=listed_size)
+@scenario("spi_ext.feature", "Every listed frame size clocks frames of that size")
+def test_frame_sizes(instance, bits):
+    pass
+
+
+@pytest.mark.board_params("instance", "spi_ext.instances")
+@scenario("spi_ext.feature", "A master reopened at 8 bits after a 16-bit open runs 8-bit frames")
+def test_8_bit_after_16_bit_reopen(instance):
+    pass
+
+
+@pytest.mark.board_params("instance", "spi_ext.instances")
+@pytest.mark.board_params("variant", values=VARIANTS)
+@scenario("spi_ext.feature", "The hardware slave select is low while the master clocks")
+def test_hardware_nss(instance, variant):
+    pass
+
+
+@pytest.mark.board_params("instance", "spi_ext.instances")
+@scenario("spi_ext.feature", "Frame sizes the driver or the instance cannot run are refused")
+def test_open_frame_sizes(instance):
+    pass
+
+
+@pytest.mark.board_params("instance", "spi_ext.instances")
+@scenario("spi_ext.feature", "The hardware slave select must be the instance's and excludes the chip select")
+def test_open_slave_select(instance):
+    pass
+
+
+@given(
+    "the clock, MOSI, MISO and chip select of the instance are wired to DIOs, MISO driven high unless the loopback jumper ties it to MOSI",
+    target_fixture="wired",
+)
+def wired_with_cs(ad3, need, wiring, board_cfg, instance):
+    return prepare(ad3, need, wiring, board_cfg, instance)
+
+
+@given(
+    "the clock, MOSI, MISO and NSS of the instance are wired to DIOs, MISO driven high unless the loopback jumper ties it to MOSI",
+    target_fixture="wired",
+)
+def wired_with_nss(ad3, need, wiring, board_cfg, instance):
+    return prepare(ad3, need, wiring, board_cfg, instance, select="nss")
+
+
+@given("the instance has 16-bit frames")
+def has_16_bit(instance):
+    if 16 not in instance["bits"]:
+        pytest.skip(f"{instance['name']} has no 16-bit frames")
+
+
+@given("the AD3 pulls NSS up")
+def nss_pulled_up(ad3, wired):
+    dios, _ = wired
+    ad3.dio.pull(up=[dios["nss"]])
+
+
+@when("the master is opened with the variant and the bit order", target_fixture="clock")
+def open_bit_order(fw, board_cfg, ext_cfg, instance, lsb, variant):
+    return open_master(fw, board_cfg, ext_cfg, instance, variant, lsb=bool(lsb))
+
+
+@when("the master is opened with the frame size", target_fixture="clock")
+def open_frame_size(fw, board_cfg, ext_cfg, instance, bits):
+    return open_master(fw, board_cfg, ext_cfg, instance, bits=bits)
+
+
+@when("the master is opened with 16-bit frames")
+def open_16_bit(fw, board_cfg, ext_cfg, instance):
+    open_master(fw, board_cfg, ext_cfg, instance, bits=16)
+
+
+@when("the master transfers 34 12 78 56")
+def xfer_16_bit(fw, instance):
+    fw.spi.xfer(instance["index"], b"\x34\x12\x78\x56")
+
+
+@when("the master is closed")
+def master_closed(fw, instance):
+    fw.spi.close(instance["index"])
+
+
+@when("the master is opened", target_fixture="clock")
+def open_default(fw, board_cfg, ext_cfg, instance):
+    return open_master(fw, board_cfg, ext_cfg, instance)
+
+
+@when("the master is opened with the variant and the hardware slave select", target_fixture="clock")
+def open_nss(fw, board_cfg, ext_cfg, instance, variant):
+    return open_master(fw, board_cfg, ext_cfg, instance, variant, select="nss")
+
+
+@when(
+    "the payload is transferred while the logic analyzer records from the falling chip select, unless it cannot sample 4 times per clock",
+    target_fixture="transferred",
+)
+def transferred_on_cs(fw, ad3, ext_cfg, instance, wired, clock):
+    dios, _ = wired
     payload = bytes.fromhex(ext_cfg["payload"])
-    received, result = capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["cs"], "falling"))
+    return capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["cs"], "falling"))
+
+
+@when(
+    "the payload is transferred while the logic analyzer records from the first clock edge, unless it cannot sample 4 times per clock",
+    target_fixture="transferred",
+)
+def transferred_on_clk(fw, ad3, ext_cfg, instance, wired, clock):
+    dios, _ = wired
+    payload = bytes.fromhex(ext_cfg["payload"])
+    return capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["clk"], "either"))
+
+
+@then("MOSI decodes, in the bit order, as the payload and MISO as the payload with the loopback jumper and 0xff bytes otherwise")
+def decoded_in_bit_order(ext_cfg, lsb, wired, transferred):
+    dios, loop = wired
+    _, result = transferred
+    payload = bytes.fromhex(ext_cfg["payload"])
     wanted = payload if loop else b"\xff" * len(payload)
     mosi, miso = decode(result, dios, msb_first=not lsb)
     assert bytes(mosi) == payload
     assert bytes(miso) == wanted
+
+
+@then("the master received the payload with the loopback jumper and 0xff bytes otherwise")
+def received_payload(ext_cfg, wired, transferred):
+    _, loop = wired
+    received, _ = transferred
+    payload = bytes.fromhex(ext_cfg["payload"])
+    wanted = payload if loop else b"\xff" * len(payload)
     assert received == wanted
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("instance", "spi_ext.instances")
-@pytest.mark.board_params("bits", values=list(range(BITS_MIN, BITS_MAX + 1)))
-@pytest.mark.constraint(valid=listed_size)
-def test_frame_sizes(fw, ad3, need, wiring, board_cfg, ext_cfg, instance, bits):
-    """`bits=<n>` clocks n-bit frames (`spiwords.spi_frames`); the received frames come back right aligned."""
-    dios, loop = prepare(ad3, need, wiring, board_cfg, instance)
-    clock = open_master(fw, board_cfg, ext_cfg, instance, bits=bits)
+@then(
+    "MOSI decodes, at the frame size, as the frames of the payload and MISO as those frames with the loopback jumper and all ones otherwise"
+)
+def decoded_frames(ext_cfg, bits, wired, transferred):
+    dios, loop = wired
+    _, result = transferred
     payload = bytes.fromhex(ext_cfg["payload"])
     frames = spi_frames(payload, bits)
-    received, result = capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["cs"], "falling"))
     wanted = frames if loop else [(1 << bits) - 1] * len(frames)
     mosi, miso = decode(result, dios, bits)
     assert mosi == frames
     assert miso == wanted
+
+
+@then("the master received the MISO frames as buffer bytes")
+def received_frames(ext_cfg, bits, wired, transferred):
+    _, loop = wired
+    received, _ = transferred
+    payload = bytes.fromhex(ext_cfg["payload"])
+    frames = spi_frames(payload, bits)
+    wanted = frames if loop else [(1 << bits) - 1] * len(frames)
     assert received == spi_bytes(wanted, bits)
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("instance", "spi_ext.instances")
-def test_8_bit_after_16_bit_reopen(fw, ad3, need, wiring, board_cfg, ext_cfg, instance):
-    """A master reopened at 8 bits after a 16-bit open runs 8-bit frames. Every open builds new DMA streams, whose
-    constructor resets the data widths, so this cannot catch a width that sticks on a live GPDMA channel (B.4a is
-    proved by review; its 32-bit encoding by test_dma.py::test_wave_32_bit)."""
-    if 16 not in instance["bits"]:
-        pytest.skip(f"{instance['name']} has no 16-bit frames")
-    dios, loop = prepare(ad3, need, wiring, board_cfg, instance)
-    open_master(fw, board_cfg, ext_cfg, instance, bits=16)
-    fw.spi.xfer(instance["index"], b"\x34\x12\x78\x56")
-    fw.spi.close(instance["index"])
-    clock = open_master(fw, board_cfg, ext_cfg, instance)
+@then("MOSI decodes as the payload")
+def decoded_8_bit(ext_cfg, wired, transferred):
+    dios, _ = wired
+    _, result = transferred
     payload = bytes.fromhex(ext_cfg["payload"])
-    received, result = capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["cs"], "falling"))
-    wanted = payload if loop else b"\xff" * len(payload)
-    mosi, miso = decode(result, dios)
+    mosi, _ = decode(result, dios)
     assert bytes(mosi) == payload
-    assert received == wanted
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("instance", "spi_ext.instances")
-@pytest.mark.board_params("variant", values=VARIANTS)
-def test_hardware_nss(fw, ad3, need, wiring, board_cfg, ext_cfg, instance, variant):
-    """`nss=<pin>`: NSS low while the master clocks, high after the transfer. Known gap (B.14): the masters
-    initialise SPI_NSS_SOFT, so the pin (pulled up by the AD3 here) never goes low."""
-    dios, _ = prepare(ad3, need, wiring, board_cfg, instance, select="nss")
-    ad3.dio.pull(up=[dios["nss"]])
-    clock = open_master(fw, board_cfg, ext_cfg, instance, variant, select="nss")
-    payload = bytes.fromhex(ext_cfg["payload"])
-    _, result = capture_transfer(fw, ad3, instance["index"], payload, clock, (dios["clk"], "either"))
-    nss = result.channel(dios["nss"])
+@then("the clock was captured")
+def clock_captured(wired, transferred):
+    dios, _ = wired
+    _, result = transferred
     edges = analysis.edges(result.channel(dios["clk"]))
     assert edges, "no clock captured"
+
+
+@then("NSS is low at every clock edge")
+def nss_low_while_clocking(wired, transferred):
+    dios, _ = wired
+    _, result = transferred
+    nss = result.channel(dios["nss"])
+    edges = analysis.edges(result.channel(dios["clk"]))
     assert all(nss[edge.index] == 0 for edge in edges), "NSS must be low while the master clocks"
+
+
+@then("NSS is high at the end of the capture")
+def nss_released(wired, transferred):
+    dios, _ = wired
+    _, result = transferred
+    nss = result.channel(dios["nss"])
     assert nss[-1] == 1, "NSS must be released after the transfer"
 
 
-@pytest.mark.board_params("instance", "spi_ext.instances")
-def test_open_frame_sizes(fw, instance):
-    """`bits` 4..16 needs `dma=1` (8 is the default and needs nothing); a limited instance (WBA55 SPI3,
-    `IS_SPI_LIMITED_INSTANCE`) takes 8 and 16 only; anything else is `ERR unsupported`, outside 4..16 `ERR range`."""
+@then(
+    "every frame size from the smallest to the largest opens with dma and closes again, unless the instance is limited and the size is "
+    'not 8 or 16, which fails with "unsupported"'
+)
+def every_frame_size(fw, instance):
     index = instance["index"]
     pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
     for bits in range(BITS_MIN, BITS_MAX + 1):
@@ -178,6 +308,15 @@ def test_open_frame_sizes(fw, instance):
             continue
         assert accepted, f"bits={bits} accepted on a limited instance"
         fw.spi.close(index)
+
+
+@then(
+    "opening with dma one size below the smallest or above the largest, with 16 bits without dma, synchronously or with lsb=2 fails with "
+    "range, range, unsupported, unsupported and range"
+)
+def frame_size_refused(fw, instance):
+    index = instance["index"]
+    pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
     for options, reason in (
         ({"dma": True, "bits": BITS_MIN - 1}, "range"),
         ({"dma": True, "bits": BITS_MAX + 1}, "range"),
@@ -188,13 +327,18 @@ def test_open_frame_sizes(fw, instance):
         with pytest.raises(FirmwareError) as error:
             fw.spi.open(index, **pins, **options)
         assert error.value.reason == reason, options
+
+
+@then("the instance opens at the default frame size least significant bit first and closes again")
+def opens_default_lsb(fw, instance):
+    index = instance["index"]
+    pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
     fw.spi.open(index, **pins, bits=DEFAULT_BITS, lsb=True)
     fw.spi.close(index)
 
 
-@pytest.mark.board_params("instance", "spi_ext.instances")
-def test_open_slave_select(fw, instance):
-    """`nss` must offer the instance's slave select (`ERR pin`) and excludes the GPIO chip select `cs` (`ERR usage`)."""
+@then('opening with both the slave select and the chip select or with the clock as slave select fails with "usage" and "pin"')
+def slave_select_refused(fw, instance):
     index = instance["index"]
     pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
     for options, reason in (
@@ -204,7 +348,17 @@ def test_open_slave_select(fw, instance):
         with pytest.raises(FirmwareError) as error:
             fw.spi.open(index, **pins, **options)
         assert error.value.reason == reason, options
+
+
+@when("the instance is opened with dma and its slave select")
+def open_with_nss(fw, instance):
+    index = instance["index"]
+    pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
     fw.spi.open(index, **pins, nss=instance["nss"], dma=True)
+
+
+@then('configuring the slave select pin as a GPIO output fails with "busy"')
+def nss_held(fw, instance):
     with pytest.raises(FirmwareError) as error:
         fw.gpio.cfg(instance["nss"], "out")
     assert error.value.reason == "busy", "the open master holds its NSS pin"

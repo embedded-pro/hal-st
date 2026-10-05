@@ -3,6 +3,8 @@ on every TIM2 update, memory and peripheral side 32 bits wide (B.4 on both MCUs)
 least significant bit first, at `rate` bits per second.
 
 Wiring set `bundle1` or `bundle2`: `tests.dma.pin` on a DIO; the argument and sharing checks need no AD3.
+
+Scenarios: features/dma.feature.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import time
 import pytest
 from ad3_waveforms_bench import analysis
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, scenario, then, when
 
 from hal_st_validation.firmware import settle
 from hal_st_validation.groups import analog
@@ -40,15 +43,40 @@ def is_cyclic_part(bits, pattern):
     return any(repeated[start : start + len(bits)] == bits for start in range(len(pattern)))
 
 
-@pytest.mark.ad3
 @pytest.mark.matrix("dma.wave")
-def test_wave_32_bit(fw, ad3, need, board_cfg, dma_cfg, rate, pattern):
-    """The LA sees `pattern` repeated at `rate` (TIM2 rounded to whole kernel clocks): each level lasts a whole
-    number of bit times and the bits between the first and the last edge are a part of the repeated pattern."""
+@scenario("dma.feature", "The pin shows the pattern repeated at the rate")
+def test_wave_32_bit(rate, pattern):
+    pass
+
+
+@scenario("dma.feature", "Missing and out-of-range wave arguments are refused")
+def test_wave_errors():
+    pass
+
+
+@scenario("dma.feature", "The wave shares TIM2 and its pin")
+def test_wave_shares_tim2_and_its_pin():
+    pass
+
+
+@given("the DMA pin is wired to a DIO", target_fixture="dio")
+def pin_wired(need, dma_cfg):
+    return need.dio(dma_cfg["pin"])
+
+
+@given("the actual rate: the rate rounded to whole timer kernel clocks", target_fixture="actual")
+def actual_rate(board_cfg, rate):
+    return analog.trigger_rate(board_cfg.clock("timer"), rate)
+
+
+@when(
+    "the wave of the pattern runs at the rate for the wave time, at least long enough for the start delay and the recording, while "
+    "the logic analyzer records the record bits at the samples per bit after the start delay",
+    target_fixture="wave",
+)
+def wave_recorded(fw, ad3, dma_cfg, rate, pattern, actual):
     pin = dma_cfg["pin"]
-    dio = need.dio(pin)
     data = bytes.fromhex(pattern)
-    actual = analog.trigger_rate(board_cfg.clock("timer"), rate)
     sample_rate = min(ad3.logic.clock_hz, actual * dma_cfg["samples_per_bit"])
     samples = min(ad3.logic.buffer_size, math.ceil(dma_cfg["record_bits"] * sample_rate / actual))
     delay = dma_cfg["start_delay_s"]
@@ -59,17 +87,45 @@ def test_wave_32_bit(fw, ad3, need, board_cfg, dma_cfg, rate, pattern):
         capture = ad3.logic.record(sample_rate, samples, timeout=samples / sample_rate + 2)
     finally:
         response = settle(pending)
+    return {"capture": capture, "response": response}
+
+
+@then("dma.wave answered OK after the wave time")
+def wave_answered(wave):
+    response = wave["response"]
     assert response is not None and response.ok, "dma.wave did not answer after ms"
+
+
+@then(
+    "every level on the DIO lasts a whole number of bit times within the tolerance and the bits between the first and the last edge "
+    "are a part of the repeated pattern",
+    target_fixture="decoded",
+)
+def wave_bits(dma_cfg, pattern, dio, actual, wave):
+    capture = wave["capture"]
+    data = bytes.fromhex(pattern)
     tolerance = dma_cfg["tolerance"]
     samples_per_bit = capture.rate / actual
     bits, first, last = decode_bits(capture.channel(dio), samples_per_bit, tolerance["bit"])
     assert is_cyclic_part(bits, analog.wave_bits(data)), f"{''.join(map(str, bits))} is no part of the pattern"
+    return bits, first, last
+
+
+@then("those bits run at the actual rate within the tolerance")
+def wave_rate(dma_cfg, actual, wave, decoded):
+    capture = wave["capture"]
+    bits, first, last = decoded
+    tolerance = dma_cfg["tolerance"]
     measured = len(bits) * capture.rate / (last - first)
     assert measured == pytest.approx(actual, rel=tolerance["rate"]), "bit rate"
 
 
-def test_wave_errors(fw, board_cfg, dma_cfg):
-    """`rate` and `pattern` are required, `pattern` holds 1-32 bytes, `rate` 1-1000000 and `ms` 1-10000."""
+@then(
+    "a wave on the DMA pin without pattern, without rate, with pattern -, with odd hex, a pattern too long, rate 0, a rate too high, "
+    "ms 0, ms too long, on two pins, on an unbonded pin, on an unknown pin or on the terminal TX pin fails with usage, usage, usage, "
+    "usage, range, range, range, range, range, usage, pin, pin and busy"
+)
+def wave_refused(fw, board_cfg, dma_cfg):
     pin = dma_cfg["pin"]
     unbonded = board_cfg.param("system.unbonded_pins")[0]
     wave = {"rate": 1000, "pattern": "a5"}
@@ -94,22 +150,54 @@ def test_wave_errors(fw, board_cfg, dma_cfg):
         assert error.value.reason == reason, (args, options)
 
 
-def test_wave_shares_tim2_and_its_pin(fw, need, board_cfg, dma_cfg):
-    """TIM2 paces the wave, so a PWM on TIM2 makes `dma.wave` busy; so does its pin held as a GPIO. Both are free
-    again once the wave answered."""
-    pin = dma_cfg["pin"]
-    need.unloaded(pin)
+@given("the DMA pin is loaded by no option the test does not handle")
+def pin_unloaded(need, dma_cfg):
+    need.unloaded(dma_cfg["pin"])
+
+
+@given("the first channel pin of TIM2 among the PWM timers", target_fixture="tim2_pin")
+def tim2_channel(board_cfg):
     tim2 = next(timer for timer in board_cfg.param("pwm.timers") if timer["timer"] == 2)
-    fw.pwm.open(2, pins=[tim2["channels"][0]["pin"]])
+    return tim2["channels"][0]["pin"]
+
+
+@given("the PWM opens TIM2 on that pin")
+@when("the PWM opens TIM2 on that pin")
+@then("the PWM opens TIM2 on that pin")
+def pwm_opened(fw, tim2_pin):
+    fw.pwm.open(2, pins=[tim2_pin])
+
+
+@then('a wave of a5 at 1000 bit/s for 10 ms on the DMA pin fails with "busy", as the PWM holds TIM2')
+def wave_busy_pwm(fw, dma_cfg):
     with pytest.raises(FirmwareError) as error:
-        fw.dma.wave(pin, rate=1000, pattern=b"\xa5", ms=10)
+        fw.dma.wave(dma_cfg["pin"], rate=1000, pattern=b"\xa5", ms=10)
     assert error.value.reason == "busy", "TIM2 held by pwm"
-    fw.pwm.close(2)
-    fw.gpio.cfg(pin, "out")
+
+
+@then('a wave of a5 at 1000 bit/s for 10 ms on the DMA pin fails with "busy", as a GPIO holds the pin')
+def wave_busy_gpio(fw, dma_cfg):
     with pytest.raises(FirmwareError) as error:
-        fw.dma.wave(pin, rate=1000, pattern=b"\xa5", ms=10)
+        fw.dma.wave(dma_cfg["pin"], rate=1000, pattern=b"\xa5", ms=10)
     assert error.value.reason == "busy", "pin held by gpio"
-    fw.gpio.release(pin)
-    fw.dma.wave(pin, rate=1000, pattern=b"\xa5", ms=10)
-    fw.gpio.cfg(pin, "out")
-    fw.pwm.open(2, pins=[tim2["channels"][0]["pin"]])
+
+
+@then("a wave of a5 at 1000 bit/s for 10 ms on the DMA pin runs")
+def wave_runs(fw, dma_cfg):
+    fw.dma.wave(dma_cfg["pin"], rate=1000, pattern=b"\xa5", ms=10)
+
+
+@when("the PWM closes TIM2")
+def pwm_closed(fw):
+    fw.pwm.close(2)
+
+
+@when("the DMA pin is configured as a GPIO output")
+@then("the DMA pin is configured as a GPIO output")
+def pin_as_gpio(fw, dma_cfg):
+    fw.gpio.cfg(dma_cfg["pin"], "out")
+
+
+@when("the GPIO of the DMA pin is released")
+def gpio_released(fw, dma_cfg):
+    fw.gpio.release(dma_cfg["pin"])
