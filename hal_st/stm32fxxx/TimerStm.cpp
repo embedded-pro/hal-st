@@ -166,13 +166,19 @@ namespace hal
         handle.Instance = peripheralTimer[timerIndex];
         handle.Init.Prescaler = timing.prescaler;
         handle.Init.Period = timing.period;
-        handle.Init.CounterMode = infra::enum_cast(config.counterMode);
+        handle.Init.CounterMode = TIM_COUNTERMODE_UP;
         handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
         handle.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
         HAL_TIM_Base_Init(&handle);
 
         clockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
         HAL_TIM_ConfigClockSource(&handle, &clockSourceConfig);
+
+        // CR1.DIR ignores writes while centre-aligned or in encoder mode, either of which an
+        // earlier user may have left, so the direction is only written once the two calls
+        // above have cleared CMS and SMS.
+        handle.Init.CounterMode = infra::enum_cast(config.counterMode);
+        HAL_TIM_Base_Init(&handle);
 
         if (config.trigger)
             ConfigureTrigger();
@@ -227,6 +233,9 @@ namespace hal
     {
         this->onIrq = onIrq;
         this->type = type;
+        // Some HAL versions leave UIF set from the UG of HAL_TIM_Base_Init, which would fire
+        // a callback as soon as the interrupt is enabled.
+        __HAL_TIM_CLEAR_FLAG(&handle, TIM_FLAG_UPDATE);
         auto result = HAL_TIM_Base_Start_IT(&handle);
         assert(result == HAL_OK);
     }
