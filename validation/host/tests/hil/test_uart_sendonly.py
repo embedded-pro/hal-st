@@ -68,7 +68,7 @@ def test_receive_returns_nothing(instance):
 
 @pytest.mark.usefixtures("sendonly_cfg")
 @pytest.mark.board_params("instance", "uart_sendonly.instances")
-@scenario("uart_sendonly.feature", "flow=rts drives RTS asserted and does not hold transmission")
+@scenario("uart_sendonly.feature", "flow=rts drives RTS deasserted and does not hold transmission")
 def test_rts_only_mapping(instance):
     pass
 
@@ -203,14 +203,14 @@ def receives_nothing(fw, instance, count, timeout_ms):
     assert fw.uart.recv(instance["index"], timeout=timeout_ms, len=count) == b""
 
 
-@then("the RTS DIO reads 0 with the AD3 pulling it up and with the AD3 pulling it down, the pulls turned off afterwards")
-def rts_driven_low(ad3, rts_dio):
+@then("the RTS DIO reads 1 with the AD3 pulling it up and with the AD3 pulling it down, the pulls turned off afterwards")
+def rts_driven_deasserted(ad3, rts_dio):
     ad3.dio.pull(up=[rts_dio])
     pulled_up = ad3.dio.read(rts_dio)
     ad3.dio.pull(down=[rts_dio])
     pulled_down = ad3.dio.read(rts_dio)
     ad3.dio.pull()
-    assert pulled_up == pulled_down == 0, "RTS must be driven and asserted (receiver ready) by the UART"
+    assert (pulled_up, pulled_down) == (1, 1), f"RTS must be driven deasserted: {pulled_up} pulled up, {pulled_down} pulled down"
 
 
 @then(
@@ -228,8 +228,8 @@ def all_but_last_frame(ad3, sendonly_cfg, cut_payload):
     payload = cut_payload
     baud = sendonly_cfg["cut"]["baud"]
     received = ad3.uart.read(len(payload), timeout=expect.uart_transfer_time(len(payload), baud) + 1.0)
-    assert received[: len(payload) - 1] == payload[:-1]
-    assert len(received) <= len(payload)
+    assert received[: len(payload) - 1] == payload[:-1], received.hex()
+    assert len(received) <= len(payload), received.hex()
 
 
 @then("uart.recv returns nothing")

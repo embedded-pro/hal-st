@@ -32,13 +32,15 @@ Feature: Send-only UART
     Then uart.recv of 2 bytes within 100 ms returns nothing
 
   @ad3
-  Scenario: flow=rts drives RTS asserted and does not hold transmission
-    `flow=rts` muxes RTS and enables RTS flow control: the UART drives the RTS pin low (receiver ready) against both
-    AD3 pulls, and transmission is not held. CTSE cannot be observed: the send-only driver never muxes a CTS pin.
+  Scenario: flow=rts drives RTS deasserted and does not hold transmission
+    `flow=rts` muxes RTS and enables RTS flow control. nRTS is asserted only while the receiver is ready to receive
+    (RM0434, RS232 RTS flow control); the send-only driver has no RX pin and leaves its receiver off, so the UART
+    drives the RTS pin high (deasserted) against both AD3 pulls, and transmission is not held. CTSE cannot be
+    observed: the send-only driver never muxes a CTS pin.
     Given the RTS pin of the instance is wired to a DIO
     And the AD3 listens at 115200 baud
     And the instance is opened send-only at 115200 baud with flow=rts on its RTS pin
-    Then the RTS DIO reads 0 with the AD3 pulling it up and with the AD3 pulling it down, the pulls turned off afterwards
+    Then the RTS DIO reads 1 with the AD3 pulling it up and with the AD3 pulling it down, the pulls turned off afterwards
     And the last of the payloads sent by the firmware at 115200 baud arrives unchanged at the AD3, flow=rts not blocking it
 
   @ad3
