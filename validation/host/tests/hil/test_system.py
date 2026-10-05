@@ -1,10 +1,14 @@
-"""General commands, framing, pins and error semantics (no AD3 needed)."""
+"""General commands, framing, pins and error semantics (no AD3 needed).
+
+Scenarios: features/system.feature.
+"""
 
 import re
 import time
 
 import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.protocol import is_alias
 
@@ -15,90 +19,75 @@ def reason_of(fw, line):
     return error.value.reason
 
 
-def test_ping(fw):
-    fw.system.ping()
+@scenario("system.feature", "The board answers ping")
+def test_ping():
+    pass
 
 
-def test_info_matches_board(fw, board_cfg):
-    info = fw.system.info()
-    assert board_cfg.matches_firmware_name(info.board), info.raw
-    assert info.family == board_cfg.family
-    assert info.sysclk == board_cfg.sysclk == board_cfg.clock("sysclk")
-    assert info.reset in ("iwdg", "wwdg", "sw", "lpwr", "obl", "bor", "pin", "unknown")
-    assert info.uid is not None and re.fullmatch(r"[0-9a-fA-F]{24}", info.uid), "the 96-bit unique device ID"
+@scenario("system.feature", "The board info matches the board file")
+def test_info_matches_board():
+    pass
 
 
-def test_board_pins_match_yaml(fw, board_cfg):
-    """`board.pins` and the board file's `pins` are the same alias table, in both directions."""
-    reported = fw.system.pins()
-    mismatches = {alias: (pin, reported.get(alias)) for alias, pin in board_cfg.pins.items() if reported.get(alias) != pin}
-    assert not mismatches, f"alias: (yaml, firmware) {mismatches}"
-    extra = {alias: pin for alias, pin in reported.items() if alias not in board_cfg.pins}
-    assert not extra, f"aliases the board file lacks: {extra}"
+@scenario("system.feature", "The firmware and the board file have the same pin aliases")
+def test_board_pins_match_yaml():
+    pass
 
 
-def test_aliases_are_generic(board_cfg):
-    assert all(is_alias(alias) for alias in board_cfg.pins), sorted(board_cfg.pins)
-    assert {"terminaltx", "terminalrx"} <= set(board_cfg.pins)
+@scenario("system.feature", "The board file uses generic aliases, including the terminal pins")
+def test_aliases_are_generic():
+    pass
 
 
-def test_every_alias_is_accepted_as_pin(fw, board_cfg):
-    """Each alias names its pin in commands; the terminal pins and the debug LED stay reserved."""
-    reserved = {*board_cfg.terminal.pins, board_cfg.resolve_pin(board_cfg.param("system.debug_led"))}
-    for alias, pin in board_cfg.pins.items():
-        if pin in reserved:
-            assert reason_of(fw, f"gpio.cfg {alias} in") == "busy", alias
-            continue
-        fw.command("gpio.cfg", alias, "in")
-        fw.command("gpio.get", pin)
-        fw.command("gpio.release", alias)
+@scenario("system.feature", "Every alias names its pin in commands")
+def test_every_alias_is_accepted_as_pin():
+    pass
 
 
 @pytest.mark.board_params("pin", "system.reserved_pins")
-def test_reserved_pins_are_busy(fw, pin):
-    """SWD, the LSE crystal and BOOT0 cannot be opened."""
-    assert reason_of(fw, f"gpio.cfg {pin} in") == "busy"
+@scenario("system.feature", "The reserved pins are busy")
+def test_reserved_pins_are_busy(pin):
+    pass
 
 
-def test_terminal_pins_and_debug_led_are_busy(fw, board_cfg):
-    for pin in [*board_cfg.terminal.pins, board_cfg.param("system.debug_led")]:
-        assert reason_of(fw, f"gpio.cfg {pin} in") == "busy", pin
+@scenario("system.feature", "The terminal pins and the debug LED are busy")
+def test_terminal_pins_and_debug_led_are_busy():
+    pass
 
 
 @pytest.mark.board_params("pin", "system.unbonded_pins")
-def test_unbonded_pin(fw, pin):
-    """A pin the package does not bond out, or of a port the MCU lacks, is `ERR pin`."""
-    assert reason_of(fw, f"gpio.cfg {pin} in") == "pin"
+@scenario("system.feature", "A pin the package does not bond out is refused")
+def test_unbonded_pin(pin):
+    pass
 
 
 @pytest.mark.board_params("pin", "system.invalid_pins")
-def test_pin_syntax(fw, pin):
-    """`P<port><index>` without leading zero and index 0-15, or an alias of the board (case-sensitive)."""
-    assert reason_of(fw, f"gpio.cfg {pin} in") == "pin"
+@scenario("system.feature", "A malformed pin name is refused")
+def test_pin_syntax(pin):
+    pass
 
 
 @pytest.mark.board_params("index", "system.reserved_uarts")
-def test_terminal_uart_is_reserved(fw, index):
-    with pytest.raises(FirmwareError) as error:
-        fw.uart.open(index)
-    assert error.value.reason == "busy"
+@scenario("system.feature", "The terminal UART is reserved")
+def test_terminal_uart_is_reserved(index):
+    pass
 
 
-def test_unknown_command_and_key(fw):
-    assert reason_of(fw, "no.such.command") == "usage"
-    with pytest.raises(FirmwareError) as error:
-        fw.command("ping", nosuchkey=1)
-    assert error.value.reason == "usage"
+@scenario("system.feature", "Unknown commands and keys are refused")
+def test_unknown_command_and_key():
+    pass
 
 
 @pytest.mark.board_params("line", "system.missing_instances")
-def test_nonexistent_instance(fw, line):
-    assert reason_of(fw, line) == "range"
+@scenario("system.feature", "A command on a missing instance is refused")
+def test_nonexistent_instance(line):
+    pass
 
 
 @pytest.mark.board_params("line", "system.unsupported_instances")
-def test_unsupported_instance(fw, line):
-    assert reason_of(fw, line) == "unsupported"
+@scenario("system.feature", "A command on an unsupported instance is refused")
+def test_unsupported_instance(line):
+    pass
 
 
 @pytest.mark.parametrize(
@@ -114,39 +103,211 @@ def test_unsupported_instance(fw, line):
         ("gpio.cfg", ("gpio0", "in", "pull=sideways"), "usage"),
     ],
 )
-def test_usage_errors(fw, name, args, reason):
-    assert reason_of(fw, " ".join((name, *args))) == reason
+@scenario("system.feature", "Malformed commands are refused")
+def test_usage_errors(name, args, reason):
+    pass
 
 
-def test_notopen_and_busy(fw, board_cfg):
-    instance = board_cfg.param("spi.instances")[0]
-    pins = {key: instance[key] for key in ("clk", "mosi", "miso")}
-    with pytest.raises(FirmwareError) as error:
-        fw.spi.close(instance["index"])
-    assert error.value.reason == "notopen"
-    fw.spi.open(instance["index"], **pins)
-    with pytest.raises(FirmwareError) as error:
-        fw.spi.open(instance["index"], **pins)
-    assert error.value.reason == "busy"
-    with pytest.raises(FirmwareError) as error:
-        fw.spi.open(instance["index"], **pins, baud=1)
-    assert error.value.reason == "range", "argument errors come before busy"
-    fw.spi.close(instance["index"])
+@scenario("system.feature", "Closing what is not open and opening what is open are refused")
+def test_notopen_and_busy():
+    pass
 
 
 @pytest.mark.board_params("ms", "system.delays_ms")
-def test_delay(fw, ms):
+@scenario("system.feature", "A delay lasts at least the requested time")
+def test_delay(ms):
+    pass
+
+
+@scenario("system.feature", "A reset reports a software reset")
+def test_reset_reports_boot():
+    pass
+
+
+@given("the first of the SPI instances of the board file", target_fixture="spi_instance")
+def first_spi_instance(board_cfg):
+    return board_cfg.param("spi.instances")[0]
+
+
+@when("the board info is read", target_fixture="info")
+def read_info(fw):
+    return fw.system.info()
+
+
+@when("the firmware lists its pin aliases", target_fixture="reported")
+def list_pins(fw):
+    return fw.system.pins()
+
+
+@when("it is opened on its CLK, MOSI and MISO pins")
+def spi_opened(fw, spi_instance):
+    pins = {key: spi_instance[key] for key in ("clk", "mosi", "miso")}
+    fw.spi.open(spi_instance["index"], **pins)
+
+
+@when("the firmware delays for the time, timed on the host", target_fixture="elapsed")
+def timed_delay(fw, ms):
     start = time.monotonic()
     fw.system.delay(ms)
-    assert time.monotonic() - start >= ms / 1000 * 0.95
+    return time.monotonic() - start
 
 
-@pytest.mark.resets_board
-def test_reset_reports_boot(fw, board_cfg):
-    boot = fw.system.reset(timeout=board_cfg.param("system.boot_timeout", 5.0))
+@when("the board resets", target_fixture="boot")
+def reset_board(fw, board_cfg):
+    return fw.system.reset(timeout=board_cfg.param("system.boot_timeout", 5.0))
+
+
+@then("the board answers ping")
+def answers_ping(fw):
+    fw.system.ping()
+
+
+@then("it names the board of the board file")
+def info_names_board(board_cfg, info):
+    assert board_cfg.matches_firmware_name(info.board), info.raw
+
+
+@then("it reports the family of the board file")
+def info_reports_family(board_cfg, info):
+    assert info.family == board_cfg.family
+
+
+@then("it reports the system clock of the board file, which is the sysclk of its clock tree")
+def info_reports_sysclk(board_cfg, info):
+    assert info.sysclk == board_cfg.sysclk == board_cfg.clock("sysclk")
+
+
+@then(parsers.parse("it reports one of the reset causes {causes}"))
+def info_reports_reset_cause(info, causes):
+    first, last = causes.split(" and ")
+    assert info.reset in (*first.split(", "), last)
+
+
+@then(parsers.parse("it reports a unique device ID of {digits:d} hex digits"))
+def info_reports_uid(info, digits):
+    assert info.uid is not None and re.fullmatch(rf"[0-9a-fA-F]{{{digits}}}", info.uid), "the 96-bit unique device ID"
+
+
+@then("every alias of the board file names the same pin in the firmware")
+def aliases_match(board_cfg, reported):
+    mismatches = {alias: (pin, reported.get(alias)) for alias, pin in board_cfg.pins.items() if reported.get(alias) != pin}
+    assert not mismatches, f"alias: (yaml, firmware) {mismatches}"
+
+
+@then("the firmware has no alias the board file lacks")
+def no_extra_aliases(board_cfg, reported):
+    extra = {alias: pin for alias, pin in reported.items() if alias not in board_cfg.pins}
+    assert not extra, f"aliases the board file lacks: {extra}"
+
+
+@then("every alias of the board file is a generic alias")
+def aliases_generic(board_cfg):
+    assert all(is_alias(alias) for alias in board_cfg.pins), sorted(board_cfg.pins)
+
+
+@then(parsers.parse("the board file has the aliases {first} and {second}"))
+def has_terminal_aliases(board_cfg, first, second):
+    assert {first, second} <= set(board_cfg.pins)
+
+
+@then(
+    parsers.parse(
+        "every alias of the board file configures as a GPIO input, its pin reads and the alias releases, "
+        'except that configuring an alias of a terminal pin or of the debug LED fails with "{refusal}"'
+    )
+)
+def aliases_accepted(fw, board_cfg, refusal):
+    reserved = {*board_cfg.terminal.pins, board_cfg.resolve_pin(board_cfg.param("system.debug_led"))}
+    for alias, pin in board_cfg.pins.items():
+        if pin in reserved:
+            assert reason_of(fw, f"gpio.cfg {alias} in") == refusal, alias
+            continue
+        fw.command("gpio.cfg", alias, "in")
+        fw.command("gpio.get", pin)
+        fw.command("gpio.release", alias)
+
+
+@then(parsers.parse('configuring the pin as a GPIO input fails with "{refusal}"'))
+def pin_refused(fw, pin, refusal):
+    assert reason_of(fw, f"gpio.cfg {pin} in") == refusal
+
+
+@then(parsers.parse('configuring each terminal pin and then the debug LED pin as a GPIO input fails with "{refusal}"'))
+def terminal_pins_and_debug_led_refused(fw, board_cfg, refusal):
+    for pin in [*board_cfg.terminal.pins, board_cfg.param("system.debug_led")]:
+        assert reason_of(fw, f"gpio.cfg {pin} in") == refusal, pin
+
+
+@then(parsers.parse('opening the reserved UART fails with "{refusal}"'))
+def terminal_uart_refused(fw, index, refusal):
+    with pytest.raises(FirmwareError) as error:
+        fw.uart.open(index)
+    assert error.value.reason == refusal
+
+
+@then(parsers.parse('the command line "{command_line}" fails with "{refusal}"'))
+def unknown_command_refused(fw, command_line, refusal):
+    assert reason_of(fw, command_line) == refusal
+
+
+@then(parsers.parse('the command "{command}" with {key}={value:d} fails with "{refusal}"'))
+def unknown_key_refused(fw, command, key, value, refusal):
+    with pytest.raises(FirmwareError) as error:
+        fw.command(command, **{key: value})
+    assert error.value.reason == refusal
+
+
+@then(parsers.parse('the command line fails with "{refusal}"'))
+def line_refused(fw, line, refusal):
+    assert reason_of(fw, line) == refusal
+
+
+@then("the command with the arguments fails with the reason")
+def usage_refused(fw, name, args, reason):
+    assert reason_of(fw, " ".join((name, *args))) == reason
+
+
+@then(parsers.parse('closing it fails with "{refusal}"'))
+def spi_close_refused(fw, spi_instance, refusal):
+    with pytest.raises(FirmwareError) as error:
+        fw.spi.close(spi_instance["index"])
+    assert error.value.reason == refusal
+
+
+@then(parsers.parse('opening it on these pins again fails with "{refusal}"'))
+def spi_reopen_refused(fw, spi_instance, refusal):
+    pins = {key: spi_instance[key] for key in ("clk", "mosi", "miso")}
+    with pytest.raises(FirmwareError) as error:
+        fw.spi.open(spi_instance["index"], **pins)
+    assert error.value.reason == refusal
+
+
+@then(parsers.parse('opening it on these pins again with baud={spi_baud:d} fails with "{refusal}", argument errors coming before busy'))
+def spi_reopen_bad_baud_refused(fw, spi_instance, spi_baud, refusal):
+    pins = {key: spi_instance[key] for key in ("clk", "mosi", "miso")}
+    with pytest.raises(FirmwareError) as error:
+        fw.spi.open(spi_instance["index"], **pins, baud=spi_baud)
+    assert error.value.reason == refusal, "argument errors come before busy"
+
+
+@then("it closes")
+def spi_closes(fw, spi_instance):
+    fw.spi.close(spi_instance["index"])
+
+
+@then(parsers.parse("it took at least {percent:d} % of the time"))
+def delay_long_enough(ms, elapsed, percent):
+    assert elapsed >= ms / 1000 * (percent / 100)
+
+
+@then(parsers.parse('the boot message names the board, the family and the system clock of the board file and the reset cause "{cause}"'))
+def boot_reports_reset(board_cfg, boot, cause):
     assert board_cfg.matches_firmware_name(boot.board)
     assert boot.family == board_cfg.family
     assert boot.sysclk == board_cfg.sysclk
-    assert boot.reset == "sw"
-    fw.system.ping()
-    assert fw.system.info().reset == "sw"
+    assert boot.reset == cause
+
+
+@then(parsers.parse('the board info reports the reset cause "{cause}"'))
+def info_reports_reset(fw, cause):
+    assert fw.system.info().reset == cause
