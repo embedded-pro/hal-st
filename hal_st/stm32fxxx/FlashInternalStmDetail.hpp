@@ -6,17 +6,20 @@
 #include "services/flash/FlashAlign.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 
 namespace hal
 {
     namespace detail
     {
+        // A chunk can point into the caller's buffer at any byte offset, and a 64-bit load (LDRD) faults on an unaligned address even with unaligned access enabled
         template<typename alignment>
         void AlignedWriteBufferByAddress(services::FlashAlign::Chunk& chunk, uint32_t& fullAddress, uint32_t flashType)
         {
-            auto range = infra::ReinterpretCastMemoryRange<const alignment>(chunk.data);
-            for (const auto& data : range)
+            for (auto source = chunk.data.begin(); source != chunk.data.end(); source += sizeof(alignment))
             {
+                alignment data;
+                std::memcpy(&data, source, sizeof(alignment));
                 auto result = HAL_FLASH_Program(flashType, fullAddress, reinterpret_cast<uint32_t>(&data));
                 really_assert(result == HAL_OK);
                 fullAddress += sizeof(alignment);
@@ -26,9 +29,10 @@ namespace hal
         template<typename alignment>
         void AlignedWriteBufferByValue(services::FlashAlign::Chunk& chunk, uint32_t& fullAddress, uint32_t flashType)
         {
-            auto range = infra::ReinterpretCastMemoryRange<const alignment>(chunk.data);
-            for (alignment data : range)
+            for (auto source = chunk.data.begin(); source != chunk.data.end(); source += sizeof(alignment))
             {
+                alignment data;
+                std::memcpy(&data, source, sizeof(alignment));
                 auto result = HAL_FLASH_Program(flashType, fullAddress, data);
                 really_assert(result == HAL_OK);
                 fullAddress += sizeof(alignment);
