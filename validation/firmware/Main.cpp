@@ -119,7 +119,7 @@ int main()
     static validation::SyncGpioCommands syncGpio{ context };
     static validation::ClockCommands clocks{ context };
 
-    static validation::RngCommands rng{ context };
+    static validation::RngCommands rng{ context, resources };
     static validation::AesCommands aes{ context };
     static validation::PkaCommands pka{ context };
 

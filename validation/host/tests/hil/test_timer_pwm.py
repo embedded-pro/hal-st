@@ -177,6 +177,30 @@ def test_start_and_stop_one_channel(fw, ad3, need, tpwm_cfg, timer):
     check_channel(record(ad3, tpwm_cfg, frequency), second, frequency, fraction, tpwm_cfg)
 
 
+@pytest.mark.ad3
+@pytest.mark.board_params("timer", "timer_pwm.timers")
+def test_break_left_by_pwm_is_disabled(fw, ad3, need, board_cfg, tpwm_cfg, timer):
+    """`pwm.close` leaves BDTR with the break input enabled; with `brkpol=low` and the break pin back in analog mode
+    that break stays active, so `tpwm` on the same timer only drives its outputs because it rewrites BDTR."""
+    index = timer["timer"]
+    pwm_timer = next((entry for entry in board_cfg.param("pwm.timers") if entry["timer"] == index and entry.get("brk")), None)
+    if pwm_timer is None:
+        pytest.skip(f"no pwm break input on TIM{index}")
+    dios = wired(need, timer["pins"])
+    fw.pwm.open(index, pins=[pwm_timer["channels"][0]["pin"]], brk=pwm_timer["brk"], brkpol="low")
+    fw.pwm.close(index)
+    timclk = open_tpwm(fw, tpwm_cfg, timer)
+    for channel, dio in enumerate(dios, 1):
+        if dio is not None:
+            fw.tpwm.duty(index, channel, 50)
+    fw.tpwm.start(index)
+    frequency = timer_update_rate(timclk, tpwm_cfg["prescaler"], tpwm_cfg["period"])
+    capture = record(ad3, tpwm_cfg, frequency)
+    for dio in dios:
+        if dio is not None:
+            check_channel(capture, dio, frequency, pwm_duty_fraction(tpwm_cfg["period"], 50), tpwm_cfg)
+
+
 def test_open_errors(fw, tpwm_cfg, board_cfg):
     """Argument errors in the protocol order: usage, range, pin, unsupported."""
     timer = next(entry for entry in tpwm_cfg["timers"] if entry["timer"] in expect.SINGLE_CHANNEL_TIMERS)

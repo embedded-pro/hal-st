@@ -1,6 +1,7 @@
 """Low-power mode through the `lpm` group: `hal::LowPowerModeStm::Enter` inside a window where only the wake line's
 EXTI interrupt and the scaffold timer (TIM17, 1 us ticks, also the safety timeout) are enabled and the SysTick tick is
-off. The marker pin is low while the core sleeps.
+off. The marker pin is low while the core sleeps; `sleeps` (the `Enter` calls, about one per millisecond when WFI
+really sleeps) shows that it did.
 
 `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it behaves like `sleep` and never calls the
 clock-restore callback (`restored=0`). The wake edge comes from the AD3 on the wake pin (bundle1 `gpio0`); the logic
@@ -34,7 +35,8 @@ def expect_reason(fw, line: str, reason: str) -> None:
 @pytest.mark.board_params("edge", "lowpower.edges")
 def test_wake_on_edge(request, fw, ad3, need, lp_cfg, mode, edge):
     """The core sleeps (marker low) until the edge on the wake pin; the marker rises within `latency_us` of it and
-    `us` covers the time asleep."""
+    `us` covers the time asleep. `sleeps` proves the WFI: a sleeping core returns from `Enter` once per TIM17 update
+    (1 ms) plus once for the edge, a driver that never sleeps busy-polls some 10^5 calls in that window."""
     if request.config.getoption("--fake"):
         pytest.skip("the fake AD3 sees no board")
     wake_dio, marker_dio = need.dio(lp_cfg["wake"]), need.dio(lp_cfg["marker"])
@@ -56,6 +58,7 @@ def test_wake_on_edge(request, fw, ad3, need, lp_cfg, mode, edge):
         ad3.dio.release(wake_dio)
     assert (wake.woke, wake.restored) == ("exti", 0), wake.raw
     assert delay * 1e6 * 0.5 <= wake.us <= timeout_ms * 1000, wake.raw
+    assert 1 <= wake.sleeps <= 2 * (wake.us // 1000) + 2, wake.raw
     marker = result.channel(marker_dio)
     trigger = result.trigger_index
     assert trigger is not None

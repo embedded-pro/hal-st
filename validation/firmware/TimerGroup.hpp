@@ -27,6 +27,9 @@ namespace validation
         { "dispatched", TimerIrq::dispatched },
     } };
 
+    // Above this the update interrupt, which runs on every update in both irq modes, starves the event loop.
+    inline constexpr uint32_t maximumUpdateInterruptRate = 100000;
+
     class TimerMarker
     {
     public:

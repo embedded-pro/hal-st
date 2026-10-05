@@ -12,6 +12,7 @@
 #include "hal_st/synchronous_stm32fxxx/SynchronousSynchronizedRandomDataGeneratorStm.hpp"
 #include "stm32wbxx_ll_rng.h"
 #include "validation/firmware/HsemMaster.hpp"
+#include "validation/firmware/Owners.hpp"
 #endif
 
 namespace validation
@@ -35,11 +36,19 @@ namespace validation
         constexpr uint32_t maximumStats = 65536;
         constexpr std::chrono::milliseconds readTimeout{ 1000 };
         constexpr std::chrono::milliseconds statsTimeout{ 5000 };
+
+#if defined(STM32WB)
+        bool RngKernelClockStopped()
+        {
+            return __HAL_RCC_GET_RNG_SOURCE() == RCC_RNGCLKSOURCE_CLK48 && LL_RCC_GetCLK48ClockSource(LL_RCC_CLK48_CLKSOURCE) == LL_RCC_CLK48_CLKSOURCE_HSI48 && LL_RCC_HSI48_IsReady() == 0;
+        }
+#endif
     }
 
-    RngCommands::RngCommands(services::HilContext& context)
+    RngCommands::RngCommands(services::HilContext& context, ResourceAllocation& resources)
         : services::TerminalCommands(context.terminal)
         , context(context)
+        , resources(resources)
         , pending(context.response)
         , commands{ {
               services::HilBind<RngCommands, &RngCommands::Read>("rng.read", "<len> [variant=sync|async|hsem] [lock5=0|1]", *this, context.response),
@@ -94,6 +103,12 @@ namespace validation
         if (candidate.lockClock && candidate.variant != Variant::hsem)
             return HilStatus::usage;
 
+#if defined(STM32WB)
+        // Only Hsi48Enabler (variant=hsem) starts HSI48; the plain drivers would abort on the clock error or wait forever for data
+        if (candidate.variant != Variant::hsem && RngKernelClockStopped())
+            return HilStatus::failed;
+#endif
+
         return HilStatus::done;
     }
 
@@ -137,21 +152,14 @@ namespace validation
 #if defined(STM32WB)
         if (request.variant == Variant::hsem)
         {
-            constexpr auto clockSemaphore = static_cast<uint32_t>(hal::Semaphore::recoveryAndIndependentClockConfiguration);
-            auto& master = HsemMaster();
+            auto status = resources.Claim(Resource::hsem, 0, owners::scaffold);
+            if (status != HilStatus::done)
+                return status;
 
-            // With semaphore 5 locked, Hsi48Enabler asserts that HSI48 runs instead of starting it
-            if (request.lockClock && LL_RCC_HSI48_IsReady() == 0)
-                return HilStatus::failed;
-
-            if (request.lockClock && HAL_HSEM_FastTake(clockSemaphore) != HAL_OK)
-                return HilStatus::busy;
-
-            hal::SynchronousSynchronizedRandomDataGeneratorStm generator{ creator, master };
-            Generate(generator);
-
-            if (request.lockClock)
-                HAL_HSEM_Release(clockSemaphore, 0);
+            status = GenerateSynchronized();
+            resources.Release(Resource::hsem, 0, owners::scaffold);
+            if (status != HilStatus::done)
+                return status;
 
             Finish();
             return HilStatus::done;
@@ -163,6 +171,33 @@ namespace validation
         Finish();
         return HilStatus::done;
     }
+
+#if defined(STM32WB)
+    HilStatus RngCommands::GenerateSynchronized()
+    {
+        constexpr auto clockSemaphore = hal::Semaphore::recoveryAndIndependentClockConfiguration;
+        auto& master = HsemMaster();
+
+        // The driver spins on semaphore 0 with the event loop blocked: one this core already holds would never be freed
+        if (master.IsLockedByCurrentCore(hal::Semaphore::randomNumberGenerator))
+            return HilStatus::busy;
+
+        // With semaphore 5 locked by this core (any process), Hsi48Enabler asserts that HSI48 runs instead of starting it
+        if ((request.lockClock || master.IsLockedByCurrentCore(clockSemaphore)) && LL_RCC_HSI48_IsReady() == 0)
+            return HilStatus::failed;
+
+        if (request.lockClock && HAL_HSEM_FastTake(static_cast<uint32_t>(clockSemaphore)) != HAL_OK)
+            return HilStatus::busy;
+
+        hal::SynchronousSynchronizedRandomDataGeneratorStm generator{ creator, master };
+        Generate(generator);
+
+        if (request.lockClock)
+            HAL_HSEM_Release(static_cast<uint32_t>(clockSemaphore), 0);
+
+        return HilStatus::done;
+    }
+#endif
 
     void RngCommands::Generate(hal::SynchronousRandomDataGenerator& generator)
     {

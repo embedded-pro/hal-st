@@ -7,6 +7,7 @@
 #include "infra/util/ProxyCreator.hpp"
 #include "services/hil/HilCommand.hpp"
 #include "services/hil/commands/HilPendingOperation.hpp"
+#include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/Stopwatch.hpp"
 #include <array>
 #include <cstdint>
@@ -25,7 +26,7 @@ namespace validation
             hsem,
         };
 
-        explicit RngCommands(services::HilContext& context);
+        RngCommands(services::HilContext& context, ResourceAllocation& resources);
 
         infra::MemoryRange<const Command> Commands() override;
 
@@ -64,6 +65,9 @@ namespace validation
         services::HilStatus Reserve();
         services::HilStatus Run(const Request& request);
         services::HilStatus RunSynchronous();
+#if defined(STM32WB)
+        services::HilStatus GenerateSynchronized();
+#endif
         void Generate(hal::SynchronousRandomDataGenerator& generator);
         void StartAsynchronous();
         void RequestChunk();
@@ -74,6 +78,7 @@ namespace validation
 
     private:
         services::HilContext& context;
+        ResourceAllocation& resources;
         services::HilPendingOperation pending;
         std::optional<hal::RandomDataGeneratorStm> asyncGenerator;
 #if defined(STM32WB)

@@ -169,7 +169,9 @@ def test_arm_needs_the_open_instance_and_answers_busy_while_armed():
     assert reason(terminal, "spis.arm 4 01") == "range"
     fw.spis.arm(2, b"\x01")
     assert reason(terminal, "spis.arm 2 02") == "busy"
-    assert reason(terminal, "spis.arm 2 0203 rx=1") == "usage"
+    assert reason(terminal, "spis.arm 2 0203 rx=1") == "busy", "busy before the payload: the armed DMA reads it"
+    assert reason(terminal, "spis.arm 2 - len=1025") == "busy"
+    assert reason(terminal, "spis.arm 2 01 extra=1") == "usage"
 
 
 @pytest.mark.parametrize(

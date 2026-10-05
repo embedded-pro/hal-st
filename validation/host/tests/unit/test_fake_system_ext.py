@@ -300,7 +300,7 @@ def test_lpm_errors_wb55(line, expected):
 def test_lpm_wakes_and_checks_resources():
     terminal, fake, fw = make("stm32wba55")
     wake = fw.lpm.enter("sleep")
-    assert (wake.woke, wake.restored) == ("exti", 0)
+    assert (wake.woke, wake.restored, wake.sleeps) == ("exti", 0, 1)
     fw.gpio.cfg("tim1bkin", "out")
     assert reason(terminal, "lpm.enter sleep") == "busy"
     fw.gpio.release("tim1bkin")

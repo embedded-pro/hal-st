@@ -5,8 +5,10 @@ by its `Hsi48Enabler` unless semaphore 5 is locked).
 
 Every variant returns exactly the requested bytes, two reads differ, and 64 KiB pass the monobit, byte chi-square and
 runs tests of `rngstats`. On STM32WB55 the synchronized variant keeps HSI48 (the RNG kernel clock) running when it was
-on and switches it off again when it was off (B.9b), takes the locked branch with `lock5=1`, and leaves HSEM semaphores
-0 and 5 free (B.9). No wiring.
+on and switches it off again when it was off (B.9b), reads with semaphore 5 held (`lock5=1`), and leaves HSEM
+semaphores 0 and 5 free (B.9). The firmware refuses what would hang or abort it: the plain variants while HSI48 is off,
+the synchronized one while this core holds semaphore 0, while semaphore 5 is locked with HSI48 off, and while the
+coordinated flash driver exists. No wiring.
 """
 
 from __future__ import annotations
@@ -40,6 +42,11 @@ def assert_semaphores_free(fw, rng_cfg):
 def needs_clock_group(fw):
     if not hasattr(fw, "clock"):
         pytest.skip("needs the clock group (clock.hsi48, clock.info)")
+
+
+def needs_hsem_group(fw):
+    if not hasattr(fw, "hsem"):
+        pytest.skip("needs the hsem group (hsem.take, hsem.release)")
 
 
 @pytest.mark.board_params("variant", "rng.variants")
@@ -114,8 +121,10 @@ def test_hsem_restores_hsi48_off(fw, rng_cfg):
 
 @pytest.mark.family("stm32wb55")
 def test_hsem_clock_locked(fw, rng_cfg):
-    """`lock5=1` holds semaphore 5 (clock configuration) around the read: `Hsi48Enabler` takes its locked branch and
-    leaves HSI48 alone; both semaphores are free afterwards."""
+    """`lock5=1` holds semaphore 5 (clock configuration) around the read. With HSI48 on, the read works, leaves HSI48 on
+    and frees both semaphores. The locked branch of `Hsi48Enabler` differs from the unlocked one only by its assert with
+    HSI48 off, which the firmware refuses (test_clock_locked_needs_hsi48); the query itself is covered by
+    test_hsem.py::test_query_takes_no_lock."""
     first = fw.rng.read(16, variant="hsem", lock5=True)
     second = fw.rng.read(16, variant="hsem", lock5=True)
     assert first.hsi48 == second.hsi48 == 1, (first.raw, second.raw)
@@ -140,6 +149,69 @@ def test_clock_locked_needs_hsi48(fw, rng_cfg):
     finally:
         fw.clock.hsi48(True)
     assert_semaphores_free(fw, rng_cfg)
+
+
+@pytest.mark.family("stm32wb55")
+def test_plain_variants_need_hsi48(fw):
+    """HSI48 is the RNG kernel clock (CLK48) and only `Hsi48Enabler` starts it: with HSI48 off the plain drivers would
+    abort on the clock error or wait forever for data, so the firmware refuses them."""
+    needs_clock_group(fw)
+    fw.clock.hsi48(False)
+    try:
+        for line in ("rng.read 4", "rng.read 4 variant=async", "rng.stats 16", "rng.stats 16 variant=async"):
+            expect_reason(fw, line, "failed")
+        assert len(fw.rng.read(4, variant="hsem").data) == 4
+    finally:
+        fw.clock.hsi48(True)
+    assert len(fw.rng.read(4).data) == 4
+
+
+@pytest.mark.family("stm32wb55")
+def test_hsem_refuses_semaphore_0_of_this_core(fw, rng_cfg):
+    """The driver waits for semaphore 0 with the event loop blocked: held by `hsem.take` nothing could free it."""
+    needs_hsem_group(fw)
+    fw.hsem.take(0, procid=1)
+    try:
+        expect_reason(fw, "rng.read 4 variant=hsem", "busy")
+        expect_reason(fw, "rng.stats 16 variant=hsem", "busy")
+    finally:
+        fw.hsem.release(0, procid=1)
+    assert len(fw.rng.read(4, variant="hsem").data) == 4
+    assert_semaphores_free(fw, rng_cfg)
+
+
+@pytest.mark.family("stm32wb55")
+def test_hsem_semaphore_5_of_another_process(fw, rng_cfg):
+    """`IsLockedByCurrentCore` ignores the process: semaphore 5 taken by `hsem.take` leaves HSI48 to the clock owner,
+    and with HSI48 off the firmware refuses the read the driver would assert on."""
+    needs_hsem_group(fw)
+    needs_clock_group(fw)
+    fw.hsem.take(5, procid=1)
+    try:
+        assert fw.rng.read(4, variant="hsem").hsi48 == 1
+        expect_reason(fw, "rng.read 4 variant=hsem lock5=1", "busy")
+        fw.clock.hsi48(False)
+        try:
+            expect_reason(fw, "rng.read 4 variant=hsem", "failed")
+        finally:
+            fw.clock.hsi48(True)
+    finally:
+        fw.hsem.release(5, procid=1)
+    assert_semaphores_free(fw, rng_cfg)
+
+
+@pytest.mark.family("stm32wb55")
+def test_hsem_excludes_coordinated_flash(fw):
+    """`variant=hsem` shares HSEM 0 of `ResourceAllocation` with the coordinated flash driver and `hsem.lock`."""
+    if not hasattr(fw, "flash"):
+        pytest.skip("needs the flash group (flash.stack)")
+    fw.flash.stack("starting")
+    try:
+        expect_reason(fw, "rng.read 16 variant=hsem", "busy")
+        assert len(fw.rng.read(16).data) == 16
+    finally:
+        fw.flash.stack("fus")
+    assert len(fw.rng.read(16, variant="hsem").data) == 16
 
 
 @pytest.mark.parametrize(

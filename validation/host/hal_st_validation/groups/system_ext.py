@@ -226,6 +226,7 @@ class LowPowerWake:
     woke: str
     restored: int
     us: int
+    sleeps: int
     raw: str
 
 
@@ -268,7 +269,13 @@ class PendingEnter:
 
     def wait(self, timeout: float | None = None) -> LowPowerWake:
         response = self.pending.wait(timeout)
-        return LowPowerWake(woke=response["woke"], restored=response.as_int("restored"), us=response.as_int("us"), raw=response.raw)
+        return LowPowerWake(
+            woke=response["woke"],
+            restored=response.as_int("restored"),
+            us=response.as_int("us"),
+            sleeps=response.as_int("sleeps"),
+            raw=response.raw,
+        )
 
 
 GROUPS: dict[str, type[Group]] = {"flash": Flash, "hsem": Hsem, "bkp": BackupRam, "lpm": LowPower}

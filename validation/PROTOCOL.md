@@ -69,10 +69,10 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
   A pin held by another open instance returns `ERR busy`; a pin the hal-st pinout table does not offer for the requested function and instance returns `ERR pin`.
 - A timer serves one group at a time: a timer held by an open PWM, encoder, timer-triggered ADC, timer (`tim`) or timer PWM (`tpwm`), by a running `ain.burst` or `dma.wave` (both TIM2), or by the scaffold timer TIM17 while `lpm.enter` or `hsem.lock hold=` uses it, returns `ERR busy` to the other groups.
-- One peripheral instance serves one group at a time: an I2C instance is shared by `i2c`, `i2cs` and `eeprom`, an SPI instance by `spi` and `spis`, the ADC by `adc` and `ain`, an LPTIM by `qei` (`lp=1`), `lptim` and `lptpwm`, and HSEM semaphore 0 by `flash ... variant=coord` and `hsem.lock` (WB55).
+- One peripheral instance serves one group at a time: an I2C instance is shared by `i2c`, `i2cs` and `eeprom`, an SPI instance by `spi` and `spis`, the ADC by `adc` and `ain`, an LPTIM by `qei` (`lp=1`), `lptim` and `lptpwm`, and the HSEM interrupt (claimed as HSEM 0, the semaphore the RNG driver waits on) by `flash ... variant=coord`, `hsem.lock` and `rng ... variant=hsem` (WB55).
   So are the DMA channels some groups share: WB55 DMA1 channel 7 (`adc`, `ain.burst`); WBA55 GPDMA1 channel 7 (`adc`, `ain.burst`, `spis` receive) and channel 8 (`spis` transmit, `dma.wave`). An instance or channel another group holds returns `ERR busy`.
 - RAM limits how many instances are open at the same time: 1 PWM timer, 1 UART besides the terminal, 1 SPI master, 1 SPI slave, 1 I2C master, 1 I2C target, 1 attached EEPROM, 1 ADC, 1 encoder, 1 timer (`tim`), 1 timer PWM (`tpwm`), 1 LPTIM, 1 LPTIM PWM, 1 QUADSPI, 1 watchdog and 8 GPIO pins; one more returns `ERR busy`.
-- Argument errors (`usage`, `range`, `pin`, `unsupported`) are reported before `ERR busy`.
+- Argument errors (`usage`, `range`, `pin`, `unsupported`) are reported before `ERR busy`, except for the arguments a command parses into a buffer an operation in flight still uses: the payload of `flash.write`, the payload and `rx` of `spis.arm`, the data arguments of `qspi.cmd` and `qspi.xfer` (see their sections).
 - Line length: a command line holds at most 255 characters (`terminal.max_command_length` in the board files). Commands that move more data than fits take a payload the firmware generates and can answer with a CRC instead of the data:
   - in place of a hex payload, `-` with `len=<n>` (1 up to the command's capacity, `ERR range` above) `[pattern=inc|const|prbs]` (default `inc`) `[seed=<0..0xFFFFFFFF>]` (default 0); `len` with a hex payload, or `pattern`/`seed` without `len`, returns `ERR usage`
   - `inc`: byte i is (seed + i) & 0xFF; `const`: every byte is seed & 0xFF; `prbs`: per byte, a 32-bit xorshift `x ^= x << 13; x ^= x >> 17; x ^= x << 5` then `x & 0xFF`, starting from `seed` (1 when `seed` is 0). `inc` with seed 0xFE gives `fe ff 00 01`, `prbs` with seed 1 gives `21 01 c5 4f d1 d0 1a b2`
@@ -93,7 +93,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - `pclk7` on STM32WBA55 only; `hsi48` and `clk48` on STM32WB55 only
   - `rngsel` is the RNG kernel clock selection: `clk48`, `lsi` or `lse` on STM32WB55, where `clk48` names the CLK48 source (`hsi48`, `pllsai1`, `pll` or `msi`); `lse`, `lsi`, `hsi` or `pll` (PLL1 Q) on STM32WBA55
 - `clock.mco <sysclk|hse|hsi|lse|hsi48|off> [div=1|2|4|8|16]` → `OK` (STM32WB55): MCO source and divider (`LL_RCC_ConfigMCO`, default `div=1`); `off` stops the output. Validation scaffolding: `sgpio.af PA8 af=0` puts MCO on the pin
-- `clock.hsi48 <0|1>` → `OK` (STM32WB55): switches HSI48 off or on and waits for its ready flag (`ERR timeout` after 10 ms). Validation scaffolding for the RNG tests; switch it back on afterwards
+- `clock.hsi48 <0|1>` → `OK` (STM32WB55): switches HSI48 off or on and waits for its ready flag (`ERR timeout` after 10 ms). Validation scaffolding for the RNG tests; switch it back on afterwards. `clock.hsi48 0` answers `ERR busy` while an `rng` driver holds the RNG clock (a `variant=async` read in flight, or one left by its `ERR timeout` until the next `rng` command): it would lose its kernel clock
 - `clock.mco` and `clock.hsi48` return `ERR unsupported` on STM32WBA55: its only MCO pin is the terminal RX (PA8), and it has no HSI48
 
 ## GPIO (`hal::GpioPinStm`)
@@ -183,7 +183,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `spis.arm <index> <txHex|-> [rx=<n>] [len=<n>] [pattern=inc|const|prbs] [seed=<n>]` → `OK` once the transfer is handed to the driver (`SendAndReceive`)
   - full duplex: `rx` left out or equal to the transmit length (another value returns `ERR usage`); send only: `rx=0`; receive only: `-` with `rx=<n>`; nothing to send or receive returns `ERR usage`. Lengths 1-1024 (`ERR range`)
   - `-` with `len=<n>` sends a payload generated in firmware (see "Framing"); `pattern`/`seed` without `len`, or `len` with hex, return `ERR usage`
-  - a transfer already armed returns `ERR busy`
+  - a transfer already armed returns `ERR busy`, checked before the payload and `rx` (the armed DMA still reads the transmit buffer)
   - while nothing is armed the slave is disabled: frames a master clocks then are dropped. Frames beyond the armed length are dropped as well; the transfer completes with the armed length
   - receive only sends the DMA's dummy word on MISO (undefined content)
 - `spis.result <index> [wait=<ms>] [out=hex|crc]` → `OK done=1 rx=<hex>` (or `OK done=1 len=<n> crc=<hex8>` with `out=crc`) once the transfer is done; `OK done=0` at once when nothing is armed, or after `wait` ms (0-10000, default 1000) with the transfer still armed
@@ -251,6 +251,7 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
   - defaults `prescaler=0 period=999 irq=dispatched mode=up`; `period` is the auto-reload, 1-65535 (1-4294967295 on TIM2); `timclk` is the timer kernel clock
   - one update per `period + 1` ticks of `timclk / (prescaler + 1)`
   - `irq=none` builds a `FreeRunningTimerStm` without interrupt; `immediate` and `dispatched` build a `TimerWithInterruptStm` whose update callback runs in the interrupt or from the event loop. Dispatched callbacks coalesce while one is queued: above about 1 kHz `irqs` counts fewer than the updates
+  - with `irq=immediate|dispatched` an update rate `timclk / ((prescaler + 1) (period + 1))` (integer division) above 100 kHz returns `ERR range`: the interrupt runs on every update in both modes and would starve the event loop
   - `pin` (any free bonded pin) is driven low and toggled by every update callback, so it runs at half the update rate; `pin` with `irq=none` returns `ERR usage`
   - `mode=down` counts down from `period`; it needs `irq=none` and a timer with a counter mode select (TIM1, TIM2, TIM3), `ERR unsupported` otherwise
 - `tim.start <timer>`, `tim.stop <timer>` → `OK`; starting a running or stopping a stopped timer changes nothing
@@ -274,7 +275,7 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
   - LPTIM 1-2; defaults `period=999 prescaler=1 irq=dispatched rep=0`; `prescaler` is the clock divider, another number returns `ERR range`
   - one update per `period + 1` ticks of `lptimclk / prescaler`, and with `rep` once every `rep + 1` periods; `lptimclk` is the LPTIM kernel clock (PCLK1 on STM32WB55; PCLK7 for LPTIM1 and PCLK1 for LPTIM2 on STM32WBA55)
   - `rep` is the repetition counter of the STM32WBA LPTIM (`ERR unsupported` on STM32WB55, whose LPTIM has none)
-  - `irq` and `pin` as for `tim.open`
+  - `irq` and `pin` as for `tim.open`; with `irq=immediate|dispatched` an update rate `lptimclk / (prescaler (period + 1))` (integer division, `rep` left out: the autoreload-match interrupt runs every period) above 100 kHz returns `ERR range`
 - `lptim.start <index>`, `lptim.stop <index>`, `lptim.count <index>` → `OK cnt=<n> irqs=<n>`, `lptim.close <index>` as for `tim`
 
 ## LPTIM PWM (`hal::LpTimerPwmWithChannels<N>`, NUCLEO-WBA55CG only)
@@ -371,8 +372,10 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `variant=async` answers from the driver's completion (RNG interrupt), `ERR timeout` after 1 s
   - `variant=hsem` exists on STM32WB55 only (`ERR unsupported` on STM32WBA55): the driver holds HSEM semaphore 0 during the read, through the firmware's one `SynchronousHardwareSemaphoreMasterStm` (shared with `hsem` and `flash`)
   - unless this core holds semaphore 5 (clock configuration), the driver's `Hsi48Enabler` starts HSI48, the RNG kernel clock, for the read when it is off and stops it again afterwards
+  - `variant=hsem` answers `ERR busy` while this core holds semaphore 0 (`hsem.take 0`: nothing could free it while the driver blocks the event loop) or the coordinated flash driver exists (HSEM 0 of the sharing rule), and `ERR failed` while this core holds semaphore 5 (`lock5=1` or `hsem.take 5`, any process) and HSI48 is off
+  - on STM32WB55 `variant=sync` and `variant=async` answer `ERR failed` while HSI48, their kernel clock (CLK48), is off: only `Hsi48Enabler` starts it, and the plain drivers would abort on the clock error
   - `lock5=1` (validation scaffolding, STM32WB55 only: `ERR unsupported` on STM32WBA55; only with `variant=hsem`: `ERR usage` otherwise) holds semaphore 5 (`HAL_HSEM_FastTake`, process 0) around the read, so `Hsi48Enabler` takes its locked branch; `ERR busy` when semaphore 5 is taken, `ERR failed` when HSI48 is off (the driver asserts that HSI48 runs while semaphore 5 is locked)
-- `rng.stats <len> [variant=sync|async|hsem]` → `OK n=<bytes> ones=<n> runs=<n> chisq=<x1000> crc=<hex8> us=<n>`: `len` bytes, 16-65536, generated by one driver in chunks of 256 bytes; `variant=async` answers `ERR timeout` after 5 s
+- `rng.stats <len> [variant=sync|async|hsem]` → `OK n=<bytes> ones=<n> runs=<n> chisq=<x1000> crc=<hex8> us=<n>`: `len` bytes, 16-65536, generated by one driver in chunks of 256 bytes; `variant=async` answers `ERR timeout` after 5 s; `variant` follows the rules of `rng.read`
   - the bytes form one bit stream, each byte most significant bit first: `ones` counts its set bits, `runs` its bit transitions plus one
   - `chisq` is the chi-square of the byte histogram against the uniform distribution (255 degrees of freedom) times 1000, rounded down and at most 4294967295; `crc` is the CRC-32 of the bytes (8 lower-case hex digits, as `out=crc`); `us` is the generation time
 - After an `ERR timeout` of `variant=async` the next `rng` command drops that driver and runs; until the timeout another `rng` command returns `ERR busy`
@@ -432,6 +435,7 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - an operation stays in flight until it completes, also after its `ERR timeout`: a coordinated step waiting for HSEM 7 runs once the semaphore is released (`hsem.release 7 procid=<p>`), one held by `flash.stack starting` after `stopped` or `fus`
   - while `flash.stack starting` holds the driver, only `variant=coord` commands of its layout run (and the exceptions above)
   - the coordinated driver and `hsem.lock` exclude each other (`ERR busy`): both rely on the HSEM interrupt
+  - so does `rng ... variant=hsem`, whose wait on semaphore 0 enables its HSEM interrupt as well: it answers `ERR busy` while the coordinated driver exists
 
 ## Hardware semaphore (STM32WB55: `HAL_HSEM_*`, `hal::SynchronousHardwareSemaphoreMasterStm`, `hal::SynchronousHardwareSemaphoreStm`)
 
@@ -456,11 +460,12 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 
 ## Low power (`hal::LowPowerModeStm`)
 
-- `lpm.enter <sleep|deep> [wake=<pin>] [edge=rising|falling] [marker=<pin>] [timeout=<1..10000 ms>]` → `OK woke=exti restored=<n> us=<n>`
+- `lpm.enter <sleep|deep> [wake=<pin>] [edge=rising|falling] [marker=<pin>] [timeout=<1..10000 ms>]` → `OK woke=exti restored=<n> us=<n> sleeps=<n>`
   - defaults: `wake` STM32WB55 PC6 (`gpio0`), STM32WBA55 PB14 (`gpio0`); `marker` STM32WB55 PB0 (`led0`), STM32WBA55 PA2 (`tim1bkin`); `edge=rising`; `timeout=2000`
   - the wake pin is an input with the pull against its edge (pull-down for `rising`) and an EXTI interrupt; the marker is an output, high, driven low while the core sleeps and high again right after it wakes
   - inside the window the interrupts are masked (PRIMASK), every NVIC interrupt but the wake line's EXTI and TIM17's is disabled and the SysTick tick interrupt is off: WFI returns only on the wake edge or a TIM17 update
   - the scaffold timer TIM17 counts 1 us ticks (CYCCNT stops while the core sleeps) and gives `us`, the time asleep; at `timeout` ms it ends the window with `ERR timeout`
+  - `sleeps` counts the `LowPowerModeStm::Enter` calls: WFI returns only on a TIM17 update (every millisecond) or the wake edge, so a core that sleeps makes about one call per elapsed millisecond plus one, a driver that returns without sleeping hundreds per millisecond
   - `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it never calls the clock-restore callback: `restored` counts its calls and is 0
   - the wake and marker pins must differ (`ERR usage`); a pin the package lacks returns `ERR pin`, a wake pin whose EXTI line serves a pin of another port `ERR unsupported`, a held pin or TIM17 held by another group `ERR busy`
   - the terminal and every other interrupt (including the watchdog's early warning: a running watchdog is not fed) are blocked for the window: send nothing until the final line
@@ -487,8 +492,9 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `variant=spi` only (`ERR unsupported` otherwise): `SingleSpeedQuadSpiStmDma::SendAndReceive`, SPI mode 0 with MOSI on IO0, MISO on IO1 and NCS as chip select
   - half duplex: exactly one of the data (`txhex` or `len`) and `rx`, else `ERR usage`; `repeat` as for `qspi.cmd`
   - a read has a data phase only, so the erratum above applies to it
-- `qspi.close <1>` → `OK`
+- `qspi.close <1>` → `OK`: also resets the QUADSPI (RCC), so one left BUSY by a timed-out command (the erratum above) is idle at the next `qspi.open`
 - `qspi.cmd`, `qspi.poll` and `qspi.xfer` answer within 2000 ms or `ERR timeout`; a command that timed out keeps the group busy until `qspi.close`
+- while a command is in flight, `qspi.cmd` returns `ERR busy` before checking its data arguments (`tx`, `len`, `pattern`, `seed`, `rx`, `out`, `repeat`) and `qspi.xfer` before its payload, `rx` and `repeat` (the command in flight uses the data buffer they fill); `qspi.xfer` reports `ERR unsupported` before that
 
 ## Not available on these boards
 

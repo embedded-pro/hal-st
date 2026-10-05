@@ -123,6 +123,7 @@ class FakeQuadSpi(FakeGroup):
         ):
             _fail("usage")
         lines = self._phases(options)
+        self._check_busy(state)
         length = 0
         output = "hex"
         if transmit:
@@ -135,7 +136,6 @@ class FakeQuadSpi(FakeGroup):
             if output == "hex" and length > QSPI_HEX_MAX:
                 _fail("range")
         _number(options.get("repeat", "1"), 1, QSPI_REPEAT_MAX)
-        self._check_busy(state)
         if not receive:
             return "OK flevel=0"
         data = bytes([self._byte(lines)]) * length
@@ -167,6 +167,9 @@ class FakeQuadSpi(FakeGroup):
         receive = "rx" in options
         if (text != "-" or "len" in options) == receive or (receive and "repeat" in options):
             _fail("usage")
+        if state["variant"] != "spi":
+            _fail("unsupported")
+        self._check_busy(state)
         generated = "len" in options
         patterned = "pattern" in options or "seed" in options
         if text != "-":
@@ -179,9 +182,6 @@ class FakeQuadSpi(FakeGroup):
             _fail("usage")
         length = _number(options["rx"], 1, QSPI_HEX_MAX) if receive else 0
         _number(options.get("repeat", "1"), 1, QSPI_REPEAT_MAX)
-        if state["variant"] != "spi":
-            _fail("unsupported")
-        self._check_busy(state)
         if not receive:
             return "OK flevel=0"
         return f"OK rx={(bytes([self._byte(1)]) * length).hex()}"

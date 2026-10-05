@@ -428,6 +428,25 @@ def test_poll_timeout(fw, ad3, need, qspi_cfg, index, variant):
         assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0
 
 
+@pytest.mark.slow
+@pytest.mark.resets_board
+def test_close_recovers_from_a_data_only_read(fw, qspi_cfg, index):
+    """A 4-line read with a data phase only hangs the QUADSPI with BUSY set (erratum), which only an abort or a
+    reset clears: `variant=dma` answers `ERR timeout`. `qspi.close` resets the QUADSPI, so after a new open both
+    drivers complete a write again (`QuadSpiStm` would otherwise wait in `HAL_QSPI_Init` and fail every command)."""
+    fw.qspi.open(index, variant="dma")
+    with reset_on_failure(fw):
+        response = settle(fw.qspi.begin("cmd", index, lines=4, rx=4, cmd_timeout=fw.terminal.timeout + QSPI_TIMEOUT_S))
+        if response is not None and response.ok:
+            pytest.skip("the data-only read completed: the erratum did not hang the QUADSPI")
+        assert response is not None and response.reason == "timeout", f"qspi.cmd answered {response!r}"
+        fw.qspi.close(index)
+        for variant in ("dma", "poll"):
+            fw.qspi.open(index, variant=variant)
+            assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0, variant
+            fw.qspi.close(index)
+
+
 @pytest.mark.ad3
 def test_xfer_decoded(fw, ad3, need, qspi_cfg, index):
     """`variant=spi`: `SingleSpeedQuadSpiStmDma` writes are SPI mode 0 with MOSI on IO0 and NCS as chip select."""

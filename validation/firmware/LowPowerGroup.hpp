@@ -33,6 +33,7 @@ namespace validation
         {
             bool woke = false;
             uint32_t us = 0;
+            uint32_t sleeps = 0;
         };
 
         services::HilStatus Enter(const services::HilArguments& arguments);

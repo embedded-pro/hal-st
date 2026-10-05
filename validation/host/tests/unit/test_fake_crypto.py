@@ -92,6 +92,45 @@ def test_rng_hsem_reports_hsi48_of_the_clock_group():
     assert fake.group("rng") is not None
 
 
+def test_rng_plain_variants_need_hsi48():
+    """On STM32WB55 HSI48 is the RNG kernel clock: only `variant=hsem` starts it."""
+    terminal, _, fw = make()
+    fw.clock.hsi48(False)
+    for line in ("rng.read 4", "rng.read 4 variant=async", "rng.stats 16", "rng.stats 16 variant=async"):
+        assert reason(terminal, line) == "failed", line
+    assert reason(terminal, "rng.read 4 lock5=1") == "usage"
+    assert reason(terminal, "rng.stats 16 variant=hsem") == "ok"
+    fw.clock.hsi48(True)
+    assert reason(terminal, "rng.read 4") == "ok"
+
+
+def test_rng_hsem_refuses_semaphores_held_by_this_core():
+    terminal, _, fw = make()
+    fw.hsem.take(0, procid=1)
+    assert reason(terminal, "rng.read 4 variant=hsem") == "busy"
+    assert reason(terminal, "rng.stats 16 variant=hsem") == "busy"
+    fw.hsem.release(0, procid=1)
+    fw.hsem.take(5, procid=1)
+    assert reason(terminal, "rng.read 4 variant=hsem") == "ok"
+    assert reason(terminal, "rng.read 4 variant=hsem lock5=1") == "busy"
+    fw.clock.hsi48(False)
+    assert reason(terminal, "rng.read 4 variant=hsem") == "failed"
+    assert reason(terminal, "rng.stats 16 variant=hsem") == "failed"
+    fw.clock.hsi48(True)
+    fw.hsem.release(5, procid=1)
+    assert reason(terminal, "rng.read 4 variant=hsem lock5=1") == "ok"
+
+
+def test_rng_hsem_excludes_the_coordinated_flash():
+    terminal, _, fw = make()
+    fw.flash.stack("starting")
+    assert reason(terminal, "rng.read 16 variant=hsem") == "busy"
+    assert reason(terminal, "rng.stats 16 variant=hsem") == "busy"
+    assert reason(terminal, "rng.read 16") == "ok"
+    fw.flash.stack("stopped")
+    assert reason(terminal, "rng.read 16 variant=hsem") == "ok"
+
+
 def test_rng_stats_are_consistent_and_random():
     _, _, fw = make()
     stats = fw.rng.stats(65536)

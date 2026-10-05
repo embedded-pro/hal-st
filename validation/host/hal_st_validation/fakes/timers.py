@@ -7,7 +7,14 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from .. import expect
-from ..groups.timers import LPTIM_PERIOD_MAX, LPTIM_PRESCALERS, LPTIM_REPETITION_MAX, TIMER_PRESCALER_MAX, timer_period_max
+from ..groups.timers import (
+    LPTIM_PERIOD_MAX,
+    LPTIM_PRESCALERS,
+    LPTIM_REPETITION_MAX,
+    TIMER_PRESCALER_MAX,
+    UPDATE_INTERRUPT_MAX_HZ,
+    timer_period_max,
+)
 from .base import FakeGroup, _choice, _fail, _number, _shape, _tokens
 
 _IRQS = ("none", "immediate", "dispatched")
@@ -95,6 +102,8 @@ class FakeTimer(_Counter):
         if mode == "down" and (irq != "none" or not expect.timer_has_center_mode(timer)):
             _fail("unsupported")
         timclk = self.fw.kernel_clock
+        if irq != "none" and timclk // ((prescaler + 1) * (period + 1)) > UPDATE_INTERRUPT_MAX_HZ:
+            _fail("range")
         state = self._counter_state(timclk / (prescaler + 1), period, irq, mode == "down")
         state.update(timer=timer, prescaler=prescaler, pin=pin, timclk=timclk)
         self.fw.open_instance(self.prefix, str(timer), state, [pin], timer=timer)
@@ -122,6 +131,9 @@ class FakeLpTimer(_Counter):
         if "rep" in options and self.fw.family == "stm32wb55":
             _fail("unsupported")
         lptimclk = self.fw.kernel_clock
+        # ARRM interrupts on every period, whatever `rep`.
+        if irq != "none" and lptimclk // (divider * (period + 1)) > UPDATE_INTERRUPT_MAX_HZ:
+            _fail("range")
         state = self._counter_state(lptimclk / divider / (repetition + 1), period, irq)
         state.update(index=index, divider=divider, repetition=repetition, pin=pin, lptimclk=lptimclk)
         self.fw.open_instance(self.prefix, str(index), state, [pin], resources=[("lpTimer", index)])

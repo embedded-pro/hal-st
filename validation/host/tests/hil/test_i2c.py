@@ -19,6 +19,7 @@ timing, rise time) skip under `--fake`; the fake answers the protocol.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -448,11 +449,14 @@ def test_repeated_start_on_bus(fw, ad3, need, bench, loop):
     master, target, address = open_loop(fw, loop, freq=100_000)
     scl, sda = need.dio(loop["master"]["scl"]), need.dio(loop["master"]["sda"])
     fw.i2cs.regs(target, 0x20, b"\x5a")
-    capture = arm_bus(ad3, scl, sda, 100_000, 600e-6)
+    # The master holds SCL low after the write until the host's `i2c.read` arrives: the window spans that round trip.
+    capture = arm_bus(ad3, scl, sda, 100_000, 30e-3)
     fw.i2c.write(master, address, b"\x20", next="restart")
     fw.i2c.read(master, address, 1)
     samples = capture.wait(timeout=2.0)
-    write, read = i2c_decode(samples.channel(scl), samples.channel(sda))[:2]
+    transfers = i2c_decode(samples.channel(scl), samples.channel(sda))
+    assert len(transfers) >= 2, f"{len(transfers)} transfer(s) captured: the read fell outside the window"
+    write, read = transfers[:2]
     assert (write.read, write.payload, write.stop) == (False, b"\x20", False)
     assert (read.restart, read.read, read.payload, read.stop) == (True, True, b"\x5a", True)
 
@@ -482,16 +486,20 @@ def test_receive_continue_session(fw, loop):
     assert (status.reads, status.stops) == (1, 1)
 
 
-def _stretched_transfer(fw, loop, direction: str, position: int, us: int) -> tuple[int, int, int]:
+def _stretched_transfer(fw, loop, direction: str, position: int, us: int, arm: Callable[[], Any] = lambda: None) -> Any:
+    """One stretched transfer, `arm()` (its result returned) called right before it. A read's pointer is written
+    first, unstretched and with a STOP, so the read is a transfer of its own."""
     master, target, address = open_loop(fw, loop, freq=100_000)
     fw.i2cs.regs(target, 0, generate(8))
+    if direction == "read":
+        assert fw.i2c.write(master, address, b"\x00").result == "complete"
     fw.i2cs.cfg(target, stretch=us, stretchat=position)
+    capture = arm()
     if direction == "write":
         assert fw.i2c.write(master, address, bytes([0x80]) + generate(4)).result == "complete"
     else:
-        fw.i2c.write(master, address, b"\x00", next="restart")
         assert fw.i2c.read(master, address, 4).data == generate(4)
-    return master, target, address
+    return capture
 
 
 @pytest.mark.requires_option("i2c")
@@ -507,12 +515,16 @@ def test_clock_stretch_completes(fw, loop, us, direction, position):
 @pytest.mark.board_params("us", "i2c.stretch_us")
 @pytest.mark.board_params("direction,position", values=STRETCH_POSITIONS)
 def test_clock_stretch_on_bus(fw, ad3, need, bench, loop, us, direction, position):
-    """The longest SCL low phase of the transfer is at least the stretch (5 % slack for the Stopwatch)."""
+    """The longest SCL low phase of the stretched transfer alone is at least the stretch (5 % slack for the
+    Stopwatch)."""
     scl = need.dio(loop["master"]["scl"])
     seconds = us * 1e-6 + 2e-3
     rate = min(ad3.logic.clock_hz, ad3.logic.buffer_size / seconds, 10e6)
-    capture = ad3.logic.arm(rate, int(rate * seconds), trigger=(scl, "falling"), pretrigger=0.01)
-    _stretched_transfer(fw, loop, direction, position, us)
+
+    def arm():
+        return ad3.logic.arm(rate, int(rate * seconds), trigger=(scl, "falling"), pretrigger=0.01)
+
+    capture = _stretched_transfer(fw, loop, direction, position, us, arm)
     trace = capture.wait(timeout=2.0).channel(scl)
     edges = [index for index in range(1, len(trace)) if trace[index] != trace[index - 1]]
     lows = [(edges[i + 1] - edges[i]) / rate for i in range(len(edges) - 1) if not trace[edges[i]]]

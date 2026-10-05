@@ -132,6 +132,10 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
+        // A running rng driver would lose its kernel clock (CLK48 from HSI48) and abort on the clock error
+        if (on == 0 && __HAL_RCC_RNG_IS_CLK_ENABLED() != 0)
+            return HilStatus::busy;
+
         if (on != 0)
             LL_RCC_HSI48_Enable();
         else

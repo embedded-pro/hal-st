@@ -192,6 +192,7 @@ namespace validation
             ++writes;
             lastSize = 0;
             LL_I2C_DisableIT_TX(peripheral);
+            LL_I2C_EnableSlaveByteControl(peripheral);
             LL_I2C_EnableReloadMode(peripheral);
             LL_I2C_SetTransferSize(peripheral, 1);
         }
@@ -200,6 +201,7 @@ namespace validation
             ++reads;
             patternState = settings.seed;
             LL_I2C_DisableReloadMode(peripheral);
+            LL_I2C_DisableSlaveByteControl(peripheral);
             LL_I2C_ClearFlag_TXE(peripheral);
             LL_I2C_EnableIT_TX(peripheral);
         }

@@ -58,6 +58,12 @@ def reason(terminal, line):
         ("tim.open 2 period=0xFFFFFFFF irq=none", "ok"),
         ("tim.open 17 pin=gpio0 irq=immediate", "ok"),
         ("tim.open 1 pin=terminaltx", "busy"),
+        ("tim.open 2 prescaler=0 period=1", "range"),
+        ("tim.open 2 prescaler=0 period=1 irq=immediate", "range"),
+        ("tim.open 2 prescaler=0 period=638", "range"),
+        ("tim.open 2 prescaler=0 period=639", "ok"),
+        ("tim.open 2 prescaler=0 period=1 irq=none", "ok"),
+        ("tim.open 2 prescaler=0 period=1 mode=down", "unsupported"),
     ],
 )
 def test_timer_open_reasons(line, expected):
@@ -195,6 +201,14 @@ def test_timer_pwm_commands():
         ("stm32wb55", "lptim.open 2 prescaler=128 pin=gpio0", "ok"),
         ("stm32wba55", "lptim.open 1 rep=255", "ok"),
         ("stm32wba55", "lptim.open 2 prescaler=64 irq=immediate pin=gpio0", "ok"),
+        ("stm32wb55", "lptim.open 1 period=1", "range"),
+        ("stm32wb55", "lptim.open 1 period=638 irq=immediate", "range"),
+        ("stm32wb55", "lptim.open 1 period=639", "ok"),
+        ("stm32wb55", "lptim.open 1 period=1 irq=none", "ok"),
+        ("stm32wb55", "lptim.open 1 period=1 rep=0", "unsupported"),
+        ("stm32wba55", "lptim.open 1", "ok"),
+        ("stm32wba55", "lptim.open 1 period=998", "range"),
+        ("stm32wba55", "lptim.open 1 period=1 rep=255", "range"),
     ],
 )
 def test_lptim_open_reasons(family, line, expected):

@@ -272,6 +272,9 @@ namespace validation
         if (request.mode == CounterMode::down && (request.irq != TimerIrq::none || !IS_TIM_COUNTER_MODE_SELECT_INSTANCE(Instance(timer))))
             return HilStatus::unsupported;
 
+        if (request.irq != TimerIrq::none && TimerClock(timer) / ((uint64_t{ request.prescaler } + 1) * (uint64_t{ request.period } + 1)) > maximumUpdateInterruptRate)
+            return HilStatus::range;
+
         return HilStatus::done;
     }
 

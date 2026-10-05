@@ -167,9 +167,13 @@ def test_open_errors(fw, board_cfg, lptim_cfg):
         ({"prescaler": 3}, "range"),
         ({"prescaler": 256}, "range"),
         ({"pin": board_cfg.param("system.unbonded_pins")[0]}, "pin"),
+        ({"period": 1}, "range"),
+        ({"period": 1, "irq": "immediate"}, "range"),
     ]
     for options, reason in cases:
         expect_error(reason, fw.lptim.open, index, **options)
+    assert fw.lptim.open(index, period=1, irq="none") > 0, "the update interrupt rate limit needs an interrupt"
+    fw.lptim.close(index)
     for missing in lptim_cfg["missing"]:
         expect_error("range", fw.lptim.open, missing)
     for command in ("start", "stop", "count", "close"):

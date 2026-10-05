@@ -169,6 +169,27 @@ def test_second_result_while_waiting_is_busy(fw, ad3, need, wiring, spis_cfg, in
 
 @pytest.mark.ad3
 @pytest.mark.board_params("instance", "spis.instances")
+def test_rejected_arm_keeps_the_armed_payload(fw, ad3, need, wiring, spis_cfg, instance):
+    """An `spis.arm` while a transfer is armed answers `ERR busy` before it parses its payload: the transmit DMA
+    still reads the armed payload, longer than any SPI FIFO here, and the master receives it unchanged."""
+    ad3_master(ad3, need, wiring, instance, spis_cfg["freqs"][0])
+    index = open_slave(fw, instance)
+    length = 8 * WORD
+    slave_tx = generate(length, "prbs", 11)
+    master_tx = generate(length, "inc", 0x30)
+    fw.spis.arm(index, slave_tx)
+    for line in (
+        f"spis.arm {index} {generate(length, 'inc', 0xA0).hex()}",
+        f"spis.arm {index} 0102 rx=1",
+        f"spis.arm {index} - len={length} pattern=const seed=255",
+    ):
+        assert fw.terminal.command(line, check=False).reason == "busy", line
+    assert ad3.spi.transfer(master_tx) == slave_tx
+    expect_received(fw, index, master_tx)
+
+
+@pytest.mark.ad3
+@pytest.mark.board_params("instance", "spis.instances")
 def test_reopen_after_close(fw, ad3, need, wiring, spis_cfg, instance):
     ad3_master(ad3, need, wiring, instance, spis_cfg["freqs"][0])
     index = open_slave(fw, instance)
@@ -265,6 +286,9 @@ def test_arm_and_result_errors(fw, instance):
     with pytest.raises(FirmwareError) as error:
         fw.spis.arm(index, b"\x01")
     assert error.value.reason == "busy"
+    with pytest.raises(FirmwareError) as error:
+        fw.terminal.command(f"spis.arm {index} 0102 rx=1")
+    assert error.value.reason == "busy", "busy before the payload: the armed DMA reads it"
     assert fw.spis.result(index, wait=50, out="crc") == SpisResult(False)
     assert fw.spis.cancel(index) is True
     assert fw.spis.cancel(index) is False

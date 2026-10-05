@@ -275,10 +275,28 @@ def test_poll_timeout_keeps_the_group_busy_until_close(variant):
     assert clock.now - start == qspi.QSPI_TIMEOUT_S
     assert reason(terminal, "qspi.cmd 1 instr=0x06") == "busy"
     assert reason(terminal, "qspi.cmd 1 instr=0x100") == "range"
+    assert reason(terminal, "qspi.cmd 1 tx=0011") == "busy"
+    assert reason(terminal, "qspi.cmd 1 tx=00zz") == "busy", "busy before the data: the command in flight uses the buffer"
+    assert reason(terminal, "qspi.cmd 1 len=0") == "busy"
+    assert reason(terminal, "qspi.cmd 1 tx=00 rx=1") == "usage"
+    assert reason(terminal, "qspi.xfer 1 zz") == "unsupported"
     fw.qspi.close(1)
     fw.qspi.open(1, variant=variant)
     assert fw.qspi.cmd(1, instr=0x06).flevel == 0
     fw.qspi.poll(1, match=0x00, mask=0x01, size=2, lines=4)
+
+
+def test_xfer_checks_busy_before_its_data():
+    terminal, fake, _, fw = make()
+    fw.qspi.open(1, variant="spi")
+    bus(fake).io = 0b0000
+    with pytest.raises(FirmwareError) as error:
+        fw.qspi.poll(1, match=0x01, mask=0x01, lines=1)
+    assert error.value.reason == "timeout"
+    assert reason(terminal, "qspi.xfer 1 9f") == "busy"
+    assert reason(terminal, "qspi.xfer 1 zz") == "busy"
+    assert reason(terminal, "qspi.xfer 1 - rx=0") == "busy"
+    assert reason(terminal, "qspi.xfer 1 9f rx=1") == "usage"
 
 
 def test_boot_resets_the_bus_and_the_instance():

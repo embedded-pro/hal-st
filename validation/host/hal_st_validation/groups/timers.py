@@ -23,6 +23,7 @@ __all__ = [
     "LPTIM_REPETITION_MAX",
     "TIMER_DISPATCHED_MAX_HZ",
     "TIMER_PRESCALER_MAX",
+    "UPDATE_INTERRUPT_MAX_HZ",
     "LpTimer",
     "LpTimerPwm",
     "Timer",
@@ -44,6 +45,9 @@ LPTIM_PERIOD_MAX = 0xFFFF
 LPTIM_REPETITION_MAX = 0xFF
 # Above this update rate `irq=dispatched` callbacks coalesce in the event loop (one queued callback at a time).
 TIMER_DISPATCHED_MAX_HZ = 1000
+# Above this update rate `tim.open`/`lptim.open` with an update interrupt are `ERR range`: the interrupt runs on every
+# update in both irq modes and would starve the event loop.
+UPDATE_INTERRUPT_MAX_HZ = 100_000
 
 
 def timer_period_max(timer: int) -> int:

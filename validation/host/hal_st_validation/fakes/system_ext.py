@@ -7,7 +7,7 @@ HsemGroup.cpp, BackupRamGroup.cpp and LowPowerGroup.cpp in their order, and simp
   `hsem.lock`.
 - `hsem`: lock state of the 32 semaphores, `hold=` timers on the fake clock; `hsem.lock hold=` waits the hold.
 - `bkp`: words that survive `reset` (the backup domain keeps them).
-- `lpm`: wakes at once (`woke=exti`), as if the wake edge came right after the marker went low.
+- `lpm`: wakes at once (`woke=exti`, `sleeps=1`), as if the wake edge came right after the marker went low.
 """
 
 from __future__ import annotations
@@ -419,4 +419,4 @@ class FakeLowPower(FakeGroup):
         if self.fw.timer_owners.get(_SCAFFOLD_TIMER, self.owner) != self.owner:
             _fail("busy")
         self.fw.check_pins(self.owner, [wake, marker])
-        return f"OK woke=exti restored=0 us={_LPM_WAKE_US}"
+        return f"OK woke=exti restored=0 us={_LPM_WAKE_US} sleeps=1"

@@ -78,12 +78,12 @@ class FakeSpiSlave(FakeGroup):
 
     def cmd_arm(self, args: list[str], options: dict[str, str]) -> str:
         state = self._find(args, options, 2, 2, _ARM_KEYS)
+        if state["armed"]:
+            _fail("busy")
         send = _payload(args, options, 1, SPIS_BUFFER)
         receive = _number(options.get("rx", str(len(send))), 0, SPIS_BUFFER)
         if (not send and receive == 0) or (send and receive not in (0, len(send))):
             _fail("usage")
-        if state["armed"]:
-            _fail("busy")
         state.update(armed=True, done=False, tx=send, rx=receive, received=bytearray(), clocked=0)
         return "OK"
 

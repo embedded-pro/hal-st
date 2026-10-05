@@ -2,9 +2,10 @@
 `hal::MultiPeripheralPinStm`) through the `sgpio` group.
 
 Wiring set `bundle1`: the pins of `tests.sgpio` on DIOs. The output pins are read with the AD3 static I/O. An open-drain
-output has no pull (`SynchronousOutputPinStm` takes none), so only its low level and its latch are asserted. The
-alternate-function cases mux a timer channel to the pins while the `tpwm` group runs that channel with no pin of its
-own (`-`): the PWM appears on every muxed pin exactly when the mux works.
+output has no pull (`SynchronousOutputPinStm` takes none): on `out_pins` only its low level and its latch are asserted,
+on `float_pins` (no board load) the AD3 pulls show that a high level releases the line. The alternate-function cases
+mux a timer channel to the pins while the `tpwm` group runs that channel with no pin of its own (`-`): the PWM appears
+on every muxed pin exactly when the mux works.
 """
 
 from __future__ import annotations
@@ -92,12 +93,17 @@ def test_open_drain_low_and_latch(fw, ad3, need, pin):
 @pytest.mark.ad3
 @pytest.mark.board_params("pin", "sgpio.float_pins")
 def test_switch_drive_and_release(fw, ad3, need, pin):
-    """A changed `od` rebuilds the pin; `sgpio.release` leaves an input without pull (`float_pins` carry no board
-    load, so the AD3 pulls decide its level)."""
+    """Open drain releases the line at 1 and holds it low at 0; a changed `od` rebuilds the pin as push-pull, which
+    drives the high level against both pulls; `sgpio.release` leaves an input without pull (`float_pins` carry no board load, so the AD3
+    pulls decide its level)."""
     dio = need.dio(pin)
     ad3.dio.release(dio)
     fw.sgpio.out(pin, 1, od=True)
+    assert follows_pulls(ad3, dio), f"{pin} open drain at 1 must release the line"
+    fw.sgpio.out(pin, 0, od=True)
+    assert not follows_pulls(ad3, dio), f"{pin} open drain at 0 must hold the line low"
     fw.sgpio.out(pin, 1, od=False)
+    assert not follows_pulls(ad3, dio), f"{pin} push-pull high must override the AD3 pull-down"
     assert ad3.dio.read(dio) == 1, "push-pull high after open drain"
     fw.sgpio.release(pin)
     assert follows_pulls(ad3, dio), f"{pin} must be an input without pull after sgpio.release"

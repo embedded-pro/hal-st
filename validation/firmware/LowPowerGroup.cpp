@@ -103,7 +103,7 @@ namespace validation
         if (!outcome.woke)
             return HilStatus::timeout;
 
-        context.response.Ok() << " woke=exti restored=" << restored.load() << " us=" << outcome.us;
+        context.response.Ok() << " woke=exti restored=" << restored.load() << " us=" << outcome.us << " sleeps=" << outcome.sleeps;
         return HilStatus::done;
     }
 
@@ -171,6 +171,7 @@ namespace validation
         const uint32_t wakeMask = 1u << request.wake.index;
         const auto wakeIrq = ExtiIrq(request.wake.index);
         uint32_t updates = 0;
+        uint32_t sleeps = 0;
 
         __HAL_TIM_CLEAR_FLAG(&handle, TIM_FLAG_UPDATE);
         timer.Start([]() {}, hal::InterruptType::immediate);
@@ -205,6 +206,7 @@ namespace validation
         while (!woke && !ExtiPending(wakeMask) && updates != request.timeoutMs)
         {
             lowPower.Enter(request.mode);
+            ++sleeps;
 
             if (__HAL_TIM_GET_FLAG(&handle, TIM_FLAG_UPDATE) != 0)
             {
@@ -218,7 +220,7 @@ namespace validation
 
         const uint32_t counter = __HAL_TIM_GET_COUNTER(&handle);
         const bool wrapped = __HAL_TIM_GET_FLAG(&handle, TIM_FLAG_UPDATE) != 0 && counter < ticksPerUpdate / 2;
-        Outcome outcome{ woke || ExtiPending(wakeMask), (updates + (wrapped ? 1 : 0)) * ticksPerUpdate + counter };
+        Outcome outcome{ woke || ExtiPending(wakeMask), (updates + (wrapped ? 1 : 0)) * ticksPerUpdate + counter, sleeps };
 
         timer.Stop();
         __HAL_TIM_CLEAR_FLAG(&handle, TIM_FLAG_UPDATE);

@@ -3,8 +3,10 @@ PkaGroup.cpp in their order, a deterministic RNG (the `prbs` payload pattern fro
 differ), and AES/PKA results from `crypto_ref`.
 
 `variant=hsem` exists on STM32WB55 only; its `hsi48=` is the fake clock group's HSI48 state, which the driver leaves
-as it found it (it switches HSI48 on for the read only when it was off). `lock5=1` with HSI48 off answers
-`ERR failed`, as the firmware refuses what would trip the driver's assertion."""
+as it found it (it switches HSI48 on for the read only when it was off). Like the firmware it answers `ERR busy` while
+the coordinated flash driver holds HSEM 0 or `hsem.take` holds semaphore 0, and `ERR failed` with semaphore 5 locked
+(`lock5=1` or `hsem.take 5`) and HSI48 off, which would trip the driver's assertion. On STM32WB55 the other variants
+answer `ERR failed` while HSI48, their kernel clock, is off."""
 
 from __future__ import annotations
 
@@ -13,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 from .. import crypto_ref, patterns, rngstats
 from ..groups.crypto import VARIANTS
 from .base import FakeGroup, _choice, _fail, _flag, _number, _shape
+from .system_ext import FakeHsem
 
 if TYPE_CHECKING:
     from ..fake_firmware import FakeFirmware
@@ -28,6 +31,10 @@ _COMPARE_MAX = 60
 # A P-256 scalar multiplication on the PKA takes some ten milliseconds; the fake reports a fixed duration.
 _MULTIPLY_US = 20000
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+# The firmware's `owners::scaffold`, which `hsem.lock` claims HSEM 0 with as well (fakes/system_ext.py).
+_HSEM_OWNER = ("hsem", "lock")
+_RNG_SEMAPHORE = 0
+_CLOCK_SEMAPHORE = 5
 
 
 class FakeRng(FakeGroup):
@@ -49,10 +56,27 @@ class FakeRng(FakeGroup):
             _fail("unsupported")
         if lock5 and variant != "hsem":
             _fail("usage")
+        if variant != "hsem" and self.fw.family == "stm32wb55" and not self._hsi48():
+            _fail("failed")
 
     def _hsi48(self) -> int:
         clock = self.fw.group("clock")
         return int(getattr(clock, "hsi48", 1))
+
+    def _synchronized(self, lock5: bool) -> None:
+        """`RunSynchronous` and `GenerateSynchronized` of RngGroup.cpp: HSEM 0 against the coordinated flash driver,
+        then the semaphores the fake `hsem` group holds (all of them on this core)."""
+        self.fw.check_resources(_HSEM_OWNER, [("hsem", 0)])
+        hsem = self.fw.group("hsem")
+        held: set[int] = set()
+        if isinstance(hsem, FakeHsem):
+            held = {semaphore for semaphore in (_RNG_SEMAPHORE, _CLOCK_SEMAPHORE) if hsem.holder(semaphore) is not None}
+        if _RNG_SEMAPHORE in held:
+            _fail("busy")
+        if (lock5 or _CLOCK_SEMAPHORE in held) and not self._hsi48():
+            _fail("failed")
+        if lock5 and _CLOCK_SEMAPHORE in held:
+            _fail("busy")
 
     def cmd_read(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, ("variant", "lock5"))
@@ -60,8 +84,8 @@ class FakeRng(FakeGroup):
         variant = _choice(options, "variant", VARIANTS, "sync")
         lock5 = _flag(options, "lock5")
         self._check(variant, lock5)
-        if lock5 and not self._hsi48():
-            _fail("failed")
+        if variant == "hsem":
+            self._synchronized(lock5)
         line = f"OK data={self._generate(length).hex()}"
         if variant == "hsem":
             line += f" hsi48={self._hsi48()}"
@@ -72,6 +96,8 @@ class FakeRng(FakeGroup):
         length = _number(args[0], _STATS_MIN, _STATS_MAX)
         variant = _choice(options, "variant", VARIANTS, "sync")
         self._check(variant, False)
+        if variant == "hsem":
+            self._synchronized(False)
         stats = rngstats.byte_stats(self._generate(length))
         return f"OK n={stats.n} ones={stats.ones} runs={stats.runs} chisq={stats.chisq_x1000} crc={stats.crc:08x} us={length // 4 + 50}"
 

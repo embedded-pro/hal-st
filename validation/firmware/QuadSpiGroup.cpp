@@ -246,6 +246,10 @@ namespace validation
         if (stream)
             LL_DMA_DisableChannel(DMA2, board::qspiDma.channel);
 
+        // A data-only indirect read hangs the QUADSPI with BUSY set (erratum): only an abort or a reset clears it
+        __HAL_RCC_QUADSPI_FORCE_RESET();
+        __HAL_RCC_QUADSPI_RELEASE_RESET();
+
         driver.emplace<std::monostate>();
         stream.reset();
         resources.Release(Resource::dma2, board::qspiDma.channel, owners::quadSpi);
@@ -300,13 +304,16 @@ namespace validation
 
         Request next;
         status = ParsePhases(arguments, next.phases);
-        if (status == HilStatus::done)
-            status = ParseCommandData(arguments, next);
         if (status != HilStatus::done)
             return status;
 
+        // The command in flight still reads or writes buffer, which the data arguments fill
         if (pending.Busy())
             return HilStatus::busy;
+
+        status = ParseCommandData(arguments, next);
+        if (status != HilStatus::done)
+            return status;
 
         Start(next);
         return HilStatus::done;
@@ -363,16 +370,17 @@ namespace validation
         if (!TransferShape(arguments))
             return HilStatus::usage;
 
+        if (factory.Spi() == nullptr)
+            return HilStatus::unsupported;
+
+        // The command in flight still reads or writes buffer, which the data arguments fill
+        if (pending.Busy())
+            return HilStatus::busy;
+
         Request next;
         status = ParseTransferData(arguments, next);
         if (status != HilStatus::done)
             return status;
-
-        if (factory.Spi() == nullptr)
-            return HilStatus::unsupported;
-
-        if (pending.Busy())
-            return HilStatus::busy;
 
         Start(next);
         return HilStatus::done;

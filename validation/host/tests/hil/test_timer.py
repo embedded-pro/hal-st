@@ -98,6 +98,40 @@ def test_free_running_counter(fw, timer_cfg, timer, mode):
 
 
 @pytest.mark.board_params("timer", "timer.timers")
+@pytest.mark.board_params("irq", values=["immediate", "dispatched"])
+def test_no_callback_before_the_first_update(fw, timer_cfg, timer, irq):
+    """`tim.start` raises no update callback of its own: the update flag that `HAL_TIM_Base_Init` leaves on some HAL
+    versions is cleared, so a timer with an update period of many seconds has `irqs=0` right after it starts."""
+    index = timer["timer"]
+    slow = timer_cfg["free_running"]
+    fw.tim.open(index, prescaler=slow["prescaler"], period=slow["period"], irq=irq)
+    fw.tim.start(index)
+    assert fw.tim.count(index).irqs == 0
+
+
+@pytest.mark.ad3
+@pytest.mark.board_params("encoder", "qei.instances")
+@pytest.mark.board_params("mode", values=["up", "down"])
+def test_counts_the_requested_way_after_the_encoder(fw, ad3, need, board_cfg, timer_cfg, encoder, mode):
+    """An encoder leaves its timer in encoder mode with CR1.DIR at its last direction, where DIR ignores writes:
+    `tim.open` must still count the requested way. The encoder runs against `mode` before it closes."""
+    index = encoder["index"]
+    if index not in [entry["timer"] for entry in timer_cfg["timers"]]:
+        pytest.skip(f"TIM{index} is not under test in `tests.timer.timers`")
+    a, b = need.dio(encoder["a"]), need.dio(encoder["b"])
+    fw.qei.open(index, a=encoder["a"], b=encoder["b"], res=board_cfg.param("qei.resolution"))
+    ad3.pattern.quadrature(a, b, 1000, 10, "rev" if mode == "up" else "fwd")
+    ad3.pattern.wait_done(timeout=3)
+    fw.qei.close(index)
+    free = timer_cfg["free_running"]
+    fw.tim.open(index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
+    fw.tim.start(index)
+    after, before, _ = count_rate(fw, index, timer_cfg["window_s"])
+    delta = after.cnt - before.cnt if mode == "up" else before.cnt - after.cnt
+    assert delta > 0, (mode, before.cnt, after.cnt)
+
+
+@pytest.mark.board_params("timer", "timer.timers")
 def test_stop_holds_the_counter(fw, timer_cfg, timer):
     """`tim.stop` freezes the counter and the interrupts; `tim.start` resumes; repeated start and stop are harmless."""
     index = timer["timer"]
@@ -146,7 +180,7 @@ def test_marker_is_released_on_close(fw, need, timer_cfg, timer):
 
 
 def test_open_errors(fw, board_cfg, timer_cfg):
-    """Argument errors in the protocol order: usage, range, pin, unsupported."""
+    """Argument errors in the protocol order: usage, range, pin, unsupported, then the update interrupt rate (range)."""
     first = timer_cfg["timers"][0]["timer"]
     wide = next((entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) > 0xFFFF), None)
     narrow = next(entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) == 0xFFFF)
@@ -160,6 +194,8 @@ def test_open_errors(fw, board_cfg, timer_cfg):
         ((narrow,), {"period": 0x10000}, "range"),
         ((first,), {"pin": board_cfg.param("system.unbonded_pins")[0]}, "pin"),
         ((first,), {"mode": "down"}, "unsupported"),
+        ((first,), {"prescaler": 0, "period": 1}, "range"),
+        ((first,), {"prescaler": 0, "period": 1, "irq": "immediate"}, "range"),
     ]
     cases += [((timer,), {}, "range") for timer in timer_cfg["missing"]]
     cases += [((timer,), {"irq": "none", "mode": "down"}, "unsupported") for timer in timer_cfg["up_only"]]
@@ -168,6 +204,8 @@ def test_open_errors(fw, board_cfg, timer_cfg):
     if wide is not None:
         assert fw.tim.open(wide, period=0xFFFFFFFF, irq="none") > 0
         fw.tim.close(wide)
+    assert fw.tim.open(first, prescaler=0, period=1, irq="none") > 0, "the update interrupt rate limit needs an interrupt"
+    fw.tim.close(first)
     for command in ("start", "stop", "count", "close"):
         expect_error("notopen", getattr(fw.tim, command), first)
     for line in ("tim.count", f"tim.count {first} {first}", f"tim.start {first} ch=1"):

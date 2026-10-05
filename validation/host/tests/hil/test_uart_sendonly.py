@@ -74,20 +74,20 @@ def test_receive_returns_nothing(fw, ad3, need, instance):
 @pytest.mark.ad3
 @pytest.mark.board_params("instance", "uart_sendonly.instances")
 def test_rts_only_mapping(fw, ad3, need, sendonly_cfg, instance):
-    """`flow=rts` maps RTS and nothing else: the RTS pin is driven by the UART (it follows neither AD3 pull) and a
-    deasserted CTS does not hold the transmitter."""
+    """`flow=rts` muxes RTS and enables RTS flow control: the UART drives the RTS pin low (receiver ready) against both
+    AD3 pulls, and transmission is not held. CTSE cannot be observed: the send-only driver never muxes a CTS pin."""
     baud = 115200
-    rts, cts = need.dio(instance["rts"]), need.dio(instance["cts"])
+    rts = need.dio(instance["rts"])
     listen(ad3, need, instance, baud)
-    ad3.dio.drive(cts, 1)
     open_sendonly(fw, instance, baud=baud, flow="rts", rts=instance["rts"])
     ad3.dio.pull(up=[rts])
     pulled_up = ad3.dio.read(rts)
     ad3.dio.pull(down=[rts])
     pulled_down = ad3.dio.read(rts)
-    assert pulled_up == pulled_down, "RTS must be driven by the UART"
+    ad3.dio.pull()
+    assert pulled_up == pulled_down == 0, "RTS must be driven and asserted (receiver ready) by the UART"
     payload = bytes.fromhex(sendonly_cfg["payloads"][-1])
-    assert send_and_receive(fw, ad3, instance["index"], payload, baud) == payload, "CTS deasserted must not hold the data"
+    assert send_and_receive(fw, ad3, instance["index"], payload, baud) == payload, "flow=rts must not block transmission"
 
 
 @pytest.mark.ad3

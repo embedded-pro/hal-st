@@ -1,6 +1,6 @@
 """SPI master extensions (PROTOCOL.md "SPI master"): the bit order (`lsb=1`), frame sizes (`bits=`, a
-`hal::SpiDataSizeConfiguratorStm` on `hal::SpiMasterStmDma`), the DMA data width after a 16-bit transfer (B.4) and
-the hardware slave select (`nss=`).
+`hal::SpiDataSizeConfiguratorStm` on `hal::SpiMasterStmDma`), an 8-bit master reopened after a 16-bit one and the
+hardware slave select (`nss=`).
 
 The master is observed with the logic analyzer (`tests.spi_ext.instances`; an entry with `option` is reached only
 through that option's jumpers). Words are decoded with `spiwords` at the frame size and compared with the driver's
@@ -126,8 +126,10 @@ def test_frame_sizes(fw, ad3, need, wiring, board_cfg, ext_cfg, instance, bits):
 
 @pytest.mark.ad3
 @pytest.mark.board_params("instance", "spi_ext.instances")
-def test_width_restored_after_16_bit(fw, ad3, need, wiring, board_cfg, ext_cfg, instance):
-    """An 8-bit transfer after a 16-bit one decodes exactly: the DMA data widths go back to bytes (B.4)."""
+def test_8_bit_after_16_bit_reopen(fw, ad3, need, wiring, board_cfg, ext_cfg, instance):
+    """A master reopened at 8 bits after a 16-bit open runs 8-bit frames. Every open builds new DMA streams, whose
+    constructor resets the data widths, so this cannot catch a width that sticks on a live GPDMA channel (B.4a is
+    proved by review; its 32-bit encoding by test_dma.py::test_wave_32_bit)."""
     if 16 not in instance["bits"]:
         pytest.skip(f"{instance['name']} has no 16-bit frames")
     dios, loop = prepare(ad3, need, wiring, board_cfg, instance)

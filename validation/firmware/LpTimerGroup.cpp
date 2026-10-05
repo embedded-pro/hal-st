@@ -176,6 +176,10 @@ namespace validation
             return HilStatus::unsupported;
 #endif
 
+        // ARRM interrupts on every period, whatever the repetition counter
+        if (request.irq != TimerIrq::none && LpTimerClock(index) / (request.prescaler * (request.period + 1)) > maximumUpdateInterruptRate)
+            return HilStatus::range;
+
         return HilStatus::done;
     }
 

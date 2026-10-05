@@ -204,6 +204,10 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
+        // The armed transfer's transmit DMA still reads transmitBuffer
+        if (armed)
+            return HilStatus::busy;
+
         infra::ByteRange send;
         status = ParsePayload(arguments, 1, infra::MakeRange(transmitBuffer), send);
         auto receive = static_cast<uint32_t>(send.size());
@@ -214,9 +218,6 @@ namespace validation
         // SpiSlaveStmDma runs full duplex on equal lengths only
         if ((send.empty() && receive == 0) || (!send.empty() && receive != 0 && receive != send.size()))
             return HilStatus::usage;
-
-        if (armed)
-            return HilStatus::busy;
 
         armed = true;
         done = false;
