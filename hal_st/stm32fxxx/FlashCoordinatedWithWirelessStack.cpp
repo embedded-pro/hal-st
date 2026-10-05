@@ -208,11 +208,23 @@ namespace hal
     {
         if (__HAL_FLASH_GET_FLAG(FLASH_FLAG_ECCD))
         {
-            __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_ECCD);
             const uint32_t errorAddress = READ_BIT(FLASH->ECCR, FLASH_ECCR_ADDR_ECC);
+            __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_ECCD);
+
+            if (pFlash.Lock == HAL_LOCKED || __HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY))
+                return;
+
+            // An unlocked FLASH_CR belongs to an interrupted WriteBuffer/EraseSectors, which must find it still unlocked
+            const bool wasLocked = READ_BIT(FLASH->CR, FLASH_CR_LOCK) != 0;
+            if (wasLocked && HAL_FLASH_Unlock() != HAL_OK)
+                return;
+
             uint32_t pageError = 0;
             FLASH_EraseInitTypeDef eraseInitStruct{ .TypeErase = FLASH_TYPEERASE_PAGES, .Page = (errorAddress * 8U) / FLASH_PAGE_SIZE, .NbPages = 1 };
             HAL_FLASHEx_Erase(&eraseInitStruct, &pageError);
+
+            if (wasLocked)
+                HAL_FLASH_Lock();
         }
     }
 
