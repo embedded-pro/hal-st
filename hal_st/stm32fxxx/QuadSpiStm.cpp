@@ -19,7 +19,7 @@ namespace hal
         handle.Instance = QUADSPI;
 
         handle.Init.ClockPrescaler = config.prescaler;
-        handle.Init.FifoThreshold = 32;
+        handle.Init.FifoThreshold = (QUADSPI_CR_FTHRES >> QUADSPI_CR_FTHRES_Pos) + 1;
         handle.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_HALFCYCLE;
         handle.Init.FlashSize = config.flashSizeLog2 - 1;
         handle.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_2_CYCLE;
