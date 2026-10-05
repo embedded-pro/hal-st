@@ -52,6 +52,22 @@ BREAK_FILTERS = {
 }
 
 
+# The runt recording covers the duty writes with this headroom over their measured round trips.
+RUNT_HEADROOM = 1.5
+# Round trips measured before the runt recording; the longest one counts.
+ROUND_TRIP_PROBES = 3
+
+
+def duty_round_trip(fw, number, percent):
+    """The longest of a few `pwm.duty` round trips rewriting the duty the channel already has (no edge changes)."""
+    longest = 0.0
+    for _ in range(ROUND_TRIP_PROBES):
+        started = time.monotonic()
+        fw.pwm.duty(number, percent)
+        longest = max(longest, time.monotonic() - started)
+    return longest
+
+
 @pytest.fixture
 def ext_cfg(board_cfg):
     return board_cfg.param("pwm_ext")
@@ -265,21 +281,25 @@ def set_duty(fw, state, percent):
 
 @when("the logic analyser records the runt window while the duty is set to 80 % and back to 20 % the runt repeats times")
 def record_runts(fw, ad3, ext_cfg, state):
-    number = state["number"]
-    window = ext_cfg["runt_window_s"]
+    number, repeats = state["number"], ext_cfg["runt_repeats"]
+    writes = 2 * repeats * duty_round_trip(fw, number, 20)
+    window = max(ext_cfg["runt_window_s"], RUNT_HEADROOM * writes)
     rate = min(ad3.logic.clock_hz, ad3.logic.buffer_size / window)
     pending = ad3.logic.arm(rate, math.floor(rate * window))
     started = time.monotonic()
-    for _ in range(ext_cfg["runt_repeats"]):
+    for _ in range(repeats):
         fw.pwm.duty(number, 80)
         fw.pwm.duty(number, 20)
     elapsed = time.monotonic() - started
     state.update(window=window, elapsed=elapsed, capture=pending.wait(timeout=window + 2))
 
 
-@when("the break input is driven low")
-def break_low(ad3, state):
-    ad3.dio.drive(state["brk_dio"], 0)
+@when("the AD3 holds the break input low with its weak pull-down, without a static output")
+def break_pulled_low(ad3, state):
+    # The pulse must come from the pattern generator alone: a static DIO output enabled on the same line holds it
+    # at its own level, and the line then never reaches the break input high.
+    ad3.dio.pull(down=[state["brk_dio"]])
+    ad3.dio.release(state["brk_dio"])
 
 
 @when("the channel is opened at the break frequency with the break input active high and the filter of the case")
@@ -375,7 +395,7 @@ def master_timer_needed(fw, timer, reason):
 @then("the writes took less than the recording")
 def writes_within_window(state):
     elapsed, window = state["elapsed"], state["window"]
-    assert elapsed < window, f"the writes took {elapsed:.3f} s, longer than the {window} s recording"
+    assert elapsed < window, f"the writes took {elapsed:.3f} s, longer than the {window:.3f} s recording"
 
 
 @then("pulses were captured")

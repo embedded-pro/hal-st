@@ -54,7 +54,8 @@ Feature: Analog input
   @ad3
   Scenario: A burst follows a wavegen ramp
     A wavegen ramp during the burst: the samples rise at the ramp's slope per TIM2 period (the window holds at
-    most one wrap of the sawtooth, so the samples split into at most two rising pieces).
+    most one wrap of the sawtooth, so the samples split into at most two rising pieces). The wavegen ramp runs at
+    50 % symmetry: it rises from low to high in half its period, so its slope is twice span x frequency.
     Given the wavegen drives the ramp on the first pin
     And the host waits 0.05 s
     When the first pin is measured in a burst of the sample count of the ramp at the rate of the ramp

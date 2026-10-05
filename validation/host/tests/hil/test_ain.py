@@ -21,6 +21,10 @@ from pytest_bdd import given, parsers, scenario, then, when
 from hal_st_validation import expect
 from hal_st_validation.groups import analog
 
+# `ad3.wavegen.ramp` runs WaveForms' RampUp at 50 % symmetry (ad3-waveforms-bench `Wavegen._periodic`), and the
+# symmetry of a ramp is the part of the period it rises in: low to high in half a period, twice span x frequency.
+RAMP_RISE_FRACTION = 0.5
+
 
 @pytest.fixture
 def ain_cfg(board_cfg):
@@ -291,7 +295,7 @@ def ramp_slope(board_cfg, adc_cfg, ain_cfg, pieces, percent):
     longest = max(pieces, key=len)
     slope = statistics.linear_regression(range(len(longest)), longest).slope
     rate = analog.trigger_rate(board_cfg.clock("timer"), settings["rate"])
-    expected = span * settings["frequency"] / rate
+    expected = span * settings["frequency"] / RAMP_RISE_FRACTION / rate
     assert slope == pytest.approx(expected, rel=percent / 100), f"{slope:.2f} codes per sample, the ramp gives {expected:.2f}"
 
 

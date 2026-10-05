@@ -36,7 +36,8 @@ Feature: PWM extensions
   Scenario: Compare preload holds a duty write until the next period
     Duty 80 % then 20 %, written `runt_repeats` times while the LA records: without preload a write lands
     mid-period and cuts or stretches that period's pulse (some high pulse lies strictly between 20 % and 80 %);
-    with preload every period shows 20 % or 80 %.
+    with preload every period shows 20 % or 80 %. The runt window is `runt_window_s`, or 1.5 times the writes at
+    the longest of three measured `pwm.duty` round trips when that is longer (a high-latency terminal link).
     Given the first channel of the preload timer is wired
     When the channel is opened at the preload frequency with a 1 MHz counter and the preload
     And the duty is set to 20 %
@@ -53,7 +54,7 @@ Feature: PWM extensions
     Given the break filter timer has a wired break input
     And its first channel and its break input are wired
     And the break filter case trips exactly when its pulse outlasts the filter
-    When the break input is driven low
+    When the AD3 holds the break input low with its weak pull-down, without a static output
     And the channel is opened at the break frequency with the break input active high and the filter of the case
     And the duty is set to 50 %
     Then the channel switches before the pulse

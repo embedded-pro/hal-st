@@ -10,6 +10,7 @@ Scenarios: features/pwm.feature.
 
 from __future__ import annotations
 
+import bisect
 import statistics
 import time
 
@@ -106,6 +107,18 @@ def expected_waveform(pwmclk, frequency, mode, duty):
 def logical(capture, dio, inverted):
     bits = capture.channel(dio)
     return [1 - bit for bit in bits] if inverted else bits
+
+
+def switch_overs(off_bits, on_bits, rate):
+    """From each turn-off of one output to the next turn-on of the other. Without dead time both switch on the same
+    kernel clock edge, so no sample has both off and `analysis.dead_times_split` finds no switch-over at all."""
+    ons = analysis.rising_times(on_bits, rate)
+    times = []
+    for off in analysis.falling_times(off_bits, rate):
+        index = bisect.bisect_left(ons, off)
+        if index < len(ons):
+            times.append(ons[index] - off)
+    return times
 
 
 @pytest.mark.board_params("timer", "pwm.timers")
@@ -517,11 +530,13 @@ def no_shoot_through(state):
 
 @then("each switch-over waits the dead time in timer kernel clocks")
 def dead_times_match(pwm_cfg, timer_clock, state, dead):
-    rate = state["rate"]
-    split = analysis.dead_times_split(state["bits_a"], state["bits_b"], rate)
+    rate, bits_a, bits_b = state["rate"], state["bits_a"], state["bits_b"]
     dead_time = expect.pwm_dead_time(dead, timer_clock)
     allowed = tolerance(pwm_cfg, "dead_ticks") / timer_clock + 2 / rate
-    for name, times in (("output off -> complementary on", split.a_off_to_b_on), ("complementary off -> output on", split.b_off_to_a_on)):
+    for name, times in (
+        ("output off -> complementary on", switch_overs(bits_a, bits_b, rate)),
+        ("complementary off -> output on", switch_overs(bits_b, bits_a, rate)),
+    ):
         assert times, f"no {name} transitions captured"
         assert statistics.median(times) == pytest.approx(dead_time, abs=allowed), name
     state.update(dead_time=dead_time, allowed=allowed)
@@ -580,10 +595,13 @@ def neither_switches_after_stop(state):
     assert stopped.edge_count(a) == 0 and stopped.edge_count(b) == 0, "outputs switch after pwm.stop"
 
 
-@then("the output and the complementary output end at the idle levels")
+@then("the output and the complementary output end at the idle levels, both low where both idle levels are high")
 def idle_levels(state, idle, idlen):
     stopped = state["capture"]
-    assert (stopped.channel(state["a"])[-1], stopped.channel(state["b"])[-1]) == (idle, idlen)
+    # RM0434, break function: OCx and OCxN are never driven to their active level together, not even by OISx/OISxN,
+    # so idle=1 idlen=1 (both active with inv=invn=0) leaves both at their inactive level.
+    expected = (0, 0) if idle and idlen else (idle, idlen)
+    assert (stopped.channel(state["a"])[-1], stopped.channel(state["b"])[-1]) == expected
 
 
 @then("the channel switches while the break input is inactive")
@@ -726,8 +744,8 @@ def both_switch_after_reopen(state):
 @then("the switch-overs wait no dead time")
 def no_dead_time(pwm_cfg, timer_clock, state):
     capture = state["capture"]
-    split = analysis.dead_times_split(capture.channel(state["a"]), capture.channel(state["b"]), capture.rate)
-    times = split.a_off_to_b_on + split.b_off_to_a_on
+    bits_a, bits_b = capture.channel(state["a"]), capture.channel(state["b"])
+    times = switch_overs(bits_a, bits_b, capture.rate) + switch_overs(bits_b, bits_a, capture.rate)
     assert times, "no switch-overs captured"
     allowed = tolerance(pwm_cfg, "dead_ticks") / timer_clock + 2 / capture.rate
     assert statistics.median(times) == pytest.approx(0, abs=allowed), "dead time of the previous open"

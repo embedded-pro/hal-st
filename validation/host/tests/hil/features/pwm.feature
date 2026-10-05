@@ -68,7 +68,8 @@ Feature: PWM
 
   @ad3
   Scenario: The outputs rest at the idle levels while disabled
-    `idle`/`idlen` are the levels of the output and the complementary output while the outputs are disabled.
+    `idle`/`idlen` are the levels of the output and the complementary output while the outputs are disabled; the
+    timer never drives both to their active level, so `idle=1 idlen=1` leaves both low (RM0434, break function).
     Given the first channel of the timer and its complementary output are wired
     When the channel and its complementary output are opened at the channels frequency with the idle levels
     And the duty is set to 50 %
@@ -77,7 +78,7 @@ Feature: PWM
     When the timer stops
     And both outputs are recorded
     Then neither output switches after the stop
-    And the output and the complementary output end at the idle levels
+    And the output and the complementary output end at the idle levels, both low where both idle levels are high
 
   @ad3
   Scenario: The break input disables the outputs
