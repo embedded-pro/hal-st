@@ -410,10 +410,12 @@ namespace hal
 
         const auto counterClock = TimerClockFrequency() / (static_cast<uint32_t>(config.prescaler) + 1);
         const auto ticksPerPeriod = counterClock / baseFrequency.Value();
-        really_assert(ticksPerPeriod >= 2);
 
         // A centre-aligned counter runs 0..ARR..0, a period of 2 x ARR ticks instead of ARR + 1.
-        const auto autoReload = IsCenterAligned(handle.Init.CounterMode) ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
+        // At ARR = 1 it outputs a fixed half period whatever the compare value, so it needs ARR >= 2.
+        const auto centerAligned = IsCenterAligned(handle.Init.CounterMode);
+        really_assert(ticksPerPeriod >= (centerAligned ? 4u : 2u));
+        const auto autoReload = centerAligned ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
         really_assert(autoReload <= MaximumCompare());
 
         handle.Init.Period = autoReload;

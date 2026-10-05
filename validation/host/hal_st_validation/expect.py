@@ -71,11 +71,15 @@ def pwm_auto_reload(pwmclk: int, frequency: int, mode: PwmMode) -> int:
 
 
 def pwm_fits(pwmclk: int, frequency: int, mode: PwmMode, counter_max: int = 0xFFFF) -> bool:
-    """`pwm.open`/`pwm.freq` answer `ERR range` otherwise: at least 2 counter ticks per period, and ARR within the
-    counter."""
+    """`pwm.open`/`pwm.freq` answer `ERR range` otherwise: at least 2 counter ticks per period edge aligned and 4
+    centre aligned (ARR >= 2: at ARR = 1 the output is a fixed half period), and ARR within the counter."""
     if frequency <= 0:
         return False
-    return pwmclk // frequency >= 2 and pwm_auto_reload(pwmclk, frequency, mode) <= counter_max
+    return pwmclk // frequency >= pwm_minimum_ticks(mode) and pwm_auto_reload(pwmclk, frequency, mode) <= counter_max
+
+
+def pwm_minimum_ticks(mode: PwmMode) -> int:
+    return 4 if mode == "center" else 2
 
 
 def pwm_frequency(pwmclk: int, frequency: int, mode: PwmMode) -> float:
@@ -86,11 +90,11 @@ def pwm_frequency(pwmclk: int, frequency: int, mode: PwmMode) -> float:
 
 
 def pwm_frequency_limits(pwmclk: int, mode: PwmMode, counter_max: int = 0xFFFF) -> tuple[int, int]:
-    """Lowest and highest frequency `pwm.open`/`pwm.freq` accept at `pwmclk` (at least 2 ticks, ARR within the
-    counter); the accepted frequencies form one interval."""
+    """Lowest and highest frequency `pwm.open`/`pwm.freq` accept at `pwmclk` (at least `pwm_minimum_ticks`, ARR
+    within the counter); the accepted frequencies form one interval."""
     longest = 2 * counter_max + 1 if mode == "center" else counter_max + 1
     lowest = max(1, pwmclk // (longest + 1) + 1)
-    highest = pwmclk // 2
+    highest = pwmclk // pwm_minimum_ticks(mode)
     while lowest > 1 and pwm_fits(pwmclk, lowest - 1, mode, counter_max):
         lowest -= 1
     while not pwm_fits(pwmclk, lowest, mode, counter_max) and lowest <= highest:

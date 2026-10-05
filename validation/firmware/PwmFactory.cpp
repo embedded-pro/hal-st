@@ -98,7 +98,7 @@ namespace validation
         bool ValidFrequency(uint8_t timer, uint32_t counterClock, bool centerAligned, uint32_t hertz)
         {
             const auto ticksPerPeriod = counterClock / hertz;
-            if (ticksPerPeriod < 2)
+            if (ticksPerPeriod < (centerAligned ? 4u : 2u))
                 return false;
 
             const uint32_t maximumCompare = IS_TIM_32B_COUNTER_INSTANCE(Instance(timer)) ? 0xffffffffu : 0xffffu;
