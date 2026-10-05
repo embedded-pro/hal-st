@@ -44,13 +44,6 @@ class Dummy(FakeGroup):
         return ["EVT dummy line=2", "OK"]
 
 
-class Qspi(FakeGroup):
-    prefix = "qspi"
-
-    def cmd_close(self, args, options):
-        return "OK"
-
-
 class Helper:
     prefix = "helper"
 """
@@ -175,7 +168,7 @@ def test_unsupported_names_come_first(area):
     terminal, _ = make("stm32wba55")
     assert reason(terminal, "qspi.close 1") == "unsupported"
     terminal, _ = make("stm32wb55")
-    assert reason(terminal, "qspi.close 1") == "ok"
+    assert reason(terminal, "qspi.close 1") == "notopen", "the qspi group of fakes/qspi.py serves the STM32WB55"
 
 
 def test_firmware_attaches_the_groups(area):

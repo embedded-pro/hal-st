@@ -75,6 +75,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     PwmFactory.hpp
     QeiFactory.cpp
     QeiFactory.hpp
+    QuadSpiGroup.cpp
+    QuadSpiGroup.hpp
     ResourceAllocation.cpp
     ResourceAllocation.hpp
     RngGroup.cpp

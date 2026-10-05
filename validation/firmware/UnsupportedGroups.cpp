@@ -27,7 +27,7 @@ namespace validation
             "lptpwm.close",
         } };
 #elif defined(STM32WBA)
-        constexpr std::array<const char*, 19> commandNames{ {
+        constexpr std::array<const char*, 24> commandNames{ {
             "comp.open",
             "comp.read",
             "comp.irq",
@@ -47,6 +47,11 @@ namespace validation
             "hsem.lock",
             "hsem.mine",
             "flash.stack",
+            "qspi.open",
+            "qspi.cmd",
+            "qspi.poll",
+            "qspi.xfer",
+            "qspi.close",
         } };
 #endif
     }

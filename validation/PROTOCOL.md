@@ -465,6 +465,31 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - the wake and marker pins must differ (`ERR usage`); a pin the package lacks returns `ERR pin`, a wake pin whose EXTI line serves a pin of another port `ERR unsupported`, a held pin or TIM17 held by another group `ERR busy`
   - the terminal and every other interrupt (including the watchdog's early warning: a running watchdog is not fed) are blocked for the window: send nothing until the final line
 
+## QUADSPI (`hal::QuadSpiStm`, `variant=dma` selects `hal::QuadSpiStmDma`, `variant=spi` adds `hal::SingleSpeedQuadSpiStmDma`, NUCLEO-WB55RG only)
+
+- `qspi.open <1> [variant=poll|dma|spi] [prescaler=<0-255>] [size=<1-32>]` → `OK clk=<hz>`
+  - QUADSPI 1 is the only instance (`ERR range` otherwise); the pins come from the board profile: `qspiclk` PA3, `qspincs` PA2, `qspiio0`-`qspiio3` PB9, PB8, PA7, PA6 (all six held, `ERR busy` when one is taken)
+  - defaults `variant=poll prescaler=2 size=24`; `clk` is the QUADSPI kernel clock (HCLK4) divided by `prescaler + 1`; `size` is the flash size as log2 of bytes (DCR FSIZE + 1)
+  - `variant=poll` is the blocking `QuadSpiStm` (HAL); `variant=dma` is `QuadSpiStmDma` on DMA2 channel 3; `variant=spi` is `QuadSpiStmDma` with `SingleSpeedQuadSpiStmDma` on top, for `qspi.xfer`
+- `qspi.cmd <1> [instr=<0-0xff>] [addr=<n> [abytes=1-4]] [alt=<n> [altbytes=1-4]] [dummy=<0-31>] [lines=1|4] [tx=<hex>|len=<n> [pattern=] [seed=]|rx=<n> [out=hex|crc]] [repeat=<1-8>]` → writes `OK flevel=<n>`, reads `OK data=<hex>` (or `OK len=<n> crc=<crc32>` with `out=crc`)
+  - one command of `hal::QuadSpi` (`SendData` without `rx`, `ReceiveData` with it) on every variant; every phase is optional: without `instr`, `addr` and `alt` the command has no instruction, address or alternate-byte phase, and without `tx`/`len`/`rx` no data phase
+  - `addr` takes `abytes` bytes (default 3) and `alt` `altbytes` bytes (default 1), both sent most significant byte first; a value wider than its bytes returns `ERR range`, `abytes` without `addr` or `altbytes` without `alt` `ERR usage`
+  - `lines` (default 1) applies to every phase; 2 returns `ERR range`
+  - `tx` is the data in hex; `len` generates it (`pattern=inc|const|prbs` `seed=`, see "Line length" in General), 1-256 bytes; `rx` reads 1-256 bytes, above 128 only with `out=crc`; at most one of `tx`, `len` and `rx`
+  - `flevel` is the QUADSPI FIFO level read in the completion callback: 0 once the last byte has left the pins
+  - `repeat` issues the write again from each completion callback (writes only) and answers after the last one
+  - a read with a data phase only hangs the QUADSPI with BUSY set (STM32 QUADSPI erratum "cannot be used in indirect read mode when only data phase is activated"): `variant=dma` answers `ERR timeout`, `variant=poll` blocks the firmware; add `dummy=2` to such a read, the erratum's workaround, which drives no IO line either
+- `qspi.poll <1> match=<n> mask=<n> [size=1-4] [instr=] [addr=] [abytes=] [alt=] [altbytes=] [dummy=] [lines=1|4]` → `OK`
+  - `hal::QuadSpi::PollStatus`: reads `size` status bytes (default 1) until the status masked with `mask` equals `match`
+  - `variant=dma`: `ERR timeout` after 2000 ms; the group then answers `ERR busy` until `qspi.close`, which stops the polling (`~QuadSpiStmDma` clears CR)
+  - `variant=poll` blocks the firmware until the status matches (`QuadSpiStm` waits with `HAL_MAX_DELAY`, a known gap)
+- `qspi.xfer <1> <txhex|-> [len=<n> [pattern=] [seed=]] [rx=<1-128>] [repeat=<1-8>]` → writes `OK flevel=<n>`, reads `OK rx=<hex>`
+  - `variant=spi` only (`ERR unsupported` otherwise): `SingleSpeedQuadSpiStmDma::SendAndReceive`, SPI mode 0 with MOSI on IO0, MISO on IO1 and NCS as chip select
+  - half duplex: exactly one of the data (`txhex` or `len`) and `rx`, else `ERR usage`; `repeat` as for `qspi.cmd`
+  - a read has a data phase only, so the erratum above applies to it
+- `qspi.close <1>` → `OK`
+- `qspi.cmd`, `qspi.poll` and `qspi.xfer` answer within 2000 ms or `ERR timeout`; a command that timed out keeps the group busy until `qspi.close`
+
 ## Not available on these boards
 
 hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55, so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.

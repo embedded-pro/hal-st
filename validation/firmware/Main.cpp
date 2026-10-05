@@ -34,6 +34,7 @@
 #include "validation/firmware/PkaGroup.hpp"
 #include "validation/firmware/PwmFactory.hpp"
 #include "validation/firmware/QeiFactory.hpp"
+#include "validation/firmware/QuadSpiGroup.hpp"
 #include "validation/firmware/ResourceAllocation.hpp"
 #include "validation/firmware/RngGroup.hpp"
 #include "validation/firmware/SpiFactory.hpp"
@@ -128,6 +129,11 @@ int main()
 #endif
     static validation::BackupRamCommands backupRam{ context };
     static validation::LowPowerCommands lowPower{ context, timers };
+
+#if defined(HAS_PERIPHERAL_QUADSPI)
+    static validation::QuadSpiFactoryStm quadSpiFactory{ console.dma, resources };
+    static validation::QuadSpiGroup quadSpi{ context, quadSpiFactory };
+#endif
 
     validation::CreateUnsupportedGroups(context);
 

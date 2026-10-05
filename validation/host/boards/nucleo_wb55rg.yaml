@@ -24,6 +24,8 @@ clocks:
   lptim:
     1: 64000000
     2: 64000000
+  # QUADSPI kernel clock (HCLK4); qspi.open divides it by prescaler + 1.
+  qspi: 64000000
 
 terminal:
   baud: 921600
@@ -390,6 +392,13 @@ known_gaps:
       hal_st/synchronous_stm32fxxx/SynchronousSpiMasterStm.cpp:23 - the SPI
       masters mux slaveSelect to NSS but initialise SPI_NSS_SOFT, so NSS is
       never driven; hardware NSS framing needs a decision (DESIGN B.14)
+  - tests:
+      - "test_qspi.py::test_poll_timeout[*poll*]"
+    reason: >-
+      QuadSpiStm.cpp:52,73,97 - QuadSpiStm waits with HAL_MAX_DELAY, so a
+      PollStatus whose status never matches blocks the event loop for good
+      instead of answering ERR timeout (B.14, needs a decision)
+    hangs: true
 
 # Test parameters. A mapping used by `@pytest.mark.matrix` is one dimension
 # per key: `--depth full` runs the cartesian product, `--depth quick` a
@@ -1335,6 +1344,46 @@ tests:
     timeout_ms: 50
     la_rate: 4000000
     unbonded_pin: PC7
+  qspi:
+    index: 1
+    # board::qspiPins (aliases qspiclk, qspincs, qspiio0-3), all on bundle1
+    # DIOs: CLK DIO13, NCS DIO12, IO0 DIO5, IO1 DIO3, IO2 DIO1, IO3 DIO7.
+    pins:
+      clk: PA3
+      ncs: PA2
+      io: [PB9, PB8, PA7, PA6]
+    # 64 MHz / 8 = 8 MHz: 12.5 samples per clock at the AD3's 100 MS/s.
+    decode_prescaler: 7
+    # 64 MHz / 256 = 250 kHz: 16 bytes in the FIFO take 0.5 ms to leave on
+    # one line (B.15, flevel).
+    slow_prescaler: 255
+    flevel_length: 64
+    # Decoded writes: every phase, on 1 and on 4 lines.
+    lines: [1, 4]
+    write:
+      instr: 0x38
+      addr: 0x123456
+      abytes: 3
+      alt: 0xa55a
+      altbytes: 2
+      data: "00ff5aa5c3"
+    # An instruction-only write, and the instruction of the 1-line reads.
+    instruction: 0x06
+    read_instr: 0x0b
+    read_length: 4
+    # 4-line reads of static AD3 levels: each byte is the nibble twice.
+    nibbles: [0x0, 0x5, 0xa, 0xf]
+    # Status poll: 1-line instruction, 1-line status on IO1 (DIO3).
+    poll:
+      instr: 0x05
+      match: 0x01
+      mask: 0x01
+    # Two writes from one completion callback (repeat), 1 line.
+    back_to_back:
+      length: 32
+      seed: 1
+      repeat: 2
+    xfer: "9f0102a5"
   unsupported:
     commands:
       - comp.open 1
