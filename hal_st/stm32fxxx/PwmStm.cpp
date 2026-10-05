@@ -229,17 +229,20 @@ namespace hal
 
         ConfigureTimeBase();
 
-        if (config.triggerOutput)
+        // Neither HAL_TIM_PWM_Init nor HAL_TIM_PWM_DeInit touches CR2.MMS, so an earlier
+        // user's trigger output would otherwise keep firing.
+        if (config.triggerOutput || IS_TIM_MASTER_INSTANCE(instance))
             ConfigureTriggerOutput();
 
         for (std::size_t i = 0; i != channels.size(); ++i)
             ConfigureChannel(channels[i], channelConfigs[i]);
 
-        if (config.deadTime || config.breakInput || idleStateRequested)
+        // Neither HAL_TIM_PWM_DeInit nor gating the clock resets BDTR or the break input
+        // sources, so they are rewritten even when nothing is requested.
+        if (IS_TIM_BREAK_INSTANCE(instance))
             ConfigureBreakAndDeadTime();
 
-        if (breakPin)
-            ConfigureBreakInputSource();
+        ConfigureBreakInputSource();
     }
 
     PwmStmBase::~PwmStmBase()
@@ -252,8 +255,9 @@ namespace hal
     void PwmStmBase::ConfigureTimeBase()
     {
         handle.Init.Prescaler = config.prescaler;
-        handle.Init.CounterMode = static_cast<uint32_t>(config.alignment);
-        handle.Init.Period = 0;
+        handle.Init.CounterMode = TIM_COUNTERMODE_UP;
+        // The shortest period HAL_TIM_PWM_Init accepts; StartImpl loads the real one.
+        handle.Init.Period = 1;
         handle.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
         handle.Init.AutoReloadPreload = config.preloadEnabled ? TIM_AUTORELOAD_PRELOAD_ENABLE : TIM_AUTORELOAD_PRELOAD_DISABLE;
         handle.Init.RepetitionCounter = 0;
@@ -267,12 +271,22 @@ namespace hal
         clockSource.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
         result = HAL_TIM_ConfigClockSource(&handle, &clockSource);
         really_assert(result == HAL_OK);
+
+        // CR1.DIR ignores writes while centre-aligned or in encoder mode, either of which an
+        // earlier user may have left, so the direction is only written once CMS and SMS are
+        // cleared by the two calls above.
+        handle.Init.CounterMode = static_cast<uint32_t>(config.alignment);
+        result = HAL_TIM_PWM_Init(&handle);
+        really_assert(result == HAL_OK);
+
+        // Zero marks the base frequency as not set yet.
+        handle.Init.Period = 0;
     }
 
     void PwmStmBase::ConfigureTriggerOutput()
     {
         TIM_MasterConfigTypeDef master{};
-        master.MasterOutputTrigger = static_cast<uint32_t>(*config.triggerOutput);
+        master.MasterOutputTrigger = static_cast<uint32_t>(config.triggerOutput.value_or(TriggerOutput::reset));
         master.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
 
         auto result = HAL_TIMEx_MasterConfigSynchronization(&handle, &master);
@@ -305,11 +319,15 @@ namespace hal
     {
         TIM_BreakDeadTimeConfigTypeDef init{};
 
+        // The LOCK bits are write-once until reset; any other level would freeze BDTR for
+        // every later construction on this timer.
+        init.LockLevel = TIM_LOCKLEVEL_OFF;
+
         // The idle levels only reach the pins while the timer keeps controlling them after
         // MOE clears, which is what the off-state selections enable.
-        init.OffStateRunMode = TIM_OSSR_ENABLE;
-        init.OffStateIDLEMode = TIM_OSSI_ENABLE;
-        init.LockLevel = TIM_LOCKLEVEL_OFF;
+        const auto offStateControl = config.deadTime || config.breakInput || idleStateRequested;
+        init.OffStateRunMode = offStateControl ? TIM_OSSR_ENABLE : TIM_OSSR_DISABLE;
+        init.OffStateIDLEMode = offStateControl ? TIM_OSSI_ENABLE : TIM_OSSI_DISABLE;
         init.DeadTime = config.deadTime ? EncodeDeadTime(config.deadTime->duration, TimerClockFrequency(), handle.Init.ClockDivision) : 0;
 
         if (config.breakInput)
@@ -322,14 +340,14 @@ namespace hal
         else
         {
             init.BreakState = TIM_BREAK_DISABLE;
-            init.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+            init.BreakPolarity = TIM_BREAKPOLARITY_LOW;
             init.BreakFilter = 0;
             init.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
         }
 
 #if defined(TIM_BDTR_BK2E)
         init.Break2State = TIM_BREAK2_DISABLE;
-        init.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+        init.Break2Polarity = TIM_BREAK2POLARITY_LOW;
         init.Break2Filter = 0;
 #endif
 
@@ -340,13 +358,18 @@ namespace hal
     void PwmStmBase::ConfigureBreakInputSource()
     {
 #if defined(TIM_BREAKINPUTSOURCE_BKIN)
-        really_assert(IS_TIM_BREAKSOURCE_INSTANCE(handle.Instance));
+        really_assert(!breakPin || IS_TIM_BREAKSOURCE_INSTANCE(handle.Instance));
 
-        // BDTR.BKE alone only arms the reaction; the external pin is a separate mux source.
+        if (!IS_TIM_BREAKSOURCE_INSTANCE(handle.Instance))
+            return;
+
+        // BDTR.BKE alone only arms the reaction; the external pin is a separate mux source,
+        // enabled out of reset. BKINP inverts the pin ahead of BDTR.BKP, so it stays
+        // non-inverted (the HAL's POLARITY_HIGH) and BKP alone selects the active level.
         TIMEx_BreakInputConfigTypeDef source{};
         source.Source = TIM_BREAKINPUTSOURCE_BKIN;
         source.Enable = TIM_BREAKINPUTSOURCE_ENABLE;
-        source.Polarity = config.breakInput->activeHigh ? TIM_BREAKINPUTSOURCE_POLARITY_HIGH : TIM_BREAKINPUTSOURCE_POLARITY_LOW;
+        source.Polarity = TIM_BREAKINPUTSOURCE_POLARITY_HIGH;
 
         auto result = HAL_TIMEx_ConfigBreakInput(&handle, TIM_BREAKINPUT_BRK, &source);
         really_assert(result == HAL_OK);
@@ -379,15 +402,14 @@ namespace hal
         really_assert(baseFrequency.Value() != 0);
 
         const auto counterClock = TimerClockFrequency() / (static_cast<uint32_t>(config.prescaler) + 1);
-        auto ticksPerPeriod = counterClock / baseFrequency.Value();
-
-        if (IsCenterAligned(handle.Init.CounterMode))
-            ticksPerPeriod /= 2;
-
+        const auto ticksPerPeriod = counterClock / baseFrequency.Value();
         really_assert(ticksPerPeriod >= 2);
-        really_assert(ticksPerPeriod - 1 <= MaximumCompare());
 
-        handle.Init.Period = ticksPerPeriod - 1;
+        // A centre-aligned counter runs 0..ARR..0, a period of 2 x ARR ticks instead of ARR + 1.
+        const auto autoReload = IsCenterAligned(handle.Init.CounterMode) ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
+        really_assert(autoReload <= MaximumCompare());
+
+        handle.Init.Period = autoReload;
         __HAL_TIM_SET_AUTORELOAD(&handle, handle.Init.Period);
 
         for (auto& channel : channels)
@@ -401,10 +423,18 @@ namespace hal
 
         channel.dutyCycle = dutyCycle;
 
+        // Centre-aligned PWM is active for 2 x CCR of the 2 x ARR ticks, so ARR is the full
+        // scale there; edge-aligned it is ARR + 1, where CCR > ARR holds the output active.
+        const auto period = static_cast<uint64_t>(handle.Init.Period) + (IsCenterAligned(handle.Init.CounterMode) ? 0 : 1);
+        auto counts = dutyCycle.ToCounts(period);
+
+        // Counting down, PWM mode 1 is active while CNT <= CCR, one tick more than CCR.
+        if (handle.Init.CounterMode == TIM_COUNTERMODE_DOWN && counts != 0)
+            --counts;
+
         // Clamped rather than taken modulo: at the widest period the full-duty value is one
         // past what the compare register holds, and would otherwise wrap to no output at all.
-        const auto period = static_cast<uint64_t>(handle.Init.Period) + 1;
-        const auto compare = std::min<uint64_t>(dutyCycle.ToCounts(period), MaximumCompare());
+        const auto compare = std::min<uint64_t>(counts, MaximumCompare());
 
         __HAL_TIM_SET_COMPARE(&handle, TimerChannel(channel.index), static_cast<uint32_t>(compare));
     }
@@ -427,9 +457,14 @@ namespace hal
             return;
         }
 
+        // With preload the counter would otherwise start on the placeholder period and the
+        // compare values latched at init, possibly a previous construction's last duty.
+        auto result = HAL_TIM_GenerateEvent(&handle, TIM_EVENTSOURCE_UPDATE);
+        really_assert(result == HAL_OK);
+
         for (const auto& channel : channels)
         {
-            auto result = HAL_TIM_PWM_Start(&handle, TimerChannel(channel.index));
+            result = HAL_TIM_PWM_Start(&handle, TimerChannel(channel.index));
             really_assert(result == HAL_OK);
 
             if (channel.complementary)

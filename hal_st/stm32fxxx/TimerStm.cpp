@@ -189,6 +189,9 @@ namespace hal
         TIM_MasterConfigTypeDef masterConfig = { 0 };
 
         masterConfig.MasterOutputTrigger = infra::enum_cast(config.trigger->triggerOutput);
+#if defined(TIM_TRGO2_RESET)
+        masterConfig.MasterOutputTrigger2 = infra::enum_cast(config.trigger->triggerOutput2);
+#endif
         masterConfig.MasterSlaveMode = config.trigger->isSlaveMode ? TIM_MASTERSLAVEMODE_ENABLE : TIM_MASTERSLAVEMODE_DISABLE;
         auto result = HAL_TIMEx_MasterConfigSynchronization(&handle, &masterConfig);
         assert(result == HAL_OK);

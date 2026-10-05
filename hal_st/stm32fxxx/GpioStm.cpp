@@ -531,14 +531,16 @@ namespace hal
 
     void GpioStm::EnableInterrupt(Port port, uint8_t index, const infra::Function<void()>& action, InterruptTrigger trigger, InterruptType type)
     {
-#if defined(STM32WBA) || defined(STM32H5)
-        uint8_t pos = 3;
+#if defined(EXTI_EXTICR1_EXTI0)
+        uint32_t shift = (index & 0x03) * EXTI_EXTICR1_EXTI1_Pos;
 #else
-        uint8_t pos = 2;
+        uint32_t shift = (index & 0x03) * SYSCFG_EXTICR1_EXTI1_Pos;
 #endif
 
-        uint32_t extiMask = 0xf << ((index & 0x03) << pos);
-        uint32_t extiValue = static_cast<uint8_t>(port) << ((index & 0x03) << pos);
+        // hal::Port only enumerates the ports a device has; EXTICR expects the code of the port's address slot
+        GPIO_TypeDef* gpio = portToGPIOPort[static_cast<uint8_t>(port)];
+        uint32_t extiMask = 0xf << shift;
+        uint32_t extiValue = GPIO_GET_INDEX(gpio) << shift;
 
 #if defined(EXTI_EXTICR1_EXTI0)
         EXTI->EXTICR[index >> 2] = (EXTI->EXTICR[index >> 2] & ~extiMask) | extiValue;

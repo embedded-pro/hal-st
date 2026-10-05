@@ -111,6 +111,7 @@ namespace hal
 #ifdef ADC_OFFSET_1
         channelConfig.Offset = 0;
 #endif
+        adc.SelectSingleConversion();
         HAL_StatusTypeDef result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
         assert(result == HAL_OK);
 
@@ -150,8 +151,13 @@ namespace hal
 #ifdef ADC_OFFSET_1
         channelConfig.Offset = 0;
 #endif
+#ifdef ADC_SMPR_SMP1
+        channelConfig.SamplingTime = ADC_SAMPLINGTIME_COMMON_1;
+#else
         channelConfig.SamplingTime = config.samplingTime;
+#endif
 
+        adc.SelectSingleConversion();
         HAL_StatusTypeDef result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
         assert(result == HAL_OK);
 
@@ -233,6 +239,20 @@ namespace hal
     ADC_HandleTypeDef& AdcStm::Handle()
     {
         return handle;
+    }
+
+    // AdcDmaMultiChannelStm on the same AdcStm leaves a multi-rank CHSELR sequence and its own SMP1
+    void AdcStm::SelectSingleConversion()
+    {
+#if defined(ADC_CFGR1_CHSELRMOD)
+        handle.Init.ScanConvMode = ADC_SCAN_DISABLE;
+        handle.Init.NbrOfConversion = 1;
+        if (LL_ADC_REG_GetSequencerLength(handle.Instance) != LL_ADC_REG_SEQ_SCAN_DISABLE)
+            LL_ADC_REG_SetSequencerLength(handle.Instance, LL_ADC_REG_SEQ_SCAN_DISABLE);
+#endif
+#if defined(ADC_SMPR_SMP1)
+        LL_ADC_SetSamplingTimeCommonChannels(handle.Instance, LL_ADC_SAMPLINGTIME_COMMON_1, handle.Init.SamplingTimeCommon1);
+#endif
     }
 
     void AdcStm::EnableOverrunInterrupt()
