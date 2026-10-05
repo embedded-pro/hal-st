@@ -292,6 +292,8 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
   - with `feed=auto` (default) the firmware refreshes on every early warning; the watchdog resets the board one counter tick after a warning that is not answered
   - `pin` is driven low and toggled in the early-warning interrupt, so its period can be measured; it stays claimed until reset
   - a started watchdog cannot be stopped: it runs until reset
+  - the coordinated flash driver (`flash ... variant=coord`, `flash.stack starting`, STM32WB55) borrows the WWDG to refresh it around the steps it runs with the interrupts masked: a running watchdog keeps running, an unstarted one is created for the borrow
+  - while an unstarted watchdog is borrowed, `wdt.start` returns `ERR busy` (after the argument checks) until the driver gives it back
 - `wdt.feed <index>` → `OK`
 - Early warning: `EVT wdt index=0 warning=<n>`. After a watchdog reset the next `EVT boot` reports `reset=wwdg`.
 
@@ -392,6 +394,76 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 - Operands are big-endian hex. `mul` and `check` take 1-32 bytes and the firmware left-pads them with zeros to 32 bytes, as `PkaStm` itself pads by two words only. A missing operand, an empty (`-`), odd or non-hex one returns `ERR usage` and one above the size limit `ERR range`; every `usage` check of a command comes before its `range` checks
 - The answer comes from the driver's completion (PKA interrupt, dispatched to the event loop), `ERR timeout` after 5 s. One operation runs at a time: until its timeout another `pka` command returns `ERR busy`; after an `ERR timeout` the next one starts a new operation
 - The firmware builds one `PkaStm` on the first `pka` command and keeps it: its constructor waits for the PKA to initialise, on STM32WBA55 from the RNG kernel clock
+
+## Internal flash (`hal::FlashHomogeneousInternalStm`, `hal::FlashInternalStm`, their `hal::Synchronous*` twins, on STM32WB55 `hal::FlashCoordinatedWithWirelessStack`)
+
+- The commands work on a scratch region of the flash, absolute pages 64-127 on both boards; addresses are relative to the region:
+  - STM32WB55: 0x08040000-0x0807FFFF in 4 KB pages, below the 512 KB the linker script gives the firmware and below the secure area of the wireless stack
+  - STM32WBA55: 0x08080000-0x080FFFFF in 8 KB pages
+- `variant=sync|async|coord` (default `sync`) selects the driver; each command builds its driver and destroys it when done:
+  - `sync`: the `Synchronous*InternalStm` classes
+  - `async`: the `hal::Flash` classes (completion scheduled on the event loop)
+  - `coord` (STM32WB55; `ERR unsupported` on STM32WBA55): `FlashCoordinatedWithWirelessStack` over the async driver
+- `layout=homogeneous|table` (default `homogeneous`) selects the sectors:
+  - `homogeneous`: one sector per page (`Flash*HomogeneousInternalStm`)
+  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over 64 pages that is 56 sectors, of which sectors 48-55 have 1, 1, 2, 4, 1, 1, 2, 4 pages
+- `flash.info [variant=] [layout=]` → `OK base=<0x........> sectors=<n> size=<bytes> first=<sector> image=<page> layout=<homogeneous|table>`
+  - `image` is the first absolute page past the running image (`_sidata` plus the size of `.data`)
+  - `first` is the first sector `flash.erase` and `flash.write` accept, `min(image, sectors)`. Every sector starts at or past the page of its index, so even an erase that took the sector index for the absolute page (as `EraseSectors` did on STM32WB/WBA before its fix) cannot reach the running image
+  - when the image reaches page 64, every `flash.*` command returns `ERR unsupported`
+- `flash.erase <first> <end> [variant=] [layout=]` → `OK us=<n>`: erases sectors `first` up to `end` (exclusive)
+  - `first` below the accepted first sector, `first >= end` or `end` past the last sector return `ERR range`
+  - `us` is the duration (CYCCNT); with `variant=sync` it covers the blocking erase
+- `flash.write <address> <hex|-> [len=<n>] [pattern=inc|const|prbs] [seed=<n>] [variant=] [layout=]` → `OK us=<n>`
+  - the payload is the hex bytes or, with `-` and `len=1..512`, the firmware-generated pattern of the payload convention (`inc` default, `seed` default 0); an empty payload, `len` with hex, or `pattern`/`seed` without `len` return `ERR usage`
+  - a payload outside the region or starting before the first accepted sector returns `ERR range`
+  - a write that touches a flash word (64 bits on STM32WB55, 128 bits on STM32WBA55) that is not erased returns `ERR failed`: the drivers program whole words (padding with 0xFF), and programming a word twice between erases fails their assertion
+- `flash.read <address> <len> [out=hex|crc] [variant=] [layout=]` → `OK data=<hex>` or `OK len=<n> crc=<8 hex digits>`
+  - anywhere in the region, `len` from 1 up to the region size; `out=hex` (default) up to 128 bytes, else `ERR range`
+- `flash.stack <stopped|starting|fus> [layout=]` → `OK` (STM32WB55)
+  - `starting` builds a coordinated driver of `layout` that stays until `stopped` or `fus`, and calls `WirelessStackStarting()`: its steps wait; `starting` while one is held returns `ERR busy`
+  - `stopped` and `fus` both call `FirmwareUpgradeServicesReady()`, the driver's only way out of `starting`, which runs a waiting step; the driver is destroyed once idle. Without a held driver they answer `OK`
+- Coordinated steps:
+  - each step takes HSEM 7 (CPU2's flash semaphore; the tests hold it with `hsem.take 7 procid=<p>`) with the interrupts masked and the watchdog refreshed
+  - while HSEM 7 is held or the stack is starting, a step waits for the HSEM interrupt
+- Timeouts: `flash.erase` answers `ERR timeout` after 10 s, `flash.write` and `flash.read` after 2 s; an operation that completes after its `ERR timeout` prints `EVT flash op=<erase|write|read> us=<n>`
+- Busy rules:
+  - while an operation is in flight every flash command returns `ERR busy`, except `flash.read` with `variant=sync` (a plain read), `flash.info` and `flash.stack stopped|fus`; a `flash.write` checks this before its payload
+  - an operation stays in flight until it completes, also after its `ERR timeout`: a coordinated step waiting for HSEM 7 runs once the semaphore is released (`hsem.release 7 procid=<p>`), one held by `flash.stack starting` after `stopped` or `fus`
+  - while `flash.stack starting` holds the driver, only `variant=coord` commands of its layout run (and the exceptions above)
+  - the coordinated driver and `hsem.lock` exclude each other (`ERR busy`): both rely on the HSEM interrupt
+
+## Hardware semaphore (STM32WB55: `HAL_HSEM_*`, `hal::SynchronousHardwareSemaphoreMasterStm`, `hal::SynchronousHardwareSemaphoreStm`)
+
+- Semaphores 0-31, processes 1-255. The lock state is read from the R register, never from RLR, whose read is itself a one-step lock attempt
+- `hsem.take <n> procid=<1..255> [hold=<1..60000 ms>]` → `OK`: a two-step lock (`HAL_HSEM_Take`); `ERR busy` when another process or core holds it
+  - with `hold` an EMIL timer releases it after `hold` ms; one `hold` at a time (`ERR busy`)
+- `hsem.release <n> procid=<1..255>` → `OK` (`HAL_HSEM_Release`; a release by a process that does not hold it changes nothing); it cancels a pending `hold` of that semaphore and process
+- `hsem.status <n>` → `OK locked=0|1 core=<id> procid=<p>`: `core` is the COREID field (4 = CPU1, 8 = CPU2, 0 when free)
+- `hsem.lock <n> [hold=<2..65536 us>]` → `OK waited=<us>`: constructs and destroys a `SynchronousHardwareSemaphoreStm` on `n` and reports how long the constructor waited (CYCCNT)
+  - with `hold` the firmware first takes `n` for process 1 and starts the scaffold timer (TIM17, 1 us ticks), whose interrupt releases it after `hold` us: the lock must wait that long
+  - a semaphore already held returns `ERR busy` (nothing could free it while the lock blocks the event loop); so do TIM17 held by another group (with `hold`) and the coordinated flash driver
+- `hsem.mine <n>` → `OK mine=0|1` (`IsLockedByCurrentCore`, a query without side effect)
+
+## Backup RAM (`hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>`)
+
+- STM32WB55: RTC BKP0R-BKP19R (20 words); STM32WBA55: TAMP BKP0R-BKP15R (16 words). The words survive a system reset (`reset`, the watchdog), not a power cycle
+- `bkp.info` → `OK words=<n>`
+- `bkp.write <index> <value>` → `OK`: `value` a 32-bit number (decimal or `0x` hex); an index past the last word returns `ERR range`
+- `bkp.read <index>` → `OK value=<8 hex digits>`
+- `bkp.fill <seed>` → `OK`: word i becomes `seed XOR (0x9E3779B9 × (i + 1))` (32 bits)
+- `bkp.check <seed>` → `OK mismatches=<n>`: the words that differ from that fill
+
+## Low power (`hal::LowPowerModeStm`)
+
+- `lpm.enter <sleep|deep> [wake=<pin>] [edge=rising|falling] [marker=<pin>] [timeout=<1..10000 ms>]` → `OK woke=exti restored=<n> us=<n>`
+  - defaults: `wake` STM32WB55 PC6 (`gpio0`), STM32WBA55 PB14 (`gpio0`); `marker` STM32WB55 PB0 (`led0`), STM32WBA55 PA2 (`tim1bkin`); `edge=rising`; `timeout=2000`
+  - the wake pin is an input with the pull against its edge (pull-down for `rising`) and an EXTI interrupt; the marker is an output, high, driven low while the core sleeps and high again right after it wakes
+  - inside the window the interrupts are masked (PRIMASK), every NVIC interrupt but the wake line's EXTI and TIM17's is disabled and the SysTick tick interrupt is off: WFI returns only on the wake edge or a TIM17 update
+  - the scaffold timer TIM17 counts 1 us ticks (CYCCNT stops while the core sleeps) and gives `us`, the time asleep; at `timeout` ms it ends the window with `ERR timeout`
+  - `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it never calls the clock-restore callback: `restored` counts its calls and is 0
+  - the wake and marker pins must differ (`ERR usage`); a pin the package lacks returns `ERR pin`, a wake pin whose EXTI line serves a pin of another port `ERR unsupported`, a held pin or TIM17 held by another group `ERR busy`
+  - the terminal and every other interrupt (including the watchdog's early warning: a running watchdog is not fed) are blocked for the window: send nothing until the final line
 
 ## Not available on these boards
 

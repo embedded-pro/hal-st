@@ -494,6 +494,20 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
   - On the NUCLEO-WB55RG the synchronized variant keeps HSI48 running when it was on and switches it off again when it was off, takes its locked branch with semaphore 5 held (`lock5=1`), and leaves HSEM semaphores 0 and 5 free (`hsem.status`, when that group is built in).
 - `test_aes.py` - for `SynchronousAes128EcbStm`: the FIPS-197 C.1 and SP 800-38A F.1.1 known answers in both directions, block by block and four blocks at once, one to five blocks per command, a key change between commands, and every data swapping mode (`swap=none|half|byte|bit`) against the model of `crypto_ref`; argument errors.
 - `test_pka.py` - for `PkaStm` on secp256r1: G, 2G and 3G, the default operands, a short scalar padded by the firmware, (n - 1)G = -G, the NIST CAVP ECC CDH vector, a given base point, points on and off the curve, comparisons of 4, 32 and 60-byte numbers, the duration of one multiplication and argument errors; every result against the P-256 arithmetic of `crypto_ref`.
+- `test_backup_ram.py` - `hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>` (RTC BKP0R-BKP19R on the NUCLEO-WB55RG, TAMP BKP0R-BKP15R on the NUCLEO-WBA55CG): the word count, every word written and read back with four patterns, fill and check, the words kept through a reset, argument errors.
+- `test_flash.py` - the internal flash drivers (`FlashHomogeneousInternalStm`, `FlashInternalStm`, their synchronous twins and, on the NUCLEO-WB55RG, `FlashCoordinatedWithWirelessStack`) over a scratch region of 64 pages, with one sector per page and with a sector-size table of 1-, 2- and 4-page sectors:
+  - the geometry and the first sector the firmware lets the tests erase (an erase that took the sector index for the absolute page could not reach the running image from there on);
+  - every variant and layout erases exactly the pages of the sector it is given (the marker in the next sector stays, the previous sector is unchanged);
+  - aligned, unaligned, odd-length, page-crossing and generated 300-byte writes on distinct flash words, read back exactly through every variant, with the bytes around them still erased; a programmed word refused with `ERR failed`; the page erase time;
+  - NUCLEO-WB55RG: a coordinated write and erase wait for HSEM 7 while it is held; `flash.stack starting` holds a write (its `ERR timeout` goes out, the flash stays erased) until `flash.stack fus` completes it with `EVT flash`;
+  - NUCLEO-WB55RG: the coordinated driver borrows the watchdog (`wdt.start` busy) and excludes `hsem.lock`, and a coordinated erase under a running watchdog does not reset the board.
+- `test_hsem.py` - NUCLEO-WB55RG hardware semaphores:
+  - two-step take and release per process with the lock state read from R, another process refused, `hold=` releasing on time;
+  - `SynchronousHardwareSemaphoreStm` waiting until the scaffold timer frees a semaphore held by process 1 (and returning at once on a free one), a held semaphore refused instead of a lock that would block for good;
+  - `IsLockedByCurrentCore` as a query that takes no lock, argument errors.
+- `test_low_power.py` - `hal::LowPowerModeStm` in `sleep` and `deep` (Sleep on these MCUs: the clock-restore callback is never called):
+  - with only the wake line and TIM17 enabled, the marker pin stays low until the AD3 edge on the wake pin (both edges) and rises within 50 us of it, and `us` covers the time asleep;
+  - without an edge the TIM17 timeout ends the window and the tick runs again; pins released; argument errors.
 - `test_unsupported.py` - every comparator, CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 
 ## Customising
@@ -538,6 +552,8 @@ In `hal_st_validation` (hal-st specific):
 - `groups/io.py` - `fw.sgpio`, `fw.clock` (`ClockInfo`; `clock.mco` and `clock.hsi48` register their undo with `close_all`), `edge_fit_frequency` and `parse_uid`; `fakes/io.py` is their fake firmware model, with a unique device ID of the real layout.
 - `crypto_ref.py` - pure-Python AES-128 with the data swapping model of the STM32 AES peripheral, and affine P-256 arithmetic, with the FIPS-197, SP 800-38A and CAVP ECC CDH vectors; `rngstats.py` - the `rng.stats` counts and the monobit, chi-square and runs bounds.
 - `groups/crypto.py` - `fw.rng`, `fw.aes`, `fw.pka`; `fakes/crypto.py` is their fake firmware model (a deterministic RNG, AES and PKA through `crypto_ref`).
+- `groups/system_ext.py` - `fw.flash`, `fw.hsem`, `fw.bkp`, `fw.lpm` (`flash.stack starting` and `hsem.take` without `hold` register their undo with `close_all`), the sector table of `layout=table`, `flash_words` and `bkp_fill_value`.
+- `fakes/system_ext.py` - their fake firmware model: a flash array with page erase, HSEM state on the fake clock, backup words that survive `reset`, an `lpm.enter` that wakes at once, and the `wdt.start` refusal while the coordinated flash borrows the watchdog.
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
 - `pairwise.py` - the full product and the deterministic pairwise generator behind `--depth`.
@@ -556,3 +572,4 @@ In the firmware (`firmware/`):
 - `TimerGroup`, `TimerPwmGroup`, `LpTimerGroup` and `LpTimerPwmGroup` serve `tim.*`, `tpwm.*`, `lptim.*` and `lptpwm.*`, each a factory and a single-instance group; `QeiFactory` also builds the LPTIM encoder with `cap=rise|fall` and holds its LPTIM in `ResourceAllocation`.
 - `SyncGpioGroup` serves `sgpio.*` through `SyncGpioDriver`, the only translation unit that includes `SynchronousGpioStm.hpp`; `ClockGroup` serves `clock.*`; `UartFactory` also builds `SynchronousUartStmSendOnly` (`sendonly=1`).
 - `RngGroup`, `AesGroup` and `PkaGroup` are stateless command groups: `rng` and `aes` build their driver per command; `pka` builds one `PkaStm` on first use and keeps it.
+- `FlashGroup`, `HsemGroup` (STM32WB), `BackupRamGroup` and `LowPowerGroup` serve `flash.*`, `hsem.*`, `bkp.*` and `lpm.*`; `WatchDogFactory` lends the WWDG to the coordinated flash driver (`Borrow`/`Return`).

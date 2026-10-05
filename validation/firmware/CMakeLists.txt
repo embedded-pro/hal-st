@@ -27,6 +27,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     AesGroup.hpp
     AnalogInputGroup.cpp
     AnalogInputGroup.hpp
+    BackupRamGroup.cpp
+    BackupRamGroup.hpp
     BoardInfoStm.cpp
     BoardInfoStm.hpp
     BoardTypes.hpp
@@ -39,6 +41,10 @@ target_sources(hal_st.validation_firmware PRIVATE
     DmaGroup.hpp
     EepromGroup.cpp
     EepromGroup.hpp
+    FlashGroup.cpp
+    FlashGroup.hpp
+    HsemGroup.cpp
+    HsemGroup.hpp
     HsemMaster.cpp
     HsemMaster.hpp
     I2cEepromStm.cpp
@@ -49,6 +55,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     I2cTarget.hpp
     I2cTiming.cpp
     I2cTiming.hpp
+    LowPowerGroup.cpp
+    LowPowerGroup.hpp
     LpTimerGroup.cpp
     LpTimerGroup.hpp
     LpTimerPwmGroup.cpp

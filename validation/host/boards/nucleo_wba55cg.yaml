@@ -1390,6 +1390,40 @@ tests:
     compare_lengths: [4, 32, 60]
     # One full-scalar multiplication at 100 MHz takes tens of ms.
     max_us: 500000
+  flash:
+    # sync: SynchronousFlash*InternalStm; async: Flash*InternalStm. No
+    # wireless-stack coordination on the STM32WBA55.
+    variants: [sync, async]
+    # homogeneous: one sector per page; table: single pages, then the
+    # pattern 1, 1, 2, 4 pages twice (groups.system_ext.table_sectors).
+    layouts: [homogeneous, table]
+    # Scratch region: absolute pages 64-127 (0x08080000-0x080FFFFF, the
+    # upper half of the 1 MB flash), 8 KB pages, 128-bit flash words.
+    base: 0x08080000
+    first_page: 64
+    pages: 64
+    page: 8192
+    word: 16
+    # Page erase time, wide bounds per page.
+    erase_us_per_page: [200, 50000]
+  bkp:
+    # TAMP BKP0R-BKP15R.
+    words: 16
+  lowpower:
+    # Defaults of the firmware (BoardProfile lowPowerDefaults).
+    wake: gpio0
+    marker: tim1bkin
+    modes: [sleep, deep]
+    edges: [rising, falling]
+    # Wake edge to marker high.
+    latency_us: 50
+    # Host delay between lpm.enter and the AD3 edge.
+    wake_delay_s: 0.05
+    wake_timeout_ms: 2000
+    # test_timeout: no edge.
+    timeout_ms: 50
+    la_rate: 4000000
+    unbonded_pin: PA4
   unsupported:
     commands:
       - comp.open 1

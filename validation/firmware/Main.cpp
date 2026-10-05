@@ -17,13 +17,17 @@
 #include "validation/firmware/AdcFactory.hpp"
 #include "validation/firmware/AesGroup.hpp"
 #include "validation/firmware/AnalogInputGroup.hpp"
+#include "validation/firmware/BackupRamGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/Console.hpp"
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
+#include "validation/firmware/FlashGroup.hpp"
+#include "validation/firmware/HsemGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
+#include "validation/firmware/LowPowerGroup.hpp"
 #include "validation/firmware/LpTimerGroup.hpp"
 #include "validation/firmware/LpTimerPwmGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
@@ -117,6 +121,13 @@ int main()
     static validation::RngCommands rng{ context };
     static validation::AesCommands aes{ context };
     static validation::PkaCommands pka{ context };
+
+    static validation::FlashCommands flash{ context, watchDogFactory, resources };
+#if defined(STM32WB)
+    static validation::HsemCommands hsem{ context, timers, resources };
+#endif
+    static validation::BackupRamCommands backupRam{ context };
+    static validation::LowPowerCommands lowPower{ context, timers };
 
     validation::CreateUnsupportedGroups(context);
 
