@@ -920,7 +920,7 @@ namespace hal
         , transferFullComplete{ transferFullComplete }
     {
         stream.DisableCircularMode();
-        stream.EnableTransferCompleteInterrupt();
+        PrepareInterrupts();
     }
 
     DmaStm::StreamInterruptHandler::StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Immediate)
@@ -933,6 +933,15 @@ namespace hal
         , transferFullComplete{ transferFullComplete }
     {
         stream.DisableCircularMode();
+        PrepareInterrupts();
+    }
+
+    // HAL_DMA_Init keeps the interrupt enables of the stream's previous user and no one clears its flags: a half-transfer interrupt left enabled by a circular transfer would fire forever, since only the transfer-complete flag is cleared here
+    void DmaStm::StreamInterruptHandler::PrepareInterrupts()
+    {
+        stream.DisableHalfTransferCompleteInterrupt();
+        stream.ClearHalfComplete();
+        stream.ClearFullComplete();
         stream.EnableTransferCompleteInterrupt();
     }
 
@@ -961,6 +970,8 @@ namespace hal
         , transferFullComplete{ transferFullComplete }
     {
         stream.EnableCircularMode();
+        stream.ClearHalfComplete();
+        stream.ClearFullComplete();
         stream.EnableHalfTransferCompleteInterrupt();
         stream.EnableTransferCompleteInterrupt();
     }

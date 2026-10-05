@@ -207,6 +207,7 @@ namespace hal
             StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Immediate);
 
         private:
+            void PrepareInterrupts();
             void OnInterrupt();
 
             Stream& stream;
