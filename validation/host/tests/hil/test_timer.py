@@ -4,6 +4,8 @@ and the timer-triggered ADC.
 
 Wiring set `bundle1`: `tests.timer.marker` (gpio0) on a DIO; the marker toggles once per update interrupt, so it runs
 at half the update rate `timclk / ((prescaler + 1) (period + 1))`.
+
+Scenarios: features/timer.feature.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ import time
 
 import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation import expect
 from hal_st_validation.groups.timers import TIMER_PRESCALER_MAX, timer_period_max, timer_update_rate
@@ -43,33 +46,292 @@ def count_rate(fw, index, window):
     return after, before, time.monotonic() - start
 
 
-@pytest.mark.ad3
 @pytest.mark.board_params("timer", "timer.timers")
 @pytest.mark.matrix("timer.interrupt")
 @pytest.mark.constraint(valid=dispatchable)
-def test_update_marker(fw, ad3, need, board_cfg, timer_cfg, timer, irq, update):
-    """The marker toggles on every update interrupt: it runs at half the update rate."""
-    dio = need.dio(timer_cfg["marker"])
+@scenario("timer.feature", "The marker runs at half the update rate")
+def test_update_marker(timer, irq, update):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@pytest.mark.matrix("timer.interrupt")
+@pytest.mark.constraint(valid=dispatchable)
+@scenario("timer.feature", "The interrupt count follows the update rate")
+def test_interrupt_count(timer, irq, update):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@pytest.mark.board_params("mode", values=["up", "down"])
+@scenario("timer.feature", "The free-running counter counts up or down without interrupts")
+def test_free_running_counter(timer, mode):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@pytest.mark.board_params("irq", values=["immediate", "dispatched"])
+@scenario("timer.feature", "Starting raises no update callback of its own")
+def test_no_callback_before_the_first_update(timer, irq):
+    pass
+
+
+@pytest.mark.board_params("encoder", "qei.instances")
+@pytest.mark.board_params("mode", values=["up", "down"])
+@scenario("timer.feature", "The timer counts the requested way after the encoder")
+def test_counts_the_requested_way_after_the_encoder(encoder, mode):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@scenario("timer.feature", "Stop holds the counter and start resumes it")
+def test_stop_holds_the_counter(timer):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@scenario("timer.feature", "Stop stops the marker")
+def test_stop_stops_the_marker(timer):
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@scenario("timer.feature", "The marker pin is released on close")
+def test_marker_is_released_on_close(timer):
+    pass
+
+
+@scenario("timer.feature", "Invalid open arguments are refused in the protocol order")
+def test_open_errors():
+    pass
+
+
+@scenario("timer.feature", "One timer is open at a time")
+def test_one_timer_at_a_time():
+    pass
+
+
+@pytest.mark.board_params("timer", "timer.timers")
+@scenario("timer.feature", "A timer serves one group")
+def test_timer_shared_with_other_groups(timer):
+    pass
+
+
+@given("the marker pin is wired to a DIO", target_fixture="dio")
+def marker_wired(need, timer_cfg):
+    return need.dio(timer_cfg["marker"])
+
+
+@given("the marker pin is not loaded by an option")
+def marker_unloaded(need, timer_cfg):
+    need.unloaded(timer_cfg["marker"])
+
+
+@given("the encoder timer is one of the timers under test")
+def encoder_timer_under_test(timer_cfg, encoder):
+    index = encoder["index"]
+    if index not in [entry["timer"] for entry in timer_cfg["timers"]]:
+        pytest.skip(f"TIM{index} is not under test in `tests.timer.timers`")
+
+
+@given("the encoder inputs are wired to DIOs", target_fixture="encoder_dios")
+def encoder_wired(need, encoder):
+    return need.dio(encoder["a"]), need.dio(encoder["b"])
+
+
+@given("the first timer under test", target_fixture="first")
+def first_timer(timer_cfg):
+    return timer_cfg["timers"][0]["timer"]
+
+
+@given("a timer with a period wider than 16 bits, if any", target_fixture="wide")
+def wide_timer(timer_cfg):
+    return next((entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) > 0xFFFF), None)
+
+
+@given("a timer with a 16-bit period", target_fixture="narrow")
+def narrow_timer(timer_cfg):
+    return next(entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) == 0xFFFF)
+
+
+@given("the first two timers under test", target_fixture="pair")
+def first_two_timers(timer_cfg):
+    first, second = (entry["timer"] for entry in timer_cfg["timers"][:2])
+    return first, second
+
+
+@when("the timer opens with the update prescaler and period, the interrupt mode and the marker pin", target_fixture="timclk")
+def open_update_with_marker(fw, timer_cfg, timer, irq, update):
+    return fw.tim.open(timer["timer"], prescaler=update["prescaler"], period=update["period"], irq=irq, pin=timer_cfg["marker"])
+
+
+@when("the timer opens with the update prescaler and period and the interrupt mode", target_fixture="timclk")
+def open_update(fw, timer, irq, update):
+    return fw.tim.open(timer["timer"], prescaler=update["prescaler"], period=update["period"], irq=irq)
+
+
+@when(
+    'the timer opens free-running without interrupts, counting the mode way, or fails with "unsupported" when it counts '
+    "down and the timer counts up only",
+    target_fixture="timclk",
+)
+def open_free_running_or_up_only(fw, timer_cfg, timer, mode):
     index = timer["timer"]
-    timclk = fw.tim.open(index, prescaler=update["prescaler"], period=update["period"], irq=irq, pin=timer_cfg["marker"])
+    free = timer_cfg["free_running"]
+    if mode == "down" and index in timer_cfg["up_only"]:
+        expect_error("unsupported", fw.tim.open, index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
+        return None
+    return fw.tim.open(index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
+
+
+@when("the timer opens with the free-running prescaler and period and the interrupt mode")
+def open_slow(fw, timer_cfg, timer, irq):
+    slow = timer_cfg["free_running"]
+    fw.tim.open(timer["timer"], prescaler=slow["prescaler"], period=slow["period"], irq=irq)
+
+
+@when("the timer opens with the first interrupt update setting and immediate interrupts")
+def open_first_update(fw, timer_cfg, timer):
+    update = timer_cfg["interrupt"]["update"][0]
+    fw.tim.open(timer["timer"], prescaler=update["prescaler"], period=update["period"], irq="immediate")
+
+
+@when("the timer opens with the second interrupt update setting, immediate interrupts and the marker pin", target_fixture="timclk")
+def open_second_update_with_marker(fw, timer_cfg, timer):
+    update = timer_cfg["interrupt"]["update"][1]
+    return fw.tim.open(timer["timer"], prescaler=update["prescaler"], period=update["period"], irq="immediate", pin=timer_cfg["marker"])
+
+
+@when("the timer opens with immediate interrupts and the marker pin")
+def open_with_marker(fw, timer_cfg, timer):
+    fw.tim.open(timer["timer"], irq="immediate", pin=timer_cfg["marker"])
+
+
+@when("the timer opens without interrupts")
+def open_without_interrupts(fw, timer):
+    fw.tim.open(timer["timer"], irq="none")
+
+
+@when("the timer starts")
+def start(fw, timer):
+    fw.tim.start(timer["timer"])
+
+
+@when("the timer starts, if it opened")
+def start_if_opened(fw, timer, timclk):
+    if timclk is not None:
+        fw.tim.start(timer["timer"])
+
+
+@when("the timer starts twice")
+def start_twice(fw, timer):
+    fw.tim.start(timer["timer"])
+    fw.tim.start(timer["timer"])
+
+
+@when("the timer stops")
+def stop(fw, timer):
+    fw.tim.stop(timer["timer"])
+
+
+@when("the timer stops twice")
+def stop_twice(fw, timer):
+    fw.tim.stop(timer["timer"])
+    fw.tim.stop(timer["timer"])
+
+
+@when("the timer closes")
+def close(fw, timer):
+    fw.tim.close(timer["timer"])
+
+
+@when("the host waits the counting window")
+def host_waits(timer_cfg):
+    time.sleep(timer_cfg["window_s"])
+
+
+@when("the counts are read over the counting window", target_fixture="counts")
+def counts_over_window(fw, timer_cfg, timer):
+    return count_rate(fw, timer["timer"], timer_cfg["window_s"])
+
+
+@when("the counts are read over the counting window, if the timer opened", target_fixture="counts")
+def counts_over_window_if_opened(fw, timer_cfg, timer, timclk):
+    if timclk is None:
+        return None
+    return count_rate(fw, timer["timer"], timer_cfg["window_s"])
+
+
+@when("the counts are read", target_fixture="stopped")
+def counts_read(fw, timer):
+    return fw.tim.count(timer["timer"])
+
+
+@when("the marker pin is configured as an input")
+def marker_input(fw, timer_cfg):
+    fw.gpio.cfg(timer_cfg["marker"], "in")
+
+
+@when("the encoder opens with the resolution of the board file")
+def encoder_opens(fw, board_cfg, encoder):
+    fw.qei.open(encoder["index"], a=encoder["a"], b=encoder["b"], res=board_cfg.param("qei.resolution"))
+
+
+@when(parsers.parse("the AD3 turns the encoder {cycles:d} cycles at {frequency:d} Hz against the mode"))
+def encoder_turns(ad3, encoder_dios, mode, cycles, frequency):
+    a, b = encoder_dios
+    ad3.pattern.quadrature(a, b, frequency, cycles, "rev" if mode == "up" else "fwd")
+    ad3.pattern.wait_done(timeout=3)
+
+
+@when("the encoder closes")
+def encoder_closes(fw, encoder):
+    fw.qei.close(encoder["index"])
+
+
+@when("the timer of the encoder opens free-running without interrupts, counting the mode way")
+def encoder_timer_opens(fw, timer_cfg, encoder, mode):
+    free = timer_cfg["free_running"]
+    fw.tim.open(encoder["index"], prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
+
+
+@when("the timer of the encoder starts")
+def encoder_timer_starts(fw, encoder):
+    fw.tim.start(encoder["index"])
+
+
+@when("the counts of the timer of the encoder are read over the counting window", target_fixture="counts")
+def encoder_timer_counts(fw, timer_cfg, encoder):
+    return count_rate(fw, encoder["index"], timer_cfg["window_s"])
+
+
+@when("the first of them opens without interrupts")
+def first_of_pair_opens(fw, pair):
+    fw.tim.open(pair[0], irq="none")
+
+
+@when(parsers.parse("pwm opens on the timer with channel {channel:d}"))
+def pwm_opens(fw, timer, channel):
+    fw.pwm.open(timer["timer"], channels=[channel])
+
+
+@then("it reports the timer clock of the board file")
+def reports_timer_clock(board_cfg, timclk):
     assert timclk == board_cfg.clock("timer")
-    fw.tim.start(index)
+
+
+@then("the marker runs at half the update rate within the frequency tolerance")
+def marker_runs(ad3, timer_cfg, update, dio, timclk):
     marker = timer_update_rate(timclk, update["prescaler"], update["period"]) / 2
     periods = timer_cfg["record_periods"]
     capture = ad3.logic.record_for(periods / marker, trigger=(dio, "rising"), timeout=periods / marker + 2)
     assert capture.frequency(dio) == pytest.approx(marker, rel=timer_cfg["tolerance"]["frequency"])
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-@pytest.mark.matrix("timer.interrupt")
-@pytest.mark.constraint(valid=dispatchable)
-def test_interrupt_count(fw, timer_cfg, timer, irq, update):
-    """`irqs` follows the update rate; dispatched callbacks at or below 1 kHz are not lost."""
-    index = timer["timer"]
-    timclk = fw.tim.open(index, prescaler=update["prescaler"], period=update["period"], irq=irq)
+@then("the interrupts counted match the update rate within the count tolerance and the interrupt latency")
+def interrupts_match_rate(timer_cfg, update, timclk, counts):
     rate = timer_update_rate(timclk, update["prescaler"], update["period"])
-    fw.tim.start(index)
-    after, before, elapsed = count_rate(fw, index, timer_cfg["window_s"])
+    after, before, elapsed = counts
     tolerance = timer_cfg["tolerance"]
     expected = rate * elapsed
     counted = after.irqs - before.irqs
@@ -77,113 +339,75 @@ def test_interrupt_count(fw, timer_cfg, timer, irq, update):
     assert counted <= expected * (1 + tolerance["count"]) + 1, (counted, expected)
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-@pytest.mark.board_params("mode", values=["up", "down"])
-def test_free_running_counter(fw, timer_cfg, timer, mode):
-    """`irq=none` counts at `timclk / (prescaler + 1)`, down from `period` with `mode=down`, without interrupts."""
-    index = timer["timer"]
-    free = timer_cfg["free_running"]
-    if mode == "down" and index in timer_cfg["up_only"]:
-        expect_error("unsupported", fw.tim.open, index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
+@then(
+    "the counter moved the mode way at the timer clock over the free-running prescaler + 1 within the count tolerance and "
+    "the latency, without interrupts, if the timer opened"
+)
+def counter_moved(timer_cfg, mode, timclk, counts):
+    if timclk is None:
         return
-    timclk = fw.tim.open(index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
-    fw.tim.start(index)
-    after, before, elapsed = count_rate(fw, index, timer_cfg["window_s"])
+    after, before, elapsed = counts
     delta = after.cnt - before.cnt if mode == "up" else before.cnt - after.cnt
     tolerance = timer_cfg["tolerance"]
-    rate = timclk / (free["prescaler"] + 1)
+    rate = timclk / (timer_cfg["free_running"]["prescaler"] + 1)
     assert 0 < delta <= rate * elapsed * (1 + tolerance["count"]) + 1, (delta, rate * elapsed)
     assert delta >= rate * (elapsed - 2 * tolerance["latency_s"]) * (1 - tolerance["count"]), (delta, rate * elapsed)
     assert (before.irqs, after.irqs) == (0, 0)
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-@pytest.mark.board_params("irq", values=["immediate", "dispatched"])
-def test_no_callback_before_the_first_update(fw, timer_cfg, timer, irq):
-    """`tim.start` raises no update callback of its own: the update flag that `HAL_TIM_Base_Init` leaves on some HAL
-    versions is cleared, so a timer with an update period of many seconds has `irqs=0` right after it starts."""
-    index = timer["timer"]
-    slow = timer_cfg["free_running"]
-    fw.tim.open(index, prescaler=slow["prescaler"], period=slow["period"], irq=irq)
-    fw.tim.start(index)
-    assert fw.tim.count(index).irqs == 0
+@then("the timer has counted no interrupt")
+def no_interrupt(fw, timer):
+    assert fw.tim.count(timer["timer"]).irqs == 0
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("encoder", "qei.instances")
-@pytest.mark.board_params("mode", values=["up", "down"])
-def test_counts_the_requested_way_after_the_encoder(fw, ad3, need, board_cfg, timer_cfg, encoder, mode):
-    """An encoder leaves its timer in encoder mode with CR1.DIR at its last direction, where DIR ignores writes:
-    `tim.open` must still count the requested way. The encoder runs against `mode` before it closes."""
-    index = encoder["index"]
-    if index not in [entry["timer"] for entry in timer_cfg["timers"]]:
-        pytest.skip(f"TIM{index} is not under test in `tests.timer.timers`")
-    a, b = need.dio(encoder["a"]), need.dio(encoder["b"])
-    fw.qei.open(index, a=encoder["a"], b=encoder["b"], res=board_cfg.param("qei.resolution"))
-    ad3.pattern.quadrature(a, b, 1000, 10, "rev" if mode == "up" else "fwd")
-    ad3.pattern.wait_done(timeout=3)
-    fw.qei.close(index)
-    free = timer_cfg["free_running"]
-    fw.tim.open(index, prescaler=free["prescaler"], period=free["period"], irq="none", mode=mode)
-    fw.tim.start(index)
-    after, before, _ = count_rate(fw, index, timer_cfg["window_s"])
+@then("the counter moved the mode way")
+def moved_the_mode_way(mode, counts):
+    after, before, _ = counts
     delta = after.cnt - before.cnt if mode == "up" else before.cnt - after.cnt
     assert delta > 0, (mode, before.cnt, after.cnt)
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-def test_stop_holds_the_counter(fw, timer_cfg, timer):
-    """`tim.stop` freezes the counter and the interrupts; `tim.start` resumes; repeated start and stop are harmless."""
-    index = timer["timer"]
-    update = timer_cfg["interrupt"]["update"][0]
-    fw.tim.open(index, prescaler=update["prescaler"], period=update["period"], irq="immediate")
-    fw.tim.start(index)
-    fw.tim.start(index)
-    time.sleep(timer_cfg["window_s"])
-    fw.tim.stop(index)
-    fw.tim.stop(index)
-    stopped = fw.tim.count(index)
+@then("interrupts have been counted")
+def interrupts_counted(stopped):
     assert stopped.irqs > 0
-    time.sleep(timer_cfg["window_s"])
-    assert fw.tim.count(index) == stopped
-    fw.tim.start(index)
-    time.sleep(timer_cfg["window_s"])
-    assert fw.tim.count(index).irqs > stopped.irqs
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("timer", "timer.timers")
-def test_stop_stops_the_marker(fw, ad3, need, timer_cfg, timer):
-    dio = need.dio(timer_cfg["marker"])
-    index = timer["timer"]
+@then("the counts read as before")
+def counts_as_before(fw, timer, stopped):
+    assert fw.tim.count(timer["timer"]) == stopped
+
+
+@then("more interrupts have been counted than before")
+def more_interrupts(fw, timer, stopped):
+    assert fw.tim.count(timer["timer"]).irqs > stopped.irqs
+
+
+@then("the marker stays still over the record periods at half the update rate")
+def marker_still(ad3, timer_cfg, dio, timclk):
     update = timer_cfg["interrupt"]["update"][1]
-    timclk = fw.tim.open(index, prescaler=update["prescaler"], period=update["period"], irq="immediate", pin=timer_cfg["marker"])
-    fw.tim.start(index)
-    fw.tim.stop(index)
     marker = timer_update_rate(timclk, update["prescaler"], update["period"]) / 2
     capture = ad3.logic.record_for(timer_cfg["record_periods"] / marker)
     assert capture.frequency(dio) == 0.0
     assert len(set(capture.channel(dio))) == 1, "the marker moved after tim.stop"
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-def test_marker_is_released_on_close(fw, need, timer_cfg, timer):
-    """The marker pin belongs to the timer while it is open and returns to the pool with `tim.close`."""
-    index, marker = timer["timer"], timer_cfg["marker"]
-    need.unloaded(marker)
-    fw.tim.open(index, irq="immediate", pin=marker)
-    expect_error("busy", fw.gpio.cfg, marker, "in")
-    fw.tim.close(index)
-    expect_error("notopen", fw.tim.count, index)
-    fw.gpio.cfg(marker, "in")
-    expect_error("busy", fw.tim.open, index, irq="immediate", pin=marker)
+@then(parsers.parse('configuring the marker pin as an input fails with "{reason}"'))
+def marker_input_refused(fw, timer_cfg, reason):
+    expect_error(reason, fw.gpio.cfg, timer_cfg["marker"], "in")
 
 
-def test_open_errors(fw, board_cfg, timer_cfg):
-    """Argument errors in the protocol order: usage, range, pin, unsupported, then the update interrupt rate (range)."""
-    first = timer_cfg["timers"][0]["timer"]
-    wide = next((entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) > 0xFFFF), None)
-    narrow = next(entry["timer"] for entry in timer_cfg["timers"] if timer_period_max(entry["timer"]) == 0xFFFF)
+@then(parsers.parse('reading the counts of the timer fails with "{reason}"'))
+def count_refused(fw, timer, reason):
+    expect_error(reason, fw.tim.count, timer["timer"])
+
+
+@then(parsers.parse('opening the timer with immediate interrupts and the marker pin fails with "{reason}"'))
+def open_with_marker_refused(fw, timer_cfg, timer, reason):
+    expect_error(reason, fw.tim.open, timer["timer"], irq="immediate", pin=timer_cfg["marker"])
+
+
+@then("every invalid open is refused with its reason in the protocol order")
+def open_errors(fw, board_cfg, timer_cfg, first, narrow):
     marker = timer_cfg["marker"]
     cases = [
         ((first,), {"irq": "nmi"}, "usage"),
@@ -201,39 +425,75 @@ def test_open_errors(fw, board_cfg, timer_cfg):
     cases += [((timer,), {"irq": "none", "mode": "down"}, "unsupported") for timer in timer_cfg["up_only"]]
     for args, options, reason in cases:
         expect_error(reason, fw.tim.open, *args, **options)
+
+
+@then("the timer with the wider period opens with a period of 0xFFFFFFFF without interrupts and closes, if there is one")
+def wide_period_opens(fw, wide):
     if wide is not None:
         assert fw.tim.open(wide, period=0xFFFFFFFF, irq="none") > 0
         fw.tim.close(wide)
-    assert fw.tim.open(first, prescaler=0, period=1, irq="none") > 0, "the update interrupt rate limit needs an interrupt"
+
+
+@then(parsers.parse("the first timer opens with prescaler {prescaler:d} and period {period:d} without interrupts and closes"))
+def fastest_opens_without_interrupts(fw, first, prescaler, period):
+    assert fw.tim.open(first, prescaler=prescaler, period=period, irq="none") > 0, "the update interrupt rate limit needs an interrupt"
     fw.tim.close(first)
+
+
+@then(parsers.parse('starting, stopping, reading and closing the closed first timer fail with "{reason}"'))
+def closed_commands_refused(fw, first, reason):
     for command in ("start", "stop", "count", "close"):
-        expect_error("notopen", getattr(fw.tim, command), first)
+        expect_error(reason, getattr(fw.tim, command), first)
+
+
+@then(parsers.parse('the malformed command lines are refused with "{reason}"'))
+def malformed_lines_refused(fw, first, reason):
     for line in ("tim.count", f"tim.count {first} {first}", f"tim.start {first} ch=1"):
-        assert fw.terminal.command(line, check=False).reason == "usage", line
-    assert fw.terminal.command(f"tim.open {first} pin=nosuchalias", check=False).reason == "pin"
+        assert fw.terminal.command(line, check=False).reason == reason, line
 
 
-def test_one_timer_at_a_time(fw, timer_cfg):
-    first, second = (entry["timer"] for entry in timer_cfg["timers"][:2])
-    fw.tim.open(first, irq="none")
-    expect_error("busy", fw.tim.open, second, irq="none")
-    expect_error("busy", fw.tim.open, first, irq="none")
+@then(parsers.parse('opening the first timer with an unknown pin alias fails with "{reason}"'))
+def unknown_alias_refused(fw, first, reason):
+    assert fw.terminal.command(f"tim.open {first} pin=nosuchalias", check=False).reason == reason
 
 
-@pytest.mark.board_params("timer", "timer.timers")
-def test_timer_shared_with_other_groups(fw, board_cfg, timer):
-    """A timer serves one group: while `tim` holds it, pwm, tpwm, the encoder and the ADC trigger get `ERR busy`,
-    and `tim` gets it while pwm holds the timer."""
+@then(parsers.parse('opening the second of them without interrupts fails with "{reason}"'))
+def second_of_pair_refused(fw, pair, reason):
+    expect_error(reason, fw.tim.open, pair[1], irq="none")
+
+
+@then(parsers.parse('opening the first of them again without interrupts fails with "{reason}"'))
+def first_of_pair_refused(fw, pair, reason):
+    expect_error(reason, fw.tim.open, pair[0], irq="none")
+
+
+@then(parsers.parse('opening pwm on the timer with channel {channel:d} fails with "{reason}"'))
+def pwm_refused(fw, timer, channel, reason):
+    expect_error(reason, fw.pwm.open, timer["timer"], channels=[channel])
+
+
+@then(parsers.parse('opening tpwm on the timer with its first timer PWM pin fails with "{reason}"'))
+def tpwm_refused(fw, board_cfg, timer, reason):
     index = timer["timer"]
-    fw.tim.open(index, irq="none")
-    expect_error("busy", fw.pwm.open, index, channels=[1])
     pwm_pin = next(entry for entry in board_cfg.param("timer_pwm.timers") if entry["timer"] == index)["pins"][0]
-    expect_error("busy", fw.tpwm.open, index, pins=[pwm_pin])
+    expect_error(reason, fw.tpwm.open, index, pins=[pwm_pin])
+
+
+@then(parsers.parse('opening the encoder on the timer fails with "{reason}", if the timer has one'))
+def encoder_refused(fw, board_cfg, timer, reason):
+    index = timer["timer"]
     encoder = next((entry for entry in board_cfg.param("qei.instances") if entry["index"] == index), None)
     if encoder is not None:
-        expect_error("busy", fw.qei.open, index, a=encoder["a"], b=encoder["b"])
+        expect_error(reason, fw.qei.open, index, a=encoder["a"], b=encoder["b"])
+
+
+@then(parsers.parse('opening the ADC triggered by the timer fails with "{reason}", if the timer can trigger it'))
+def adc_trigger_refused(fw, board_cfg, timer, reason):
+    index = timer["timer"]
     if index in expect.ADC_TRIGGER_TIMERS:
-        expect_error("busy", fw.adc.open, board_cfg.param("adc.adc"), pins=[board_cfg.param("adc.inputs")[0]], timer=index)
-    fw.tim.close(index)
-    fw.pwm.open(index, channels=[1])
-    expect_error("busy", fw.tim.open, index, irq="none")
+        expect_error(reason, fw.adc.open, board_cfg.param("adc.adc"), pins=[board_cfg.param("adc.inputs")[0]], timer=index)
+
+
+@then(parsers.parse('opening the timer without interrupts fails with "{reason}"'))
+def open_without_interrupts_refused(fw, timer, reason):
+    expect_error(reason, fw.tim.open, timer["timer"], irq="none")
