@@ -6,6 +6,8 @@ really sleeps) shows that it did.
 `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it behaves like `sleep` and never calls the
 clock-restore callback (`restored=0`). The wake edge comes from the AD3 on the wake pin (bundle1 `gpio0`); the logic
 analyzer sees the marker low before the edge and high right after it.
+
+Scenarios: features/low_power.feature.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import time
 import pytest
 from ad3_waveforms_bench import analysis
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.firmware import settle
 
@@ -30,16 +33,59 @@ def expect_reason(fw, line: str, reason: str) -> None:
     assert error.value.reason == reason, line
 
 
-@pytest.mark.ad3
 @pytest.mark.board_params("mode", "lowpower.modes")
 @pytest.mark.board_params("edge", "lowpower.edges")
-def test_wake_on_edge(request, fw, ad3, need, lp_cfg, mode, edge):
-    """The core sleeps (marker low) until the edge on the wake pin; the marker rises within `latency_us` of it and
-    `us` covers the time asleep. `sleeps` proves the WFI: a sleeping core returns from `Enter` once per TIM17 update
-    (1 ms) plus once for the edge, a driver that never sleeps busy-polls some 10^5 calls in that window."""
+@scenario("low_power.feature", "The core sleeps until the edge on the wake pin")
+def test_wake_on_edge(mode, edge):
+    pass
+
+
+@scenario("low_power.feature", "Without an edge the scaffold timer ends the window")
+def test_timeout():
+    pass
+
+
+@scenario("low_power.feature", "Entering low-power mode releases the pins")
+def test_pins_released():
+    pass
+
+
+@scenario("low_power.feature", "Malformed, out-of-range and conflicting commands are refused")
+def test_errors():
+    pass
+
+
+@given("the run does not use the fake AD3")
+def not_fake_ad3(request):
     if request.config.getoption("--fake"):
         pytest.skip("the fake AD3 sees no board")
+
+
+@given("the run does not use the fake firmware")
+def not_fake_firmware(request):
+    if request.config.getoption("--fake"):
+        pytest.skip("the fake firmware has no wake pin model: it wakes at once")
+
+
+@given("the wake pin and the marker pin are wired to DIOs", target_fixture="lp_dios")
+def wake_and_marker_wired(need, lp_cfg):
     wake_dio, marker_dio = need.dio(lp_cfg["wake"]), need.dio(lp_cfg["marker"])
+    return wake_dio, marker_dio
+
+
+@given("no enabled option loads the wake pin or the marker pin")
+def pins_unloaded(need, lp_cfg):
+    need.unloaded(lp_cfg["wake"], lp_cfg["marker"])
+
+
+@when(
+    "the AD3 drives the wake DIO idle for the edge, the logic analyzer arms on the edge, the core enters the mode until the edge on the "
+    "wake pin with the marker and the wake timeout, and after the wake delay the AD3 drives the edge; the wake DIO is released even if "
+    "that fails",
+    target_fixture="woken",
+)
+def wake_on_edge(fw, ad3, lp_cfg, lp_dios, mode, edge):
+    wake_dio, _ = lp_dios
     idle, active = (0, 1) if edge == "rising" else (1, 0)
     delay = lp_cfg["wake_delay_s"]
     rate = min(ad3.logic.clock_hz, lp_cfg["la_rate"])
@@ -56,48 +102,91 @@ def test_wake_on_edge(request, fw, ad3, need, lp_cfg, mode, edge):
     finally:
         settle(pending.pending, timeout_ms / 1000 + 1)
         ad3.dio.release(wake_dio)
+    return {"wake": wake, "result": result}
+
+
+@when(parsers.parse('the core enters sleep with the wake pin and the marker pin for the timeout, unless that fails with "{reason}"'))
+def enter_sleep(fw, lp_cfg, reason):
+    try:
+        fw.lpm.enter("sleep", wake=lp_cfg["wake"], marker=lp_cfg["marker"], timeout=lp_cfg["timeout_ms"])
+    except FirmwareError as error:
+        assert error.reason == reason
+
+
+@then("the core woke by EXTI without restoring the clock")
+def woke_by_exti(woken):
+    wake = woken["wake"]
     assert (wake.woke, wake.restored) == ("exti", 0), wake.raw
+
+
+@then("it slept at least half the wake delay and at most the wake timeout")
+def time_asleep(woken, lp_cfg):
+    wake, delay, timeout_ms = woken["wake"], lp_cfg["wake_delay_s"], lp_cfg["wake_timeout_ms"]
     assert delay * 1e6 * 0.5 <= wake.us <= timeout_ms * 1000, wake.raw
+
+
+@then("it returned from Enter at least once and at most twice per millisecond asleep plus twice")
+def sleeps(woken):
+    wake = woken["wake"]
     assert 1 <= wake.sleeps <= 2 * (wake.us // 1000) + 2, wake.raw
+
+
+@then("the marker was low before the wake edge", target_fixture="marker")
+def marker_low_before_edge(woken, lp_dios):
+    _, marker_dio = lp_dios
+    result = woken["result"]
     marker = result.channel(marker_dio)
     trigger = result.trigger_index
     assert trigger is not None
     assert all(bit == 0 for bit in marker[:trigger]), "the marker was high before the wake edge"
+    return marker
+
+
+@then("the marker rose after the wake edge within the latency")
+def marker_rose(woken, lp_cfg, marker):
+    result = woken["result"]
+    trigger = result.trigger_index
     rises = [change.index for change in analysis.edges(marker) if change.index >= trigger and change.rising]
     assert rises, "the marker did not rise after the wake edge"
     latency = (rises[0] - trigger) / result.rate
     assert latency <= lp_cfg["latency_us"] * 1e-6, f"woke {latency * 1e6:.1f} us after the edge"
 
 
-def test_timeout(request, fw, need, lp_cfg):
-    """Without an edge the scaffold timer ends the window: `ERR timeout` after `timeout` ms; the board then answers,
-    and its tick runs again (`delay` lasts its time)."""
-    if request.config.getoption("--fake"):
-        pytest.skip("the fake firmware has no wake pin model: it wakes at once")
-    need.unloaded(lp_cfg["wake"], lp_cfg["marker"])
+@then(
+    parsers.parse(
+        'entering sleep with the wake pin and the marker pin for the timeout fails with "{reason}" '
+        "after at least {percent:d} % of the timeout"
+    )
+)
+def timeout_ends_window(fw, lp_cfg, reason, percent):
     timeout_ms = lp_cfg["timeout_ms"]
     started = time.monotonic()
-    expect_reason(fw, f"lpm.enter sleep wake={lp_cfg['wake']} marker={lp_cfg['marker']} timeout={timeout_ms}", "timeout")
-    assert time.monotonic() - started >= timeout_ms / 1000 * 0.9
+    expect_reason(fw, f"lpm.enter sleep wake={lp_cfg['wake']} marker={lp_cfg['marker']} timeout={timeout_ms}", reason)
+    assert time.monotonic() - started >= timeout_ms / 1000 * (percent / 100)
+
+
+@then("the board answers ping")
+def answers_ping(fw):
     fw.system.ping()
+
+
+@then(parsers.parse("a firmware delay of {ms:d} ms lasts at least {least_ms:d} ms"))
+def tick_resumed(fw, ms, least_ms):
     started = time.monotonic()
-    fw.system.delay(100)
-    assert time.monotonic() - started >= 0.09, "the SysTick tick did not resume"
+    fw.system.delay(ms)
+    assert time.monotonic() - started >= least_ms / 1000, "the SysTick tick did not resume"
 
 
-def test_pins_released(fw, lp_cfg):
-    """`lpm.enter` frees the wake and marker pins and the scaffold timer, whatever its outcome."""
-    try:
-        fw.lpm.enter("sleep", wake=lp_cfg["wake"], marker=lp_cfg["marker"], timeout=lp_cfg["timeout_ms"])
-    except FirmwareError as error:
-        assert error.reason == "timeout"
+@then("the wake pin and the marker pin can each be configured as an input and released")
+def pins_released(fw, lp_cfg):
     for pin in (lp_cfg["wake"], lp_cfg["marker"]):
         fw.gpio.cfg(pin, "in")
         fw.gpio.release(pin)
 
 
-def test_errors(fw, lp_cfg):
-    wake, marker = lp_cfg["wake"], lp_cfg["marker"]
+@then("every malformed or out-of-range lpm.enter command line fails with its reason")
+def errors(fw, lp_cfg):
+    wake = lp_cfg["wake"]
     lines = [
         ("lpm.enter", "usage"),
         ("lpm.enter nap", "usage"),
@@ -113,8 +202,17 @@ def test_errors(fw, lp_cfg):
     for line, reason in lines:
         expect_reason(fw, line, reason)
 
+
+@then(
+    parsers.parse(
+        "with the marker pin configured as a GPIO output, entering sleep with the wake pin and the marker pin for {ms:d} ms fails with "
+        '"{reason}", and the marker pin is released even if that fails'
+    )
+)
+def marker_busy(fw, lp_cfg, ms, reason):
+    wake, marker = lp_cfg["wake"], lp_cfg["marker"]
     fw.gpio.cfg(marker, "out")
     try:
-        expect_reason(fw, f"lpm.enter sleep wake={wake} marker={marker} timeout=1", "busy")
+        expect_reason(fw, f"lpm.enter sleep wake={wake} marker={marker} timeout={ms}", reason)
     finally:
         fw.gpio.release(marker)

@@ -1,4 +1,5 @@
 #include "validation/firmware/PwmFactory.hpp"
+#include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/util/ReallyAssert.hpp"
 #include "infra/util/Tokenizer.hpp"
@@ -98,7 +99,7 @@ namespace validation
         bool ValidFrequency(uint8_t timer, uint32_t counterClock, bool centerAligned, uint32_t hertz)
         {
             const auto ticksPerPeriod = counterClock / hertz;
-            if (ticksPerPeriod < 2)
+            if (ticksPerPeriod < (centerAligned ? 4u : 2u))
                 return false;
 
             const uint32_t maximumCompare = IS_TIM_32B_COUNTER_INSTANCE(Instance(timer)) ? 0xffffffffu : 0xffffu;
@@ -268,6 +269,9 @@ namespace validation
             return HilStatus::unsupported;
 
         if ((complementary || request.deadTime || request.idleHigh || request.complementaryIdleHigh || request.breakPin) && !IS_TIM_BREAK_INSTANCE(Instance(timer)))
+            return HilStatus::unsupported;
+
+        if (request.breakFilter.value_or(0) != 0 && std::ranges::find(board::breakFilterTimers, timer) == board::breakFilterTimers.end())
             return HilStatus::unsupported;
 
         status = ResolveOutputs(timer, request);

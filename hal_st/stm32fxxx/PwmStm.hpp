@@ -130,6 +130,7 @@ namespace hal
         void ConfigureChannel(const Channel& channel, const ChannelConfig& config);
         void ConfigureBreakAndDeadTime();
         void ConfigureBreakInputSource();
+        void DisableOutputs();
         void SetDutyCycle(Channel& channel, DutyCycle dutyCycle);
         uint32_t TimerClockFrequency() const;
         uint32_t MaximumCompare() const;
@@ -138,6 +139,7 @@ namespace hal
         Config config;
         bool idleStateRequested{ false };
         bool started{ false };
+        bool outputsEnabled{ false };
         TIM_HandleTypeDef handle{};
         infra::BoundedVector<Channel>::WithMaxSize<maxChannels> channels;
         std::optional<PeripheralPinStm> breakPin;

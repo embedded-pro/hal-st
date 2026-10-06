@@ -6,6 +6,8 @@ output has no pull (`SynchronousOutputPinStm` takes none): on `out_pins` only it
 on `float_pins` (no board load) the AD3 pulls show that a high level releases the line. The alternate-function cases
 mux a timer channel to the pins while the `tpwm` group runs that channel with no pin of its own (`-`): the PWM appears
 on every muxed pin exactly when the mux works.
+
+Scenarios: features/sgpio.feature.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from __future__ import annotations
 import pytest
 from ad3_waveforms_bench import analysis
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.groups.timers import pwm_duty_fraction, timer_update_rate
 
@@ -64,117 +67,308 @@ def check_pwm(ad3, cfg, dios, frequency, fraction):
         assert capture.duty(dio) == pytest.approx(fraction, abs=tolerance["duty"] + quantisation), f"DIO{dio} duty"
 
 
-@pytest.mark.ad3
 @pytest.mark.board_params("pin", "sgpio.out_pins")
 @pytest.mark.board_params("speed", "sgpio.speeds")
-def test_push_pull_levels(fw, ad3, need, pin, speed):
-    dio = need.dio(pin)
+@scenario("sgpio.feature", "A push-pull output drives the DIO with every speed and latches the level")
+def test_push_pull_levels(pin, speed):
+    pass
+
+
+@pytest.mark.board_params("pin", "sgpio.out_pins")
+@scenario("sgpio.feature", "An open-drain output pulls low and keeps open drain on a later out")
+def test_open_drain_low_and_latch(pin):
+    pass
+
+
+@pytest.mark.board_params("pin", "sgpio.float_pins")
+@scenario("sgpio.feature", "Open drain releases the line, push-pull drives it and the released pin floats")
+def test_switch_drive_and_release(pin):
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "A timer channel muxed to the alternate-function pin drives the PWM there")
+def test_af_by_timer():
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "A timer channel muxed to the set drives the PWM on every pin of it")
+def test_multi():
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "A raw alternate function number is muxed and reported")
+def test_af_number():
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "The group has four outputs, four alternate-function pins and one set")
+def test_slots():
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "A pin serves either the gpio or the sgpio group")
+def test_shared_with_gpio():
+    pass
+
+
+@pytest.mark.usefixtures("sgpio_cfg")
+@scenario("sgpio.feature", "Malformed, out-of-range, reserved and foreign commands are refused")
+def test_errors():
+    pass
+
+
+@given("the pin is wired to a DIO", target_fixture="dio")
+def pin_wired(need, pin):
+    return need.dio(pin)
+
+
+@given("the alternate-function pin is wired to a DIO", target_fixture="dio")
+def af_pin_wired(need, sgpio_cfg):
+    return need.dio(sgpio_cfg["af"]["pin"])
+
+
+@given("the pins of the set are wired to DIOs", target_fixture="dios")
+def set_wired(need, sgpio_cfg):
+    return [need.dio(pin) for pin in sgpio_cfg["multi"]["pins"]]
+
+
+@given("the DIO is released")
+def dio_released(ad3, dio):
     ad3.dio.release(dio)
+
+
+@given("the timer of tpwm runs its first channel with no pin", target_fixture="pwm_signal")
+def channel_running(fw, sgpio_cfg):
+    return run_channel(fw, sgpio_cfg)
+
+
+@given("the first output pin is configured as a GPIO input")
+def gpio_input(fw, sgpio_cfg):
+    fw.gpio.cfg(sgpio_cfg["out_pins"][0], "in")
+
+
+@when(parsers.parse("the pin is set as an open-drain output to {level:d}"))
+def open_drain_out(fw, pin, level):
+    fw.sgpio.out(pin, level, od=True)
+
+
+@when(parsers.parse("the pin is set as a push-pull output to {level:d}"))
+def push_pull_out(fw, pin, level):
+    fw.sgpio.out(pin, level, od=False)
+
+
+@when(parsers.parse("the pin is set to {level:d}"))
+def out(fw, pin, level):
+    fw.sgpio.out(pin, level)
+
+
+@when("the pin is released")
+def pin_released(fw, pin):
+    fw.sgpio.release(pin)
+
+
+@when("the alternate-function pin is released")
+@then("the alternate-function pin is released")
+def af_pin_released(fw, sgpio_cfg):
+    fw.sgpio.release(sgpio_cfg["af"]["pin"])
+
+
+@when("the pins of the set are muxed to the timer channel")
+def set_muxed(fw, sgpio_cfg):
+    multi = sgpio_cfg["multi"]
+    fw.sgpio.multi(multi["pins"], timer=multi["timer"], ch=multi["ch"])
+
+
+@when("the last pin of the set is released")
+def last_of_set_released(fw, sgpio_cfg):
+    fw.sgpio.release(sgpio_cfg["multi"]["pins"][-1])
+
+
+@when("the first pin of the set is released")
+def first_of_set_released(fw, sgpio_cfg):
+    fw.sgpio.release(sgpio_cfg["multi"]["pins"][0])
+
+
+@when("the AD3 pulls the DIOs of the set down")
+def set_pulled_down(ad3, dios):
+    ad3.dio.pull(down=dios)
+
+
+@when("the first four limit pins are set as outputs to 0")
+def limit_outputs(fw, sgpio_cfg):
+    pins = sgpio_cfg["limit_pins"]
+    for pin in pins[:4]:
+        fw.sgpio.out(pin, 0)
+
+
+@when("the first four limit pins are released")
+def limit_released(fw, sgpio_cfg):
+    pins = sgpio_cfg["limit_pins"]
+    for pin in pins[:4]:
+        fw.sgpio.release(pin)
+
+
+@when("alternate function 0 is muxed to the first four limit pins")
+def limit_alternate_functions(fw, sgpio_cfg):
+    pins = sgpio_cfg["limit_pins"]
+    for pin in pins[:4]:
+        fw.sgpio.af(pin, af=0)
+
+
+@when("the GPIO of the first output pin is released")
+def gpio_released(fw, sgpio_cfg):
+    fw.gpio.release(sgpio_cfg["out_pins"][0])
+
+
+@when("the first output pin is set as an sgpio output to 0")
+def sgpio_output(fw, sgpio_cfg):
+    fw.sgpio.out(sgpio_cfg["out_pins"][0], 0)
+
+
+@then("the pin, set as an output with the speed to every level in turn, drives the DIO to it and latches it")
+def push_pull_levels(fw, ad3, pin, dio, speed):
     for level in (1, 0, 1, 0):
         fw.sgpio.out(pin, level, speed=speed)
         assert ad3.dio.read(dio) == level, f"{pin} set to {level}"
         assert fw.sgpio.latch(pin) == level
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("pin", "sgpio.out_pins")
-def test_open_drain_low_and_latch(fw, ad3, need, pin):
-    dio = need.dio(pin)
-    ad3.dio.release(dio)
-    fw.sgpio.out(pin, 0, od=True)
+@then("the open drain pulls the DIO low")
+def open_drain_pulls_low(ad3, dio):
     assert ad3.dio.read(dio) == 0, "open drain must pull low"
-    assert fw.sgpio.latch(pin) == 0
-    fw.sgpio.out(pin, 1)
+
+
+@then(parsers.parse("the latch of the pin reads {level:d}"))
+def latch_reads(fw, pin, level):
+    assert fw.sgpio.latch(pin) == level
+
+
+@then("the latch of the pin reads 1: a later out keeps open drain and sets the latch")
+def latch_kept(fw, pin):
     assert fw.sgpio.latch(pin) == 1, "a later out keeps open drain and sets the latch"
-    fw.sgpio.out(pin, 0)
-    assert ad3.dio.read(dio) == 0
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("pin", "sgpio.float_pins")
-def test_switch_drive_and_release(fw, ad3, need, pin):
-    """Open drain releases the line at 1 and holds it low at 0; a changed `od` rebuilds the pin as push-pull, which
-    drives the high level against both pulls; `sgpio.release` leaves an input without pull (`float_pins` carry no board load, so the AD3
-    pulls decide its level)."""
-    dio = need.dio(pin)
-    ad3.dio.release(dio)
-    fw.sgpio.out(pin, 1, od=True)
-    assert follows_pulls(ad3, dio), f"{pin} open drain at 1 must release the line"
-    fw.sgpio.out(pin, 0, od=True)
-    assert not follows_pulls(ad3, dio), f"{pin} open drain at 0 must hold the line low"
-    fw.sgpio.out(pin, 1, od=False)
-    assert not follows_pulls(ad3, dio), f"{pin} push-pull high must override the AD3 pull-down"
+@then(parsers.parse("the DIO reads {level:d}"))
+def dio_reads(ad3, dio, level):
+    assert ad3.dio.read(dio) == level
+
+
+@then("the DIO reads high after open drain")
+def dio_high_after_open_drain(ad3, dio):
     assert ad3.dio.read(dio) == 1, "push-pull high after open drain"
-    fw.sgpio.release(pin)
+
+
+@then("the line follows the AD3 pulls: open drain at 1 releases it")
+def open_drain_releases(ad3, pin, dio):
+    assert follows_pulls(ad3, dio), f"{pin} open drain at 1 must release the line"
+
+
+@then("the line does not follow the AD3 pulls: open drain at 0 holds it low")
+def open_drain_holds_low(ad3, pin, dio):
+    assert not follows_pulls(ad3, dio), f"{pin} open drain at 0 must hold the line low"
+
+
+@then("the line does not follow the AD3 pulls: push-pull high overrides the AD3 pull-down")
+def push_pull_overrides(ad3, pin, dio):
+    assert not follows_pulls(ad3, dio), f"{pin} push-pull high must override the AD3 pull-down"
+
+
+@then("the line follows the AD3 pulls: the released pin is an input without pull")
+def released_floats(ad3, pin, dio):
     assert follows_pulls(ad3, dio), f"{pin} must be an input without pull after sgpio.release"
 
 
-@pytest.mark.ad3
-def test_af_by_timer(fw, ad3, need, sgpio_cfg):
+@then("muxing the alternate-function pin to the timer channel reports its alternate function number")
+def af_by_timer(fw, sgpio_cfg):
     af = sgpio_cfg["af"]
-    dio = need.dio(af["pin"])
-    frequency, fraction = run_channel(fw, sgpio_cfg)
     assert fw.sgpio.af(af["pin"], timer=af["timer"], ch=af["ch"]) == af["af"]
+
+
+@then("the PWM appears on the DIO")
+def pwm_on_dio(ad3, sgpio_cfg, dio, pwm_signal):
+    frequency, fraction = pwm_signal
     check_pwm(ad3, sgpio_cfg, [dio], frequency, fraction)
-    fw.sgpio.release(af["pin"])
+
+
+@then("the line follows the AD3 pulls: SmallPeripheralPinStm leaves an input without pull")
+def af_released_floats(ad3, dio):
     assert follows_pulls(ad3, dio), "SmallPeripheralPinStm must leave an input without pull"
 
 
-@pytest.mark.ad3
-def test_multi(fw, ad3, need, sgpio_cfg):
-    multi = sgpio_cfg["multi"]
-    dios = [need.dio(pin) for pin in multi["pins"]]
-    frequency, fraction = run_channel(fw, sgpio_cfg)
-    fw.sgpio.multi(multi["pins"], timer=multi["timer"], ch=multi["ch"])
+@then("the PWM appears on every DIO of the set")
+def pwm_on_set(ad3, sgpio_cfg, dios, pwm_signal):
+    frequency, fraction = pwm_signal
     check_pwm(ad3, sgpio_cfg, dios, frequency, fraction)
-    fw.sgpio.release(multi["pins"][-1])
-    ad3.dio.pull(down=dios)
+
+
+@then("no DIO of the set shows an edge for the recording periods")
+def set_unmuxed(ad3, sgpio_cfg, dios, pwm_signal):
+    frequency, _ = pwm_signal
     capture = ad3.logic.record_for(sgpio_cfg["record_periods"] / frequency, timeout=sgpio_cfg["record_periods"] / frequency + 2)
     for dio in dios:
         assert analysis.edge_count(capture.channel(dio)) == 0, f"DIO{dio} still muxed after releasing the set"
 
 
-def test_af_number(fw, sgpio_cfg):
-    """`af=<n>` muxes a raw alternate function and reports it."""
+@then("muxing the alternate-function pin to its raw alternate function number reports that number")
+def af_number(fw, sgpio_cfg):
     pin = sgpio_cfg["af"]["pin"]
     assert fw.sgpio.af(pin, af=sgpio_cfg["af"]["af"]) == sgpio_cfg["af"]["af"]
-    fw.sgpio.release(pin)
 
 
-def test_slots(fw, sgpio_cfg):
-    """Four outputs, four alternate-function pins and one set at a time; a pin serves one use."""
-    pins = sgpio_cfg["limit_pins"]
-    for pin in pins[:4]:
-        fw.sgpio.out(pin, 0)
-    expect_error("busy", fw.sgpio.out, pins[4], 0)
-    expect_error("busy", fw.sgpio.af, pins[0], af=0)
-    for pin in pins[:4]:
-        fw.sgpio.release(pin)
-    for pin in pins[:4]:
-        fw.sgpio.af(pin, af=0)
-    expect_error("busy", fw.sgpio.af, pins[4], af=0)
-    expect_error("busy", fw.sgpio.out, pins[0], 0)
-    for pin in pins[:4]:
-        fw.sgpio.release(pin)
+@then(parsers.parse('setting the fifth limit pin as an output to 0 fails with "{reason}"'))
+def fifth_output_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.out, sgpio_cfg["limit_pins"][4], 0)
+
+
+@then(parsers.parse('muxing alternate function 0 to the first limit pin fails with "{reason}"'))
+def first_af_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.af, sgpio_cfg["limit_pins"][0], af=0)
+
+
+@then(parsers.parse('muxing alternate function 0 to the fifth limit pin fails with "{reason}"'))
+def fifth_af_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.af, sgpio_cfg["limit_pins"][4], af=0)
+
+
+@then(parsers.parse('setting the first limit pin as an output to 0 fails with "{reason}"'))
+def first_output_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.out, sgpio_cfg["limit_pins"][0], 0)
+
+
+@then(parsers.parse('muxing the first pin of the set alone to the timer channel fails with "{reason}"'))
+def second_set_refused(fw, sgpio_cfg, reason):
     multi = sgpio_cfg["multi"]
-    fw.sgpio.multi(multi["pins"], timer=multi["timer"], ch=multi["ch"])
-    expect_error("busy", fw.sgpio.multi, multi["pins"][:1], timer=multi["timer"], ch=multi["ch"])
-    expect_error("busy", fw.sgpio.out, multi["pins"][0], 0)
-    fw.sgpio.release(multi["pins"][0])
-    for pin in multi["pins"]:
+    expect_error(reason, fw.sgpio.multi, multi["pins"][:1], timer=multi["timer"], ch=multi["ch"])
+
+
+@then(parsers.parse('setting the first pin of the set as an output to 0 fails with "{reason}"'))
+def set_pin_output_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.out, sgpio_cfg["multi"]["pins"][0], 0)
+
+
+@then("every pin of the set can be set as an output to 0")
+def set_pins_outputs(fw, sgpio_cfg):
+    for pin in sgpio_cfg["multi"]["pins"]:
         fw.sgpio.out(pin, 0)
 
 
-def test_shared_with_gpio(fw, sgpio_cfg):
-    pin = sgpio_cfg["out_pins"][0]
-    fw.gpio.cfg(pin, "in")
-    expect_error("busy", fw.sgpio.out, pin, 1)
-    fw.gpio.release(pin)
-    fw.sgpio.out(pin, 0)
-    expect_error("busy", fw.gpio.cfg, pin, "in")
+@then(parsers.parse('setting the first output pin as an sgpio output to 1 fails with "{reason}"'))
+def sgpio_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.sgpio.out, sgpio_cfg["out_pins"][0], 1)
 
 
-def test_errors(fw, board_cfg, sgpio_cfg):
+@then(parsers.parse('configuring the first output pin as a GPIO input fails with "{reason}"'))
+def gpio_refused(fw, sgpio_cfg, reason):
+    expect_error(reason, fw.gpio.cfg, sgpio_cfg["out_pins"][0], "in")
+
+
+@then("every malformed, out-of-range, reserved or foreign sgpio command line fails with its reason")
+def errors(fw, board_cfg, sgpio_cfg):
     out_pin = sgpio_cfg["out_pins"][0]
     af = sgpio_cfg["af"]
     multi = sgpio_cfg["multi"]

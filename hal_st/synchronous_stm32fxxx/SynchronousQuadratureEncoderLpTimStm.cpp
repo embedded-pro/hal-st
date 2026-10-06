@@ -105,6 +105,7 @@ namespace hal
         really_assert(result == HAL_OK);
 
         __HAL_LPTIM_CLEAR_FLAG(&handle, LPTIM_FLAG_UP | LPTIM_FLAG_DOWN);
+        directionCounter = StableCounter();
         previousPosition = Position();
 
         if (config.speedSamplePeriod)
@@ -168,12 +169,17 @@ namespace hal
         const bool turnedDown = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_DOWN);
         const bool turnedUp = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_UP);
 
-        if (turnedDown != turnedUp)
-            lastKnownCountingDown = turnedDown;
-
         if (turnedDown || turnedUp)
             __HAL_LPTIM_CLEAR_FLAG(&handle, LPTIM_FLAG_UP | LPTIM_FLAG_DOWN);
 
+        const auto counter = StableCounter();
+
+        if (turnedDown != turnedUp)
+            lastKnownCountingDown = turnedDown;
+        else if (counter != directionCounter)
+            lastKnownCountingDown = CountsSince(directionCounter, counter, false) > config.resolution / 2;
+
+        directionCounter = counter;
         return lastKnownCountingDown;
     }
 

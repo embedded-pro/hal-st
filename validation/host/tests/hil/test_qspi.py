@@ -17,6 +17,8 @@ the QUADSPI busy reset the board when they fail, so the next test starts clean.
 B.15 (QuadSpiStmDma completes a write on the DMA transfer-complete, while the FIFO still drains): writes answer
 `flevel`, the FIFO level sampled in the completion callback, which must be 0 (test_write_completes_after_last_byte),
 and two writes issued from one completion callback must both reach the bus (test_back_to_back_writes).
+
+Scenarios: features/qspi.feature.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from typing import Any
 import pytest
 from ad3_waveforms_bench import analysis
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.firmware import quiesce, settle
 from hal_st_validation.groups.qspi import (
@@ -45,8 +48,6 @@ from hal_st_validation.groups.qspi import (
     qspi_samples,
 )
 from hal_st_validation.patterns import crc_text, generate
-
-pytestmark = pytest.mark.family("stm32wb55")
 
 READ_DUMMY_CYCLES = 2
 
@@ -142,13 +143,205 @@ def reset_on_failure(fw) -> Iterator[None]:
         raise
 
 
+@pytest.fixture
+def failure_resets() -> bool:
+    """Whether a failing step resets the board (`reset_on_failure`); the step "any failure from here on resets the board"
+    sets it for the rest of the scenario."""
+    return False
+
+
+def guarded(fw, failure_resets: bool) -> contextlib.AbstractContextManager[None]:
+    return reset_on_failure(fw) if failure_resets else contextlib.nullcontext()
+
+
+@pytest.fixture
+def state():
+    """What the steps of one scenario hand on to the later ones."""
+    return {}
+
+
+@pytest.mark.usefixtures("index")
 @pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
 @pytest.mark.board_params("prescaler", values=[0, 7, QSPI_PRESCALER_MAX])
-def test_open_reports_the_clock(fw, board_cfg, index, variant, prescaler):
+@scenario("qspi.feature", "The open reports the QUADSPI clock")
+def test_open_reports_the_clock(variant, prescaler):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "Malformed and out-of-range opens are refused")
+def test_open_errors():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "The open holds the six pins")
+def test_pins_are_held():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "The commands need an open instance")
+def test_commands_need_an_open_instance():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "Malformed and out-of-range commands are refused")
+def test_command_errors():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "Malformed and out-of-range polls are refused")
+def test_poll_errors():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "Transfers need variant spi and one direction")
+def test_xfer_errors():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
+@scenario("qspi.feature", "Every phase is optional and every command answers its reply")
+def test_replies(variant):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["dma", "spi"])
+@scenario("qspi.feature", "A write completes after its last byte left the FIFO")
+def test_write_completes_after_last_byte(variant):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma"])
+@pytest.mark.board_params("lines", "qspi.lines")
+@scenario("qspi.feature", "A write carries every phase on the bus")
+def test_write_decoded(variant, lines):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
+@scenario("qspi.feature", "Back-to-back writes both reach the bus")
+def test_back_to_back_writes(variant):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma"])
+@pytest.mark.board_params("nibble", "qspi.nibbles")
+@scenario("qspi.feature", "A 4-line read receives the nibble the AD3 holds")
+def test_receive_nibbles(variant, nibble):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma"])
+@scenario("qspi.feature", "A status poll matches at once")
+def test_poll_match(variant):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
+@pytest.mark.board_params("level", values=[0, 1])
+@scenario("qspi.feature", "A full-buffer read answers the CRC-32 of the level the AD3 holds")
+def test_read_crc(variant, level):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("variant", values=["dma", "poll"])
+@scenario("qspi.feature", "A status that never matches times out and the close stops the polling")
+def test_poll_timeout(variant):
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "The close recovers from a data-only read")
+def test_close_recovers_from_a_data_only_read():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@scenario("qspi.feature", "A transfer is SPI mode 0 on IO0")
+def test_xfer_decoded():
+    pass
+
+
+@pytest.mark.usefixtures("index")
+@pytest.mark.board_params("level", values=[0, 1])
+@scenario("qspi.feature", "A transfer receives the level the AD3 holds on IO1")
+def test_xfer_receive(level):
+    pass
+
+
+@given("any failure from here on resets the board", target_fixture="failure_resets")
+@when("any failure from here on resets the board", target_fixture="failure_resets")
+def failures_reset_the_board():
+    return True
+
+
+@given("the six QUADSPI pins are on DIOs", target_fixture="dios")
+def pins_on_dios(need, qspi_cfg):
+    return qspi_dios(need, qspi_cfg)
+
+
+@when(parsers.parse("the instance opens with variant {driver:w}"))
+def open_with(fw, index, driver):
+    fw.qspi.open(index, variant=driver)
+
+
+@when("the instance opens with variant dma and the largest size")
+def open_largest(fw, index):
+    fw.qspi.open(index, variant="dma", size=QSPI_SIZE_MAX)
+
+
+@when(parsers.parse("the instance opens with variant {driver:w} at the decode prescaler"), target_fixture="clock")
+def open_with_at_decode(fw, qspi_cfg, index, driver):
+    return fw.qspi.open(index, variant=driver, prescaler=qspi_cfg["decode_prescaler"])
+
+
+@when("the instance opens with the variant")
+def open_variant(fw, index, variant, failure_resets):
+    with guarded(fw, failure_resets):
+        fw.qspi.open(index, variant=variant)
+
+
+@when("the instance opens with the variant at the decode prescaler", target_fixture="clock")
+def open_variant_at_decode(fw, qspi_cfg, index, variant):
+    return fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["decode_prescaler"])
+
+
+@when("the instance opens with the variant at the slow prescaler")
+def open_variant_at_slow(fw, qspi_cfg, index, variant):
+    fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["slow_prescaler"])
+
+
+@when("the instance closes")
+def close(fw, index, failure_resets):
+    with guarded(fw, failure_resets):
+        fw.qspi.close(index)
+
+
+@then("opening the instance with the variant and the prescaler reports the QUADSPI kernel clock over the prescaler plus one")
+def open_reports_clock(fw, board_cfg, index, variant, prescaler):
     assert fw.qspi.open(index, variant=variant, prescaler=prescaler) == qspi_clock(board_cfg.clock("qspi"), prescaler)
 
 
-def test_open_errors(fw, index):
+@then(parsers.parse('opening the instance fails with "{reason}"'))
+def open_refused(fw, index, reason):
+    expect_error(reason, fw.qspi.open, index)
+
+
+@then("every malformed or out-of-range open answers its reason")
+def opens_refused(fw):
     cases = [
         ("qspi.open", "usage"),
         ("qspi.open 1 2", "usage"),
@@ -166,33 +359,43 @@ def test_open_errors(fw, index):
     for line, reason in cases:
         response = fw.terminal.command(line, check=False)
         assert response.reason == reason, line
-    fw.qspi.open(index, variant="dma", size=QSPI_SIZE_MAX)
-    expect_error("busy", fw.qspi.open, index)
 
 
-def test_pins_are_held(fw, qspi_cfg, index):
-    """`qspi.open` claims the six pins of the board profile: a pin held elsewhere makes it busy, and its pins are busy
-    for the other groups until `qspi.close`."""
-    pins = qspi_pins(qspi_cfg)
-    fw.gpio.cfg(pins["io2"], "out")
-    expect_error("busy", fw.qspi.open, index)
-    fw.gpio.release(pins["io2"])
-    fw.qspi.open(index, variant="spi")
-    for pin in pins.values():
-        expect_error("busy", fw.gpio.cfg, pin, "in")
-    fw.qspi.close(index)
-    fw.gpio.cfg(pins["clk"], "in")
+@given("IO2 is configured as a GPIO output")
+def io2_output(fw, qspi_cfg):
+    fw.gpio.cfg(qspi_pins(qspi_cfg)["io2"], "out")
 
 
-def test_commands_need_an_open_instance(fw, index):
+@when("IO2 is released")
+def io2_released(fw, qspi_cfg):
+    fw.gpio.release(qspi_pins(qspi_cfg)["io2"])
+
+
+@then(parsers.parse('configuring any of the six pins as a GPIO input fails with "{reason}"'))
+def pins_busy(fw, qspi_cfg, reason):
+    for pin in qspi_pins(qspi_cfg).values():
+        expect_error(reason, fw.gpio.cfg, pin, "in")
+
+
+@then("CLK can be configured as a GPIO input")
+def clk_input(fw, qspi_cfg):
+    fw.gpio.cfg(qspi_pins(qspi_cfg)["clk"], "in")
+
+
+@then(parsers.parse('every command on the closed instance answers "{reason}"'))
+def commands_not_open(fw, reason):
     for line in ("qspi.cmd 1 instr=0x06", "qspi.poll 1 match=1 mask=1", "qspi.xfer 1 9f", "qspi.close 1", "qspi.cmd 0"):
-        assert fw.terminal.command(line, check=False).reason == "notopen", line
+        assert fw.terminal.command(line, check=False).reason == reason, line
+
+
+@then(parsers.parse('every command on instance 2 answers "{reason}"'))
+def commands_out_of_range(fw, reason):
     for line in ("qspi.cmd 2", "qspi.close 2"):
-        assert fw.terminal.command(line, check=False).reason == "range", line
+        assert fw.terminal.command(line, check=False).reason == reason, line
 
 
-def test_command_errors(fw, index):
-    fw.qspi.open(index, variant="dma")
+@then("every malformed or out-of-range command answers its reason")
+def commands_refused(fw):
     cases = [
         ("qspi.cmd 1 2", "usage"),
         ("qspi.cmd 1 speed=1", "usage"),
@@ -229,8 +432,8 @@ def test_command_errors(fw, index):
         assert fw.terminal.command(line, check=False).reason == reason, line
 
 
-def test_poll_errors(fw, index):
-    fw.qspi.open(index, variant="dma")
+@then("every malformed or out-of-range poll answers its reason")
+def polls_refused(fw):
     cases = [
         ("qspi.poll 1", "usage"),
         ("qspi.poll 1 match=1", "usage"),
@@ -248,12 +451,13 @@ def test_poll_errors(fw, index):
         assert fw.terminal.command(line, check=False).reason == reason, line
 
 
-def test_xfer_errors(fw, index):
-    """`qspi.xfer` needs `variant=spi` and exactly one of tx and rx: `SingleSpeedQuadSpiStmDma` is half duplex."""
-    fw.qspi.open(index, variant="dma")
-    expect_error("unsupported", fw.qspi.xfer, index, b"\x9f")
-    fw.qspi.close(index)
-    fw.qspi.open(index, variant="spi")
+@then(parsers.parse('a transfer of 9f fails with "{reason}"'))
+def xfer_refused(fw, index, reason):
+    expect_error(reason, fw.qspi.xfer, index, b"\x9f")
+
+
+@then("every malformed or out-of-range transfer answers its reason")
+def xfers_refused(fw):
     cases = [
         ("qspi.xfer 1", "usage"),
         ("qspi.xfer 1 -", "usage"),
@@ -273,140 +477,195 @@ def test_xfer_errors(fw, index):
         assert fw.terminal.command(line, check=False).reason == reason, line
 
 
-@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
-def test_replies(fw, qspi_cfg, index, variant):
-    """Writes answer `flevel=0`, reads their data (or `len` and `crc` with `out=crc`); every phase is optional. The
-    reads have an instruction phase (read_instr), so they never take the data-only path of the erratum."""
-    instr = qspi_cfg["read_instr"]
-    fw.qspi.open(index, variant=variant)
-    assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0
+@then("a write of the instruction alone answers flevel 0")
+def instruction_write(fw, qspi_cfg, index, failure_resets):
+    with guarded(fw, failure_resets):
+        assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0
+
+
+@then(parsers.parse('a write of the instruction alone fails with "{reason}"'))
+def instruction_write_refused(fw, qspi_cfg, index, failure_resets, reason):
+    with guarded(fw, failure_resets):
+        expect_error(reason, fw.qspi.cmd, index, instr=qspi_cfg["instruction"])
+
+
+@then(parsers.parse("the write of the board file on {write_lines:d} lines answers flevel 0"))
+def board_write_on(fw, qspi_cfg, index, write_lines):
     options, _ = write_frame(qspi_cfg)
-    assert fw.qspi.cmd(index, lines=4, **options).flevel == 0
-    assert fw.qspi.cmd(index, lines=1, len=QSPI_BUFFER, pattern="prbs", seed=7).flevel == 0
-    data = fw.qspi.cmd(index, instr=instr, lines=1, rx=qspi_cfg["read_length"]).data
+    assert fw.qspi.cmd(index, lines=write_lines, **options).flevel == 0
+
+
+@then(parsers.parse("a full-buffer 1-line PRBS write with seed {seed:d} answers flevel 0"))
+def prbs_write(fw, index, seed):
+    assert fw.qspi.cmd(index, lines=1, len=QSPI_BUFFER, pattern="prbs", seed=seed).flevel == 0
+
+
+@then("a 1-line read with the read instruction answers the read length of data")
+def read_data(fw, qspi_cfg, index):
+    data = fw.qspi.cmd(index, instr=qspi_cfg["read_instr"], lines=1, rx=qspi_cfg["read_length"]).data
     assert data is not None and len(data) == qspi_cfg["read_length"]
-    crc = fw.qspi.cmd(index, instr=instr, addr=0, lines=4, dummy=READ_DUMMY_CYCLES, rx=QSPI_BUFFER, out="crc").crc
+
+
+@then("a full-buffer 4-line read with the read instruction, address 0 and two dummy cycles answers an 8-digit CRC")
+def read_crc_reply(fw, qspi_cfg, index):
+    crc = fw.qspi.cmd(index, instr=qspi_cfg["read_instr"], addr=0, lines=4, dummy=READ_DUMMY_CYCLES, rx=QSPI_BUFFER, out="crc").crc
     assert crc is not None and len(crc) == 8
+
+
+@then("with variant spi, a transfer of the transfer bytes answers flevel 0")
+def spi_xfer_reply(fw, qspi_cfg, index, variant):
     if variant == "spi":
         assert fw.qspi.xfer(index, bytes.fromhex(qspi_cfg["xfer"])).flevel == 0
 
 
-@pytest.mark.board_params("variant", values=["dma", "spi"])
-def test_write_completes_after_last_byte(fw, qspi_cfg, index, variant):
-    """B.15: at the slowest clock the last bytes of a write take a while to leave the FIFO; the completion
-    callback must see it empty."""
-    fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["slow_prescaler"])
+@when(
+    "a 1-line PRBS write with seed 1 of the FIFO-level length is made, as a transfer with variant spi and after the instruction otherwise",
+    target_fixture="reply",
+)
+def flevel_write(fw, qspi_cfg, index, variant):
     length = qspi_cfg["flevel_length"]
     if variant == "spi":
-        reply = fw.qspi.xfer(index, len=length, pattern="prbs", seed=1)
-    else:
-        reply = fw.qspi.cmd(index, instr=qspi_cfg["instruction"], lines=1, len=length, pattern="prbs", seed=1)
+        return fw.qspi.xfer(index, len=length, pattern="prbs", seed=1)
+    return fw.qspi.cmd(index, instr=qspi_cfg["instruction"], lines=1, len=length, pattern="prbs", seed=1)
+
+
+@then("the write answers flevel 0")
+def write_flevel(reply):
     assert reply.flevel == 0
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("variant", values=["poll", "dma"])
-@pytest.mark.board_params("lines", "qspi.lines")
-def test_write_decoded(fw, ad3, need, qspi_cfg, index, variant, lines):
-    """Instruction, address, alternate bytes and data of a write on the bus, all on 1 or on 4 lines."""
-    dios = qspi_dios(need, qspi_cfg)
-    clock = fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["decode_prescaler"])
-    options, expected = write_frame(qspi_cfg)
-    capture = arm(ad3, dios, clock, bus_seconds(len(expected), lines, clock))
+@when("the logic analyzer is armed on NCS falling for the write of the board file on the lines", target_fixture="capture")
+def arm_for_board_write(ad3, qspi_cfg, dios, clock, lines):
+    _, expected = write_frame(qspi_cfg)
+    return arm(ad3, dios, clock, bus_seconds(len(expected), lines, clock))
+
+
+@then("the write of the board file on the lines answers flevel 0")
+def board_write(fw, qspi_cfg, index, lines):
+    options, _ = write_frame(qspi_cfg)
     assert fw.qspi.cmd(index, lines=lines, **options).flevel == 0
+
+
+@then("the first chip-select frame captured carries the instruction, address, alternate bytes and data of the write on the lines")
+def board_write_decoded(qspi_cfg, dios, capture, lines):
+    _, expected = write_frame(qspi_cfg)
     found = frames(capture.wait(timeout=2.0), dios)
     assert found, "no chip-select frame captured"
     assert qspi_bytes(found[0], lines) == expected
 
 
-@pytest.mark.ad3
-@pytest.mark.resets_board
-@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
-def test_back_to_back_writes(fw, ad3, need, qspi_cfg, index, variant):
-    """B.15: `repeat=2` issues the second write from the completion callback of the first; both reach the bus."""
-    dios = qspi_dios(need, qspi_cfg)
+@when(
+    "the logic analyzer is armed on NCS falling for the back-to-back 1-line PRBS writes, after the instruction unless the variant is spi",
+    target_fixture="capture",
+)
+def arm_for_back_to_back(ad3, qspi_cfg, dios, clock, variant, state):
     cfg = qspi_cfg["back_to_back"]
-    clock = fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["decode_prescaler"])
     payload = generate(cfg["length"], "prbs", cfg["seed"])
     instr = None if variant == "spi" else qspi_cfg["instruction"]
     expected = qspi_frame(instr, data=payload)
-    capture = arm(ad3, dios, clock, bus_seconds(len(expected), 1, clock, cfg["repeat"]))
-    with reset_on_failure(fw):
+    state.update(instr=instr, expected=expected)
+    return arm(ad3, dios, clock, bus_seconds(len(expected), 1, clock, cfg["repeat"]))
+
+
+@when("the back-to-back writes are issued, as transfers with variant spi and as commands otherwise", target_fixture="reply")
+def back_to_back(fw, qspi_cfg, index, variant, state, failure_resets):
+    cfg = qspi_cfg["back_to_back"]
+    with guarded(fw, failure_resets):
         if variant == "spi":
-            reply = fw.qspi.xfer(index, len=cfg["length"], pattern="prbs", seed=cfg["seed"], repeat=cfg["repeat"])
-        else:
-            reply = fw.qspi.cmd(index, instr=instr, lines=1, len=cfg["length"], pattern="prbs", seed=cfg["seed"], repeat=cfg["repeat"])
+            return fw.qspi.xfer(index, len=cfg["length"], pattern="prbs", seed=cfg["seed"], repeat=cfg["repeat"])
+        return fw.qspi.cmd(index, instr=state["instr"], lines=1, len=cfg["length"], pattern="prbs", seed=cfg["seed"], repeat=cfg["repeat"])
+
+
+@then("the writes answer flevel 0")
+def writes_flevel(fw, reply, failure_resets):
+    with guarded(fw, failure_resets):
         assert reply.flevel == 0
+
+
+@then("every chip-select frame captured carries the instruction and the payload, once per repeat")
+def back_to_back_decoded(fw, qspi_cfg, dios, capture, state, failure_resets):
+    with guarded(fw, failure_resets):
         found = frames(capture.wait(timeout=2.0), dios)
-        assert [qspi_bytes(frame, 1) for frame in found] == [expected] * cfg["repeat"]
+        assert [qspi_bytes(frame, 1) for frame in found] == [state["expected"]] * qspi_cfg["back_to_back"]["repeat"]
 
 
-@pytest.mark.ad3
-@pytest.mark.resets_board
-@pytest.mark.board_params("variant", values=["poll", "dma"])
-@pytest.mark.board_params("nibble", "qspi.nibbles")
-def test_receive_nibbles(fw, ad3, need, qspi_cfg, index, variant, nibble):
-    """The first command after `qspi.open` is a 4-line read without instruction, address or alternate bytes, so the
-    QUADSPI drives none of IO0-IO3 while the AD3 holds them at `nibble`: every byte is the nibble twice."""
-    dios = qspi_dios(need, qspi_cfg)
+@when(
+    "a 4-line read of the read length with two dummy cycles runs while the AD3 holds IO0-IO3 at the nibble with its weakest drive, "
+    "releasing them afterwards",
+    target_fixture="reply",
+)
+def read_nibble(fw, ad3, qspi_cfg, index, dios, nibble, failure_resets):
     ios = [dios[f"io{line}"] for line in range(4)]
-    length = qspi_cfg["read_length"]
-    fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["decode_prescaler"])
-    with reset_on_failure(fw):
+    with guarded(fw, failure_resets):
         try:
             with weakest_drive(ad3, ios):
                 ad3.dio.drive_many({dio: (nibble >> line) & 1 for line, dio in enumerate(ios)})
-                reply = fw.qspi.cmd(index, lines=4, dummy=READ_DUMMY_CYCLES, rx=length)
+                return fw.qspi.cmd(index, lines=4, dummy=READ_DUMMY_CYCLES, rx=qspi_cfg["read_length"])
         finally:
             ad3.dio.release(*ios)
-        assert reply.data == bytes([nibble << 4 | nibble]) * length
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("variant", values=["poll", "dma"])
-def test_poll_match(fw, ad3, need, qspi_cfg, index, variant):
-    """A 1-line instruction followed by a 1-line status read on IO1, which the AD3 holds high: the status matches
-    at once. The status is read once first, because one that never matches blocks `variant=poll` for good."""
-    dios = qspi_dios(need, qspi_cfg)
-    poll = qspi_cfg["poll"]
-    clock = fw.qspi.open(index, variant=variant, prescaler=qspi_cfg["decode_prescaler"])
-    ad3.dio.drive(dios["io1"], 1)
-    status = fw.qspi.cmd(index, instr=poll["instr"], lines=1, rx=1).data
+@then("every byte read is the nibble twice")
+def nibble_twice(fw, qspi_cfg, reply, nibble, failure_resets):
+    with guarded(fw, failure_resets):
+        assert reply.data == bytes([nibble << 4 | nibble]) * qspi_cfg["read_length"]
+
+
+@when(parsers.parse("the AD3 holds IO1 at {io1_level:d}"))
+def hold_io1_at(ad3, dios, io1_level):
+    ad3.dio.drive(dios["io1"], io1_level)
+
+
+@when("the AD3 holds IO1 at the level")
+def hold_io1_level(ad3, dios, level):
+    ad3.dio.drive(dios["io1"], level)
+
+
+@when("the AD3 releases IO1")
+def release_io1(fw, ad3, dios, failure_resets):
+    with guarded(fw, failure_resets):
+        ad3.dio.release(dios["io1"])
+
+
+@then("a 1-line read of one status byte with the poll instruction reads ff")
+def status_reads_high(fw, qspi_cfg, index):
+    status = fw.qspi.cmd(index, instr=qspi_cfg["poll"]["instr"], lines=1, rx=1).data
     if status != b"\xff":
         pytest.fail(f"IO1 reads {status!r} with the AD3 driving it high: check DIO3 on PB8")
-    capture = arm(ad3, dios, clock, bus_seconds(2, 1, clock))
+
+
+@when(parsers.parse("the logic analyzer is armed on NCS falling for {length:d} bytes on 1 line"), target_fixture="capture")
+def arm_for_bytes(ad3, dios, clock, length):
+    return arm(ad3, dios, clock, bus_seconds(length, 1, clock))
+
+
+@when("the instance polls for the status match with the poll instruction on 1 line")
+def poll_match(fw, qspi_cfg, index):
+    poll = qspi_cfg["poll"]
     fw.qspi.poll(index, match=poll["match"], mask=poll["mask"], instr=poll["instr"], lines=1)
+
+
+@then("the first chip-select frame captured carries the poll instruction on IO0 and the status ff on IO1")
+def poll_decoded(qspi_cfg, dios, capture):
     found = frames(capture.wait(timeout=2.0), dios)
     assert found and len(found[0]) >= 16, "no instruction and status on the bus"
-    assert qspi_bytes(found[0][:8], 1, line=0) == bytes([poll["instr"]])
+    assert qspi_bytes(found[0][:8], 1, line=0) == bytes([qspi_cfg["poll"]["instr"]])
     assert qspi_bytes(found[0][8:16], 1, line=1) == b"\xff"
 
 
-@pytest.mark.ad3
-@pytest.mark.board_params("variant", values=["poll", "dma", "spi"])
-@pytest.mark.board_params("level", values=[0, 1])
-def test_read_crc(fw, ad3, need, qspi_cfg, index, variant, level):
-    """A full-buffer 1-line read of IO1, which the AD3 holds at `level`, answers the CRC-32 of those bytes."""
-    dios = qspi_dios(need, qspi_cfg)
-    fw.qspi.open(index, variant=variant)
-    ad3.dio.drive(dios["io1"], level)
+@then("a full-buffer 1-line read with the read instruction answers the CRC-32 of bytes of the level")
+def read_crc_of_level(fw, qspi_cfg, index, level):
     reply = fw.qspi.cmd(index, instr=qspi_cfg["read_instr"], lines=1, rx=QSPI_BUFFER, out="crc")
     assert reply.crc == crc_text(bytes([0xFF * level]) * QSPI_BUFFER)
 
 
-@pytest.mark.ad3
-@pytest.mark.slow
-@pytest.mark.resets_board
-@pytest.mark.board_params("variant", values=["dma", "poll"])
-def test_poll_timeout(fw, ad3, need, qspi_cfg, index, variant):
-    """A status that never matches answers `ERR timeout` after 2 s; the group stays busy until `qspi.close`, which
-    stops the polling (`~QuadSpiStmDma` clears CR), and a new open works. `variant=poll` blocks instead (B.14):
-    the AD3 then makes the status match, so the firmware returns."""
-    dios = qspi_dios(need, qspi_cfg)
+@when(
+    "a 1-line status poll with the poll instruction runs, the AD3 driving IO1 high and the line going quiet if no answer comes",
+    target_fixture="response",
+)
+def poll_until_timeout(fw, ad3, qspi_cfg, index, dios, failure_resets):
     poll = qspi_cfg["poll"]
-    fw.qspi.open(index, variant=variant)
-    ad3.dio.drive(dios["io1"], 0)
-    with reset_on_failure(fw):
+    with guarded(fw, failure_resets):
         pending = fw.qspi.begin(
             "poll",
             index,
@@ -420,55 +679,58 @@ def test_poll_timeout(fw, ad3, need, qspi_cfg, index, variant):
         if response is None:
             ad3.dio.drive(dios["io1"], 1)
             quiesce(fw.terminal, quiet=0.5)
-        assert response is not None and response.reason == "timeout", f"qspi.poll answered {response!r}"
-        expect_error("busy", fw.qspi.cmd, index, instr=qspi_cfg["instruction"])
-        fw.qspi.close(index)
-        ad3.dio.release(dios["io1"])
-        fw.qspi.open(index, variant=variant)
-        assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0
+        return response
 
 
-@pytest.mark.slow
-@pytest.mark.resets_board
-def test_close_recovers_from_a_data_only_read(fw, qspi_cfg, index):
-    """A 4-line read with a data phase only hangs the QUADSPI with BUSY set (erratum), which only an abort or a
-    reset clears: `variant=dma` answers `ERR timeout`. `qspi.close` resets the QUADSPI, so after a new open both
-    drivers complete a write again (`QuadSpiStm` would otherwise wait in `HAL_QSPI_Init` and fail every command)."""
-    fw.qspi.open(index, variant="dma")
-    with reset_on_failure(fw):
-        response = settle(fw.qspi.begin("cmd", index, lines=4, rx=4, cmd_timeout=fw.terminal.timeout + QSPI_TIMEOUT_S))
+@then(parsers.parse('the poll answers "{reason}"'))
+def poll_answers(fw, response, failure_resets, reason):
+    with guarded(fw, failure_resets):
+        assert response is not None and response.reason == reason, f"qspi.poll answered {response!r}"
+
+
+@when("a 4-line read of 4 bytes with a data phase only runs", target_fixture="response")
+def data_only_read(fw, index, failure_resets):
+    with guarded(fw, failure_resets):
+        return settle(fw.qspi.begin("cmd", index, lines=4, rx=4, cmd_timeout=fw.terminal.timeout + QSPI_TIMEOUT_S))
+
+
+@then(parsers.parse('the read answers "{reason}", unless it completed and the scenario skips'))
+def data_only_read_times_out(fw, response, failure_resets, reason):
+    with guarded(fw, failure_resets):
         if response is not None and response.ok:
             pytest.skip("the data-only read completed: the erratum did not hang the QUADSPI")
-        assert response is not None and response.reason == "timeout", f"qspi.cmd answered {response!r}"
-        fw.qspi.close(index)
+        assert response is not None and response.reason == reason, f"qspi.cmd answered {response!r}"
+
+
+@then("with variant dma and then poll, a new open completes a write of the instruction alone and closes")
+def reopen_and_write(fw, qspi_cfg, index, failure_resets):
+    with guarded(fw, failure_resets):
         for variant in ("dma", "poll"):
             fw.qspi.open(index, variant=variant)
             assert fw.qspi.cmd(index, instr=qspi_cfg["instruction"]).flevel == 0, variant
             fw.qspi.close(index)
 
 
-@pytest.mark.ad3
-def test_xfer_decoded(fw, ad3, need, qspi_cfg, index):
-    """`variant=spi`: `SingleSpeedQuadSpiStmDma` writes are SPI mode 0 with MOSI on IO0 and NCS as chip select."""
-    dios = qspi_dios(need, qspi_cfg)
-    payload = bytes.fromhex(qspi_cfg["xfer"])
-    clock = fw.qspi.open(index, variant="spi", prescaler=qspi_cfg["decode_prescaler"])
-    capture = arm(ad3, dios, clock, bus_seconds(len(payload), 1, clock))
-    assert fw.qspi.xfer(index, payload).flevel == 0
+@when("the logic analyzer is armed on NCS falling for the transfer bytes on 1 line", target_fixture="capture")
+def arm_for_xfer(ad3, qspi_cfg, dios, clock):
+    return arm(ad3, dios, clock, bus_seconds(len(bytes.fromhex(qspi_cfg["xfer"])), 1, clock))
+
+
+@then("a transfer of the transfer bytes answers flevel 0")
+def xfer_bytes(fw, qspi_cfg, index):
+    assert fw.qspi.xfer(index, bytes.fromhex(qspi_cfg["xfer"])).flevel == 0
+
+
+@then("the capture decodes as SPI mode 0 with MOSI on IO0 and NCS as chip select to the transfer bytes, the clock idling low")
+def xfer_decoded(qspi_cfg, dios, capture):
     result = capture.wait(timeout=2.0)
     spi_frames = result.spi(dios["clk"], dios["io0"], None, dios["ncs"], 0)
-    assert analysis.spi_join(spi_frames)[0] == payload
+    assert analysis.spi_join(spi_frames)[0] == bytes.fromhex(qspi_cfg["xfer"])
     assert analysis.clock_idle_level(result.channel(dios["clk"]), result.channel(dios["ncs"])) == 0
 
 
-@pytest.mark.ad3
-@pytest.mark.resets_board
-@pytest.mark.board_params("level", values=[0, 1])
-def test_xfer_receive(fw, ad3, need, qspi_cfg, index, level):
-    """`variant=spi` receives on IO1 (MISO), which the AD3 holds at `level`; the read has a data phase only."""
-    dios = qspi_dios(need, qspi_cfg)
+@then("a transfer receiving the read length reads bytes of the level")
+def xfer_receive(fw, qspi_cfg, index, level, failure_resets):
     length = qspi_cfg["read_length"]
-    fw.qspi.open(index, variant="spi", prescaler=qspi_cfg["decode_prescaler"])
-    ad3.dio.drive(dios["io1"], level)
-    with reset_on_failure(fw):
+    with guarded(fw, failure_resets):
         assert fw.qspi.xfer(index, rx=length).data == bytes([0xFF * level]) * length

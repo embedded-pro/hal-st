@@ -82,7 +82,7 @@ namespace hal
 
     void LpPwmChannelGpio::ConfigChannelInit()
     {
-        LPTIM_OC_ConfigTypeDef sConfig = { .OCPolarity = LPTIM_OCPOLARITY_HIGH };
+        LPTIM_OC_ConfigTypeDef sConfig = { .OCPolarity = LPTIM_OCPOLARITY_LOW };
         auto result = HAL_LPTIM_OC_ConfigChannel(&handle, &sConfig, GetLpTimerChannel(channelIndex));
         assert(result == HAL_OK);
     }

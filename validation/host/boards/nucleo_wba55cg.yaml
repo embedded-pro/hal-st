@@ -448,9 +448,9 @@ known_gaps:
       - test_uart.py::test_send_timeout_while_cts_held[*variant=sync*]
       - test_uart.py::test_close_during_stalled_send[*variant=sync*]
     reason: >-
-      hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:62 - with sync=1
-      and CTS held off SendData waits for TXE without a timeout and blocks the
-      event loop for good
+      hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:66 - with sync=1
+      and CTS held off SendData waits for TXE and TC without a timeout and
+      blocks the event loop for good
     hangs: true
   - tests:
       - test_spi_ext.py::test_hardware_nss*

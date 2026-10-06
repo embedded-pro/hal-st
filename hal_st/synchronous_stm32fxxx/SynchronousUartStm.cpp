@@ -45,6 +45,10 @@ namespace hal
 
         HAL_UART_Init(&uartHandle);
 
+#if defined(STM32WB) || defined(STM32WBA)
+        HAL_UARTEx_EnableFifoMode(&uartHandle);
+#endif
+
         peripheralUart[uartIndex]->CR2 &= ~USART_CLOCK_ENABLED;
         peripheralUart[uartIndex]->CR1 |= USART_CR1_RXNEIE;
     }
@@ -76,7 +80,10 @@ namespace hal
 #endif
         }
 
-#if defined(USART_ISR_TXE)
+#if defined(STM32WB) || defined(STM32WBA)
+        while ((peripheralUart[uartIndex]->ISR & USART_ISR_TC) == 0)
+        {}
+#elif defined(USART_ISR_TXE)
         while ((peripheralUart[uartIndex]->ISR & USART_ISR_TXE) == 0)
         {}
 #else
@@ -249,7 +256,7 @@ namespace hal
         uartHandle.Init.WordLength = USART_WORDLENGTH_8B;
         uartHandle.Init.StopBits = USART_STOPBITS_1;
         uartHandle.Init.Parity = USART_PARITY_NONE;
-        uartHandle.Init.Mode = USART_MODE_TX_RX;
+        uartHandle.Init.Mode = USART_MODE_TX;
         uartHandle.Init.HwFlowCtl = flowControl;
 #if defined(USART_OVERSAMPLING_8)
         uartHandle.Init.OverSampling = USART_OVERSAMPLING_8;
@@ -264,11 +271,5 @@ namespace hal
         HAL_UART_Init(&uartHandle);
 
         uartBase->CR2 &= ~USART_CLOCK_ENABLED;
-
-#if defined(STM32F4) || defined(STM32G0)
-        uartBase->CR1 |= USART_IT_RXNE & USART_IT_MASK;
-#else
-        uartBase->CR1 |= 1 << (USART_IT_RXNE & USART_IT_MASK);
-#endif
     }
 }

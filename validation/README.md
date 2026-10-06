@@ -5,7 +5,7 @@ Every driver is exercised generically, with each variant it has (interrupt, DMA,
 The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardware-in-the-loop terminal and the host reuses the generic bench code of ad3-waveforms-bench.
 
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
-- `host/` - Python package `hal_st_validation` and a pytest suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK.
+- `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
 - hal-st has no comparator, CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards").
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
@@ -14,6 +14,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 
 - The firmware has to be C++: it is built from hal-st and EMIL exactly like an application would use them, so what is validated is the real driver code with the real interrupt table, clocks, DMA and pin muxing.
 - The host is Python because Digilent ships the WaveForms SDK with official Python bindings and samples, `pyserial` covers the terminal, and pytest brings parametrisation, fixtures, skips and JUnit/HTML reports for free.
+- pytest-bdd runs Gherkin scenarios as ordinary pytest tests, so every test reads as Given/When/Then while the board-file parametrisation, `--depth`, `--set`, `--with`, `--fake`, `known_gaps`, fixtures and reports stay those of pytest.
 - Python's latency does not matter: every timing-critical stimulus or measurement is done by the AD3 hardware (pattern generator, logic analyzer, wavegen, protocol engines) or by the firmware itself; the host only configures, triggers and evaluates.
 
 ## What the AD3 does
@@ -131,21 +132,23 @@ Options from the `ad3_waveforms_bench` pytest plugin (loaded automatically once 
   - It models no measured signal, so most tests that read the AD3 fail under `--fake --wiring-set ...`; `--fake --no-ad3` passes completely.
 
 Tests that need no AD3 (system, argument errors, limits, instance and timer sharing, watchdog behaviour) run with any wiring set.
-Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless it is marked `@pytest.mark.uses_option("T")` or `@pytest.mark.requires_option("T")`.
+Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless its scenario is tagged `@uses_option:T` or `@requires_option:T`.
 Pins an option ties to a channel with a jumper resolve only for such tests. `requires_option` skips the test without the option, `conflicts_option` skips it with the option.
 Tests that reset the board on purpose (watchdog, UART swap) are marked `resets_board`; any other unexpected `EVT boot` fails the test that caused it.
 Every instance a test opened is closed afterwards and the AD3 outputs are released, so tests are independent (the firmware keeps at most one instance of each group open at a time, see the Framing section of PROTOCOL.md).
 Use `-k`, `-m "not slow"` and `--junitxml report.xml` as usual.
+`-k` and the `known_gaps` patterns match the test function a scenario is bound to (`test_waveform`, `test_write_read`), so test ids are the same as before the scenarios were written in Gherkin.
+`-v --gherkin-terminal-reporter` prints the steps of every scenario, and `--cucumber-json report.json` writes a Cucumber JSON report.
 
 ## Known driver gaps
 
 Writing the firmware against the drivers showed hal-st bugs that the suite runs into. Each board file lists them under `known_gaps` with the test ids they affect: a gap that aborts or hangs the firmware skips its tests unless `--run-known-gaps` is given, any other is an expected failure (`xfail`, not strict). `--fake` ignores them.
 
-| Board | Driver               | Effect                                                                                                                             | Source                                                   |
-|-------|----------------------|------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:62` |
-| both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                   |
-| both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                       |
+| Board | Driver               | Effect                                                                                                                             | Source                                                |
+|-------|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp` |
+| both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                |
+| both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                    |
 
 The gaps found earlier in `PwmStm`, `AdcStm`/`AdcDmaMultiChannelStm`/`AdcTimerTriggeredBase` (WBA55 ADC4), `SpiMasterStm`/`SynchronousSpiMasterStm` (receive-only start), `UartStm` (TXEIE after close,
 SWAP, overrun), `SynchronousQuadratureEncoderLpTimStm` (filter carry-over) and `GpioStm` (EXTI on port H) are fixed, and the tests that exposed them now guard the fixes. The port H fix has no HIL
@@ -160,11 +163,13 @@ These behaviours are not fixed here because a fix changes an API or behaviour ot
 - `SpiMasterStm`, `SpiMasterStmDma`, `SynchronousSpiMasterStm` mux `slaveSelect` to NSS but initialise `SPI_NSS_SOFT` and keep SPE on from construction (`SpiMasterStm.cpp:24,56`, `SpiMasterStmDma.cpp:38`, `SynchronousSpiMasterStm.cpp:23`): hardware NSS framing needs SPE toggled per transfer in three drivers; `test_spi_ext.py::test_hardware_nss*` is a known gap.
 - `SpiDataSizeConfiguratorStm` with 9- to 16-bit frames makes `SpiMasterStmDma` move 16-bit DMA words (`SpiMasterStmDma.cpp:109-129`), so each frame takes two buffer bytes, little endian; the tests assert that model (`spiwords.spi_frames`) with even lengths.
   An odd byte count has no defined result: the last byte is dropped on the STM32WB55, and the GPDMA of the STM32WBA55 gets a count that is not a multiple of its 16-bit data width.
-- `QuadSpiStm` waits with `HAL_MAX_DELAY` (`QuadSpiStm.cpp:52,73,97`): a `PollStatus` that never matches hangs the firmware; `test_qspi.py::test_poll_timeout[variant=poll]` is a hanging known gap.
+- `QuadSpiStm::PollStatus` waits with `HAL_MAX_DELAY`: a `PollStatus` that never matches hangs the firmware; `test_qspi.py::test_poll_timeout[variant=poll]` is a hanging known gap.
+- `QuadSpiStm::SendData` and `ReceiveData` abort a transfer whose command or data phase fails (HAL timeout of 5 s) and never call the completion callback, because `hal::QuadSpi` has no error path: the caller needs its own timeout (the firmware's 2000 ms operation timeout answers `ERR timeout`, which `test_qspi.py::test_close_recovers_from_a_data_only_read` relies on).
 - `AnalogToDigitalPinImplStm` and `AnalogToDigitalInternalTemperatureStm` ignore `numberOfSamples` (`AnalogToDigitalPinStm.cpp:90-165`) and always take one sample; the tests assert one.
 - The default sampling time of `AnalogToDigitalInternalTemperatureStm` (`AnalogToDigitalPinStm.hpp:21-27`) is below the temperature sensor's minimum; the tests pass a long `sampling=` and check only that the default delivers a code.
-- `TransmitDmaBridgeChannel` and `ReceiveDmaBridgeChannel` (`DmaStm.cpp:1176-1203`) never start on DMA v1 (WB55), the transmit bridge copies destination to source on GPDMA, and the memory side keeps byte width and increment; there is no in-tree user and no command, so they stay untested.
-- `LpTimerPwmStm` writes CCR = ARR x duty / 100 with the output polarity high, which may give a duty of 100 - d on the LPTIM; the tests assert d, and if the bench measures 100 - d the test becomes a known gap.
+- `TransmitDmaBridgeChannel` and `ReceiveDmaBridgeChannel` never start on DMA v1 (WB55), the transmit bridge copies destination to source on GPDMA, and the memory side keeps byte width and increment; there is no in-tree user and no command, so they stay untested.
+- `UartStmDuplexDma` calls the `dataReceived` handler with interrupts masked (PRIMASK) when the receive timeout interrupt delivers the data: the mask keeps the DMA half and full transfer interrupts, which may have a higher priority, from moving the read position between the snapshot and the delivery, so the handler has to stay short.
+- `SynchronousQuadratureEncoderLpTimStm` takes the direction from the LPTIM UP and DOWN flags, which only flag a change of direction, and otherwise from the net count movement since the previous read; like the speed it needs less than half a revolution between two reads.
 
 ## Windows host and Docker (bridge mode)
 
@@ -450,6 +455,8 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 
 ## What is tested
 
+Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature`, with one scenario per test, and a module `host/tests/hil/test_<peripheral>.py` that binds the scenarios to test functions and implements their steps.
+
 - `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled (`pass --with <tag> or remove the wiring`), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
 - `test_uid.py` - the 96-bit unique device ID of `info`: twelve bytes, not blank memory, the lot number in printable ASCII, the same after a reset.
@@ -482,7 +489,7 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 - `test_timer_pwm.py` - for `TimerPwmWithChannels<N>`: frequency and duty 0/50/100 % of every wired channel (100 % keeps one low counter tick), a duty per channel, `SetPulse` changing the period of every channel, an unused `-` channel whose pin stays free, starting and stopping one channel or all, argument errors and the timer shared with pwm and tim (NUCLEO-WBA55CG TIM2 with CH3/CH4 in bundle2).
 - `test_lptim.py` - for `FreeRunningLowPowerTimerStm` and `LowPowerTimerWithInterruptStm` on LPTIM1 and LPTIM2: the update rate on the marker pin (gpio0) with immediate and dispatched callbacks, every prescaler and the WBA55 repetition counter.
   - Also interrupt counts against the elapsed time, the free-running counter, stop, the kernel clock, argument errors and the LPTIM shared with the LPTIM encoder and `lptpwm`.
-- `test_lptim_pwm.py` (NUCLEO-WBA55CG) - for `LpTimerPwmWithChannels<N>`: frequency and duty of LPTIM1 CH2 and LPTIM2 CH1/CH2, `SetPulse`, stop and restart, argument errors and one LPTIM PWM at a time. It asserts the requested duty; a bench that measures 1 - duty is recorded as a known gap (DESIGN R14).
+- `test_lptim_pwm.py` (NUCLEO-WBA55CG) - for `LpTimerPwmWithChannels<N>`: frequency and duty of LPTIM1 CH2 and LPTIM2 CH1/CH2, `SetPulse`, stop and restart, argument errors and one LPTIM PWM at a time. It asserts the requested duty; the driver uses the low LPTIM output polarity so that the output is high while the counter is below CCR.
 - `test_watchdog.py` - the window watchdog with timeouts across its range x automatic or manual feeding (warnings, no reset while fed, `reset=wwdg` otherwise), the early-warning period measured on the `pin=` toggle, manual feeding, a single watchdog at a time, the timeout limits and argument errors.
 - `test_i2c.py` - `I2cStm` on both instances.
   Without wiring, each instance on its own pins with the MCU pull-ups (`pull=up`): the default and computed TIMINGR (reply and bus timing against the Standard mode minima), address NACK and its recovery in both directions, the zero-length probe, arbitration loss with SDA held before `i2c.open` and pulled low by the AD3 inside the second address bit, and argument errors.
@@ -499,7 +506,7 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
   - Also the B.15 fix: writes answer the FIFO level of their completion callback (`flevel=0`) and two writes issued from one completion callback both reach the bus; the clock, the CRC of 256-byte reads, argument errors and the pins held while open.
   - The AD3 never drives a line the QUADSPI drives: it decodes writes and holds only lines the QUADSPI receives on, with its weakest drive. Every case skips while `--with loopback`, `--with spiloop` or `--with i2c` loads a QUADSPI pin.
 - `test_backup_ram.py` - `hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>` (RTC BKP0R-BKP19R on the NUCLEO-WB55RG, TAMP BKP0R-BKP15R on the NUCLEO-WBA55CG): the word count, every word written and read back with four patterns, fill and check, the words kept through a reset, argument errors.
-- `test_flash.py` - the internal flash drivers (`FlashHomogeneousInternalStm`, `FlashInternalStm`, their synchronous twins and, on the NUCLEO-WB55RG, `FlashCoordinatedWithWirelessStack`) over a scratch region of 64 pages, with one sector per page and with a sector-size table of 1-, 2- and 4-page sectors:
+- `test_flash.py` - the internal flash drivers (`FlashHomogeneousInternalStm`, `FlashInternalStm`, their synchronous twins and, on the NUCLEO-WB55RG, `FlashCoordinatedWithWirelessStack`) over a scratch region of 80 pages (NUCLEO-WB55RG) or 64 pages (NUCLEO-WBA55CG), with one sector per page and with a sector-size table of 1-, 2- and 4-page sectors:
   - the geometry and the first sector the firmware lets the tests erase (an erase that took the sector index for the absolute page could not reach the running image from there on);
   - every variant and layout erases exactly the pages of the sector it is given (the marker in the next sector stays, the previous sector is unchanged);
   - aligned, unaligned, odd-length, page-crossing and generated 300-byte writes on distinct flash words, read back exactly through every variant, with the bytes around them still erased; a programmed word refused with `ERR failed`; the page erase time;
@@ -523,11 +530,14 @@ Each board file (`host/boards/<board>.yaml`) holds:
 - `wiring_sets.<set>.options.<tag>` - the optional wiring a set offers: a description, or a mapping with `description`, `jumpered` (key pin -> pins the wiring ties to it; the self-check drives the key), `loads` (pins the wiring loads), `pullups` (pins it pulls up to 3V3) and `excludes` (options that cannot be fitted at the same time).
 - `known_gaps` - driver gaps with the test ids (wildcards `*` and `?`) they affect, the reason and whether they hang the firmware.
 - `tests` - the parameters of every test module: parameter matrices, pins and instances, levels and tolerances.
-  - `@pytest.mark.matrix("pwm.waveform")` turns every key of that mapping into one test parameter of the same name; `@pytest.mark.board_params("argname", "section.key")` adds one parameter from a list.
+  - `@pytest.mark.matrix("pwm.waveform")` turns every key of that mapping into one test parameter of the same name; `@pytest.mark.board_params("argname", "section.key")` adds one parameter from a list. These markers go on the function a scenario is bound to, which takes the parameters as arguments; the steps read them as fixtures.
   - All parameters of a test form one matrix: `--depth full` runs its product, `--depth quick` a pairwise subset (`hal_st_validation.pairwise`); `@pytest.mark.constraint(valid=...)` removes combinations a driver cannot take (for example parity with the synchronous UART).
   - Extending a sweep or moving a peripheral to other pins is a YAML change.
   - `tests.wiring.undriven` lists pins nothing on the board may drive (solder bridges to ST-LINK lines); `test_wiring.py` checks them.
   - `@pytest.mark.wiring_options("tag")` runs a test once per enabled option (`enabled=False`: per offered option that is not enabled), each case marked `uses_option`.
+
+The other markers are tags in the feature files: `@ad3` (also opens the AD3 for the scenario and resets its outputs afterwards), `@slow`, `@resets_board`, `@family:stm32wb55`, `@requires_option:i2c`, `@uses_option:spiloop` and `@conflicts_option:i2c`. A tag on the `Feature` line applies to all of its scenarios.
+To add a test, add a scenario to the feature file, bind it with `@scenario("<peripheral>.feature", "<scenario name>")` in the module and write the steps it is missing. `pytest tests/unit/test_features.py` fails while a scenario is not bound or a step has no definition. Without hardware most scenarios skip before their first step, so pytest-bdd would not report these until a run on the bench.
 
 To validate another board, add a board profile under `firmware/boards/<mcu>/` and the MCU to `emil_build_for` in `firmware/CMakeLists.txt`, copy a board file, adapt the pins, wiring sets and parameters, and pass `--board path/to/board.yaml`.
 
@@ -542,6 +552,13 @@ hal-st-console --port /dev/ttyACM0 -c info -c board.pins
 The console forwards commands, prints final lines and events, and keeps a history in `~/.hal_st_validation_history`. `:wait <s>` listens for events, `:raw` also shows non-protocol output, `:quit` leaves.
 
 ## Package layout
+
+In `tests`:
+
+- `hil/features/*.feature` - the scenarios, one feature per peripheral.
+- `hil/test_*.py` - the scenario bindings with their parametrisation markers, the step definitions and the helpers of one peripheral.
+- `conftest.py` - the command line options, the board-file parametrisation, `known_gaps`, the tag hook and the fixtures (`fw`, `need`, `board_cfg`, `ad3_released`, the per-test cleanup).
+- `unit/` - tests of `hal_st_validation` and of the scenario bindings that need no hardware.
 
 In `hal_st_validation` (hal-st specific):
 

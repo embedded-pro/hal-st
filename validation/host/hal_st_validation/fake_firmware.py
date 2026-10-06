@@ -954,6 +954,8 @@ class FakeFirmware(FakeTerminalDevice):
         needs_break = complementary or dead is not None or flags["idle"] or flags["idlen"] or brk is not None
         if needs_break and not expect.timer_has_break(timer):
             _fail("unsupported")
+        if brkfilter and not expect.timer_has_break_filter(self.family, timer):
+            _fail("unsupported")
         self._pwm_resolve(timer, outputs)
         self.check_function("timerBreak", timer, brk)
         pwmclk = expect.pwm_clock(self.kernel_clock, prescaler)

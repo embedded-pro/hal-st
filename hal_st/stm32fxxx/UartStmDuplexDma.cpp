@@ -120,12 +120,15 @@ namespace hal
         {
             uartArray[uartIndex]->ICR = USART_ICR_RTOCF;
 
+            const auto primask = __get_PRIMASK();
+            __disable_irq();
+
             const auto receivedSize = receiveDmaChannel.ReceivedSize();
 
-            if (receiveDmaChannel.IsInterruptPending())
-                return;
+            if (!receiveDmaChannel.IsInterruptPending())
+                ReceiveComplete(receivedSize);
 
-            ReceiveComplete(receivedSize);
+            __set_PRIMASK(primask);
         }
     }
 }

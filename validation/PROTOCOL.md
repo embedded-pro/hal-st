@@ -130,10 +130,10 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - `mode` selects the counter (`hal::PwmStmBase::Alignment`): `edge` counts up; `edgedown` counts down and cannot reach 0 %: at duty 0 the output stays active for one counter tick per period, since PWM mode 1 is active while the counter is at or below the compare value;
     `center`, `centerup` and `centerboth` count up and down and give the same waveform (they differ only in when the compare flags are set); every mode but `edge` needs a counter mode select, TIM1, TIM2 or (STM32WBA55) TIM3 (`ERR unsupported` on TIM16/TIM17)
   - `preload=1` buffers period and compare values, so a `pwm.duty` or `pwm.freq` takes effect at the next update event; with `preload=0` it takes effect at once, and a write in the middle of a period cuts or stretches that period's pulse
-  - `brkfilter` is the break input filter (BDTR.BKF, 0 = none up to 15 = 8 samples at the timer kernel clock / 32, 256 kernel clocks; the reference manual lists every step); it needs `brk` (`ERR usage`)
+  - `brkfilter` is the break input filter (BDTR.BKF, 0 = none up to 15 = 8 samples at the timer kernel clock / 32, 256 kernel clocks; the reference manual lists every step); it needs `brk` (`ERR usage`); a non-zero filter on a timer without one answers `ERR unsupported` (STM32WB55 TIM16/TIM17, whose BKF reads as zero)
   - `trgo` selects the trigger output (TIMx_CR2.MMS) an `adc.open trgo=` sequence runs on: `reset`, `enable`, `update`, `oc1` (compare pulse of channel 1), `oc1ref`-`oc4ref` (the channel's reference signal); without `trgo` the trigger output is `reset`; it needs a master timer, TIM1, TIM2 or (STM32WBA55) TIM3 (`ERR unsupported` on TIM16/TIM17)
   - `dead` is the dead time inserted between a channel and its complementary output, at most 1000000 ns; it saturates at the largest dead time the DTG field encodes
-  - `inv` and `invn` invert every channel output or complementary output, `idle` and `idlen` set their level while the outputs are disabled
+  - `inv` and `invn` invert every channel output or complementary output, `idle` and `idlen` set their level while the outputs are disabled; the timer never drives a channel and its complementary output to their active levels together, so idle levels that are both active (`idle=1 idlen=1` with `inv=0 invn=0`) leave both at their inactive levels
   - `brk=<pin>` muxes the break input of the timer (`ERR pin` for another pin); `brkpol` is the active level and `brkauto=1` re-enables the outputs automatically after the break input releases
   - complementary outputs, `dead`, `idle`, `idlen` and `brk` need a timer with a break function, TIM1, TIM16 or TIM17 (`ERR unsupported` otherwise)
   - a channel the timer does not have, or a complementary output it does not have (CH4N; CH2-CH4 on TIM16/TIM17), returns `ERR unsupported`
@@ -141,7 +141,8 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`
-- A frequency whose period is under 2 counter ticks, or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
+- A frequency whose period is under 2 counter ticks (4 in the centre-aligned modes, which need an auto-reload of at least 2: at 1 the output is a fixed half period), or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`;
+  with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
 - `pwm.close <timer>` → `OK`
 
 ## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`, `sendonly=1` selects `hal::SynchronousUartStmSendOnly`)
@@ -400,16 +401,17 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 
 ## Internal flash (`hal::FlashHomogeneousInternalStm`, `hal::FlashInternalStm`, their `hal::Synchronous*` twins, on STM32WB55 `hal::FlashCoordinatedWithWirelessStack`)
 
-- The commands work on a scratch region of the flash, absolute pages 64-127 on both boards; addresses are relative to the region:
-  - STM32WB55: 0x08040000-0x0807FFFF in 4 KB pages, below the 512 KB the linker script gives the firmware and below the secure area of the wireless stack
-  - STM32WBA55: 0x08080000-0x080FFFFF in 8 KB pages
+- The commands work on a scratch region of the flash; addresses are relative to the region:
+  - STM32WB55: absolute pages 64-143, 0x08040000-0x0808FFFF in 4 KB pages, past the image and below the secure area of the wireless stack (the region ends at the secure flash start address when that is lower)
+  - STM32WBA55: absolute pages 64-127, 0x08080000-0x080FFFFF in 8 KB pages
 - `variant=sync|async|coord` (default `sync`) selects the driver; each command builds its driver and destroys it when done:
   - `sync`: the `Synchronous*InternalStm` classes
   - `async`: the `hal::Flash` classes (completion scheduled on the event loop)
   - `coord` (STM32WB55; `ERR unsupported` on STM32WBA55): `FlashCoordinatedWithWirelessStack` over the async driver
 - `layout=homogeneous|table` (default `homogeneous`) selects the sectors:
   - `homogeneous`: one sector per page (`Flash*HomogeneousInternalStm`)
-  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over 64 pages that is 56 sectors, of which sectors 48-55 have 1, 1, 2, 4, 1, 1, 2, 4 pages
+  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over the 80 pages of the STM32WB55 that is 72 sectors, of which sectors 64-71 have 1, 1, 2, 4, 1, 1, 2, 4 pages; over the 64 pages of the STM32WBA55, 56 sectors with the pattern on sectors 48-55.
+    A sector is accepted only from index `first` (the image end page, below) on, so the STM32WB55 region has 80 pages: its multi-page sectors stay accepted for any image below the region (about 60 of its 4 KB pages today)
 - `flash.info [variant=] [layout=]` → `OK base=<0x........> sectors=<n> size=<bytes> first=<sector> image=<page> layout=<homogeneous|table>`
   - `image` is the first absolute page past the running image (`_sidata` plus the size of `.data`)
   - `first` is the first sector `flash.erase` and `flash.write` accept, `min(image, sectors)`. Every sector starts at or past the page of its index, so even an erase that took the sector index for the absolute page (as `EraseSectors` did on STM32WB/WBA before its fix) cannot reach the running image
@@ -483,7 +485,8 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `tx` is the data in hex; `len` generates it (`pattern=inc|const|prbs` `seed=`, see "Line length" in General), 1-256 bytes; `rx` reads 1-256 bytes, above 128 only with `out=crc`; at most one of `tx`, `len` and `rx`
   - `flevel` is the QUADSPI FIFO level read in the completion callback: 0 once the last byte has left the pins
   - `repeat` issues the write again from each completion callback (writes only) and answers after the last one
-  - a read with a data phase only hangs the QUADSPI with BUSY set (STM32 QUADSPI erratum "cannot be used in indirect read mode when only data phase is activated"): `variant=dma` answers `ERR timeout`, `variant=poll` blocks the firmware; add `dummy=2` to such a read, the erratum's workaround, which drives no IO line either
+  - a read with a data phase only hangs the QUADSPI with BUSY set (STM32 QUADSPI erratum "cannot be used in indirect read mode when only data phase is activated"): `variant=dma` answers `ERR timeout`; `variant=poll` blocks the firmware for the driver's 5 s HAL timeout, aborts the command and answers `ERR timeout` (the driver never completes a failed command);
+    add `dummy=2` to such a read, the erratum's workaround, which drives no IO line either
 - `qspi.poll <1> match=<n> mask=<n> [size=1-4] [instr=] [addr=] [abytes=] [alt=] [altbytes=] [dummy=] [lines=1|4]` → `OK`
   - `hal::QuadSpi::PollStatus`: reads `size` status bytes (default 1) until the status masked with `mask` equals `match`
   - `variant=dma`: `ERR timeout` after 2000 ms; the group then answers `ERR busy` until `qspi.close`, which stops the polling (`~QuadSpiStmDma` clears CR)

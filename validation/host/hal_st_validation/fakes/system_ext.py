@@ -28,10 +28,8 @@ __all__ = ["FakeBackupRam", "FakeFlash", "FakeHsem", "FakeLowPower", "FakeWatchd
 _PAYLOAD = 512
 _HEX_OUTPUT_MAX = 128
 _FIRST_PAGE = 64
-_END_PAGE = 128
 _FLASH_BASE = 0x08000000
-# The fake image ends a little below the region, like the real one (C.10 of the design: ~200 KB on STM32WB55).
-_GEOMETRY = {"stm32wb55": (4096, 8, 50), "stm32wba55": (8192, 16, 24)}
+_GEOMETRY = {"stm32wb55": (4096, 8, 60, 144), "stm32wba55": (8192, 16, 24, 128)}
 _ERASE_US_PER_PAGE = {"stm32wb55": 22000, "stm32wba55": 3000}
 _WRITE_US_PER_WORD = 90
 _ERASE_TIMEOUT = 10.0
@@ -92,9 +90,9 @@ class FakeFlash(FakeGroup):
 
     def __init__(self, fw: FakeFirmware) -> None:
         super().__init__(fw)
-        page, self.word, self.image = _GEOMETRY.get(fw.family, _GEOMETRY["stm32wb55"])
+        page, self.word, self.image, end_page = _GEOMETRY.get(fw.family, _GEOMETRY["stm32wb55"])
         self.page = page
-        self.pages = _END_PAGE - _FIRST_PAGE
+        self.pages = end_page - _FIRST_PAGE
         self.memory = bytearray(b"\xff" * (self.pages * page))
         self.table = table_sectors(self.pages)
         self.boot()

@@ -395,8 +395,8 @@ known_gaps:
   - tests:
       - "test_qspi.py::test_poll_timeout[*poll*]"
     reason: >-
-      QuadSpiStm.cpp:52,73,97 - QuadSpiStm waits with HAL_MAX_DELAY, so a
-      PollStatus whose status never matches blocks the event loop for good
+      QuadSpiStm.cpp:81 - QuadSpiStm::PollStatus waits with HAL_MAX_DELAY, so
+      a PollStatus whose status never matches blocks the event loop for good
       instead of answering ERR timeout (B.14, needs a decision)
     hangs: true
 
@@ -1047,7 +1047,8 @@ tests:
     # pwm.timers entries with `brk`, each hit by one AD3 pulse of `ticks`
     # timer kernel clocks (brkpol=high, brkauto=0). BKF 15 samples 8 times
     # at fDTS / 32: 256 kernel clocks.
-    break_filter_timers: [tim1, tim17]
+    break_filter_timers: [tim1]
+    break_filter_unsupported_timers: [tim17]
     break_filter_cases:
       - name: unfiltered_short
         filter: 0
@@ -1297,11 +1298,11 @@ tests:
     # homogeneous: one sector per page; table: single pages, then the
     # pattern 1, 1, 2, 4 pages twice (groups.system_ext.table_sectors).
     layouts: [homogeneous, table]
-    # Scratch region: absolute pages 64-127 (0x08040000, below the 512 KB
-    # the linker script gives the firmware), 4 KB pages, 64-bit flash words.
+    # Scratch region: absolute pages 64-143 (0x08040000), 4 KB pages,
+    # 64-bit flash words.
     base: 0x08040000
     first_page: 64
-    pages: 64
+    pages: 80
     page: 4096
     word: 8
     # Page erase time (DS11929: 22 ms typical), wide bounds per page.

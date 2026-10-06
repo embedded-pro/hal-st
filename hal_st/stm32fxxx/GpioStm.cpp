@@ -168,8 +168,8 @@ namespace hal
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->OTYPER, 1, static_cast<uint16_t>(drive), index);
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->OSPEEDR, 2, static_cast<uint8_t>(speed), index);
 
-        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->MODER, 2, 0, index);
+        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
     }
 
     void GpioPinStm::Config(PinConfigType config, bool startOutputState)
@@ -183,8 +183,8 @@ namespace hal
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->OSPEEDR, 2, static_cast<uint8_t>(speed), index);
 
         portToGPIOPort[static_cast<uint8_t>(port)]->BSRR = (1 << index) << (startOutputState ? 0 : 16);
-        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->MODER, 2, 1, index);
+        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
     }
 
     void GpioPinStm::ResetConfig()
@@ -193,8 +193,8 @@ namespace hal
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->OTYPER, 1, static_cast<uint16_t>(drive), index);
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->OSPEEDR, 2, static_cast<uint8_t>(speed), index);
 
-        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
         infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->MODER, 2, 0, index);
+        infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(port)]->AFR[index >> 3], 4, 0, index & 7);
 
         GpioStm::Instance().ClearPinReservation(port, index);
     }
@@ -350,8 +350,8 @@ namespace hal
             infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(portAndIndex.first)]->OTYPER, 1, 0, portAndIndex.second);
             infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(portAndIndex.first)]->OSPEEDR, 2, 0, portAndIndex.second);
 
-            infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(portAndIndex.first)]->AFR[portAndIndex.second >> 3], 4, 0, portAndIndex.second & 7);
             infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(portAndIndex.first)]->MODER, 2, 0, portAndIndex.second);
+            infra::ReplaceBits(portToGPIOPort[static_cast<uint8_t>(portAndIndex.first)]->AFR[portAndIndex.second >> 3], 4, 0, portAndIndex.second & 7);
 
             GpioStm::Instance().ClearPinReservation(portAndIndex.first, portAndIndex.second);
         }

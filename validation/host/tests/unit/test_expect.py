@@ -38,9 +38,9 @@ def test_pwm_clock_and_ticks():
         (WB55, 488, "center", 0xFFFF, False),
         (WB55, 32_000_000, "edge", 0xFFFF, True),
         (WB55, 32_000_001, "edge", 0xFFFF, False),
-        (WB55, 32_000_000, "center", 0xFFFF, True),
-        (WB55, 32_000_001, "center", 0xFFFF, False),
-        (WB55, 21_333_334, "center", 0xFFFF, True),
+        (WB55, 16_000_000, "center", 0xFFFF, True),
+        (WB55, 16_000_001, "center", 0xFFFF, False),
+        (WB55, 21_333_334, "center", 0xFFFF, False),
         (WBA55, 1000, "edge", 0xFFFF, False),
         (WBA55, 1000, "center", 0xFFFF, True),
         (WBA55, 1526, "edge", 0xFFFF, True),
@@ -74,12 +74,12 @@ def test_pwm_auto_reload():
     ("pwmclk", "mode", "counter_max", "limits"),
     [
         (WB55, "edge", 0xFFFF, (977, 32_000_000)),
-        (WB55, "center", 0xFFFF, (489, 32_000_000)),
+        (WB55, "center", 0xFFFF, (489, 16_000_000)),
         (WB55, "edge", 0xFFFFFFFF, (1, 32_000_000)),
         (WBA55, "edge", 0xFFFF, (1526, 50_000_000)),
-        (WBA55, "center", 0xFFFF, (763, 50_000_000)),
+        (WBA55, "center", 0xFFFF, (763, 25_000_000)),
         (976, "edge", 0xFFFF, (1, 488)),
-        (976, "center", 0xFFFF, (1, 488)),
+        (976, "center", 0xFFFF, (1, 244)),
     ],
 )
 def test_pwm_frequency_limits(pwmclk, mode, counter_max, limits):

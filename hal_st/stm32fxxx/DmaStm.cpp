@@ -462,6 +462,7 @@ namespace hal
         DmaChannelHandle.Instance->CBR1 = 0;
         DmaChannelHandle.Instance->CSAR = 0;
         DmaChannelHandle.Instance->CDAR = 0;
+        DmaChannelHandle.Instance->CLLR = 0;
 #else
         DmaChannelHandle.Init.Direction = DMA_MEMORY_TO_PERIPH;
         DmaChannelHandle.Init.Mode = DMA_NORMAL;
@@ -663,6 +664,7 @@ namespace hal
 #if defined(GPDMA1)
         auto linkRegisters = &linkMemoryArray[dmaIndex][streamIndex];
         linkRegisters->CLLR = 0;
+        streamRegister->CLLR = 0;
 #elif defined(DMA_SxCR_CIRC)
         streamRegister->CR &= ~DMA_SxCR_CIRC;
 #else
@@ -837,6 +839,15 @@ namespace hal
         *dmaIFCR[dmaIndex][streamIndex] |= streamToTCIF[streamIndex];
     }
 
+    DmaStm::Stream& DmaStm::Stream::DisableAndClearInterrupts()
+    {
+        DisableHalfTransferCompleteInterrupt();
+        DisableTransferCompleteInterrupt();
+        ClearHalfComplete();
+        ClearFullComplete();
+        return *this;
+    }
+
     size_t DmaStm::Stream::BytesToTransfer() const
     {
         auto streamRegister = DmaChannel[dmaIndex][streamIndex];
@@ -911,7 +922,7 @@ namespace hal
     }
 
     DmaStm::StreamInterruptHandler::StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Dispatched)
-        : stream{ stream }
+        : stream{ stream.DisableAndClearInterrupts() }
         , interruptHandler{ std::in_place_type<cortex::DispatchedInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
             {
                 OnInterrupt();
@@ -924,7 +935,7 @@ namespace hal
     }
 
     DmaStm::StreamInterruptHandler::StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Immediate)
-        : stream{ stream }
+        : stream{ stream.DisableAndClearInterrupts() }
         , interruptHandler{ std::in_place_type<cortex::ImmediateInterruptHandler>, dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
             {
                 OnInterrupt();
@@ -952,7 +963,7 @@ namespace hal
     }
 
     DmaStm::CircularStreamInterruptHandler::CircularStreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferHalfComplete, const infra::Function<void()>& transferFullComplete)
-        : stream{ stream }
+        : stream{ stream.DisableAndClearInterrupts() }
         , immediateInterruptHandler{ dmaIrq[stream.dmaIndex][stream.streamIndex], [this]
             {
                 OnInterrupt();

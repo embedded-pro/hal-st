@@ -78,6 +78,8 @@ namespace hal
             GPIO_SPEED_FREQ_HIGH,
 #if defined(GPIO_SPEED_FREQ_VERY_HIGH)
             GPIO_SPEED_FREQ_VERY_HIGH
+#else
+            GPIO_SPEED_FREQ_HIGH
 #endif
         };
 

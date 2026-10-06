@@ -102,7 +102,7 @@ namespace validation
         infra::ConstByteRange region;
         uint32_t imageEndPage = 0;
         bool usable = false;
-        std::array<uint32_t, 64> sectorSizes{};
+        std::array<uint32_t, 80> sectorSizes{};
         uint32_t tableSectors = 0;
 
         std::variant<std::monostate, hal::FlashHomogeneousInternalStm, hal::FlashInternalStm> asyncFlash;

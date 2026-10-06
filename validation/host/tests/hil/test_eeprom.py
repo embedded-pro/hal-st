@@ -6,6 +6,8 @@ The adapter splits writes at page boundaries and polls the chip's address after 
 until it acknowledges or `wcycle` ms pass; reads set the word address and read after a repeated START. An error
 outside polling prints `EVT eeprom error=... address=...` and leaves EMIL's command pending (`ERR timeout` after
 5 s); `eeprom.detach` recovers. Data written by one test is overwritten by the next, each at its own address range.
+
+Scenarios: features/eeprom.feature.
 """
 
 from __future__ import annotations
@@ -14,13 +16,12 @@ from typing import Any
 
 import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
+from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.firmware import quiesce, settle
 from hal_st_validation.groups.i2c import EEPROM_BUFFER, EEPROM_TIMEOUT_S
 from hal_st_validation.i2c import arm_on_start, i2c_decode
 from hal_st_validation.patterns import generate
-
-pytestmark = pytest.mark.requires_option("i2c")
 
 READ_CHUNK = 128
 # `eeprom.write <address> <hex>` must fit the 255-character command line.
@@ -62,158 +63,376 @@ def expect_error(reason, call, *args, **options):
     assert error.value.reason == reason, (args, options)
 
 
-def test_eeprom_present(fw, eeprom_cfg):
-    """A zero-length write (address probe) to the chip is acknowledged."""
-    fw.i2c.open(eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
-    assert fw.i2c.write(eeprom_cfg["index"], eeprom_cfg["addr"]).result == "complete"
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "The chip acknowledges its address")
+def test_eeprom_present():
+    pass
 
 
-def test_attach_detach(fw, eeprom_cfg):
-    attach(fw, eeprom_cfg)
-    expect_error("busy", fw.eeprom.attach, eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
-    expect_error("busy", fw.i2c.open, eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
-    fw.eeprom.detach()
-    expect_error("notopen", fw.eeprom.detach)
-    expect_error("range", fw.eeprom.read, 0, 1)
-    fw.eeprom.erase()
-    attach(fw, eeprom_cfg)
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "The attached EEPROM holds its bus until it is detached")
+def test_attach_detach():
+    pass
 
 
-def test_write_read_inside_a_page(fw, eeprom_cfg):
-    attach(fw, eeprom_cfg)
-    address = 2 * eeprom_cfg["page"] + 3
-    data = generate(eeprom_cfg["page"] // 2, "prbs", 11)
-    fw.eeprom.write(address, data)
-    assert fw.eeprom.read(address, len(data)) == data
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "Data written inside a page reads back")
+def test_write_read_inside_a_page():
+    pass
 
 
-def test_write_across_a_page_boundary(fw, eeprom_cfg):
-    """The adapter splits the write at the page boundary, so nothing wraps inside a page."""
-    attach(fw, eeprom_cfg)
-    page = eeprom_cfg["page"]
-    address = 4 * page - 5
-    data = generate(min(WRITE_MAX, page + 10), "prbs", 12)
-    fw.eeprom.write(address, data)
-    assert fw.eeprom.read(address, len(data)) == data
-    assert fw.eeprom.read(4 * page, 5) == data[5:10]
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "A write across a page boundary does not wrap inside the page")
+def test_write_across_a_page_boundary():
+    pass
 
 
-def test_reads_across_pages(fw, eeprom_cfg):
-    attach(fw, eeprom_cfg)
-    address = 6 * eeprom_cfg["page"]
-    data = generate(EEPROM_BUFFER, "inc", 0x30)
-    half = EEPROM_BUFFER // 2
-    fw.eeprom.write(address, data[:half])
-    fw.eeprom.write(address + half, data[half:])
-    assert fw.eeprom.read(address, EEPROM_BUFFER) == data
-    assert fw.eeprom.read(address + 1, EEPROM_BUFFER - 1) == data[1:]
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "A read of a full buffer spans pages")
+def test_reads_across_pages():
+    pass
 
 
-def test_write_read_write_read(fw, eeprom_cfg):
-    """B.1h: ACK polling after a write that follows a read (stale counters used to abort or report 4294967295)."""
-    attach(fw, eeprom_cfg)
-    address = 10 * eeprom_cfg["page"]
-    for seed in (1, 2):
-        data = generate(16, "prbs", seed)
-        fw.eeprom.write(address, data)
-        assert fw.eeprom.read(address, 16) == data
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "A write after a read polls for the write cycle")
+def test_write_read_write_read():
+    pass
 
 
-@pytest.mark.slow
-def test_erase(fw, eeprom_cfg):
-    """`eeprom.erase` writes 0xFF over `erase_size` (attached with that size: EMIL's 5 s limit covers it)."""
-    size = eeprom_cfg["erase_size"]
-    attach(fw, eeprom_cfg, size=size)
-    fw.eeprom.write(size - 8, b"\x00" * 8)
-    fw.eeprom.erase()
-    assert read_all(fw, 0, size) == b"\xff" * size
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "Erase writes 0xFF over the erase size")
+def test_erase():
+    pass
 
 
-@pytest.mark.resets_board
-def test_data_survives_reset(fw, eeprom_cfg):
-    attach(fw, eeprom_cfg)
-    address = 12 * eeprom_cfg["page"]
-    data = generate(8, "prbs", 99)
-    fw.eeprom.write(address, data)
-    fw.system.reset()
-    fw.forget_open()
-    attach(fw, eeprom_cfg)
-    assert fw.eeprom.read(address, 8) == data
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "The data survives a reset")
+def test_data_survives_reset():
+    pass
 
 
-def test_range_at_size(fw, eeprom_cfg):
-    size = eeprom_cfg["size"]
-    attach(fw, eeprom_cfg)
-    expect_error("range", fw.eeprom.write, size - 1, b"\x00\x00")
-    expect_error("range", fw.eeprom.read, size, 1)
-    expect_error("range", fw.eeprom.read, size - 1, 2)
-    fw.eeprom.write(size - 1, b"\xa5")
-    assert fw.eeprom.read(size - 1, 1) == b"\xa5"
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "Transfers past the size are refused")
+def test_range_at_size():
+    pass
 
 
-@pytest.mark.ad3
-def test_ack_polling_on_la(fw, ad3, need, bench, eeprom_cfg):
-    """At 100 kHz from the START of the page write: the control byte (0xA0 for a chip at 0x50), the word address and
-    the data, then the first poll (the address bytes again) NACKed during the write cycle."""
-    scl, sda = need.dio(eeprom_cfg["scl"]), need.dio(eeprom_cfg["sda"])
-    attach(fw, eeprom_cfg, freq=100_000)
-    address = 14 * eeprom_cfg["page"]
-    data = generate(4, "prbs", 3)
-    rate = min(ad3.logic.clock_hz, 2e6)
-    samples = min(ad3.logic.buffer_size, int(rate * 2e-3))
-    capture = arm_on_start(ad3, scl, sda, rate, samples, pretrigger=0.01)
-    fw.eeprom.write(address, data)
-    transfers = i2c_decode(*capture.wait(timeout=2.0).channels(scl, sda))
-    assert len(transfers) >= 2, "no poll after the page write"
-    write, poll = transfers[0], transfers[1]
-    chip = eeprom_cfg["addr"]
-    assert (write.address, write.read, write.address_ack) == (chip, False, True)
-    assert write.payload == address.to_bytes(eeprom_cfg["abytes"], "big") + data
-    assert write.stop
-    assert (poll.address, poll.address_ack) == (chip, False)
+@pytest.mark.usefixtures("bench", "eeprom_cfg")
+@scenario("eeprom.feature", "The logic analyser sees the page write and the first NACKed poll")
+def test_ack_polling_on_la():
+    pass
 
 
-@pytest.mark.slow
-def test_error_then_detach_recovers(fw, eeprom_cfg):
-    """No device at 0x57: the first page write is NACKed (`EVT eeprom error=nack address=0`), EMIL answers
-    `ERR timeout` and stays busy; `eeprom.detach` completes the operation and a new attach works."""
-    attach(fw, eeprom_cfg, addr=0x57)
-    fw.eeprom.errors()
-    expect_error("timeout", fw.eeprom.write, 0, b"\x01")
-    errors = fw.eeprom.errors()
-    assert [(event["error"], event.as_int("address")) for event in errors] == [("nack", 0)]
-    expect_error("busy", fw.eeprom.read, 0, 1)
-    fw.eeprom.detach()
-    attach(fw, eeprom_cfg)
-    fw.eeprom.write(16 * eeprom_cfg["page"], b"\x01")
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "Detach recovers from an error outside polling")
+def test_error_then_detach_recovers():
+    pass
 
 
-def test_detach_while_busy(fw, request, eeprom_cfg):
-    """`eeprom.detach` while the adapter is in a transfer answers `ERR busy` (the longest write the command line
-    holds spans two pages, two write cycles)."""
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "Detach during a transfer is refused")
+def test_detach_while_busy():
+    pass
+
+
+@pytest.mark.usefixtures("eeprom_cfg")
+@scenario("eeprom.feature", "One-byte word addresses reach the registers of the i2cs target")
+def test_one_byte_addressing_on_target():
+    pass
+
+
+@given("the firmware is not the fake, which completes every write at once")
+def not_fake(request):
     if request.config.getoption("--fake"):
         pytest.skip("the fake completes every write at once")
-    attach(fw, eeprom_cfg)
-    address = 18 * eeprom_cfg["page"]
-    pending = fw.eeprom.begin("write", address, generate(WRITE_MAX), cmd_timeout=fw.terminal.timeout + EEPROM_TIMEOUT_S)
-    fw.terminal.send_nowait("eeprom.detach")
-    # The detach answers first; the write's own OK follows once its pages are written and is dropped by quiesce.
-    reply = settle(pending)
-    quiesce(fw.terminal, quiet=0.2)
-    assert reply is not None and reply.reason == "busy", reply
-    assert fw.eeprom.read(address, 8) == generate(8)
 
 
-def test_one_byte_addressing_on_target(fw, board_cfg, eeprom_cfg, need):
-    """`abytes=1` and 16-byte pages against the `i2cs` register file at 0x42 on the other instance: the word address
-    is the register pointer, so the data lands in the target's registers."""
+@given("the logic analyser DIOs on the SCL and SDA pins of the EEPROM", target_fixture="dios")
+def dios(need, eeprom_cfg):
+    return need.dio(eeprom_cfg["scl"]), need.dio(eeprom_cfg["sda"])
+
+
+@given("the i2cs target on the I2C instance of the loop that is not the EEPROM's", target_fixture="target")
+def other_target(board_cfg, eeprom_cfg, need):
     target = board_cfg.param("i2c.loop.target")
     if target["index"] == eeprom_cfg["index"]:
         target = board_cfg.param("i2c.loop.master")
     need.unloaded(target["scl"], target["sda"])
-    fw.i2cs.open(target["index"], target["scl"], target["sda"], addr=0x42)
-    attach(fw, eeprom_cfg, addr=0x42, size=256, page=16, abytes=1, wcycle=0)
-    data = generate(40, "prbs", 21)
-    fw.eeprom.write(10, data)
-    assert fw.eeprom.read(10, len(data)) == data
-    assert fw.i2cs.dump(target["index"], 10, len(data)) == data
+    return target
+
+
+@given("the EEPROM is attached")
+@when("the EEPROM is attached")
+def attached(fw, eeprom_cfg):
+    attach(fw, eeprom_cfg)
+
+
+@given(parsers.parse("the EEPROM is attached at {bus_freq:d} Hz"))
+def attached_at_freq(fw, eeprom_cfg, bus_freq):
+    attach(fw, eeprom_cfg, freq=bus_freq)
+
+
+@given(parsers.parse("the EEPROM is attached at address {chip:x}"))
+def attached_at_address(fw, eeprom_cfg, chip):
+    attach(fw, eeprom_cfg, addr=chip)
+
+
+@given("the EEPROM is attached with the erase size of the board file as its size", target_fixture="erase_size")
+def attached_with_erase_size(fw, eeprom_cfg):
+    size = eeprom_cfg["erase_size"]
+    attach(fw, eeprom_cfg, size=size)
+    return size
+
+
+@when(
+    parsers.parse(
+        "the EEPROM is attached at address {chip:x} with {size:d} bytes, {page:d}-byte pages, {abytes:d} address byte "
+        "and a write cycle of {wcycle:d} ms"
+    )
+)
+def attached_to_target(fw, eeprom_cfg, chip, size, page, abytes, wcycle):
+    attach(fw, eeprom_cfg, addr=chip, size=size, page=page, abytes=abytes, wcycle=wcycle)
+
+
+@given(parsers.parse("the address {offset:d} bytes into page {page_index:d}"), target_fixture="address")
+def address_in_page(eeprom_cfg, offset, page_index):
+    return page_index * eeprom_cfg["page"] + offset
+
+
+@given(parsers.parse("the address {offset:d} bytes before page {page_index:d}"), target_fixture="address")
+def address_before_page(eeprom_cfg, offset, page_index):
+    return page_index * eeprom_cfg["page"] - offset
+
+
+@given(parsers.parse("the start of page {page_index:d}"), target_fixture="address")
+def page_start(eeprom_cfg, page_index):
+    return page_index * eeprom_cfg["page"]
+
+
+@given(parsers.parse("the word address {at:d}"), target_fixture="address")
+def word_address(at):
+    return at
+
+
+@given(parsers.parse("half a page of PRBS data with seed {prbs_seed:d}"), target_fixture="data")
+def half_page_data(eeprom_cfg, prbs_seed):
+    return generate(eeprom_cfg["page"] // 2, "prbs", prbs_seed)
+
+
+@given(
+    parsers.parse("a page and {extra:d} bytes of PRBS data with seed {prbs_seed:d}, or as much as a command line can write"),
+    target_fixture="data",
+)
+def page_and_more_data(eeprom_cfg, extra, prbs_seed):
+    return generate(min(WRITE_MAX, eeprom_cfg["page"] + extra), "prbs", prbs_seed)
+
+
+@given(parsers.parse("{count:d} bytes of PRBS data with seed {prbs_seed:d}"), target_fixture="data")
+def prbs_data(count, prbs_seed):
+    return generate(count, "prbs", prbs_seed)
+
+
+@given(parsers.parse("a buffer of data incrementing from {start:x}"), target_fixture="data")
+def incrementing_buffer(start):
+    return generate(EEPROM_BUFFER, "inc", start)
+
+
+@when("the I2C instance of the EEPROM is opened on its pins")
+def open_i2c(fw, eeprom_cfg):
+    fw.i2c.open(eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
+
+
+@when("the EEPROM is detached")
+def detach(fw):
+    fw.eeprom.detach()
+
+
+@when("the EEPROM is erased")
+def erase(fw):
+    fw.eeprom.erase()
+
+
+@when("the data is written there")
+def write_data(fw, address, data):
+    fw.eeprom.write(address, data)
+
+
+@when("the data is written there in two halves")
+def write_halves(fw, address, data):
+    half = EEPROM_BUFFER // 2
+    fw.eeprom.write(address, data[:half])
+    fw.eeprom.write(address + half, data[half:])
+
+
+@when(parsers.parse("{count:d} zero bytes are written at the end of the erase size"))
+def write_zeros_at_end(fw, erase_size, count):
+    fw.eeprom.write(erase_size - count, b"\x00" * count)
+
+
+@when(parsers.parse("{value:x} is written at the last address"))
+def write_last(fw, eeprom_cfg, value):
+    fw.eeprom.write(eeprom_cfg["size"] - 1, bytes([value]))
+
+
+@when("the board resets and the firmware forgets what was open")
+def reset_board(fw):
+    fw.system.reset()
+    fw.forget_open()
+
+
+@when("the logic analyser is armed on a START for 2 ms at up to 2 MHz, with 1 % pretrigger", target_fixture="capture")
+def arm(ad3, dios):
+    scl, sda = dios
+    rate = min(ad3.logic.clock_hz, 2e6)
+    samples = min(ad3.logic.buffer_size, int(rate * 2e-3))
+    return arm_on_start(ad3, scl, sda, rate, samples, pretrigger=0.01)
+
+
+@when("the pending EEPROM errors are cleared")
+def clear_errors(fw):
+    fw.eeprom.errors()
+
+
+@when("the longest write a command line holds is begun there, with EMIL's timeout on top of the command timeout", target_fixture="pending")
+def begin_longest_write(fw, address):
+    return fw.eeprom.begin("write", address, generate(WRITE_MAX), cmd_timeout=fw.terminal.timeout + EEPROM_TIMEOUT_S)
+
+
+@when("the EEPROM is detached without waiting for a reply")
+def detach_nowait(fw):
+    fw.terminal.send_nowait("eeprom.detach")
+
+
+@when(parsers.parse("the i2cs target opens at address {chip:x}"))
+def open_target(fw, target, chip):
+    fw.i2cs.open(target["index"], target["scl"], target["sda"], addr=chip)
+
+
+@then("a zero-length write to the chip address completes")
+def probe_completes(fw, eeprom_cfg):
+    assert fw.i2c.write(eeprom_cfg["index"], eeprom_cfg["addr"]).result == "complete"
+
+
+@then(parsers.parse('attaching the EEPROM again on its pins fails with "{reason}"'))
+def attach_again_refused(fw, eeprom_cfg, reason):
+    expect_error(reason, fw.eeprom.attach, eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
+
+
+@then(parsers.parse('opening the I2C instance of the EEPROM on its pins fails with "{reason}"'))
+def open_i2c_refused(fw, eeprom_cfg, reason):
+    expect_error(reason, fw.i2c.open, eeprom_cfg["index"], eeprom_cfg["scl"], eeprom_cfg["sda"])
+
+
+@then(parsers.parse('detaching the EEPROM again fails with "{reason}"'))
+def detach_refused(fw, reason):
+    expect_error(reason, fw.eeprom.detach)
+
+
+@then(parsers.parse('reading {length:d} byte at address {at:d} fails with "{reason}"'))
+def read_refused(fw, length, at, reason):
+    expect_error(reason, fw.eeprom.read, at, length)
+
+
+@then(parsers.parse('writing {count:d} zero bytes at the last address fails with "{reason}"'))
+def write_last_refused(fw, eeprom_cfg, count, reason):
+    expect_error(reason, fw.eeprom.write, eeprom_cfg["size"] - 1, b"\x00" * count)
+
+
+@then(parsers.parse('reading {length:d} byte at the size fails with "{reason}"'))
+def read_at_size_refused(fw, eeprom_cfg, length, reason):
+    expect_error(reason, fw.eeprom.read, eeprom_cfg["size"], length)
+
+
+@then(parsers.parse('reading {length:d} bytes at the last address fails with "{reason}"'))
+def read_last_refused(fw, eeprom_cfg, length, reason):
+    expect_error(reason, fw.eeprom.read, eeprom_cfg["size"] - 1, length)
+
+
+@then(parsers.parse('writing the byte {value:x} at address {at:d} fails with "{reason}"'))
+def write_byte_refused(fw, value, at, reason):
+    expect_error(reason, fw.eeprom.write, at, bytes([value]))
+
+
+@then("reading the data back at the address gives the data")
+def read_back(fw, address, data):
+    assert fw.eeprom.read(address, len(data)) == data
+
+
+@then(parsers.parse("the first {count:d} bytes of page {page_index:d} read as bytes {first:d} to {last:d} of the data"))
+def page_start_reads(fw, eeprom_cfg, data, count, page_index, first, last):
+    assert fw.eeprom.read(page_index * eeprom_cfg["page"], count) == data[first : last + 1]
+
+
+@then("reading from 1 byte past the address gives the rest of the data")
+def read_rest(fw, address, data):
+    assert fw.eeprom.read(address + 1, EEPROM_BUFFER - 1) == data[1:]
+
+
+@then(parsers.parse("{count:d} bytes of PRBS data with seed {first_seed:d}, then with seed {second_seed:d}, each written there read back"))
+def write_read_twice(fw, address, count, first_seed, second_seed):
+    for prbs_seed in (first_seed, second_seed):
+        data = generate(count, "prbs", prbs_seed)
+        fw.eeprom.write(address, data)
+        assert fw.eeprom.read(address, count) == data
+
+
+@then(parsers.parse("the whole erase size reads {value:x}"))
+def erased(fw, erase_size, value):
+    assert read_all(fw, 0, erase_size) == bytes([value]) * erase_size
+
+
+@then(parsers.parse("the last address reads {value:x}"))
+def last_reads(fw, eeprom_cfg, value):
+    assert fw.eeprom.read(eeprom_cfg["size"] - 1, 1) == bytes([value])
+
+
+@then("the logic analyser decodes the page write and at least one more transfer within 2 s", target_fixture="transfers")
+def decoded(capture, dios):
+    transfers = i2c_decode(*capture.wait(timeout=2.0).channels(*dios))
+    assert len(transfers) >= 2, "no poll after the page write"
+    return transfers
+
+
+@then("the first transfer writes the word address and the data to the chip, acknowledged and ended by a STOP")
+def page_write_decoded(eeprom_cfg, transfers, address, data):
+    write = transfers[0]
+    chip = eeprom_cfg["addr"]
+    assert (write.address, write.read, write.address_ack) == (chip, False, True)
+    assert write.payload == address.to_bytes(eeprom_cfg["abytes"], "big") + data
+    assert write.stop
+
+
+@then("the second transfer, the first poll, addresses the chip and is not acknowledged")
+def poll_decoded(eeprom_cfg, transfers):
+    poll = transfers[1]
+    chip = eeprom_cfg["addr"]
+    assert (poll.address, poll.address_ack) == (chip, False)
+
+
+@then(parsers.parse("the EEPROM reports exactly one error, {error} at address {at:d}"))
+def reported_error(fw, error, at):
+    errors = fw.eeprom.errors()
+    assert [(event["error"], event.as_int("address")) for event in errors] == [(error, at)]
+
+
+@then(parsers.parse("writing the byte {value:x} at the start of page {page_index:d} succeeds"))
+def write_byte_succeeds(fw, eeprom_cfg, value, page_index):
+    fw.eeprom.write(page_index * eeprom_cfg["page"], bytes([value]))
+
+
+@then(parsers.parse('the detach is answered first, with "{reason}"'))
+def detach_answered_busy(fw, pending, reason):
+    # The detach answers first; the write's own OK follows once its pages are written and is dropped by quiesce.
+    reply = settle(pending)
+    quiesce(fw.terminal, quiet=0.2)
+    assert reply is not None and reply.reason == reason, reply
+
+
+@then(parsers.parse("the first {count:d} bytes there read as the default pattern"))
+def default_pattern_reads(fw, address, count):
+    assert fw.eeprom.read(address, count) == generate(count)
+
+
+@then("the registers of the i2cs target from the address hold the data")
+def target_registers(fw, target, address, data):
+    assert fw.i2cs.dump(target["index"], address, len(data)) == data

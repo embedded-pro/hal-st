@@ -107,6 +107,7 @@ namespace hal
 
             void ClearHalfComplete() const;
             void ClearFullComplete() const;
+            Stream& DisableAndClearInterrupts();
 
             size_t BytesToTransfer() const;
 

@@ -248,6 +248,7 @@ namespace hal
     PwmStmBase::~PwmStmBase()
     {
         StopImpl();
+        DisableOutputs();
         HAL_TIM_PWM_DeInit(&handle);
         DisableClockTimer(timerIndex);
     }
@@ -317,6 +318,10 @@ namespace hal
 
     void PwmStmBase::ConfigureBreakAndDeadTime()
     {
+        TIM_BreakDeadTimeConfigTypeDef disarmed{};
+        auto result = HAL_TIMEx_ConfigBreakDeadTime(&handle, &disarmed);
+        really_assert(result == HAL_OK);
+
         TIM_BreakDeadTimeConfigTypeDef init{};
 
         // The LOCK bits are write-once until reset; any other level would freeze BDTR for
@@ -351,7 +356,7 @@ namespace hal
         init.Break2Filter = 0;
 #endif
 
-        auto result = HAL_TIMEx_ConfigBreakDeadTime(&handle, &init);
+        result = HAL_TIMEx_ConfigBreakDeadTime(&handle, &init);
         really_assert(result == HAL_OK);
     }
 
@@ -403,10 +408,11 @@ namespace hal
 
         const auto counterClock = TimerClockFrequency() / (static_cast<uint32_t>(config.prescaler) + 1);
         const auto ticksPerPeriod = counterClock / baseFrequency.Value();
-        really_assert(ticksPerPeriod >= 2);
 
         // A centre-aligned counter runs 0..ARR..0, a period of 2 x ARR ticks instead of ARR + 1.
-        const auto autoReload = IsCenterAligned(handle.Init.CounterMode) ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
+        const auto centerAligned = IsCenterAligned(handle.Init.CounterMode);
+        really_assert(ticksPerPeriod >= (centerAligned ? 4u : 2u));
+        const auto autoReload = centerAligned ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
         really_assert(autoReload <= MaximumCompare());
 
         handle.Init.Period = autoReload;
@@ -462,16 +468,26 @@ namespace hal
         auto result = HAL_TIM_GenerateEvent(&handle, TIM_EVENTSOURCE_UPDATE);
         really_assert(result == HAL_OK);
 
-        for (const auto& channel : channels)
+        if (outputsEnabled)
         {
-            result = HAL_TIM_PWM_Start(&handle, TimerChannel(channel.index));
-            really_assert(result == HAL_OK);
-
-            if (channel.complementary)
+            __HAL_TIM_MOE_ENABLE(&handle);
+            __HAL_TIM_ENABLE(&handle);
+        }
+        else
+        {
+            for (const auto& channel : channels)
             {
-                result = HAL_TIMEx_PWMN_Start(&handle, TimerChannel(channel.index));
+                result = HAL_TIM_PWM_Start(&handle, TimerChannel(channel.index));
                 really_assert(result == HAL_OK);
+
+                if (channel.complementary)
+                {
+                    result = HAL_TIMEx_PWMN_Start(&handle, TimerChannel(channel.index));
+                    really_assert(result == HAL_OK);
+                }
             }
+
+            outputsEnabled = true;
         }
 
         started = true;
@@ -480,6 +496,23 @@ namespace hal
     void PwmStmBase::StopImpl()
     {
         if (!started)
+            return;
+
+        started = false;
+
+        if (idleStateRequested)
+        {
+            handle.Instance->CR1 &= ~TIM_CR1_CEN;
+            __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(&handle);
+            return;
+        }
+
+        DisableOutputs();
+    }
+
+    void PwmStmBase::DisableOutputs()
+    {
+        if (!outputsEnabled)
             return;
 
         for (const auto& channel : channels)
@@ -494,7 +527,7 @@ namespace hal
             really_assert(result == HAL_OK);
         }
 
-        started = false;
+        outputsEnabled = false;
     }
 
     PwmStm::PwmStm(uint8_t timerOneBasedIndex, infra::MemoryRange<const ChannelConfig> channels, const Config& config)
