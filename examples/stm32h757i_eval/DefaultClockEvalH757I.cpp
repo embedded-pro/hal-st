@@ -1,7 +1,7 @@
 #include DEVICE_HEADER
 #include "examples/stm32h757i_eval/DefaultClockEvalH757I.hpp"
 
-/* The system Clock is configured as follows (Cortex-M7 only; the Cortex-M4 runs from HCLK):
+/* The system Clock is configured as follows (Cortex-M7; the Cortex-M4 runs from HCLK):
  *    System Clock source            = PLL (HSE)
  *    SYSCLK(Hz)                     = 400000000
  *    HCLK(Hz)                       = 200000000
@@ -16,7 +16,6 @@
  */
 void ConfigureDefaultClockEvalH757I()
 {
-#if defined(CORE_CM7)
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {};
     RCC_OscInitTypeDef RCC_OscInitStruct = {};
 
@@ -54,5 +53,4 @@ void ConfigureDefaultClockEvalH757I()
     RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
     RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4);
-#endif
 }
