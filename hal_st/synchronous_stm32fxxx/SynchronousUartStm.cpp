@@ -45,6 +45,11 @@ namespace hal
 
         HAL_UART_Init(&uartHandle);
 
+#if defined(STM32WB) || defined(STM32WBA)
+        // A single receive register overruns at high baud rates whenever the receive interrupt is held off for one character time
+        HAL_UARTEx_EnableFifoMode(&uartHandle);
+#endif
+
         peripheralUart[uartIndex]->CR2 &= ~USART_CLOCK_ENABLED;
         peripheralUart[uartIndex]->CR1 |= USART_CR1_RXNEIE;
     }
