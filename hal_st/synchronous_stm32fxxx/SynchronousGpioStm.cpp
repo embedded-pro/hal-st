@@ -78,6 +78,9 @@ namespace hal
             GPIO_SPEED_FREQ_HIGH,
 #if defined(GPIO_SPEED_FREQ_VERY_HIGH)
             GPIO_SPEED_FREQ_VERY_HIGH
+#else
+            // Without a very high speed (STM32WBA), Speed::High selects the highest one
+            GPIO_SPEED_FREQ_HIGH
 #endif
         };
 
