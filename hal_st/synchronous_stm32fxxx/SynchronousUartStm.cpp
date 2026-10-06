@@ -80,7 +80,10 @@ namespace hal
 #endif
         }
 
-#if defined(USART_ISR_TXE)
+#if defined(STM32WB) || defined(STM32WBA)
+        while ((peripheralUart[uartIndex]->ISR & USART_ISR_TC) == 0)
+        {}
+#elif defined(USART_ISR_TXE)
         while ((peripheralUart[uartIndex]->ISR & USART_ISR_TXE) == 0)
         {}
 #else
