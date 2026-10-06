@@ -38,6 +38,7 @@ def test_skips_at_the_test_point_at_the_bound_function():
         text=True,
         check=False,
     )
+    assert result.returncode == 0, result.stdout + result.stderr
     skipped = [line for line in result.stdout.splitlines() if line.startswith("SKIPPED")]
     assert skipped, result.stdout + result.stderr
     assert all("tests/hil/test_hsem.py:" in line for line in skipped), "\n".join(skipped)
