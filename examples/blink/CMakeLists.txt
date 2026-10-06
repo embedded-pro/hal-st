@@ -53,22 +53,3 @@ halst_target_default_linker_scripts(examples_st.blink_nucleo64)
 halst_target_bringup(examples_st.blink_nucleo64)
 
 emil_generate_artifacts(TARGET examples_st.blink_nucleo64 LST MAP BIN HEX)
-
-######################################################################
-
-add_executable(examples_st.blink_eval MainEval.cpp)
-emil_build_for(examples_st.blink_eval
-    TARGET_MCU stm32h757
-    PREREQUISITE_BOOL HALST_BUILD_EXAMPLES
-)
-
-target_link_libraries(examples_st.blink_eval PRIVATE
-    services.util
-    services.peripheral
-    hal_st.instantiations
-)
-
-halst_target_default_linker_scripts(examples_st.blink_eval)
-halst_target_bringup(examples_st.blink_eval)
-
-emil_generate_artifacts(TARGET examples_st.blink_eval LST MAP BIN HEX)

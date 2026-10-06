@@ -1,5 +1,5 @@
 #include DEVICE_HEADER
-#include "hal_st/stm32fxxx/DefaultClockEvalH757I.hpp"
+#include "examples/stm32h757i_eval/DefaultClockEvalH757I.hpp"
 
 /* The system Clock is configured as follows (Cortex-M7 only; the Cortex-M4 runs from HCLK):
  *    System Clock source            = PLL (HSE)

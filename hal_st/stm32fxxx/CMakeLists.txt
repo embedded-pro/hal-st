@@ -32,8 +32,6 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU},stm32f746>:DefaultClockDiscoveryF746G.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32h573>:DefaultClockDiscoveryH573I.cpp>
     $<$<STREQUAL:${TARGET_MCU},stm32h573>:DefaultClockDiscoveryH573I.hpp>
-    $<$<STREQUAL:${TARGET_MCU},stm32h757>:DefaultClockEvalH757I.cpp>
-    $<$<STREQUAL:${TARGET_MCU},stm32h757>:DefaultClockEvalH757I.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32f429>:DefaultClockNucleoF429ZI.cpp>
     $<$<STREQUAL:${TARGET_MCU},stm32f429>:DefaultClockNucleoF429ZI.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32f767>:DefaultClockNucleoF767ZI.cpp>

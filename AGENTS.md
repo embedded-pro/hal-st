@@ -16,7 +16,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
 - `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`
+- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `stm32h757i_eval`
 
 ## Memory — no heap
 
@@ -43,7 +43,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h757xx[_cm4].s` and `st/ldscripts/mem_stm32h757_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images; default option bytes boot both cores.
 - `system_stm32h7xx_dualcore_boot_cm4_cm7.c` is the only system file compiled (`add_hal_driver(… SYSTEM_SOURCE …)`). CM7 configures the clocks and calls `hal::ReleaseCortexM4()`; CM4 calls `hal::WaitForCortexM7()` before `HAL_Init()` (`hal_st/stm32fxxx/DualCoreHandshakeStm`).
 - Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
-- Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. Boards: `EvalUi.hpp` (MB1246, LEDs are active low via `InvertedGpioPin`), examples `blink_eval`, `helloworld_eval`.
+- Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. Board support for the MB1246 (EVAL) lives in the example `examples/stm32h757i_eval/` (UI with active-low LEDs via `InvertedGpioPin`, `DefaultClockEvalH757I`, tracer on USART1): the CM7 image blinks the green LED and traces, the CM4 image blinks the orange LED.
 - Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) plus the `.cpu cortex-m4` copy `startup_stm32h757xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, `USART_ISR_TXE`/`RXNE`/`GPIO_AF13_COMP_TIM1` aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
 
 ## Style
