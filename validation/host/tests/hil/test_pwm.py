@@ -525,7 +525,6 @@ def no_shoot_through(state, dead):
     bits_a, bits_b = logical(capture, state["a"], state["inv"]), logical(capture, state["b"], state["invn"])
     rate = capture.rate
     if dead == 0:
-        # Without a dead time both outputs switch on the same timer clock edge, so the pins' skew can show up as one sample
         both = [1 if x and y else 0 for x, y in zip(bits_a, bits_b)]
         longest = max((length for level, _, length in analysis.runs(both) if level), default=0)
         assert longest <= 1, f"channel and complementary output active together for {longest} samples (shoot-through)"
@@ -604,8 +603,6 @@ def neither_switches_after_stop(state):
 @then("the output and the complementary output end at the idle levels, both low where both idle levels are high")
 def idle_levels(state, idle, idlen):
     stopped = state["capture"]
-    # RM0434, break function: OCx and OCxN are never driven to their active level together, not even by OISx/OISxN,
-    # so idle=1 idlen=1 (both active with inv=invn=0) leaves both at their inactive level.
     expected = (0, 0) if idle and idlen else (idle, idlen)
     assert (stopped.channel(state["a"])[-1], stopped.channel(state["b"])[-1]) == expected
 

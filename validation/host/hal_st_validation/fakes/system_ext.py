@@ -29,8 +29,6 @@ _PAYLOAD = 512
 _HEX_OUTPUT_MAX = 128
 _FIRST_PAGE = 64
 _FLASH_BASE = 0x08000000
-# Page size, flash word, image end page and region end page (board::flashScratchEndPage). The fake image ends a
-# little below the region, like the real one (~240 KB on STM32WB55).
 _GEOMETRY = {"stm32wb55": (4096, 8, 60, 144), "stm32wba55": (8192, 16, 24, 128)}
 _ERASE_US_PER_PAGE = {"stm32wb55": 22000, "stm32wba55": 3000}
 _WRITE_US_PER_WORD = 90

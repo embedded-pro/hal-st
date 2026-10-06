@@ -664,7 +664,6 @@ namespace hal
 #if defined(GPDMA1)
         auto linkRegisters = &linkMemoryArray[dmaIndex][streamIndex];
         linkRegisters->CLLR = 0;
-        // A channel still linked to the circular item reloads its addresses and block size from that item after the block
         streamRegister->CLLR = 0;
 #elif defined(DMA_SxCR_CIRC)
         streamRegister->CR &= ~DMA_SxCR_CIRC;
@@ -939,7 +938,6 @@ namespace hal
         PrepareInterrupts();
     }
 
-    // HAL_DMA_Init keeps the interrupt enables of the stream's previous user and no one clears its flags: a half-transfer interrupt left enabled by a circular transfer would fire forever, since only the transfer-complete flag is cleared here
     void DmaStm::StreamInterruptHandler::PrepareInterrupts()
     {
         stream.DisableHalfTransferCompleteInterrupt();

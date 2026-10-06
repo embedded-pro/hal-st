@@ -21,8 +21,6 @@ from pytest_bdd import given, parsers, scenario, then, when
 from hal_st_validation import expect
 from hal_st_validation.groups import analog
 
-# `ad3.wavegen.ramp` runs WaveForms' RampUp at 50 % symmetry (ad3-waveforms-bench `Wavegen._periodic`), and the
-# symmetry of a ramp is the part of the period it rises in: low to high in half a period, twice span x frequency.
 RAMP_RISE_FRACTION = 0.5
 
 

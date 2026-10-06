@@ -338,9 +338,6 @@ def test_both_instances():
     pass
 
 
-# Standalone steps
-
-
 @given("the logic analyser DIO of the SCL pin of the instance and that of SDA if it is observed", target_fixture="dios")
 def standalone_bus_dios(need, instance):
     return bus_dios(need, instance)
@@ -603,9 +600,6 @@ def close_first_open_target(fw, first_instance):
 def open_first_refused(fw, first_instance, refusal):
     index, scl, sda = first_instance
     expect_error(refusal, fw.i2c.open, index, scl, sda)
-
-
-# Steps of the loop: master and target on the jumpered rows
 
 
 @then(parsers.parse("every SCL and SDA pin of the master and the target, configured as an input with a pull-down, reads {level:d}"))

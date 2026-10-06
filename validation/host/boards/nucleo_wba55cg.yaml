@@ -1166,9 +1166,7 @@ tests:
     # pwm.duty 80 then 20, runt_repeats times while the LA records
     # runt_window_s: with preload=0 at least one high pulse lies strictly
     # between 20 % and 80 % of the period (beyond runt_margin), with
-    # preload=1 none. 1 MHz counter clock. The recording grows past
-    # runt_window_s to 1.5 times the writes at the measured pwm.duty round
-    # trip when a slow terminal link needs it.
+    # preload=1 none. 1 MHz counter clock.
     preload_timer: tim1
     preload_frequency: 200
     runt_repeats: 20

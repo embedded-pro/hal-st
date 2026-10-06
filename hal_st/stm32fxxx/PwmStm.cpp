@@ -318,8 +318,6 @@ namespace hal
 
     void PwmStmBase::ConfigureBreakAndDeadTime()
     {
-        // A BKF written while BKE is already set keeps its earlier value, and an earlier
-        // construction leaves the break armed, so BDTR is first returned to its reset value.
         TIM_BreakDeadTimeConfigTypeDef disarmed{};
         auto result = HAL_TIMEx_ConfigBreakDeadTime(&handle, &disarmed);
         really_assert(result == HAL_OK);
@@ -412,7 +410,6 @@ namespace hal
         const auto ticksPerPeriod = counterClock / baseFrequency.Value();
 
         // A centre-aligned counter runs 0..ARR..0, a period of 2 x ARR ticks instead of ARR + 1.
-        // At ARR = 1 it outputs a fixed half period whatever the compare value, so it needs ARR >= 2.
         const auto centerAligned = IsCenterAligned(handle.Init.CounterMode);
         really_assert(ticksPerPeriod >= (centerAligned ? 4u : 2u));
         const auto autoReload = centerAligned ? ticksPerPeriod / 2 : ticksPerPeriod - 1;
@@ -505,9 +502,6 @@ namespace hal
 
         if (idleStateRequested)
         {
-            // OISx/OISxN only reach the pins while MOE is clear with OSSI and CCxE/CCxNE set; the
-            // HAL stops clear CCxE/CCxNE, which leaves the pins undriven instead. The counter is
-            // halted first so that automatic output enable cannot set MOE again at an update.
             handle.Instance->CR1 &= ~TIM_CR1_CEN;
             __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(&handle);
             return;

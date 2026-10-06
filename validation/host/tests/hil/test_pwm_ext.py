@@ -52,9 +52,7 @@ BREAK_FILTERS = {
 }
 
 
-# The runt recording covers the duty writes with this headroom over their measured round trips.
 RUNT_HEADROOM = 1.5
-# Round trips measured before the runt recording; the longest one counts.
 ROUND_TRIP_PROBES = 3
 
 
@@ -314,8 +312,6 @@ def record_runts(fw, ad3, ext_cfg, state):
 
 @when("the AD3 holds the break input low with its weak pull-down, without a static output")
 def break_pulled_low(ad3, state):
-    # The pulse must come from the pattern generator alone: a static DIO output enabled on the same line holds it
-    # at its own level, and the line then never reaches the break input high.
     ad3.dio.pull(down=[state["brk_dio"]])
     ad3.dio.release(state["brk_dio"])
 

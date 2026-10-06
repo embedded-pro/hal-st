@@ -82,8 +82,6 @@ namespace hal
 
     void LpPwmChannelGpio::ConfigChannelInit()
     {
-        // The LPTIM drives the active level from the compare match to the end of the period, so the
-        // low polarity makes the output high while the counter is below CCR, as the duty expects
         LPTIM_OC_ConfigTypeDef sConfig = { .OCPolarity = LPTIM_OCPOLARITY_LOW };
         auto result = HAL_LPTIM_OC_ConfigChannel(&handle, &sConfig, GetLpTimerChannel(channelIndex));
         assert(result == HAL_OK);

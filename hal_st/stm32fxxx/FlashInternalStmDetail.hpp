@@ -12,7 +12,6 @@ namespace hal
 {
     namespace detail
     {
-        // A chunk can point into the caller's buffer at any byte offset, and a 64-bit load (LDRD) faults on an unaligned address even with unaligned access enabled
         template<typename alignment>
         void AlignedWriteBufferByAddress(services::FlashAlign::Chunk& chunk, uint32_t& fullAddress, uint32_t flashType)
         {

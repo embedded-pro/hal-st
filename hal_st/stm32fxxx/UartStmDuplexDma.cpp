@@ -120,8 +120,6 @@ namespace hal
         {
             uartArray[uartIndex]->ICR = USART_ICR_RTOCF;
 
-            // The DMA interrupt may preempt this one: delivering its half or full buffer between reading the position and
-            // delivering up to it would hand over stale data, or rewind lastReceivedPosition past the DMA position
             const auto primask = __get_PRIMASK();
             __disable_irq();
 

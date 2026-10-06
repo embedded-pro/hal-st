@@ -1038,9 +1038,7 @@ tests:
     # pwm.duty 80 then 20, runt_repeats times while the LA records
     # runt_window_s: with preload=0 at least one high pulse lies strictly
     # between 20 % and 80 % of the period (beyond runt_margin), with
-    # preload=1 none. 1 MHz counter clock. The recording grows past
-    # runt_window_s to 1.5 times the writes at the measured pwm.duty round
-    # trip when a slow terminal link needs it.
+    # preload=1 none. 1 MHz counter clock.
     preload_timer: tim1
     preload_frequency: 200
     runt_repeats: 20
@@ -1050,7 +1048,6 @@ tests:
     # timer kernel clocks (brkpol=high, brkauto=0). BKF 15 samples 8 times
     # at fDTS / 32: 256 kernel clocks.
     break_filter_timers: [tim1]
-    # BDTR.BKF of TIM16/TIM17 reads as zero on this part: brkfilter is refused.
     break_filter_unsupported_timers: [tim17]
     break_filter_cases:
       - name: unfiltered_short
@@ -1301,10 +1298,8 @@ tests:
     # homogeneous: one sector per page; table: single pages, then the
     # pattern 1, 1, 2, 4 pages twice (groups.system_ext.table_sectors).
     layouts: [homogeneous, table]
-    # Scratch region: absolute pages 64-143 (0x08040000-0x0808FFFF, past the
-    # image and below the secure area of the wireless stack), 4 KB pages,
-    # 64-bit flash words. 80 pages keep the 2- and 4-page table sectors
-    # (indices 64-71) at or past the image end page (~60, 240 KB).
+    # Scratch region: absolute pages 64-143 (0x08040000), 4 KB pages,
+    # 64-bit flash words.
     base: 0x08040000
     first_page: 64
     pages: 80

@@ -46,7 +46,6 @@ namespace hal
         HAL_UART_Init(&uartHandle);
 
 #if defined(STM32WB) || defined(STM32WBA)
-        // A single receive register overruns at high baud rates whenever the receive interrupt is held off for one character time
         HAL_UARTEx_EnableFifoMode(&uartHandle);
 #endif
 
@@ -254,7 +253,6 @@ namespace hal
         uartHandle.Init.WordLength = USART_WORDLENGTH_8B;
         uartHandle.Init.StopBits = USART_STOPBITS_1;
         uartHandle.Init.Parity = USART_PARITY_NONE;
-        // No RX pin is muxed, so the receiver stays off; with RTS flow control nRTS then stays deasserted
         uartHandle.Init.Mode = USART_MODE_TX;
         uartHandle.Init.HwFlowCtl = flowControl;
 #if defined(USART_OVERSAMPLING_8)

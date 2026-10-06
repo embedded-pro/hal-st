@@ -174,8 +174,6 @@ namespace hal
 
         const auto counter = StableCounter();
 
-        // UP/DOWN only flag a change of direction: neither is set when the counter keeps the direction it started in,
-        // and both leave the order open, so the net movement since the last read decides then
         if (turnedDown != turnedUp)
             lastKnownCountingDown = turnedDown;
         else if (counter != directionCounter)

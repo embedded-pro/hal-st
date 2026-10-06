@@ -19,8 +19,6 @@ namespace hal
         handle.Instance = QUADSPI;
 
         handle.Init.ClockPrescaler = config.prescaler;
-        // An indirect read stalls when the FIFO is full and resumes only once 4 bytes are free, so a threshold above
-        // the FIFO size minus 4 never raises FTF again while HAL_QSPI_Receive drains it one byte at a time
         handle.Init.FifoThreshold = 1;
         handle.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_HALFCYCLE;
         handle.Init.FlashSize = config.flashSizeLog2 - 1;
@@ -93,7 +91,6 @@ namespace hal
     {
         if (status != HAL_OK)
         {
-            // The blocking HAL calls leave the handle READY or ERROR after a timeout, and HAL_QSPI_Abort acts only on a busy handle
             handle.State = HAL_QSPI_STATE_BUSY;
             HAL_QSPI_Abort(&handle);
             onDone = nullptr;

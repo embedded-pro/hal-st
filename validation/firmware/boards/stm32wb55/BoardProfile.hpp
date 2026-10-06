@@ -125,7 +125,6 @@ namespace validation::board
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 64;
-    // 80 pages: the multi-page table sectors (indices 64-71) stay at or past the end page of any image below the region
     inline constexpr uint32_t flashScratchEndPage = 144;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)
@@ -155,7 +154,6 @@ namespace validation::board
     inline constexpr uint8_t adc = 1;
     inline constexpr uint8_t adcDmaRequest = DMA_REQUEST_ADC1;
     inline constexpr std::array<uint8_t, 2> adcTriggerTimers{ { 1, 2 } };
-    // BDTR.BKF of TIM16/TIM17 reads as zero on the STM32WB55 whatever is written
     inline constexpr std::array<uint8_t, 1> breakFilterTimers{ { 1 } };
     inline constexpr uint32_t adcDefaultSamplingTime = ADC_SAMPLETIME_2CYCLES_5;
     inline constexpr std::array<services::HilChoice<uint32_t>, 8> adcSamplingTimes{ {
