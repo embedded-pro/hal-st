@@ -141,7 +141,8 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`
-- A frequency whose period is under 2 counter ticks (4 in the centre-aligned modes, which need an auto-reload of at least 2: at 1 the output is a fixed half period), or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`; with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
+- A frequency whose period is under 2 counter ticks (4 in the centre-aligned modes, which need an auto-reload of at least 2: at 1 the output is a fixed half period), or whose auto-reload does not fit the counter (16 bits, 32 bits on TIM2), returns `ERR range`, both in `pwm.open` and `pwm.freq`;
+  with `ticks = pwmclk / hz` (rounded down) the auto-reload is `ticks - 1` for `edge` and `edgedown` and `ticks / 2` for the centre-aligned modes, where the counter runs up and down for a period of `2 x ARR` ticks
 - `pwm.close <timer>` → `OK`
 
 ## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`, `sendonly=1` selects `hal::SynchronousUartStmSendOnly`)
@@ -409,7 +410,8 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `coord` (STM32WB55; `ERR unsupported` on STM32WBA55): `FlashCoordinatedWithWirelessStack` over the async driver
 - `layout=homogeneous|table` (default `homogeneous`) selects the sectors:
   - `homogeneous`: one sector per page (`Flash*HomogeneousInternalStm`)
-  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over the 80 pages of the STM32WB55 that is 72 sectors, of which sectors 64-71 have 1, 1, 2, 4, 1, 1, 2, 4 pages; over the 64 pages of the STM32WBA55, 56 sectors with the pattern on sectors 48-55. A sector is accepted only from index `first` (the image end page, below) on, so the STM32WB55 region has 80 pages: its multi-page sectors stay accepted for any image below the region (about 60 of its 4 KB pages today)
+  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over the 80 pages of the STM32WB55 that is 72 sectors, of which sectors 64-71 have 1, 1, 2, 4, 1, 1, 2, 4 pages; over the 64 pages of the STM32WBA55, 56 sectors with the pattern on sectors 48-55.
+    A sector is accepted only from index `first` (the image end page, below) on, so the STM32WB55 region has 80 pages: its multi-page sectors stay accepted for any image below the region (about 60 of its 4 KB pages today)
 - `flash.info [variant=] [layout=]` → `OK base=<0x........> sectors=<n> size=<bytes> first=<sector> image=<page> layout=<homogeneous|table>`
   - `image` is the first absolute page past the running image (`_sidata` plus the size of `.data`)
   - `first` is the first sector `flash.erase` and `flash.write` accept, `min(image, sectors)`. Every sector starts at or past the page of its index, so even an erase that took the sector index for the absolute page (as `EraseSectors` did on STM32WB/WBA before its fix) cannot reach the running image
@@ -483,7 +485,8 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `tx` is the data in hex; `len` generates it (`pattern=inc|const|prbs` `seed=`, see "Line length" in General), 1-256 bytes; `rx` reads 1-256 bytes, above 128 only with `out=crc`; at most one of `tx`, `len` and `rx`
   - `flevel` is the QUADSPI FIFO level read in the completion callback: 0 once the last byte has left the pins
   - `repeat` issues the write again from each completion callback (writes only) and answers after the last one
-  - a read with a data phase only hangs the QUADSPI with BUSY set (STM32 QUADSPI erratum "cannot be used in indirect read mode when only data phase is activated"): `variant=dma` answers `ERR timeout`; `variant=poll` blocks the firmware for the driver's 5 s HAL timeout, aborts the command and answers `ERR timeout` (the driver never completes a failed command); add `dummy=2` to such a read, the erratum's workaround, which drives no IO line either
+  - a read with a data phase only hangs the QUADSPI with BUSY set (STM32 QUADSPI erratum "cannot be used in indirect read mode when only data phase is activated"): `variant=dma` answers `ERR timeout`; `variant=poll` blocks the firmware for the driver's 5 s HAL timeout, aborts the command and answers `ERR timeout` (the driver never completes a failed command);
+    add `dummy=2` to such a read, the erratum's workaround, which drives no IO line either
 - `qspi.poll <1> match=<n> mask=<n> [size=1-4] [instr=] [addr=] [abytes=] [alt=] [altbytes=] [dummy=] [lines=1|4]` → `OK`
   - `hal::QuadSpi::PollStatus`: reads `size` status bytes (default 1) until the status masked with `mask` equals `match`
   - `variant=dma`: `ERR timeout` after 2000 ms; the group then answers `ERR busy` until `qspi.close`, which stops the polling (`~QuadSpiStmDma` clears CR)
