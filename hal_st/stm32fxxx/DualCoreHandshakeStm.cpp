@@ -7,19 +7,27 @@ namespace hal
     namespace
     {
         constexpr uint32_t semaphoreId = 0;
-        constexpr uint32_t cortexM4StopTimeout = 0xffff;
+        constexpr uint32_t cortexM4StopTimeout = 0xfffff;
+    }
+
+    bool WaitForCortexM4Stop()
+    {
+#if defined(DUAL_CORE)
+        // The domain clock is requested again as soon as the Cortex-M7 enables a peripheral of the Cortex-M4 domain, so this has to run first
+        for (uint32_t timeout = cortexM4StopTimeout; timeout != 0; --timeout)
+            if (__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) == RESET)
+                return true;
+
+        return false;
+#else
+        return true;
+#endif
     }
 
     void ReleaseCortexM4()
     {
 #if defined(DUAL_CORE)
         __HAL_RCC_HSEM_CLK_ENABLE();
-
-        // Releasing before the Cortex-M4 has entered stop mode would lose the notification
-        for (uint32_t timeout = cortexM4StopTimeout; __HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) != RESET && timeout != 0; --timeout)
-        {
-        }
-
         HAL_HSEM_FastTake(semaphoreId);
         HAL_HSEM_Release(semaphoreId, 0);
 #endif

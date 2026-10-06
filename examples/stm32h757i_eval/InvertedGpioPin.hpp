@@ -39,7 +39,7 @@ namespace main_
 
         void Config(hal::PinConfigType config) override
         {
-            Config(config, false);
+            pin.Config(config);
         }
 
         void Config(hal::PinConfigType config, bool startOutputState) override

@@ -12,6 +12,8 @@ unsigned int hse_value = 25'000'000;
 
 int main()
 {
+    const bool cortexM4Stopped = hal::WaitForCortexM4Stop();
+
     HAL_Init();
     ConfigureDefaultClockEvalH757I();
 
@@ -22,7 +24,10 @@ int main()
 
     services::SetGlobalTracerInstance(tracerInfrastructure.tracer);
 
-    hal::ReleaseCortexM4();
+    if (cortexM4Stopped)
+        hal::ReleaseCortexM4();
+    else
+        tracerInfrastructure.tracer.Trace() << "Cortex-M4 did not enter stop mode, not released";
 
     static infra::TimerRepeating timerRepeating{ std::chrono::seconds{ 1 }, []
         {
