@@ -3,10 +3,10 @@ built for STM32WB) through the `lptpwm` group: frequency and duty per channel, `
 argument checks.
 
 Wiring set `bundle1`: LPTIM1 CH2 (PA15) and LPTIM2 CH1/CH2 (PA11/PA1) on DIOs. The tests assert the duty that
-`lptpwm.duty` asks for (CCR = ARR * duty / 100, high while the counter is below CCR). If the bench measures 1 - duty
-instead (the output polarity of the LPTIM IP, DESIGN R14), the measured value is in the assertion message: record
-it as a known gap rather than changing the expectation. The LPTIM takes compare writes only while it is enabled, so
-the tests set duties after `lptpwm.start`.
+`lptpwm.duty` asks for (CCR = ARR * duty / 100, high while the counter is below CCR). The LPTIM drives the active
+level from the compare match to the end of the period, so the driver selects the low output polarity; a measured
+1 - duty (given in the assertion message) means the polarity is wrong. The LPTIM takes compare writes only while it
+is enabled, so the tests set duties after `lptpwm.start`.
 
 Scenarios: features/lptim_pwm.feature.
 """
