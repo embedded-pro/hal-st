@@ -4,7 +4,7 @@ applyTo: "**/*.{hpp,cpp,h,c}"
 
 # hal-st C++ Coding Rules
 
-These rules define the target conventions for the **hal-st** repository — an `embedded-infra-lib` Hardware Abstraction Layer for STM32 ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, WB, WBA families). Follow them for all new source files and whenever modifying existing files, unless legacy constraints in untouched code require otherwise.
+These rules define the target conventions for the **hal-st** repository — an `embedded-infra-lib` Hardware Abstraction Layer for STM32 ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, H7, WB, WBA families). Follow them for all new source files and whenever modifying existing files, unless legacy constraints in untouched code require otherwise.
 
 ## Memory Management — Absolute Restrictions
 
@@ -92,7 +92,7 @@ struct Config
 ## DMA Architecture
 
 DMA differs by MCU family — use the correct conditional:
-- **Stream-based** (STM32F4xx, F7xx): `#ifdef DMA_STREAM_BASED`, `DmaChannelId::stream`
+- **Stream-based** (STM32F4xx, F7xx, H7xx — H7 routes requests through DMAMUX, not yet ported): `#ifdef DMA_STREAM_BASED`, `DmaChannelId::stream`
 - **Channel-based** (STM32G0xx, G4xx, WBxx, WBAxx, H5xx): `#ifdef DMA_CHANNEL_BASED`, `DmaChannelId::channel`
 
 Use the appropriate `hal_st` DMA wrappers (`TransmitDmaChannel`, `ReceiveDmaChannel`, `TransceiverDmaChannel`, or circular variants) — do not create raw DMA HAL handles.

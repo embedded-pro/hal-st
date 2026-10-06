@@ -2,15 +2,14 @@
 
 Single source of truth for **Claude, Copilot, and sub-agents**. `CLAUDE.md` points here. Detailed C++ coding rules: `.github/instructions/hal-st-cpp.instructions.md` (binding for all `*.hpp/*.cpp/*.h/*.c` changes). Copilot custom agents: `.github/agents/`. Build presets: `CMakePresets.json`.
 
-hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, WB, WBA families), implementing [embedded-infra-lib](https://github.com/embedded-pro/embedded-infra-lib) HAL interfaces over the STM32 HAL/LL library. It's a copy of [philips-software/amp-hal-st](https://github.com/philips-software/amp-hal-st).
+hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, H7, WB, WBA families), implementing [embedded-infra-lib](https://github.com/embedded-pro/embedded-infra-lib) HAL interfaces over the STM32 HAL/LL library. It's a copy of [philips-software/amp-hal-st](https://github.com/philips-software/amp-hal-st).
 
 ## Architecture
 
-- `hal_st/cortex/` — ARM Cortex-M core (`InterruptCortex`, `DataWatchpointAndTrace`)
-- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, …), split into `ip/` (peripheral IP blocks) and `mcu/` (family wiring)
+- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
 - `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (`SynchronousUart`, `SynchronousSpiMaster`, …)
 - `hal_st/instantiations/` — Board event infrastructure (`StmEventInfrastructure`, `NucleoUi`, `DiscoveryUi`)
-- `hal_st/default_init/` — Startup code and atomics shim
+- `hal_st/bringup/` — Startup glue (`Default_Handler_Forwarded`, HAL tick/assert hooks); the Cortex-M core code (`InterruptCortex`, `SystemTick`, …) comes from EMIL `hal.cortex_m`
 - `hal_st/middlewares/` — `STM32_WPAN`, `ble_middleware`
 - `hal_st_lwip/` — lwIP network stack instantiations
 - `st/` — CMSIS headers, STM32 HAL driver sources (per family), `hal_conf/`, `ldscripts/`
@@ -36,8 +35,16 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - Every driver: inner `Config` struct with mandatory `constexpr Config() {}` and sensible field defaults
 - `oneBasedIndex` convention for peripheral indices; `really_assert` bounds; table access as `table[oneBasedIndex - 1]`
 - `HAS_PERIPHERAL_xxx` guards come from generated `PeripheralTable.hpp` — never hand-edit anything under `generated/`
-- DMA: `DMA_STREAM_BASED` (F4/F7) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles
+- DMA: `DMA_STREAM_BASED` (F4/F7/H7; H7 additionally needs DMAMUX request routing, not yet ported) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles
 - Naming: `FooStm` drivers, `SynchronousFooStm` blocking variants
+
+## STM32H7 (H757, dual-core)
+
+- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h757xx[_cm4].s` and `st/ldscripts/mem_stm32h757_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images; default option bytes boot both cores.
+- `system_stm32h7xx_dualcore_boot_cm4_cm7.c` is the only system file compiled (`add_hal_driver(… SYSTEM_SOURCE …)`). CM7 configures the clocks and calls `hal::ReleaseCortexM4()`; CM4 calls `hal::WaitForCortexM7()` before `HAL_Init()` (`hal_st/stm32fxxx/DualCoreHandshakeStm`).
+- Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
+- Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. Boards: `EvalUi.hpp` (MB1246, LEDs are active low via `InvertedGpioPin`), examples `blink_eval`, `helloworld_eval`.
+- Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) plus the `.cpu cortex-m4` copy `startup_stm32h757xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, `USART_ISR_TXE`/`RXNE`/`GPIO_AF13_COMP_TIM1` aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
 
 ## Style
 
@@ -67,7 +74,7 @@ cmake --preset host && cmake --build --preset host-Debug   # host tooling/build 
 cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
 ```
 
-Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`.
+Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h757-cm7`, `stm32h757-cm4`.
 
 Validation firmware (stm32wb55, stm32wba55): `cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware`.
 
