@@ -395,7 +395,7 @@ known_gaps:
   - tests:
       - "test_qspi.py::test_poll_timeout[*poll*]"
     reason: >-
-      QuadSpiStm.cpp:83 - QuadSpiStm::PollStatus waits with HAL_MAX_DELAY, so
+      QuadSpiStm.cpp:81 - QuadSpiStm::PollStatus waits with HAL_MAX_DELAY, so
       a PollStatus whose status never matches blocks the event loop for good
       instead of answering ERR timeout (B.14, needs a decision)
     hangs: true

@@ -146,7 +146,7 @@ Writing the firmware against the drivers showed hal-st bugs that the suite runs 
 
 | Board | Driver               | Effect                                                                                                                             | Source                                                   |
 |-------|----------------------|------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp:62` |
+| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp`    |
 | both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                   |
 | both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                       |
 
@@ -163,11 +163,13 @@ These behaviours are not fixed here because a fix changes an API or behaviour ot
 - `SpiMasterStm`, `SpiMasterStmDma`, `SynchronousSpiMasterStm` mux `slaveSelect` to NSS but initialise `SPI_NSS_SOFT` and keep SPE on from construction (`SpiMasterStm.cpp:24,56`, `SpiMasterStmDma.cpp:38`, `SynchronousSpiMasterStm.cpp:23`): hardware NSS framing needs SPE toggled per transfer in three drivers; `test_spi_ext.py::test_hardware_nss*` is a known gap.
 - `SpiDataSizeConfiguratorStm` with 9- to 16-bit frames makes `SpiMasterStmDma` move 16-bit DMA words (`SpiMasterStmDma.cpp:109-129`), so each frame takes two buffer bytes, little endian; the tests assert that model (`spiwords.spi_frames`) with even lengths.
   An odd byte count has no defined result: the last byte is dropped on the STM32WB55, and the GPDMA of the STM32WBA55 gets a count that is not a multiple of its 16-bit data width.
-- `QuadSpiStm::PollStatus` waits with `HAL_MAX_DELAY` (`QuadSpiStm.cpp:83`): a `PollStatus` that never matches hangs the firmware; `test_qspi.py::test_poll_timeout[variant=poll]` is a hanging known gap.
+- `QuadSpiStm::PollStatus` waits with `HAL_MAX_DELAY`: a `PollStatus` that never matches hangs the firmware; `test_qspi.py::test_poll_timeout[variant=poll]` is a hanging known gap.
+- `QuadSpiStm::SendData` and `ReceiveData` abort a transfer whose command or data phase fails (HAL timeout of 5 s) and never call the completion callback, because `hal::QuadSpi` has no error path: the caller needs its own timeout (the firmware's 2000 ms operation timeout answers `ERR timeout`, which `test_qspi.py::test_close_recovers_from_a_data_only_read` relies on).
 - `AnalogToDigitalPinImplStm` and `AnalogToDigitalInternalTemperatureStm` ignore `numberOfSamples` (`AnalogToDigitalPinStm.cpp:90-165`) and always take one sample; the tests assert one.
 - The default sampling time of `AnalogToDigitalInternalTemperatureStm` (`AnalogToDigitalPinStm.hpp:21-27`) is below the temperature sensor's minimum; the tests pass a long `sampling=` and check only that the default delivers a code.
-- `TransmitDmaBridgeChannel` and `ReceiveDmaBridgeChannel` (`DmaStm.cpp:1176-1203`) never start on DMA v1 (WB55), the transmit bridge copies destination to source on GPDMA, and the memory side keeps byte width and increment; there is no in-tree user and no command, so they stay untested.
-- `LpTimerPwmStm` writes CCR = ARR x duty / 100 with the output polarity high, which may give a duty of 100 - d on the LPTIM; the tests assert d, and if the bench measures 100 - d the test becomes a known gap.
+- `TransmitDmaBridgeChannel` and `ReceiveDmaBridgeChannel` never start on DMA v1 (WB55), the transmit bridge copies destination to source on GPDMA, and the memory side keeps byte width and increment; there is no in-tree user and no command, so they stay untested.
+- `UartStmDuplexDma` calls the `dataReceived` handler with interrupts masked (PRIMASK) when the receive timeout interrupt delivers the data: the mask keeps the DMA half and full transfer interrupts, which may have a higher priority, from moving the read position between the snapshot and the delivery, so the handler has to stay short.
+- `SynchronousQuadratureEncoderLpTimStm` takes the direction from the LPTIM UP and DOWN flags, which only flag a change of direction, and otherwise from the net count movement since the previous read; like the speed it needs less than half a revolution between two reads.
 
 ## Windows host and Docker (bridge mode)
 
