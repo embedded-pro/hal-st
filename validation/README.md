@@ -144,11 +144,11 @@ Use `-k`, `-m "not slow"` and `--junitxml report.xml` as usual.
 
 Writing the firmware against the drivers showed hal-st bugs that the suite runs into. Each board file lists them under `known_gaps` with the test ids they affect: a gap that aborts or hangs the firmware skips its tests unless `--run-known-gaps` is given, any other is an expected failure (`xfail`, not strict). `--fake` ignores them.
 
-| Board | Driver               | Effect                                                                                                                             | Source                                                   |
-|-------|----------------------|------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp`    |
-| both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                   |
-| both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                       |
+| Board | Driver               | Effect                                                                                                                             | Source                                                |
+|-------|----------------------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|
+| WBA55 | `SynchronousUartStm` | A send with CTS held off blocks the event loop with no timeout.                                                                    | `hal_st/synchronous_stm32fxxx/SynchronousUartStm.cpp` |
+| both  | `UartStm`            | `uart.send` completes while up to 9 bytes are still in the TX FIFO and shift register, so a close right after a send can cut them. | `hal_st/stm32fxxx/UartStm.cpp:202-205`                |
+| both  | `WatchDogStm`        | Only the window watchdog exists: timeouts are limited to about 516 ms (WB55) and 330 ms (WBA55), and there is no IWDG driver.      | `hal_st/stm32fxxx/WatchDogStm.cpp`                    |
 
 The gaps found earlier in `PwmStm`, `AdcStm`/`AdcDmaMultiChannelStm`/`AdcTimerTriggeredBase` (WBA55 ADC4), `SpiMasterStm`/`SynchronousSpiMasterStm` (receive-only start), `UartStm` (TXEIE after close,
 SWAP, overrun), `SynchronousQuadratureEncoderLpTimStm` (filter carry-over) and `GpioStm` (EXTI on port H) are fixed, and the tests that exposed them now guard the fixes. The port H fix has no HIL
