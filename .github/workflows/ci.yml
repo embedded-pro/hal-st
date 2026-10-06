@@ -135,3 +135,26 @@ jobs:
           configurePreset: ${{ matrix.target }}
           buildPreset: ${{ matrix.target }}-${{ matrix.configuration }}
           configurePresetAdditionalArgs: "['-DCMAKE_C_COMPILER_LAUNCHER=ccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=ccache']"
+  validation_host_tests:
+    name: Validation Host Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Git
+        run: |
+          git config --global url."https://${{ secrets.PRIVATE_REPO_TOKEN  }}@github.com/".insteadOf "https://github.com/"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the validation host package
+        working-directory: validation/host
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install ".[dev]"
+      - name: Ruff
+        working-directory: validation/host
+        run: |
+          "$RUNNER_TEMP/venv/bin/ruff" check .
+          "$RUNNER_TEMP/venv/bin/ruff" format --check .
+      - name: Unit tests
+        working-directory: validation/host
+        run: '"$RUNNER_TEMP/venv/bin/python" -m pytest tests/unit -q'
