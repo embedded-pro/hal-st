@@ -17,8 +17,8 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     SynchronousAesStm.hpp
     SynchronousGpioStm.cpp
     SynchronousGpioStm.hpp
-    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>>:SynchronousFlashInternalStm.cpp>
-    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>>:SynchronousFlashInternalStm.hpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>>:SynchronousFlashInternalStm.cpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>>:SynchronousFlashInternalStm.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousHardwareSemaphoreStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousHardwareSemaphoreStm.hpp>
     SynchronousPwmStm.cpp
@@ -29,8 +29,8 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     SynchronousQuadratureEncoderStm.hpp
     SynchronousRandomDataGeneratorStm.cpp
     SynchronousRandomDataGeneratorStm.hpp
-    SynchronousSpiMasterStm.cpp
-    SynchronousSpiMasterStm.hpp
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>:SynchronousSpiMasterStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>:SynchronousSpiMasterStm.hpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousSynchronizedRandomDataGeneratorStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32wbxx>:SynchronousSynchronizedRandomDataGeneratorStm.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SynchronousUartStm.cpp>

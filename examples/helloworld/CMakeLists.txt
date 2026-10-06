@@ -50,3 +50,22 @@ halst_target_default_linker_scripts(examples_st.helloworld_nucleo144)
 halst_target_bringup(examples_st.helloworld_nucleo144)
 
 emil_generate_artifacts(TARGET examples_st.helloworld_nucleo144 LST MAP BIN HEX)
+
+######################################################################
+
+add_executable(examples_st.helloworld_eval MainEval.cpp)
+emil_build_for(examples_st.helloworld_eval
+    TARGET_MCU stm32h757
+    PREREQUISITE_BOOL HALST_BUILD_EXAMPLES
+)
+
+target_link_libraries(examples_st.helloworld_eval PRIVATE
+    services.util
+    services.peripheral
+    hal_st.instantiations
+)
+
+halst_target_default_linker_scripts(examples_st.helloworld_eval)
+halst_target_bringup(examples_st.helloworld_eval)
+
+emil_generate_artifacts(TARGET examples_st.helloworld_eval LST MAP BIN HEX)

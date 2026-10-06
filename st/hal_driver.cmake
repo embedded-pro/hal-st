@@ -1,5 +1,7 @@
 function(add_hal_driver target_name hal_driver cmsis)
 
+    cmake_parse_arguments(HALDRV "" "SYSTEM_SOURCE" "" ${ARGN})
+
     add_library(${target_name} STATIC)
 
     file(GLOB st_include RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${cmsis}/Device/ST/STM32*)
@@ -44,14 +46,21 @@ function(add_hal_driver target_name hal_driver cmsis)
         endif()
     endforeach()
 
+    if (HALDRV_SYSTEM_SOURCE)
+        list(FILTER sources EXCLUDE REGEX "Source/Templates/system_[^/]*\\.c$")
+        list(APPEND sources ${st_include}/Source/Templates/${HALDRV_SYSTEM_SOURCE})
+    endif()
+
     target_sources(${target_name} PRIVATE
         ${sources}
     )
 
-    file(GLOB startup_source
-        ${cmsis}/Device/ST/*/Source/Templates/gcc/startup_${TARGET_MCU}xx.s
-        ${cmsis}/Device/ST/*/Source/Templates/gcc/startup_${TARGET_MCU}xx_cm4.s
-    )
+    file(GLOB startup_source ${cmsis}/Device/ST/*/Source/Templates/gcc/startup_${TARGET_MCU}xx.s)
+    file(GLOB startup_source_cm4 ${cmsis}/Device/ST/*/Source/Templates/gcc/startup_${TARGET_MCU}xx_cm4.s)
+
+    if (startup_source_cm4 AND (NOT startup_source OR TARGET_CORTEX STREQUAL m4))
+        set(startup_source ${startup_source_cm4})
+    endif()
 
     if (startup_source)
         set_target_properties(${target_name} PROPERTIES HALST_STARTUP_SOURCE ${startup_source})

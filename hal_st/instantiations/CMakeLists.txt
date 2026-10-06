@@ -18,6 +18,9 @@ target_link_libraries(hal_st.instantiations PUBLIC
 target_sources(hal_st.instantiations PRIVATE
     DiscoveryTracerInfrastructure.hpp
     DiscoveryUi.hpp
+    EvalTracerInfrastructure.hpp
+    EvalUi.hpp
+    InvertedGpioPin.hpp
     NucleoTracerInfrastructure.hpp
     NucleoUi.hpp
     StmEventInfrastructure.cpp

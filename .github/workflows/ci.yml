@@ -106,7 +106,9 @@ jobs:
             "stm32f746",
             "stm32f767",
             "stm32h563",
-            "stm32h573"
+            "stm32h573",
+            "stm32h757-cm7",
+            "stm32h757-cm4"
           ]
     steps:
       - name: Configure Git
