@@ -201,7 +201,7 @@
   </xsl:template>
 
   <xsl:template match="mcu:Signal" mode="analog_default_table">
-    <xsl:if test="starts-with(@Name, 'ADC') and contains(@Name, '_IN')">
+    <xsl:if test="starts-with(@Name, 'ADC') and contains(@Name, '_IN') and substring(../@Name, string-length(../@Name) - 1) != '_C'">
       <xsl:variable name="channelNumber">
         <xsl:choose>
           <xsl:when test="substring(@Name, 8, 1)='P'">

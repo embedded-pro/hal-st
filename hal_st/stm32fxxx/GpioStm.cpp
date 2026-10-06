@@ -120,6 +120,17 @@ namespace hal
             ADC_CHANNEL_19,
 #endif
         };
+
+#if defined(STM32H7)
+        EXTI_Core_TypeDef* ExtiCore()
+        {
+#if defined(CORE_CM4)
+            return EXTI_D2;
+#else
+            return EXTI_D1;
+#endif
+        }
+#endif
     }
 
     DummyPinStm dummyPinStm;
@@ -548,7 +559,7 @@ namespace hal
         SYSCFG->EXTICR[index >> 2] = (SYSCFG->EXTICR[index >> 2] & ~extiMask) | extiValue;
 #endif
 
-#if defined(EXTI_RTSR1_RT0)
+#if defined(EXTI_RTSR1_RT0) || defined(STM32H7)
         if (trigger != InterruptTrigger::fallingEdge)
             EXTI->RTSR1 |= 1 << index;
         else
@@ -559,7 +570,11 @@ namespace hal
         else
             EXTI->FTSR1 &= ~(1 << index);
 
+#if defined(STM32H7)
+        ExtiCore()->IMR1 |= 1 << index;
+#else
         EXTI->IMR1 |= 1 << index;
+#endif
 #else
         if (trigger != InterruptTrigger::fallingEdge)
             EXTI->RTSR |= 1 << index;
@@ -580,7 +595,9 @@ namespace hal
 
     void GpioStm::DisableInterrupt(Port port, uint8_t index)
     {
-#if defined(EXTI_IMR1_IM0)
+#if defined(STM32H7)
+        ExtiCore()->IMR1 &= ~(1 << index);
+#elif defined(EXTI_IMR1_IM0)
         EXTI->IMR1 &= ~(1 << index);
 #else
         EXTI->IMR &= ~(1 << index);
@@ -596,6 +613,10 @@ namespace hal
             if (EXTI->PR1 & (1 << line))
             {
                 EXTI->PR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
+#elif defined(STM32H7)
+            if (ExtiCore()->PR1 & (1 << line))
+            {
+                ExtiCore()->PR1 = (1 << line); // Interrupt pending is cleared by writing a 1 to it
 #elif defined(STM32G0) || defined(STM32WBA) || defined(STM32H5)
             if ((EXTI->RPR1 & (1 << line)) || (EXTI->FPR1 & (1 << line)))
             {

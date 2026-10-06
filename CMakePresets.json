@@ -211,6 +211,26 @@
       }
     },
     {
+      "name": "stm32h757-cm7",
+      "inherits": "stm32",
+      "toolchainFile": "${sourceDir}/build/${presetName}/_deps/emil-src/cmake/toolchain-arm-gcc-m7-fpv5-d16.cmake",
+      "cacheVariables": {
+        "TARGET_CORTEX": "m7",
+        "TARGET_MCU_FAMILY": "stm32h7xx",
+        "TARGET_MCU": "stm32h757"
+      }
+    },
+    {
+      "name": "stm32h757-cm4",
+      "inherits": "stm32",
+      "toolchainFile": "${sourceDir}/build/${presetName}/_deps/emil-src/cmake/toolchain-arm-gcc-m4-fpv4-sp-d16.cmake",
+      "cacheVariables": {
+        "TARGET_CORTEX": "m4",
+        "TARGET_MCU_FAMILY": "stm32h7xx",
+        "TARGET_MCU": "stm32h757"
+      }
+    },
+    {
       "name": "Windows",
       "inherits": "defaults",
       "toolchainFile": "${sourceDir}/build/${presetName}/_deps/emil-src/cmake/toolchain-clang-x86_64-pc-windows-msvc.cmake",
@@ -348,6 +368,36 @@
       "name": "stm32h573-MinSizeRel",
       "configuration": "MinSizeRel",
       "configurePreset": "stm32h573"
+    },
+    {
+      "name": "stm32h757-cm7-Debug",
+      "configuration": "Debug",
+      "configurePreset": "stm32h757-cm7"
+    },
+    {
+      "name": "stm32h757-cm7-RelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "configurePreset": "stm32h757-cm7"
+    },
+    {
+      "name": "stm32h757-cm7-MinSizeRel",
+      "configuration": "MinSizeRel",
+      "configurePreset": "stm32h757-cm7"
+    },
+    {
+      "name": "stm32h757-cm4-Debug",
+      "configuration": "Debug",
+      "configurePreset": "stm32h757-cm4"
+    },
+    {
+      "name": "stm32h757-cm4-RelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "configurePreset": "stm32h757-cm4"
+    },
+    {
+      "name": "stm32h757-cm4-MinSizeRel",
+      "configuration": "MinSizeRel",
+      "configurePreset": "stm32h757-cm4"
     },
     {
       "name": "Windows-Release",

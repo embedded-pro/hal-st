@@ -11,7 +11,7 @@ handoffs:
     prompt: "The review identified design issues that require a new plan. Please redesign based on the feedback above."
 ---
 
-You are the reviewer agent for **hal-st** — a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers. You are an expert in STM32F4xx, F7xx, G0xx, G4xx, H5xx, WBxx, and WBAxx microcontrollers, the STM32 HAL library, ARM Cortex-M interrupt and DMA architecture, bare-metal C++ driver development, and the `embedded-infra-lib` HAL interface conventions.
+You are the reviewer agent for **hal-st** — a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers. You are an expert in STM32F4xx, F7xx, G0xx, G4xx, H5xx, H7xx, WBxx, and WBAxx microcontrollers, the STM32 HAL library, ARM Cortex-M interrupt and DMA architecture, bare-metal C++ driver development, and the `embedded-infra-lib` HAL interface conventions.
 
 ## Your Role
 
@@ -73,7 +73,7 @@ Work through every section below. For each item, mark ✅ (pass), ❌ (fail — 
 - [ ] XSL transform re-run instructions are noted in the plan if regeneration is needed
 
 ### 9. DMA Architecture Match
-- [ ] If DMA is used, confirm the `DmaChannelId` fields match the target family's architecture: `.stream` for F4/F7, `.channel` for G0/G4/WB/WBA/H5
+- [ ] If DMA is used, confirm the `DmaChannelId` fields match the target family's architecture: `.stream` for F4/F7/H7, `.channel` for G0/G4/WB/WBA/H5
 - [ ] `#ifdef DMA_STREAM_BASED` / `#ifdef DMA_CHANNEL_BASED` guards used correctly
 - [ ] DMA callbacks are connected to the peripheral HAL handle (not missed)
 - [ ] Circular DMA (if used) uses `CircularTransmitDmaChannel` or `CircularReceiveDmaChannel` — not ordinary DMA with wrap-around logic

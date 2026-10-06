@@ -14,7 +14,9 @@ namespace main_
 {
     constexpr std::size_t DefaultInterruptTableSize()
     {
-#if defined(STM32H5)
+#if defined(STM32H7)
+        return 166;
+#elif defined(STM32H5)
         return 149;
 #else
         return 128;

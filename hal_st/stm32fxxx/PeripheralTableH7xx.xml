@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<peripherals xmlns:xi="http://www.w3.org/2001/XInclude">
+  <peripheral name="Uart" type="USART_TypeDef*">
+    <item name="UART"/>
+    <item name="USART"/>
+    <interrupt/>
+  </peripheral>
+</peripherals>

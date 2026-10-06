@@ -72,6 +72,22 @@ target_compile_definitions(st.hal_driver_stm32h5xx PUBLIC
     $<$<STREQUAL:${TARGET_MCU},stm32h573>:STM32H573xx=1>
 )
 
+add_hal_driver(st.hal_driver_stm32h7xx STM32H7xx_HAL_Driver CMSIS_STM32H7xx
+    SYSTEM_SOURCE system_stm32h7xx_dualcore_boot_cm4_cm7.c)
+emil_build_for(st.hal_driver_stm32h7xx TARGET_MCU_FAMILY stm32h7xx PREREQUISITE_BOOL HALST_STANDALONE)
+
+target_compile_definitions(st.hal_driver_stm32h7xx PUBLIC
+    STM32H7=1
+    DEVICE_HEADER="stm32h7xx.h"
+    $<$<STREQUAL:${TARGET_MCU},stm32h757>:STM32H757xx=1>
+    $<$<STREQUAL:${TARGET_CORTEX},m7>:CORE_CM7=1>
+    $<$<STREQUAL:${TARGET_CORTEX},m4>:CORE_CM4=1>
+)
+
+if (TARGET_MCU_FAMILY STREQUAL stm32h7xx AND NOT TARGET_CORTEX MATCHES "^m[47]$")
+    message(FATAL_ERROR "TARGET_CORTEX must be m7 or m4 for stm32h7xx, got \"${TARGET_CORTEX}\"")
+endif()
+
 # Fix optimization for long file which is breaking the compiler
 set_source_files_properties(STM32H5xx_HAL_Driver/Src/stm32h5xx_hal_dma_ex.c PROPERTIES COMPILE_FLAGS -Os)
 
@@ -102,7 +118,11 @@ function(halst_target_linker_scripts)
 endfunction()
 
 function(halst_target_default_linker_scripts target)
-    halst_target_linker_scripts(TARGET ${target} LINKER_SCRIPTS ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ldscripts/mem_${TARGET_MCU}.ld ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ldscripts/sections.ld)
+    set(mem_script mem_${TARGET_MCU})
+    if (TARGET_MCU_FAMILY STREQUAL stm32h7xx)
+        string(APPEND mem_script _c${TARGET_CORTEX})
+    endif()
+    halst_target_linker_scripts(TARGET ${target} LINKER_SCRIPTS ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ldscripts/${mem_script}.ld ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ldscripts/sections.ld)
 endfunction()
 
 emil_exclude_directory_from_clang_format(.)
