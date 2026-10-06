@@ -462,6 +462,7 @@ namespace hal
         DmaChannelHandle.Instance->CBR1 = 0;
         DmaChannelHandle.Instance->CSAR = 0;
         DmaChannelHandle.Instance->CDAR = 0;
+        DmaChannelHandle.Instance->CLLR = 0;
 #else
         DmaChannelHandle.Init.Direction = DMA_MEMORY_TO_PERIPH;
         DmaChannelHandle.Init.Mode = DMA_NORMAL;
@@ -663,6 +664,8 @@ namespace hal
 #if defined(GPDMA1)
         auto linkRegisters = &linkMemoryArray[dmaIndex][streamIndex];
         linkRegisters->CLLR = 0;
+        // A channel still linked to the circular item reloads its addresses and block size from that item after the block
+        streamRegister->CLLR = 0;
 #elif defined(DMA_SxCR_CIRC)
         streamRegister->CR &= ~DMA_SxCR_CIRC;
 #else
