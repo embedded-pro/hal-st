@@ -107,6 +107,7 @@ namespace hal
 
             void ClearHalfComplete() const;
             void ClearFullComplete() const;
+            Stream& DisableAndClearInterrupts();
 
             size_t BytesToTransfer() const;
 
@@ -207,7 +208,6 @@ namespace hal
             StreamInterruptHandler(Stream& stream, const infra::Function<void()>& transferFullComplete, Immediate);
 
         private:
-            void PrepareInterrupts();
             void OnInterrupt();
 
             Stream& stream;
