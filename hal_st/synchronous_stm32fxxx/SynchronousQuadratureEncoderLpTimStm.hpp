@@ -76,6 +76,7 @@ namespace hal
         bool indexEnabled{ false };
 
         bool lastKnownCountingDown{ false };
+        uint32_t directionCounter{ 0 };
 
         std::optional<infra::TimerRepeating> speedTimer;
         uint32_t previousPosition{ 0 };
