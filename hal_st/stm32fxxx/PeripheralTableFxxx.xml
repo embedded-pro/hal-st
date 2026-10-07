@@ -16,7 +16,13 @@
   <peripheral name="Sd" type="SD_TypeDef*"><item name="SDMMC"/>
     <interrupt/>
   </peripheral>
-  <peripheral name="SdRam" type="FMC_SDRAM_TypeDef" base="FMC_R_BASE">
+  <peripheral name="Fmc" type="FMC_Bank1_TypeDef*" base="FMC_Bank1_R_BASE">
+    <item name="FMC"/>
+  </peripheral>
+  <peripheral name="Fsmc" type="FSMC_Bank1_TypeDef*" base="FSMC_Bank1_R_BASE">
+    <item name="FSMC"/>
+  </peripheral>
+  <peripheral name="SdRam" type="FMC_Bank5_6_TypeDef*" base="FMC_Bank5_6_R_BASE">
     <item name="FMC"/>
   </peripheral>
   <peripheral name="Can" type="CAN_TypeDef*"><item name="CAN"/>

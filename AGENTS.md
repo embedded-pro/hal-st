@@ -6,7 +6,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 
 ## Architecture
 
-- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
+- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, parallel memories on FSMC/FMC — `FmcStm` controller with `SramStm`, `NorFlashStm`, `SdRamStm` banks, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
 - `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (`SynchronousUart`, `SynchronousSpiMaster`, …)
 - `hal_st/instantiations/` — Board event infrastructure (`StmEventInfrastructure`, `NucleoUi`, `DiscoveryUi`)
 - `hal_st/bringup/` — Startup glue (`Default_Handler_Forwarded`, HAL tick/assert hooks); the Cortex-M core code (`InterruptCortex`, `SystemTick`, …) comes from EMIL `hal.cortex_m`

@@ -16,10 +16,13 @@
   <peripheral name="Sd" type="SD_TypeDef*"><item name="SDMMC"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Fmc" type="FMC_Bank1_TypeDef*" base="FMC_Bank1_R_BASE">
+    <item name="FMC"/>
+  </peripheral>
   <!--
   Disabled, the G474VeT doesn't have an SDRAM capable FMC. Only SRAM/PSRAM (and more)
 
-  <peripheral name="SdRam" type="FMC_SDRAM_TypeDef" base="FMC_R_BASE">
+  <peripheral name="SdRam" type="FMC_Bank5_6_TypeDef*" base="FMC_Bank5_6_R_BASE">
     <item name="FMC"/>
   </peripheral>
   -->
