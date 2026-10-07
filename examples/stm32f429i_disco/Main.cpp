@@ -1,6 +1,6 @@
+#include "boards/stm32f429i_disco_lcd/Stm32f429iDiscoLcdSetup.hpp"
 #include "examples/display_demo/DisplayDemo.hpp"
 #include "examples/stm32f429i_disco/DefaultClockDisco429I.hpp"
-#include "examples/stm32f429i_disco/Ili9341Init.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/Dma2dStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
@@ -105,7 +105,7 @@ int main()
 
     static examples::DisplayDemo demo{ ltdc, dma2d, sdram.Memory(), examples::DisplayDemo::Config{ demoWindow, hal::SurfaceFormat::rgb565, demoOverlay } };
 
-    static main_::Ili9341Init lcdInit{ spi, lcdChipSelectPin, lcdDataCommandPin, []()
+    static boards::Stm32f429iDiscoLcdSetup lcd{ spi, lcdChipSelectPin, lcdDataCommandPin, []()
         {
             demo.Start();
         } };

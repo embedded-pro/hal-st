@@ -1,9 +1,8 @@
-#include "drivers/display/mipi_dsi/MipiDsiVideoPanel.hpp"
+#include "boards/mb1166/Mb1166Setup.hpp"
 #include "examples/display_demo/DisplayDemo.hpp"
 #include "examples/stm32h757i_eval/DefaultClockEvalH757I.hpp"
 #include "examples/stm32h757i_eval/EvalTracerInfrastructure.hpp"
 #include "examples/stm32h757i_eval/EvalUi.hpp"
-#include "examples/stm32h757i_eval/Otm8009aPanel.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/Dma2dStm.hpp"
 #include "hal_st/stm32fxxx/DsiHostStm.hpp"
@@ -21,7 +20,7 @@ namespace
 {
     // The frame buffers are in the AXI SRAM, which is too small for a full 800 x 480 screen,
     // so the demo draws in a window in the middle of it, with an overlay across the top of that window
-    constexpr hal::DisplayTiming lcdTiming{ 27'500'000, main_::otm8009a::landscape, 34, 2, 34, 16, 1, 15 };
+    constexpr hal::DisplayTiming lcdTiming{ 27'500'000, boards::mb1166Panel.size, 34, 2, 34, 16, 1, 15 };
     constexpr hal::DsiHostStm::Pll dsiPll{ 25'000'000, 5, 100, 1 };
 
     constexpr hal::DisplayArea demoWindow{ 240, 140, 320, 200 };
@@ -67,8 +66,7 @@ int main()
     static hal::DsiHostStm dsi{ dsiPll, lcdTiming, DsiConfig() };
     static examples::DisplayDemo demo{ ltdc, dma2d, frameMemory, examples::DisplayDemo::Config{ demoWindow, hal::SurfaceFormat::rgb565, demoOverlay } };
 
-    static const drivers::MipiDsiPanelCore::Panel panelDescription = main_::otm8009a::MakePanel();
-    static drivers::MipiDsiVideoPanel panel{ dsi, dsi, lcdResetPin, panelDescription, hal::PixelFormat::rgb565, [](drivers::MipiDsiPanelCore::InitializationResult result)
+    static boards::Mb1166Setup panel{ dsi, dsi, lcdResetPin, hal::PixelFormat::rgb565, [](drivers::MipiDsiPanelCore::InitializationResult result)
         {
             if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
             {

@@ -1,8 +1,6 @@
 add_executable(examples_st.stm32f429i_disco
     DefaultClockDisco429I.cpp
     DefaultClockDisco429I.hpp
-    Ili9341Init.cpp
-    Ili9341Init.hpp
     Main.cpp
 )
 emil_build_for(examples_st.stm32f429i_disco
@@ -11,6 +9,7 @@ emil_build_for(examples_st.stm32f429i_disco
 )
 
 target_link_libraries(examples_st.stm32f429i_disco PRIVATE
+    boards.stm32f429i_disco_lcd
     examples_st.display_demo
     services.util
     services.peripheral
