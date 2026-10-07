@@ -6,7 +6,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 
 ## Architecture
 
-- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
+- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, parallel memories on FSMC/FMC — `FmcStm` controller with `SramStm`, `NorFlashStm`, `SdRamStm` banks, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
 - Display: `LtdcStm` (`hal::DisplayController`), `Dma2dStm` (`hal::Blitter`) and `DsiHostStm` (`hal::DsiHost` + `hal::DsiVideoStream`) implement interfaces that live in embedded-infra-lib (`hal/interfaces`), not in this repo. LTDC and DMA2D exist on F429, F7 (F746/F767) and H757, the DSI host on H757 only; the files compile to nothing elsewhere. LTDC pins are one `PinConfigTypeStm::ltdc*` per signal because some pins carry two LTDC signals on different alternate functions. Frame buffers must be in memory the LTDC and DMA2D can reach (not DTCM/CCM); nothing here does cache maintenance
 - `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (`SynchronousUart`, `SynchronousSpiMaster`, …)
 - `hal_st/instantiations/` — Board event infrastructure (`StmEventInfrastructure`, `NucleoUi`, `DiscoveryUi`)

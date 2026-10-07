@@ -73,6 +73,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
+    FmcStm.cpp
+    FmcStm.hpp
     GpioStm.cpp
     GpioStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
@@ -93,6 +95,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     PwmStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
+    NorFlashStm.cpp
+    NorFlashStm.hpp
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
     SdRamStm.cpp
@@ -107,6 +111,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiMasterStmDma.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiSlaveStmDma.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:SpiSlaveStmDma.hpp>
+    SramStm.cpp
+    SramStm.hpp
     TimerPwmStm.cpp
     TimerPwmStm.hpp
     TimerStm.cpp
