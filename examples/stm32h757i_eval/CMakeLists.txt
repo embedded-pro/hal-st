@@ -15,6 +15,7 @@ add_executable(examples_st.stm32h757i_eval_cm7
     EvalUi.hpp
     InvertedGpioPin.hpp
     MainCm7.cpp
+    Otm8009aPanel.hpp
 )
 emil_build_for(examples_st.stm32h757i_eval_cm7
     TARGET_MCU stm32h757
@@ -22,6 +23,8 @@ emil_build_for(examples_st.stm32h757i_eval_cm7
 )
 
 target_link_libraries(examples_st.stm32h757i_eval_cm7 PRIVATE
+    drivers.display.mipi_dsi
+    examples_st.display_demo
     services.util
     services.peripheral
     hal_st.instantiations
