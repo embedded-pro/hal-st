@@ -66,7 +66,7 @@ namespace hal
             bool verticalFrontPorch{ true };
             bool verticalBackPorch{ true };
             bool verticalSync{ true };
-            uint8_t largestPacketSize{ 64 };
+            uint8_t largestPacketSize{ 4 };
         };
 
         struct Video
@@ -126,6 +126,7 @@ namespace hal
         void ConfigureVideo(const DisplayTiming& timing);
         void ConfigurePhy();
         void ConfigureTimeouts();
+        void ConfigureFlowControl();
         void BeginOperation(std::size_t size);
         void CompleteWrite(const infra::Function<void()>& onDone, HAL_StatusTypeDef status);
         void CompleteLater();

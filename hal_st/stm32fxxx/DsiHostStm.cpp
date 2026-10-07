@@ -87,6 +87,7 @@ namespace hal
         ConfigureVideo(timing);
         ConfigurePhy();
         ConfigureTimeouts();
+        ConfigureFlowControl();
     }
 
     DsiHostStm::~DsiHostStm()
@@ -268,6 +269,13 @@ namespace hal
         really_assert(result == HAL_OK);
 
         result = HAL_DSI_ConfigErrorMonitor(&handle, HAL_DSI_ERROR_NONE);
+        really_assert(result == HAL_OK);
+    }
+
+    void DsiHostStm::ConfigureFlowControl()
+    {
+        // Bus turn-around lets the host read the response of the panel
+        auto result = HAL_DSI_ConfigFlowControl(&handle, DSI_FLOW_CONTROL_BTA);
         really_assert(result == HAL_OK);
     }
 
