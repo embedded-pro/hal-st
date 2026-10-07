@@ -47,4 +47,10 @@
   <peripheral name="Rng" type="RNG_TypeDef*">
     <item name="RNG"/>
   </peripheral>
+  <peripheral name="Fmc" type="FMC_Bank1_TypeDef*" base="FMC_Bank1_R_BASE">
+    <item name="FMC"/>
+  </peripheral>
+  <peripheral name="SdRam" type="FMC_Bank5_6_TypeDef*" base="FMC_Bank5_6_R_BASE">
+    <item name="FMC"/>
+  </peripheral>
 </peripherals>

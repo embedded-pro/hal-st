@@ -135,31 +135,34 @@
   </peripheral>
   <peripheral name="Fmc">
     <pin name="" speed="High">
+      <input name="FMC_SDCLK"/>   <input name="FMC_SDNWE"/>   <input name="FMC_SDCKE0"/>   <input name="FMC_SDCKE1"/>
+      <input name="FMC_SDNE0"/>   <input name="FMC_SDNE1"/>   <input name="FMC_SDNCAS"/>   <input name="FMC_SDNRAS"/>
       <input name="FMC_NL"/>      <input name="FMC_CLK"/>     <input name="FMC_NBL0"/>     <input name="FMC_NBL1"/>
       <input name="FMC_NBL2"/>    <input name="FMC_NBL3"/>    <input name="FMC_A0"/>       <input name="FMC_A1"/>
       <input name="FMC_A2"/>      <input name="FMC_A3"/>      <input name="FMC_A4"/>       <input name="FMC_A5"/>
       <input name="FMC_A6"/>      <input name="FMC_A7"/>      <input name="FMC_A8"/>       <input name="FMC_A9"/>
       <input name="FMC_A10"/>     <input name="FMC_A11"/>     <input name="FMC_A12"/>      <input name="FMC_A13"/>
       <input name="FMC_A14"/>     <input name="FMC_A15"/>     <input name="FMC_A16"/>      <input name="FMC_A17"/>
-      <input name="FMC_A18"/>     <input name="FMC_A19"/>     <input name="FMC_A10"/>      <input name="FMC_A21"/>
+      <input name="FMC_A18"/>     <input name="FMC_A19"/>     <input name="FMC_A20"/>      <input name="FMC_A21"/>
       <input name="FMC_A22"/>     <input name="FMC_A23"/>     <input name="FMC_A24"/>      <input name="FMC_A25"/>
       <input name="FMC_D0"/>      <input name="FMC_D1"/>      <input name="FMC_D2"/>       <input name="FMC_D3"/>
       <input name="FMC_D4"/>      <input name="FMC_D5"/>      <input name="FMC_D6"/>       <input name="FMC_D7"/>
       <input name="FMC_D8"/>      <input name="FMC_D9"/>      <input name="FMC_D10"/>      <input name="FMC_D11"/>
       <input name="FMC_D12"/>     <input name="FMC_D13"/>     <input name="FMC_D14"/>      <input name="FMC_D15"/>
       <input name="FMC_D16"/>     <input name="FMC_D17"/>     <input name="FMC_D18"/>      <input name="FMC_D19"/>
-      <input name="FMC_D10"/>     <input name="FMC_D21"/>     <input name="FMC_D22"/>      <input name="FMC_D23"/>
+      <input name="FMC_D20"/>     <input name="FMC_D21"/>     <input name="FMC_D22"/>      <input name="FMC_D23"/>
       <input name="FMC_D24"/>     <input name="FMC_D25"/>     <input name="FMC_D26"/>      <input name="FMC_D27"/>
       <input name="FMC_D28"/>     <input name="FMC_D29"/>     <input name="FMC_D30"/>      <input name="FMC_D31"/>
       <input name="FMC_DA0"/>     <input name="FMC_DA1"/>     <input name="FMC_DA2"/>      <input name="FMC_DA3"/>
       <input name="FMC_DA4"/>     <input name="FMC_DA5"/>     <input name="FMC_DA6"/>      <input name="FMC_DA7"/>
       <input name="FMC_DA8"/>     <input name="FMC_DA9"/>     <input name="FMC_DA10"/>     <input name="FMC_DA11"/>
       <input name="FMC_DA12"/>    <input name="FMC_DA13"/>    <input name="FMC_DA14"/>     <input name="FMC_DA15"/>
-      <input name="FMC_ALE"/>     <input name="FMC_BA0"/>     <input name="FMC_BA1"/>      <input name="FMC_NE1"/>
-      <input name="FMC_NE2"/>     <input name="FMC_NE3"/>     <input name="FMC_NE4"/>      <input name="FMC_NOE"/>
-      <input name="FMC_NWE"/>     <input name="FMC_NWAIT"/>   <input name="FMC_NCE"/>      <input name="FMC_INT"/>
-      <input name="FMC_SDCLK"/>   <input name="FMC_SDNWE"/>   <input name="FMC_SDCKE0"/>   <input name="FMC_SDCKE1"/>
-      <input name="FMC_SDNE0"/>   <input name="FMC_SDNE1"/>   <input name="FMC_SDNCAS"/>   <input name="FMC_SDNRAS"/>
+      <input name="FMC_BA0"/>     <input name="FMC_BA1"/>     <input name="FMC_NE1"/>      <input name="FMC_NE2"/>
+      <input name="FMC_NE3"/>     <input name="FMC_NE4"/>     <input name="FMC_NOE"/>      <input name="FMC_NWE"/>
+      <input name="FMC_NWAIT"/>   <input name="FMC_NCE"/>     <input name="FMC_INT"/>      <input name="FMC_ALE"/>
+      <input name="FSMC_NL"/>     <input name="FSMC_CLK"/>    <input name="FSMC_NBL"/>     <input name="FSMC_A"/>
+      <input name="FSMC_D"/>      <input name="FSMC_NE"/>     <input name="FSMC_NOE"/>     <input name="FSMC_NWE"/>
+      <input name="FSMC_NWAIT"/>
     </pin>
   </peripheral>
   <peripheral name="Lcd">

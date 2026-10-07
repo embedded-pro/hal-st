@@ -1,23 +1,145 @@
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
-#include <cassert>
+#include "infra/util/ReallyAssert.hpp"
+#include <limits>
 
-#if defined(HAS_PERIPHERAL_SDRAM)
+#if defined(HAS_PERIPHERAL_SDRAM) && defined(HAS_PERIPHERAL_FMC)
+
+namespace
+{
+    constexpr uint32_t commandTimeout = 0xFFFF;
+    constexpr uint32_t maximumRefreshCount = 0x1FFF;
+    constexpr uint32_t modeRegisterSingleLocationWrite = 0x0200;
+    constexpr uint32_t modeRegisterCasLatencyShift = 4;
+
+    infra::ByteRange Window(const hal::SdRamStm::Config& config)
+    {
+        really_assert(config.bank == 1 || config.bank == 2);
+        really_assert(config.size != 0 && config.size <= hal::FmcStm::sdramBankSize);
+
+        const uint32_t defaultBegin = config.bank == 1 ? hal::FmcStm::sdramBank1Base : hal::FmcStm::sdramBank2Base;
+        const uint32_t begin = config.address != 0 ? config.address : defaultBegin;
+        really_assert(begin <= std::numeric_limits<uint32_t>::max() - config.size);
+        return infra::ByteRange(reinterpret_cast<uint8_t*>(begin), reinterpret_cast<uint8_t*>(begin + config.size));
+    }
+
+    uint32_t ColumnBits(uint8_t columnBits)
+    {
+        switch (columnBits)
+        {
+            case 8:
+                return FMC_SDRAM_COLUMN_BITS_NUM_8;
+            case 9:
+                return FMC_SDRAM_COLUMN_BITS_NUM_9;
+            case 10:
+                return FMC_SDRAM_COLUMN_BITS_NUM_10;
+            default:
+                really_assert(columnBits == 11);
+                return FMC_SDRAM_COLUMN_BITS_NUM_11;
+        }
+    }
+
+    uint32_t RowBits(uint8_t rowBits)
+    {
+        switch (rowBits)
+        {
+            case 11:
+                return FMC_SDRAM_ROW_BITS_NUM_11;
+            case 12:
+                return FMC_SDRAM_ROW_BITS_NUM_12;
+            default:
+                really_assert(rowBits == 13);
+                return FMC_SDRAM_ROW_BITS_NUM_13;
+        }
+    }
+
+    uint32_t BusWidth(uint8_t busWidth)
+    {
+        switch (busWidth)
+        {
+            case 8:
+                return FMC_SDRAM_MEM_BUS_WIDTH_8;
+            case 16:
+                return FMC_SDRAM_MEM_BUS_WIDTH_16;
+            default:
+#if defined(FMC_SDRAM_MEM_BUS_WIDTH_32)
+                really_assert(busWidth == 32);
+                return FMC_SDRAM_MEM_BUS_WIDTH_32;
+#else
+                really_assert(false);
+                return FMC_SDRAM_MEM_BUS_WIDTH_16;
+#endif
+        }
+    }
+
+    uint32_t CasLatency(uint8_t casLatency)
+    {
+        switch (casLatency)
+        {
+            case 1:
+                return FMC_SDRAM_CAS_LATENCY_1;
+            case 2:
+                return FMC_SDRAM_CAS_LATENCY_2;
+            default:
+                really_assert(casLatency == 3);
+                return FMC_SDRAM_CAS_LATENCY_3;
+        }
+    }
+
+    uint32_t ReadPipeDelay(uint8_t readPipeDelay)
+    {
+        switch (readPipeDelay)
+        {
+            case 0:
+                return FMC_SDRAM_RPIPE_DELAY_0;
+            case 1:
+                return FMC_SDRAM_RPIPE_DELAY_1;
+            default:
+                really_assert(readPipeDelay == 2);
+                return FMC_SDRAM_RPIPE_DELAY_2;
+        }
+    }
+
+    uint32_t BurstLengthCode(uint8_t burstLength)
+    {
+        switch (burstLength)
+        {
+            case 1:
+                return 0;
+            case 2:
+                return 1;
+            case 4:
+                return 2;
+            default:
+                really_assert(burstLength == 8);
+                return 3;
+        }
+    }
+
+    uint32_t Cycles(uint8_t cycles)
+    {
+        really_assert(cycles >= 1 && cycles <= 16);
+        return cycles;
+    }
+}
 
 namespace hal
 {
-    SdRamStm::SdRamStm(hal::MultiGpioPinStm& sdramPins, const Config& config)
-        : sdramPins(sdramPins, hal::PinConfigTypeStm::fmc, 0)
-        , memory(reinterpret_cast<uint8_t*>(config.address), reinterpret_cast<uint8_t*>(config.address + config.size))
+    SdRamStm::SdRamStm(FmcStm&, const Config& config)
+        : memory(Window(config))
     {
-        __HAL_RCC_FMC_CLK_ENABLE();
+        Initialize(config);
+    }
 
-        SDRAM_HandleTypeDef sdramHandle = CreateSdRamConfig(config);
-        InitSdRam(sdramHandle);
-        EnableClock(sdramHandle);
-        PreChargeAll(sdramHandle);
-        AutoRefresh(sdramHandle);
-        LoadMode(sdramHandle, config);
-        SetRefreshRate(sdramHandle, config);
+    SdRamStm::SdRamStm(MultiGpioPinStm& sdramPins, const Config& config)
+        : ownedFmc(std::in_place, sdramPins)
+        , memory(Window(config))
+    {
+        Initialize(config);
+    }
+
+    SdRamStm::~SdRamStm()
+    {
+        HAL_SDRAM_DeInit(&handle);
     }
 
     infra::ByteRange SdRamStm::Memory() const
@@ -27,114 +149,65 @@ namespace hal
 
     void SdRamStm::SanityCheck()
     {
+        really_assert(memory.size() > 0x50);
+
         const_cast<volatile uint8_t&>(memory[0x50]) = 0x45;
-        assert(const_cast<volatile uint8_t&>(memory[0x50]) == 0x45);
+        really_assert(const_cast<volatile uint8_t&>(memory[0x50]) == 0x45);
     }
 
-    void SdRamStm::Delay()
+    void SdRamStm::Initialize(const Config& config)
     {
-        volatile uint32_t timeout = sdramTimeout * 0xF;
-        while (timeout--)
-        {}
+        really_assert(config.refreshCount != 0 && config.refreshCount <= maximumRefreshCount);
+        really_assert(config.internalBanks == 2 || config.internalBanks == 4);
+        really_assert(config.sdClockDivider == 2 || config.sdClockDivider == 3);
+        really_assert(config.autoRefreshCycles >= 1 && config.autoRefreshCycles <= 15);
+
+        handle.Instance = FMC_SDRAM_DEVICE;
+        handle.Init.SDBank = config.bank == 1 ? FMC_SDRAM_BANK1 : FMC_SDRAM_BANK2;
+        handle.Init.ColumnBitsNumber = ColumnBits(config.columnBits);
+        handle.Init.RowBitsNumber = RowBits(config.rowBits);
+        handle.Init.MemoryDataWidth = BusWidth(config.busWidth);
+        handle.Init.InternalBankNumber = config.internalBanks == 2 ? FMC_SDRAM_INTERN_BANKS_NUM_2 : FMC_SDRAM_INTERN_BANKS_NUM_4;
+        handle.Init.CASLatency = CasLatency(config.casLatency);
+        handle.Init.WriteProtection = config.writeProtection ? FMC_SDRAM_WRITE_PROTECTION_ENABLE : FMC_SDRAM_WRITE_PROTECTION_DISABLE;
+        handle.Init.SDClockPeriod = config.sdClockDivider == 2 ? FMC_SDRAM_CLOCK_PERIOD_2 : FMC_SDRAM_CLOCK_PERIOD_3;
+        handle.Init.ReadBurst = config.readBurst ? FMC_SDRAM_RBURST_ENABLE : FMC_SDRAM_RBURST_DISABLE;
+        handle.Init.ReadPipeDelay = ReadPipeDelay(config.readPipeDelay);
+
+        FMC_SDRAM_TimingTypeDef timing{};
+        timing.LoadToActiveDelay = Cycles(config.timing.loadToActiveDelay);
+        timing.ExitSelfRefreshDelay = Cycles(config.timing.exitSelfRefreshDelay);
+        timing.SelfRefreshTime = Cycles(config.timing.selfRefreshTime);
+        timing.RowCycleDelay = Cycles(config.timing.rowCycleDelay);
+        timing.WriteRecoveryTime = Cycles(config.timing.writeRecoveryTime);
+        timing.RPDelay = Cycles(config.timing.rowPrechargeDelay);
+        timing.RCDDelay = Cycles(config.timing.rowToColumnDelay);
+
+        auto result = HAL_SDRAM_Init(&handle, &timing);
+        really_assert(result == HAL_OK);
+
+        commandTarget = config.bank == 1 ? FMC_SDRAM_CMD_TARGET_BANK1 : FMC_SDRAM_CMD_TARGET_BANK2;
+
+        SendCommand(FMC_SDRAM_CMD_CLK_ENABLE, 1, 0);
+        FmcStm::DelayAtLeast(config.powerUpDelay);
+        SendCommand(FMC_SDRAM_CMD_PALL, 1, 0);
+        SendCommand(FMC_SDRAM_CMD_AUTOREFRESH_MODE, config.autoRefreshCycles, 0);
+        SendCommand(FMC_SDRAM_CMD_LOAD_MODE, 1, modeRegisterSingleLocationWrite | (static_cast<uint32_t>(config.casLatency) << modeRegisterCasLatencyShift) | BurstLengthCode(config.burstLength));
+
+        result = HAL_SDRAM_ProgramRefreshRate(&handle, config.refreshCount);
+        really_assert(result == HAL_OK);
     }
 
-    SDRAM_HandleTypeDef SdRamStm::CreateSdRamConfig(const Config& config) const
-    {
-        static const uint32_t columnBits[] = { 0, 0, 0, 0, 0, 0, 0, 0, FMC_SDRAM_COLUMN_BITS_NUM_8, FMC_SDRAM_COLUMN_BITS_NUM_9, FMC_SDRAM_COLUMN_BITS_NUM_10, FMC_SDRAM_COLUMN_BITS_NUM_11 };
-        static const uint32_t rowBits[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, FMC_SDRAM_ROW_BITS_NUM_11, FMC_SDRAM_ROW_BITS_NUM_12, FMC_SDRAM_ROW_BITS_NUM_13 };
-        static const uint32_t casLatency[] = { 0, FMC_SDRAM_CAS_LATENCY_1, FMC_SDRAM_CAS_LATENCY_2, FMC_SDRAM_CAS_LATENCY_3 };
-
-        SDRAM_HandleTypeDef result = {};
-
-        result.Instance = FMC_SDRAM_DEVICE;
-        result.Init.SDBank = config.bank == 1 ? FMC_SDRAM_BANK1 : FMC_SDRAM_BANK2;
-        result.Init.ColumnBitsNumber = columnBits[config.columnBits];
-        result.Init.RowBitsNumber = rowBits[config.rowBits];
-        result.Init.MemoryDataWidth = config.busWidth == 8 ? FMC_SDRAM_MEM_BUS_WIDTH_8 : config.busWidth == 16 ? FMC_SDRAM_MEM_BUS_WIDTH_16
-                                                                                                               : FMC_SDRAM_MEM_BUS_WIDTH_32;
-        result.Init.InternalBankNumber = FMC_SDRAM_INTERN_BANKS_NUM_4;
-        result.Init.CASLatency = casLatency[config.casLatency];
-        result.Init.WriteProtection = FMC_SDRAM_WRITE_PROTECTION_DISABLE;
-        result.Init.SDClockPeriod = FMC_SDRAM_CLOCK_PERIOD_2;
-        result.Init.ReadBurst = FMC_SDRAM_RBURST_DISABLE;
-        result.Init.ReadPipeDelay = FMC_SDRAM_RPIPE_DELAY_0;
-
-        return result;
-    }
-
-    FMC_SDRAM_TimingTypeDef SdRamStm::CreateTiming() const
-    {
-        FMC_SDRAM_TimingTypeDef result = {};
-
-        // timing configuration for 90 Mhz of SD clock frequency (180Mhz/2)
-        // TMRD: 2 Clock cycles
-        // 1 clock cycle = 1 / 90MHz = 11.1ns
-        result.LoadToActiveDelay = 2;
-        result.ExitSelfRefreshDelay = 7;
-        result.SelfRefreshTime = 4;
-        result.RowCycleDelay = 7;
-        result.WriteRecoveryTime = 2;
-        result.RPDelay = 2;
-        result.RCDDelay = 2;
-
-        return result;
-    }
-
-    void SdRamStm::InitSdRam(SDRAM_HandleTypeDef& sdramHandle)
-    {
-        FMC_SDRAM_TimingTypeDef timing = CreateTiming();
-        HAL_SDRAM_Init(&sdramHandle, &timing);
-    }
-
-    void SdRamStm::EnableClock(SDRAM_HandleTypeDef& sdramHandle)
+    void SdRamStm::SendCommand(uint32_t mode, uint32_t autoRefreshNumber, uint32_t modeRegister)
     {
         FMC_SDRAM_CommandTypeDef command = {};
-        command.CommandMode = FMC_SDRAM_CMD_CLK_ENABLE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
-        command.AutoRefreshNumber = 1;
-        command.ModeRegisterDefinition = 0;
+        command.CommandMode = mode;
+        command.CommandTarget = commandTarget;
+        command.AutoRefreshNumber = autoRefreshNumber;
+        command.ModeRegisterDefinition = modeRegister;
 
-        HAL_SDRAM_SendCommand(&sdramHandle, &command, sdramTimeout);
-        Delay();
-    }
-
-    void SdRamStm::PreChargeAll(SDRAM_HandleTypeDef& sdramHandle)
-    {
-        FMC_SDRAM_CommandTypeDef command = {};
-        command.CommandMode = FMC_SDRAM_CMD_PALL;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
-        command.AutoRefreshNumber = 1;
-        command.ModeRegisterDefinition = 0;
-
-        HAL_SDRAM_SendCommand(&sdramHandle, &command, sdramTimeout);
-    }
-
-    void SdRamStm::AutoRefresh(SDRAM_HandleTypeDef& sdramHandle)
-    {
-        FMC_SDRAM_CommandTypeDef command = {};
-        command.CommandMode = FMC_SDRAM_CMD_AUTOREFRESH_MODE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
-        command.AutoRefreshNumber = 8;
-        command.ModeRegisterDefinition = 0;
-
-        HAL_SDRAM_SendCommand(&sdramHandle, &command, sdramTimeout);
-    }
-
-    void SdRamStm::LoadMode(SDRAM_HandleTypeDef& sdramHandle, const Config& config)
-    {
-        FMC_SDRAM_CommandTypeDef command = {};
-        command.CommandMode = FMC_SDRAM_CMD_LOAD_MODE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
-        command.AutoRefreshNumber = 1;
-        command.ModeRegisterDefinition = 0x0200 | (config.casLatency << 4);
-
-        HAL_SDRAM_SendCommand(&sdramHandle, &command, sdramTimeout);
-    }
-
-    void SdRamStm::SetRefreshRate(SDRAM_HandleTypeDef& sdramHandle, const Config& config)
-    {
-        HAL_SDRAM_ProgramRefreshRate(&sdramHandle, config.refreshCount);
-        Delay();
+        auto result = HAL_SDRAM_SendCommand(&handle, &command, commandTimeout);
+        really_assert(result == HAL_OK);
     }
 }
 
