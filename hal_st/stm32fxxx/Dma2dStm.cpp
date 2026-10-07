@@ -14,32 +14,6 @@ namespace hal
         constexpr uint32_t opaqueAlpha = 0xff;
         constexpr uint32_t alphaPosition = 24;
 
-        bool IsDirectColour(SurfaceFormat format)
-        {
-            switch (format)
-            {
-                case SurfaceFormat::argb8888:
-                case SurfaceFormat::rgb888:
-                case SurfaceFormat::rgb565:
-                case SurfaceFormat::argb1555:
-                case SurfaceFormat::argb4444:
-                    return true;
-                case SurfaceFormat::l8:
-                case SurfaceFormat::al44:
-                case SurfaceFormat::al88:
-                case SurfaceFormat::a8:
-                case SurfaceFormat::a4:
-                    return false;
-            }
-
-            return false;
-        }
-
-        bool IsAlphaOnly(SurfaceFormat format)
-        {
-            return format == SurfaceFormat::a8 || format == SurfaceFormat::a4;
-        }
-
         uint32_t OutputFormat(SurfaceFormat format)
         {
             switch (format)
