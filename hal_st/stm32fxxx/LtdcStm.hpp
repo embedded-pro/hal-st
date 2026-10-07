@@ -41,7 +41,6 @@ namespace hal
         static constexpr std::size_t maxSignalPins = 28;
         static constexpr std::size_t numberOfLayers = MAX_LAYER;
 
-        // The pins may be left out when a DSI host takes the pixels instead of a parallel panel
         LtdcStm(const DisplayTiming& timing, infra::MemoryRange<const SignalPin> pins, const Config& config = Config());
         ~LtdcStm();
 

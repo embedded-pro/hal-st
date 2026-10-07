@@ -16,8 +16,6 @@ unsigned int hse_value = 8'000'000;
 
 namespace
 {
-    // STM32F429I-DISCO: 240 x 320 ILI9341 on the RGB interface of the LTDC, with its commands sent over SPI5.
-    // The frame buffers are in the SDRAM on FMC bank 2
     constexpr hal::DisplayTiming lcdTiming{ 6'000'000, { 240, 320 }, 10, 10, 20, 4, 2, 2 };
 
     constexpr hal::DisplayArea demoWindow{ 0, 0, 240, 320 };

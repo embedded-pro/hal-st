@@ -55,11 +55,6 @@ void ConfigureDefaultClockEvalH757I()
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4);
 }
 
-/* The LTDC pixel clock comes from PLL3R:
- *    PLL3 input    = 25 MHz HSE / 5 = 5 MHz
- *    PLL3 VCO      = 5 MHz * 132 = 660 MHz
- *    PLL3R output  = 660 MHz / 24 = 27.5 MHz
- */
 void ConfigureLtdcClockEvalH757I()
 {
     RCC_PeriphCLKInitTypeDef peripheralClock = {};

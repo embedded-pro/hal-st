@@ -11,7 +11,6 @@ namespace hal
         constexpr uint32_t backgroundLayer = 0;
         constexpr uint32_t maxLineLength = 0x3fff;
         constexpr uint32_t maxLineOffset = 0x3fff;
-        // HAL_DMA2D_ConfigLayer shifts InputAlpha itself, except for A8 and A4, which take it in the top byte next to the colour
         constexpr uint32_t opaqueAlpha = 0xff;
         constexpr uint32_t alphaPosition = 24;
 
@@ -181,7 +180,6 @@ namespace hal
         Begin(onDone);
         ConfigureOutput(DMA2D_R2M, destination);
 
-        // The HAL converts the colour to the output format itself
         auto result = HAL_DMA2D_Start_IT(&handle, color, Address(destination.memory), destination.size.width, destination.size.height);
         really_assert(result == HAL_OK);
     }
@@ -225,7 +223,6 @@ namespace hal
 
     void Dma2dStm::OnTransferError(DMA2D_HandleTypeDef*)
     {
-        // A transfer or configuration error comes from an address the accelerator cannot reach or from a size it cannot handle
         really_assert(false);
     }
 

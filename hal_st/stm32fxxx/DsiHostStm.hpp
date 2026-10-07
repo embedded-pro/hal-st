@@ -14,10 +14,6 @@
 
 namespace hal
 {
-    // The ST HAL writes and reads packets by waiting on the host, so an operation is done by the time the call returns.
-    // Its completion is still delivered through the event dispatcher, as the interfaces require
-    // The host is enabled by the constructor, so that the panel takes commands before the stream starts and after it has stopped.
-    // Start and Stop only enable and disable the wrapper, which carries the pixels of the LTDC
     class DsiHostStm
         : public DsiHost
         , public DsiVideoStream
@@ -36,7 +32,6 @@ namespace hal
             burst
         };
 
-        // The PLL generates the lane bit rate: inputClockHz / inputDivider * multiplier / outputDivider
         struct Pll
         {
             uint32_t inputClockHz;
@@ -45,7 +40,6 @@ namespace hal
             uint8_t outputDivider;
         };
 
-        // Polarities of the signals the LTDC hands to the host. Not necessarily those of the LTDC outputs
         struct Polarity
         {
             constexpr Polarity()
@@ -84,7 +78,6 @@ namespace hal
             LowPower lowPower;
         };
 
-        // Times of the D-PHY in lane byte clock periods
         struct PhyTimer
         {
             constexpr PhyTimer()

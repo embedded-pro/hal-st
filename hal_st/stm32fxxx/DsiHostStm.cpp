@@ -172,7 +172,6 @@ namespace hal
         really_assert(streaming);
         BeginOperation(0);
 
-        // HAL_DSI_Stop would disable the host as well, and the panel still gets its sleep in command after the stream
         __HAL_DSI_WRAPPER_DISABLE(&handle);
         streaming = false;
 
@@ -273,7 +272,6 @@ namespace hal
 
     void DsiHostStm::ConfigureTimeouts()
     {
-        // As in the ST board support packages: a timeout of zero disables that timeout
         DSI_HOST_TimeoutTypeDef timeouts{};
         timeouts.TimeoutCkdiv = 1;
 
@@ -289,7 +287,6 @@ namespace hal
 
     void DsiHostStm::ConfigureFlowControl()
     {
-        // Bus turn-around lets the host read the response of the panel
         auto result = HAL_DSI_ConfigFlowControl(&handle, DSI_FLOW_CONTROL_BTA);
         really_assert(result == HAL_OK);
     }

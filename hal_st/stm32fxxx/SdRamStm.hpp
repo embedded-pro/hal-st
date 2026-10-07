@@ -99,7 +99,6 @@ namespace hal
         { hal::Port::G, 1 }, { hal::Port::G, 4 }, { hal::Port::G, 5 }, { hal::Port::G, 8 },
         { hal::Port::G, 15 }, { hal::Port::H, 3 }, { hal::Port::H, 5 } } };
 
-    // The SDRAM of the STM32F429I-DISCO is on FMC bank 2 and needs a read pipe delay of one cycle
     inline constexpr SdRamStm::Config MakeStm32f429discoverySdRamConfig()
     {
         SdRamStm::Config config{ 0xD0000000, 0x800000, 1386, 2, 8, 12, 16, 3 };

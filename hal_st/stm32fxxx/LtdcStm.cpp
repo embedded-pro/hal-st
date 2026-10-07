@@ -185,7 +185,6 @@ namespace hal
         really_assert(framebufferExtents[layer] != 0 && IsIndexedLtdcPixelFormat(handle.LayerCfg[layer].PixelFormat));
         really_assert(!palette.empty() && palette.size() <= maxPaletteSize);
 
-        // The F4 and F7 HAL take the table as non-const, but only read it
         auto result = HAL_LTDC_ConfigCLUT(&handle, const_cast<uint32_t*>(palette.begin()), palette.size(), layer);
         really_assert(result == HAL_OK);
     }
@@ -263,7 +262,6 @@ namespace hal
         if (!started)
             return;
 
-        // The callback may stop the controller, which destroys the function it runs from
         auto callback = onVerticalBlank;
         ArmLineEvent();
         callback();
@@ -277,7 +275,6 @@ namespace hal
 
     void LtdcStm::Error()
     {
-        // A transfer error means the frame buffer is outside the memory the controller can read
         really_assert((handle.ErrorCode & HAL_LTDC_ERROR_TE) == 0);
 
         handle.ErrorCode = HAL_LTDC_ERROR_NONE;

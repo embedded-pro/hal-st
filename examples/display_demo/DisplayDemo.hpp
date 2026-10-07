@@ -11,10 +11,6 @@
 
 namespace examples
 {
-    // Draws into a window with a blitter and shows it through a display controller, using two frame buffers.
-    // A moving bar, a sprite whose format is converted while it is copied and an alpha mask are blended
-    // into the back buffer, while a translucent overlay layer stays above the window.
-    // Only the interfaces of the hardware abstraction layer are used, so every board runs the same demo
     class DisplayDemo
     {
     public:

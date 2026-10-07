@@ -18,8 +18,6 @@ unsigned int hse_value = 25'000'000;
 
 namespace
 {
-    // The frame buffers are in the AXI SRAM, which is too small for a full 800 x 480 screen,
-    // so the demo draws in a window in the middle of it, with an overlay across the top of that window
     constexpr hal::DisplayTiming lcdTiming{ 27'500'000, boards::mb1166Panel.size, 34, 2, 34, 16, 1, 15 };
     constexpr hal::DsiHostStm::Pll dsiPll{ 25'000'000, 5, 100, 1 };
 
@@ -55,7 +53,6 @@ int main()
     else
         tracerInfrastructure.tracer.Trace() << "Cortex-M4 did not enter stop mode, not released";
 
-    // MB1246: the 4" KoD KM-040TMP-02-0621 panel (OTM8009A) on the DSI host; reset on PF10, backlight on PA6
     alignas(32) static std::array<uint8_t, frameMemorySize> frameMemory;
     static hal::GpioPinStm lcdResetPin{ hal::Port::F, 10 };
     static hal::GpioPinStm lcdBacklightPin{ hal::Port::A, 6 };
