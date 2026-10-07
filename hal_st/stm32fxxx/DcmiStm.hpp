@@ -6,13 +6,14 @@
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/timer/Timer.hpp"
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <optional>
 #include DEVICE_HEADER
 
-#if defined(HAS_PERIPHERAL_DCMI) && defined(DMA_STREAM_BASED)
+#if defined(HAS_PERIPHERAL_DCMI)
 
 namespace hal
 {
@@ -59,7 +60,11 @@ namespace hal
             Level horizontalBlankingLevel{ Level::low };
             bool jpeg{ false };
             std::optional<Window> crop;
+#if defined(DMA_STREAM_BASED)
             DmaChannelId dma{ 2, 1, 1 };
+#else
+            DmaChannelId dma{ 1, 1, 0 };
+#endif
             cortex::InterruptPriority priority{ cortex::InterruptPriority::normal };
             std::chrono::milliseconds stopTimeout{ 250 };
         };
@@ -84,6 +89,10 @@ namespace hal
         {
             DCMI_HandleTypeDef dcmi{};
             DMA_HandleTypeDef dma{};
+#if defined(DMA_CHANNEL_BASED)
+            DMA_QListTypeDef queue{};
+            std::array<DMA_NodeTypeDef, 2> nodes{};
+#endif
             DcmiStm* owner{ nullptr };
         };
 
@@ -95,6 +104,11 @@ namespace hal
         void RegisterCallbacks();
         void RegisterInterrupts();
         void InitDma();
+        void DeInitDma();
+        uint32_t RemainingBytes() const;
+#if defined(DMA_CHANNEL_BASED)
+        void BuildQueue(uint32_t nodeBytes, std::size_t nodeCount, bool circular);
+#endif
         void ConfigureCrop();
         void AssertRequest(const CameraFormat& requestedFormat, Mode requestedMode, infra::ByteRange requestedBuffer) const;
         uint32_t TransferWords() const;
