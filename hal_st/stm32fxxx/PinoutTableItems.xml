@@ -176,4 +176,9 @@
       <input name="LTDC_B4"/>      <input name="LTDC_B5"/>      <input name="LTDC_B6"/>      <input name="LTDC_B7"/>
     </pin>
   </peripheral>
+  <peripheral name="Dcmi">
+    <pin name="" speed="High">
+      <input name="DCMI_D"/>       <input name="DCMI_HSYNC"/>   <input name="DCMI_VSYNC"/>   <input name="DCMI_PIX"/>
+    </pin>
+  </peripheral>
 </peripherals>

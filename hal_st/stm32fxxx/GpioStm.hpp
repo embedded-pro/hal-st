@@ -70,6 +70,7 @@ namespace hal
         usbHsUlpiD7,
         fmc,
         lcd,
+        dcmi,
         timerChannel1,
         timerChannel2,
         timerChannel3,

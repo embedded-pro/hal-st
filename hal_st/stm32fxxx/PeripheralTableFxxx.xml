@@ -25,6 +25,10 @@
   <peripheral name="SdRam" type="FMC_Bank5_6_TypeDef*" base="FMC_Bank5_6_R_BASE">
     <item name="FMC"/>
   </peripheral>
+  <peripheral name="Dcmi" type="DCMI_TypeDef*">
+    <item name="DCMI"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="Can" type="CAN_TypeDef*"><item name="CAN"/>
     <interrupt name="Tx" postfix="_TX"/>
     <interrupt name="Rx0" postfix="_RX0"/>
