@@ -122,6 +122,7 @@ namespace hal
         uint32_t bytesPerPixel = BitsPerPixel(framebuffer.format) / 8;
 
         really_assert(IsValidSurface(framebuffer));
+        really_assert(framebuffer.size.width != 0 && framebuffer.size.height != 0);
         really_assert(bytesPerPixel != 0 && framebuffer.strideInBytes % bytesPerPixel == 0);
         really_assert(uint32_t{ configuration.x } + framebuffer.size.width <= timing.active.width);
         really_assert(uint32_t{ configuration.y } + framebuffer.size.height <= timing.active.height);
@@ -148,13 +149,13 @@ namespace hal
         result = IsIndexed(framebuffer.format) ? HAL_LTDC_EnableCLUT_NoReload(&handle, layer) : HAL_LTDC_DisableCLUT_NoReload(&handle, layer);
         really_assert(result == HAL_OK);
 
-        framebufferSizes[layer] = framebuffer.memory.size();
+        framebufferExtents[layer] = (std::size_t{ framebuffer.size.height } - 1) * framebuffer.strideInBytes + std::size_t{ framebuffer.size.width } * bytesPerPixel;
     }
 
     void LtdcStm::SetFramebuffer(std::size_t layer, infra::ByteRange framebuffer)
     {
         CheckLayer(layer);
-        really_assert(framebufferSizes[layer] != 0 && framebuffer.size() >= framebufferSizes[layer]);
+        really_assert(framebufferExtents[layer] != 0 && framebuffer.size() >= framebufferExtents[layer]);
 
         auto result = HAL_LTDC_SetAddress_NoReload(&handle, Address(framebuffer), layer);
         really_assert(result == HAL_OK);
@@ -165,7 +166,7 @@ namespace hal
         CheckLayer(layer);
 
         __HAL_LTDC_LAYER_DISABLE(&handle, layer);
-        framebufferSizes[layer] = 0;
+        framebufferExtents[layer] = 0;
     }
 
     void LtdcStm::Commit(const infra::Function<void()>& onApplied)
@@ -181,7 +182,7 @@ namespace hal
     void LtdcStm::SetPalette(std::size_t layer, infra::MemoryRange<const Argb8888> palette)
     {
         CheckLayer(layer);
-        really_assert(framebufferSizes[layer] != 0 && IsIndexedLtdcPixelFormat(handle.LayerCfg[layer].PixelFormat));
+        really_assert(framebufferExtents[layer] != 0 && IsIndexedLtdcPixelFormat(handle.LayerCfg[layer].PixelFormat));
         really_assert(!palette.empty() && palette.size() <= maxPaletteSize);
 
         // The F4 and F7 HAL take the table as non-const, but only read it

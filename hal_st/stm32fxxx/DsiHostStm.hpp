@@ -16,6 +16,8 @@ namespace hal
 {
     // The ST HAL writes and reads packets by waiting on the host, so an operation is done by the time the call returns.
     // Its completion is still delivered through the event dispatcher, as the interfaces require
+    // The host is enabled by the constructor, so that the panel takes commands before the stream starts and after it has stopped.
+    // Start and Stop only enable and disable the wrapper, which carries the pixels of the LTDC
     class DsiHostStm
         : public DsiHost
         , public DsiVideoStream
@@ -104,7 +106,7 @@ namespace hal
             uint8_t numberOfLanes{ 2 };
             Video video;
             PhyTimer phyTimer;
-            uint32_t lowPowerReceiveFilterHz{ 10000 };
+            uint8_t lowPowerReceiveFilter{ 0 };
             std::size_t maxParametersSize{ 64 };
         };
 
@@ -121,6 +123,7 @@ namespace hal
 
     private:
         uint32_t LaneByteClockHz(const Pll& pll) const;
+        uint32_t EscapeClockDivider() const;
         uint32_t LaneByteClockCycles(uint32_t pixels, uint32_t pixelClockHz) const;
         void ConfigureHost(const Pll& pll);
         void ConfigureVideo(const DisplayTiming& timing);

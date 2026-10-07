@@ -11,7 +11,9 @@ namespace hal
         constexpr uint32_t backgroundLayer = 0;
         constexpr uint32_t maxLineLength = 0x3fff;
         constexpr uint32_t maxLineOffset = 0x3fff;
-        constexpr uint32_t opaqueAlpha = 0xff000000;
+        // HAL_DMA2D_ConfigLayer shifts InputAlpha itself, except for A8 and A4, which take it in the top byte next to the colour
+        constexpr uint32_t opaqueAlpha = 0xff;
+        constexpr uint32_t alphaPosition = 24;
 
         bool IsDirectColour(SurfaceFormat format)
         {
@@ -263,7 +265,6 @@ namespace hal
     void Dma2dStm::ConfigureBlendForeground(const BlendSource& foreground)
     {
         SurfaceFormat format = foreground.surface.format;
-        uint32_t constantAlpha = uint32_t{ foreground.alpha } << 24;
 
         DMA2D_LayerCfgTypeDef configuration{};
         configuration.InputOffset = LineOffsetInPixels(foreground.surface);
@@ -272,17 +273,17 @@ namespace hal
         if (IsAlphaOnly(format))
         {
             configuration.AlphaMode = DMA2D_COMBINE_ALPHA;
-            configuration.InputAlpha = constantAlpha | (foreground.color & 0xffffff);
+            configuration.InputAlpha = uint32_t{ foreground.alpha } << alphaPosition | (foreground.color & 0xffffff);
         }
         else if (!HasAlpha(format))
         {
             configuration.AlphaMode = DMA2D_REPLACE_ALPHA;
-            configuration.InputAlpha = constantAlpha;
+            configuration.InputAlpha = foreground.alpha;
         }
         else if (foreground.alpha != 0xff)
         {
             configuration.AlphaMode = DMA2D_COMBINE_ALPHA;
-            configuration.InputAlpha = constantAlpha;
+            configuration.InputAlpha = foreground.alpha;
         }
         else
             configuration.AlphaMode = DMA2D_NO_MODIF_ALPHA;

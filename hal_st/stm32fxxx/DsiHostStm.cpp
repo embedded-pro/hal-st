@@ -1,6 +1,7 @@
 #include "hal_st/stm32fxxx/DsiHostStm.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#include <algorithm>
 
 #if defined(HAS_PERIPHERAL_DSIHOST)
 
@@ -8,7 +9,10 @@ namespace hal
 {
     namespace
     {
-        constexpr uint32_t escapeClockMaxHz = 15'620'000;
+        constexpr uint32_t escapeClockMaxHz = 20'000'000;
+        constexpr uint32_t minEscapeClockDivider = 2;
+        constexpr uint32_t maxEscapeClockDivider = 0xff;
+        constexpr uint8_t maxLowPowerReceiveFilter = 3;
         constexpr std::size_t minParametersSize = 4;
         constexpr std::size_t maxReadSize = 0xffff;
 
@@ -79,6 +83,7 @@ namespace hal
     {
         really_assert(config.numberOfLanes == 1 || config.numberOfLanes == 2);
         really_assert(config.maxParametersSize >= minParametersSize);
+        really_assert(config.lowPowerReceiveFilter <= maxLowPowerReceiveFilter);
 
         EnableClockDsiHost(0);
 
@@ -88,6 +93,7 @@ namespace hal
         ConfigurePhy();
         ConfigureTimeouts();
         ConfigureFlowControl();
+        __HAL_DSI_ENABLE(&handle);
     }
 
     DsiHostStm::~DsiHostStm()
@@ -166,8 +172,8 @@ namespace hal
         really_assert(streaming);
         BeginOperation(0);
 
-        auto result = HAL_DSI_Stop(&handle);
-        really_assert(result == HAL_OK);
+        // HAL_DSI_Stop would disable the host as well, and the panel still gets its sleep in command after the stream
+        __HAL_DSI_WRAPPER_DISABLE(&handle);
         streaming = false;
 
         CompleteWrite(onDone, HAL_OK);
@@ -183,6 +189,15 @@ namespace hal
         return static_cast<uint32_t>(laneBitRate / 8);
     }
 
+    uint32_t DsiHostStm::EscapeClockDivider() const
+    {
+        uint32_t divider = (laneByteClockHz + escapeClockMaxHz - 1) / escapeClockMaxHz;
+        divider = std::max(divider, minEscapeClockDivider);
+        really_assert(divider <= maxEscapeClockDivider);
+
+        return divider;
+    }
+
     uint32_t DsiHostStm::LaneByteClockCycles(uint32_t pixels, uint32_t pixelClockHz) const
     {
         return static_cast<uint32_t>(uint64_t{ pixels } * laneByteClockHz / pixelClockHz);
@@ -196,7 +211,7 @@ namespace hal
         pllInit.PLLODF = OutputDividerCode(pll.outputDivider);
 
         handle.Init.AutomaticClockLaneControl = DSI_AUTO_CLK_LANE_CTRL_DISABLE;
-        handle.Init.TXEscapeCkdiv = laneByteClockHz / escapeClockMaxHz;
+        handle.Init.TXEscapeCkdiv = EscapeClockDivider();
         handle.Init.NumberOfLanes = config.numberOfLanes == 1 ? DSI_ONE_DATA_LANE : DSI_TWO_DATA_LANES;
 
         auto result = HAL_DSI_Init(&handle, &pllInit);
@@ -265,7 +280,7 @@ namespace hal
         auto result = HAL_DSI_ConfigHostTimeouts(&handle, &timeouts);
         really_assert(result == HAL_OK);
 
-        result = HAL_DSI_SetLowPowerRXFilter(&handle, config.lowPowerReceiveFilterHz);
+        result = HAL_DSI_SetLowPowerRXFilter(&handle, config.lowPowerReceiveFilter);
         really_assert(result == HAL_OK);
 
         result = HAL_DSI_ConfigErrorMonitor(&handle, HAL_DSI_ERROR_NONE);

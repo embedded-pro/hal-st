@@ -84,7 +84,7 @@ namespace hal
         infra::Function<void()> onVerticalBlank;
         infra::Function<void()> onUnderrun;
         infra::AutoResetFunction<void()> onApplied;
-        std::array<std::size_t, numberOfLayers> framebufferSizes{};
+        std::array<std::size_t, numberOfLayers> framebufferExtents{};
         cortex::DispatchedInterruptHandler interruptHandler;
         cortex::DispatchedInterruptHandler errorInterruptHandler;
     };
