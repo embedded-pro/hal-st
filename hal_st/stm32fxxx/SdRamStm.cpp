@@ -1,5 +1,6 @@
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#include <limits>
 
 #if defined(HAS_PERIPHERAL_SDRAM) && defined(HAS_PERIPHERAL_FMC)
 
@@ -17,6 +18,7 @@ namespace
 
         const uint32_t defaultBegin = config.bank == 1 ? hal::FmcStm::sdramBank1Base : hal::FmcStm::sdramBank2Base;
         const uint32_t begin = config.address != 0 ? config.address : defaultBegin;
+        really_assert(begin <= std::numeric_limits<uint32_t>::max() - config.size);
         return infra::ByteRange(reinterpret_cast<uint8_t*>(begin), reinterpret_cast<uint8_t*>(begin + config.size));
     }
 

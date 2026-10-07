@@ -5,6 +5,14 @@
 
 #if defined(HAS_PERIPHERAL_FMC) || defined(HAS_PERIPHERAL_FSMC)
 
+namespace
+{
+    bool IsWithin(uint32_t address, std::size_t size, uint32_t total)
+    {
+        return address <= total && size <= total - address;
+    }
+}
+
 namespace hal
 {
     NorFlashStm::NorFlashStm(FmcStm&, const Config& config)
@@ -71,7 +79,7 @@ namespace hal
 
     void NorFlashStm::WriteBuffer(infra::ConstByteRange buffer, uint32_t address, infra::Function<void()> onDone)
     {
-        really_assert(address + buffer.size() <= numberOfSectors * sizeOfSector);
+        really_assert(IsWithin(address, buffer.size(), numberOfSectors * sizeOfSector));
 
         if (!buffer.empty() && (address & 1) != 0)
         {
@@ -98,7 +106,7 @@ namespace hal
 
     void NorFlashStm::ReadBuffer(infra::ByteRange buffer, uint32_t address, infra::Function<void()> onDone)
     {
-        really_assert(address + buffer.size() <= numberOfSectors * sizeOfSector);
+        really_assert(IsWithin(address, buffer.size(), numberOfSectors * sizeOfSector));
 
         const auto* source = reinterpret_cast<const uint8_t*>(windowBase + address);
         std::copy(source, source + buffer.size(), buffer.begin());
