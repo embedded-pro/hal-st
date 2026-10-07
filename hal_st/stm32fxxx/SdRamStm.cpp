@@ -5,6 +5,21 @@
 
 namespace hal
 {
+    namespace
+    {
+        uint32_t CommandTarget(const SDRAM_HandleTypeDef& sdramHandle)
+        {
+            return sdramHandle.Init.SDBank == FMC_SDRAM_BANK1 ? FMC_SDRAM_CMD_TARGET_BANK1 : FMC_SDRAM_CMD_TARGET_BANK2;
+        }
+
+        uint32_t ReadPipeDelay(uint8_t cycles)
+        {
+            assert(cycles <= 2);
+            return cycles == 0 ? FMC_SDRAM_RPIPE_DELAY_0 : cycles == 1 ? FMC_SDRAM_RPIPE_DELAY_1
+                                                                       : FMC_SDRAM_RPIPE_DELAY_2;
+        }
+    }
+
     SdRamStm::SdRamStm(hal::MultiGpioPinStm& sdramPins, const Config& config)
         : sdramPins(sdramPins, hal::PinConfigTypeStm::fmc, 0)
         , memory(reinterpret_cast<uint8_t*>(config.address), reinterpret_cast<uint8_t*>(config.address + config.size))
@@ -57,7 +72,7 @@ namespace hal
         result.Init.WriteProtection = FMC_SDRAM_WRITE_PROTECTION_DISABLE;
         result.Init.SDClockPeriod = FMC_SDRAM_CLOCK_PERIOD_2;
         result.Init.ReadBurst = FMC_SDRAM_RBURST_DISABLE;
-        result.Init.ReadPipeDelay = FMC_SDRAM_RPIPE_DELAY_0;
+        result.Init.ReadPipeDelay = ReadPipeDelay(config.readPipeDelay);
 
         return result;
     }
@@ -90,7 +105,7 @@ namespace hal
     {
         FMC_SDRAM_CommandTypeDef command = {};
         command.CommandMode = FMC_SDRAM_CMD_CLK_ENABLE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
+        command.CommandTarget = CommandTarget(sdramHandle);
         command.AutoRefreshNumber = 1;
         command.ModeRegisterDefinition = 0;
 
@@ -102,7 +117,7 @@ namespace hal
     {
         FMC_SDRAM_CommandTypeDef command = {};
         command.CommandMode = FMC_SDRAM_CMD_PALL;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
+        command.CommandTarget = CommandTarget(sdramHandle);
         command.AutoRefreshNumber = 1;
         command.ModeRegisterDefinition = 0;
 
@@ -113,7 +128,7 @@ namespace hal
     {
         FMC_SDRAM_CommandTypeDef command = {};
         command.CommandMode = FMC_SDRAM_CMD_AUTOREFRESH_MODE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
+        command.CommandTarget = CommandTarget(sdramHandle);
         command.AutoRefreshNumber = 8;
         command.ModeRegisterDefinition = 0;
 
@@ -124,7 +139,7 @@ namespace hal
     {
         FMC_SDRAM_CommandTypeDef command = {};
         command.CommandMode = FMC_SDRAM_CMD_LOAD_MODE;
-        command.CommandTarget = FMC_SDRAM_CMD_TARGET_BANK1;
+        command.CommandTarget = CommandTarget(sdramHandle);
         command.AutoRefreshNumber = 1;
         command.ModeRegisterDefinition = 0x0200 | (config.casLatency << 4);
 
