@@ -5,4 +5,16 @@
     <item name="USART"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Ltdc" type="LTDC_TypeDef*">
+    <item name="LTDC"/>
+    <interrupt/>
+    <interrupt name="Er" postfix="_ER"/>
+  </peripheral>
+  <peripheral name="Dma2d" type="DMA2D_TypeDef*">
+    <item name="DMA2D"/>
+    <interrupt/>
+  </peripheral>
+  <peripheral name="DsiHost" type="DSI_TypeDef*" base="DSI_BASE">
+    <item name="DSIHOST"/>
+  </peripheral>
 </peripherals>

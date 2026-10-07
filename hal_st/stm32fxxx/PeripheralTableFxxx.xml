@@ -51,4 +51,13 @@
   </peripheral>
   <peripheral name="Rng" type="RNG_TypeDef*"><item name="RNG"/></peripheral>
   <peripheral name="Rtc" type="RTC_TypeDef*"><item name="RTC"/></peripheral>
+  <peripheral name="Ltdc" type="LTDC_TypeDef*">
+    <item name="LTDC"/>
+    <interrupt/>
+    <interrupt name="Er" postfix="_ER"/>
+  </peripheral>
+  <peripheral name="Dma2d" type="DMA2D_TypeDef*">
+    <item name="DMA2D"/>
+    <interrupt/>
+  </peripheral>
 </peripherals>
