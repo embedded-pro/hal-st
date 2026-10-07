@@ -25,7 +25,6 @@ namespace hal
         auto timing = FmcStm::CreateNorSramTiming(config.bus.timing);
         auto writeTiming = config.bus.writeTiming ? FmcStm::CreateNorSramTiming(*config.bus.writeTiming) : timing;
 
-        // Initialisation also queries the command set, so it fails when no supported device answers.
         auto result = HAL_NOR_Init(&handle, &timing, &writeTiming);
         really_assert(result == HAL_OK);
     }
@@ -74,7 +73,6 @@ namespace hal
     {
         really_assert(address + buffer.size() <= numberOfSectors * sizeOfSector);
 
-        // Programming a bit to 1 leaves it unchanged, so the bytes around an odd edge are padded with 0xFF.
         if (!buffer.empty() && (address & 1) != 0)
         {
             ProgramHalfWord(address - 1, static_cast<uint16_t>(0x00FF | (buffer.front() << 8)));

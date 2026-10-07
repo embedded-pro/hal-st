@@ -9,8 +9,6 @@
 
 namespace hal
 {
-    // SRAM, PSRAM and parallel LCDs on NE1..NE4. A parallel LCD is a window of two addresses: the one selecting
-    // command or data is an address line of the bus.
     class SramStm
     {
     public:

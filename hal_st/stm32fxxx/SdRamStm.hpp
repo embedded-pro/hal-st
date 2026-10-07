@@ -15,8 +15,6 @@
 
 namespace hal
 {
-    // Only one instance may exist at a time: deinitialising an SDRAM bank clears the command and refresh
-    // registers shared by both banks.
     class SdRamStm
     {
     public:
@@ -25,7 +23,6 @@ namespace hal
             constexpr Timing()
             {}
 
-            // In SDCLK cycles. The defaults suit a 90 MHz SDCLK.
             uint8_t loadToActiveDelay{ 2 };
             uint8_t exitSelfRefreshDelay{ 7 };
             uint8_t selfRefreshTime{ 4 };

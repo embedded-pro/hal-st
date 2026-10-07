@@ -12,8 +12,6 @@
 
 namespace hal
 {
-    // The HAL speaks the AMD and Intel command sets over a 16-bit bus only, and keeps the bus width in a
-    // file-static, so a single instance may exist at a time. Sectors are uniform. Program and erase block.
     class NorFlashStm
         : public hal::Flash
     {

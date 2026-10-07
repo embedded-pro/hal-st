@@ -11,8 +11,6 @@
 
 namespace hal
 {
-    // Owns the FSMC/FMC clock and every pin of the external bus. Memory drivers take a reference to it,
-    // so they must be destroyed before it.
     class FmcStm
     {
     public:
@@ -51,7 +49,6 @@ namespace hal
             constexpr NorSramTiming()
             {}
 
-            // In HCLK cycles. The defaults are slow but valid for every device and family.
             uint8_t addressSetup{ 15 };
             uint8_t addressHold{ 15 };
             uint8_t dataSetup{ 255 };

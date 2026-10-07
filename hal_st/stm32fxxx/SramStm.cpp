@@ -34,7 +34,6 @@ namespace hal
     {
         HAL_SRAM_DeInit(&handle);
 #if defined(FMC_BCR1_FMCEN)
-        // Deinitialising bank 1 resets the controller-wide enable, which other banks still depend on.
         __FMC_ENABLE();
 #endif
     }

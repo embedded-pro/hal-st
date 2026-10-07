@@ -6,7 +6,6 @@
 
 #if defined(HAS_PERIPHERAL_FMC) || defined(HAS_PERIPHERAL_FSMC)
 
-// The F4 FSMC HAL only aliases a subset of its NORSRAM constants to their FMC names.
 #if defined(HAS_PERIPHERAL_FSMC)
 #define HALST_FMC(name) FSMC_##name
 #else
@@ -157,7 +156,6 @@ namespace hal
 
     void FmcStm::DelayAtLeast(std::chrono::microseconds duration)
     {
-        // HAL_Delay cannot be used: the tick only advances once the event infrastructure runs.
         const uint64_t iterations = static_cast<uint64_t>(duration.count()) * (SystemCoreClock / 1000000);
         volatile uint32_t remaining = static_cast<uint32_t>(std::min<uint64_t>(iterations, std::numeric_limits<uint32_t>::max()));
 
