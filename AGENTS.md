@@ -35,7 +35,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - Every driver: inner `Config` struct with mandatory `constexpr Config() {}` and sensible field defaults
 - `oneBasedIndex` convention for peripheral indices; `really_assert` bounds; table access as `table[oneBasedIndex - 1]`
 - `HAS_PERIPHERAL_xxx` guards come from generated `PeripheralTable.hpp` — never hand-edit anything under `generated/`
-- DMA: `DMA_STREAM_BASED` (F4/F7/H7; H7 additionally needs DMAMUX request routing, not yet ported) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles
+- DMA: `DMA_STREAM_BASED` (F4/F7/H7; H7 additionally needs DMAMUX request routing, not yet ported) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles (the one exception is `DcmiStm`, see "DCMI camera capture")
 - Naming: `FooStm` drivers, `SynchronousFooStm` blocking variants
 
 ## STM32H7 (H757, dual-core)
@@ -46,6 +46,14 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported.
 - MB1246 (EVAL) board support lives in `examples/stm32h757i_eval/` (active-low LEDs via `InvertedGpioPin`, `DefaultClockEvalH757I`, USART1 tracer). `stm32h757-cm7` builds `examples_st.stm32h757i_eval_cm7` (green LED + trace), `stm32h757-cm4` builds `examples_st.stm32h757i_eval_cm4` (orange LED).
 - Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) and the `.cpu cortex-m4` copy `startup_stm32h757xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, USART/COMP aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
+
+## DCMI camera capture (`DcmiStm`)
+
+- `DcmiStm` implements EMIL `hal::Camera` on F4, F7 and H7 (the families with DCMI that have stream-based DMA); it compiles to nothing where `HAS_PERIPHERAL_DCMI` is undefined. Its pins are one `MultiGpioPinStm` (D0..Dn, HSYNC, VSYNC, PIXCLK, `PinConfigTypeStm::dcmi`); XCLK for the sensor is the application's job (timer or MCO).
+- It owns a raw `DMA_HandleTypeDef` and calls `HAL_DCMI_Start_DMA` instead of using `DmaStm`: `DmaStm` is not ported to H7 (no DMAMUX), takes `uint16_t` byte counts (a QVGA RGB565 frame is 153600 bytes) and has no double-buffer mode, which the ST HAL uses to split frames of more than 65535 words. It enables the DMA clocks and never disables them, and it does not reserve its stream in `DmaStm`; a conflict with another user of the stream shows up as a second registration of the same IRQ.
+- Both its vectors (DCMI and DMA stream) use `ImmediateInterruptHandler` at the same priority: the HAL re-programs the memory addresses of a split frame from the DMA ISR, so deferring that work to the event dispatcher would corrupt frames silently. The HAL callbacks only post an event; `onFrame` and `onError` run on the event dispatcher.
+- It registers the HAL frame and error callbacks, so `USE_HAL_DCMI_REGISTER_CALLBACKS` is `1U` in the F4, F7 and H7 `hal_conf` headers (keep on re-import).
+- Frame buffers are caller-owned: 4-byte aligned, a whole number of words, at most 262140 bytes per DMA pass unless the frame divides evenly into a power-of-two number of passes, and not in TCM. On F7/H7 with the D-cache enabled they must be 32-byte aligned and sized; the driver cleans and invalidates the cache around a capture.
 
 ## Style
 
