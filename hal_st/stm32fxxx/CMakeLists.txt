@@ -137,7 +137,6 @@ if (TARGET_MCU_FAMILY STREQUAL stm32h7xx)
     set_source_files_properties(
         AnalogToDigitalPinStm.cpp
         BackupRamStm.cpp
-        DmaStm.cpp
         FlashInternalStm.cpp
         I2cStm.cpp
         LowPowerModeStm.cpp

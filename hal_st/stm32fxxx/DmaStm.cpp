@@ -30,6 +30,7 @@ namespace hal
             std::array{ DMA2_Stream0_IRQn, DMA2_Stream1_IRQn, DMA2_Stream2_IRQn, DMA2_Stream3_IRQn, DMA2_Stream4_IRQn, DMA2_Stream5_IRQn, DMA2_Stream6_IRQn, DMA2_Stream7_IRQn },
         };
 
+#if !defined(STM32H7)
         const std::array dmaChannel{
             DMA_CHANNEL_0,
             DMA_CHANNEL_1,
@@ -50,6 +51,7 @@ namespace hal
             DMA_CHANNEL_15,
 #endif
         };
+#endif
 
         const std::array streamToTCIF{ DMA_FLAG_TCIF0_4, DMA_FLAG_TCIF1_5, DMA_FLAG_TCIF2_6, DMA_FLAG_TCIF3_7, DMA_FLAG_TCIF0_4, DMA_FLAG_TCIF1_5, DMA_FLAG_TCIF2_6, DMA_FLAG_TCIF3_7 };
         const std::array streamToHTIF{ DMA_FLAG_HTIF0_4, DMA_FLAG_HTIF1_5, DMA_FLAG_HTIF2_6, DMA_FLAG_HTIF3_7, DMA_FLAG_HTIF0_4, DMA_FLAG_HTIF1_5, DMA_FLAG_HTIF2_6, DMA_FLAG_HTIF3_7 };
@@ -472,7 +474,11 @@ namespace hal
         DmaChannelHandle.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
         DmaChannelHandle.Init.Priority = DMA_PRIORITY_MEDIUM;
 #if defined(DMA_STREAM_BASED)
+#if defined(STM32H7)
+        DmaChannelHandle.Init.Request = channelId.channel;
+#else
         DmaChannelHandle.Init.Channel = dmaChannel[channelId.channel];
+#endif
         DmaChannelHandle.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
         DmaChannelHandle.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
         DmaChannelHandle.Init.MemBurst = DMA_MBURST_SINGLE;
