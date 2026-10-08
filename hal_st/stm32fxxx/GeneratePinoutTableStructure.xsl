@@ -144,7 +144,7 @@
     <xsl:param name="prefix"/>
     <xsl:param name="postfix"/>
 
-    <xsl:if test="starts-with(@Name, $prefix) and ($postfix = substring(@Name, string-length(@Name) - string-length($postfix) + 1)) and (substring(../mcu:SpecificParameter[@Name='GPIO_Pin'], 10))">
+    <xsl:if test="starts-with(@Name, $prefix) and ($postfix = substring(@Name, string-length(@Name) - string-length($postfix) + 1)) and not(contains(@Name, '_ext')) and (substring(../mcu:SpecificParameter[@Name='GPIO_Pin'], 10))">
       <xsl:variable name="pin_signal">
         <xsl:value-of select="@Name"/>
       </xsl:variable>

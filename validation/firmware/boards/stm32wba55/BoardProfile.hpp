@@ -19,7 +19,7 @@ namespace validation::board
     inline constexpr uint8_t maximumPinIndex = 15;
     static_assert(static_cast<uint8_t>(Port::H) == 3, "portLetters must follow hal::Port");
 
-    // The generated pinout table comes from the WBA52 XML; only these are bonded out on the UFQFPN48 (PA3, PB10, PB11
+    // The generated pinout table comes from the WBA55CG XML; only these are bonded out on the UFQFPN48 (PA3, PB10, PB11
     // and PB13 are SMPS and VDD11 pads)
     inline constexpr std::array<uint16_t, 4> bondedPins{ { 0xffe7, 0xd3ff, 0xe000, 0x0008 } };
 
