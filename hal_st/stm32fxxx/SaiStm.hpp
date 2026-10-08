@@ -2,6 +2,7 @@
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/AudioFormat.hpp"
+#include "hal_st/stm32fxxx/AudioClockSwitchStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include <cstdint>
 #include DEVICE_HEADER
@@ -76,6 +77,7 @@ namespace hal
             KernelClock kernelClock{ KernelClock::pllI2s };
             Mode mode{ Mode::pcm };
             SampleEdge pdmSampleEdge{ SampleEdge::rising };
+            AudioClockSwitchStm* audioClock{ nullptr };
         };
 
         static bool IsSupported(AudioFormat format);

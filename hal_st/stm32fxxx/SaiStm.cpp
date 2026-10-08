@@ -14,7 +14,7 @@ namespace hal
         constexpr uint32_t maximumSampleRate = 192000;
         constexpr uint32_t fifoFillTimeoutInMilliseconds = 10;
 
-        // The master clock is 256 times the sample rate. The older SAI divides the kernel clock by two on top of MCKDIV
+        // The master clock is 256 times the sample rate. The older SAI divides the kernel clock by two on top of MCKDIV, and a MCKDIV of 0 bypasses the divider
         constexpr uint32_t masterClockRatio = 256;
 #if defined(SAI_MCK_OUTPUT_ENABLE)
         constexpr uint32_t dividerFactor = 1;
@@ -117,6 +117,9 @@ namespace hal
 
         const uint32_t frameRate = Pdm() ? format.sampleRate / 2 : format.sampleRate;
 
+        if (master && config.audioClock != nullptr)
+            config.audioClock->Select(frameRate);
+
         handle = {};
         handle.Instance = Block();
         handle.Init.AudioMode = master ? (transmit ? SAI_MODEMASTER_TX : SAI_MODEMASTER_RX) : (transmit ? SAI_MODESLAVE_TX : SAI_MODESLAVE_RX);
@@ -149,8 +152,8 @@ namespace hal
         }
 
         // The HAL stores the divider it derived from the requested rate; the rate it really gives follows from that
-        const uint64_t divider = std::max<uint32_t>(handle.Init.Mckdiv, 1);
-        const uint32_t actualFrameRate = static_cast<uint32_t>(KernelClockFrequency() / (masterClockRatio * dividerFactor * divider));
+        const uint64_t divider = handle.Init.Mckdiv == 0 ? 1 : handle.Init.Mckdiv * dividerFactor;
+        const uint32_t actualFrameRate = static_cast<uint32_t>(KernelClockFrequency() / (masterClockRatio * divider));
         actualSampleRate = Pdm() ? actualFrameRate * 2 : actualFrameRate;
 
         const uint64_t error = actualFrameRate > frameRate ? actualFrameRate - frameRate : frameRate - actualFrameRate;

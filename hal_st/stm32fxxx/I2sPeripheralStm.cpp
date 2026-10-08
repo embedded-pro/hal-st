@@ -76,6 +76,9 @@ namespace hal
 
         const uint32_t frameRate = Pdm() ? format.sampleRate / 2 : format.sampleRate;
 
+        if (master && config.audioClock != nullptr)
+            config.audioClock->Select(frameRate);
+
         handle = {};
         handle.Instance = peripheralSpi[oneBasedIndex - 1];
         handle.Init.Mode = master ? (transmit ? I2S_MODE_MASTER_TX : I2S_MODE_MASTER_RX) : (transmit ? I2S_MODE_SLAVE_TX : I2S_MODE_SLAVE_RX);

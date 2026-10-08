@@ -22,6 +22,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     AnalogToDigitalPinStm.hpp
     AdcTimerTriggeredBase.cpp
     AdcTimerTriggeredBase.hpp
+    AudioClockSwitchStm.cpp
+    AudioClockSwitchStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.hpp>
     BackupRamStm.cpp
@@ -207,7 +209,11 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F429Z(E-G-I)Tx.xml")
     elseif (TARGET_MCU STREQUAL stm32f746)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32F746_gpio_v1_0_Modes.xml")
-        set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746Z(E-G)Tx.xml")
+        if (TARGET_MCU_VARIANT STREQUAL stm32f746ng)
+            set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746NGHx.xml")
+        else()
+            set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746Z(E-G)Tx.xml")
+        endif()
     elseif (TARGET_MCU STREQUAL stm32f767)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32F76x_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F767Z(G-I)Tx.xml")
