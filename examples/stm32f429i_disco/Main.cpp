@@ -17,7 +17,7 @@
 #include "hal_st/stm32fxxx/LtdcStm.hpp"
 #include "hal_st/stm32fxxx/RandomDataGeneratorStm.hpp"
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
-#include "hal_st/stm32fxxx/SpiMasterStm.hpp"
+#include "hal_st/stm32fxxx/SpiMasterStmDma.hpp"
 #include "hal_st/stm32fxxx/UartStmDma.hpp"
 #include "hal_st/stm32fxxx/UniqueDeviceId.hpp"
 #include "infra/stream/StringInputStream.hpp"
@@ -480,13 +480,10 @@ int main()
     static hal::GpioPinStm lcdDataCommandPin{ hal::Port::D, 13 };
     static hal::GpioPinStm gyroscopeChipSelectPin{ hal::Port::C, 1 };
 
-    static hal::SpiMasterStm::Config spiConfig = []
-    {
-        hal::SpiMasterStm::Config config;
-        config.baudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
-        return config;
-    }();
-    static hal::SpiMasterStm spi{ 5, spiClockPin, spiMisoPin, spiMosiPin, spiConfig };
+    // SpiMasterStm ends the session before it delivers onDone, so SpiMultipleAccess would start the next client's transfer first and the late onDone would complete that one; the DMA master delivers onDone straight after ending the session
+    static hal::DmaStm::TransmitStream spiTransmitStream{ dma, hal::DmaChannelId{ 2, 4, 2 } };
+    static hal::DmaStm::ReceiveStream spiReceiveStream{ dma, hal::DmaChannelId{ 2, 3, 2 } };
+    static hal::SpiMasterStmDma spi{ spiTransmitStream, spiReceiveStream, 5, spiClockPin, spiMisoPin, spiMosiPin };
     static services::SpiMultipleAccessMaster spiMaster{ spi };
     static services::SpiMultipleAccess lcdSpi{ spiMaster };
     static services::SpiMultipleAccess gyroscopeSpi{ spiMaster };
