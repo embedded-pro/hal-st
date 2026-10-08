@@ -22,10 +22,15 @@ target_sources(hal_st.stm32fxxx PRIVATE
     AnalogToDigitalPinStm.hpp
     AdcTimerTriggeredBase.cpp
     AdcTimerTriggeredBase.hpp
+    AudioClockSwitchStm.cpp
+    AudioClockSwitchStm.hpp
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.hpp>
     BackupRamStm.cpp
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    DataCacheStm.hpp
     DcmiStm.cpp
     DcmiStm.hpp
     $<$<STREQUAL:${TARGET_MCU},stm32f407>:DefaultClockDiscoveryF407G.cpp>
@@ -81,6 +86,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     GpioStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.hpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sInputStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sInputStm.hpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sOutputStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sOutputStm.hpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sPeripheralStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sPeripheralStm.hpp>
     PkaStm.cpp
     PkaStm.hpp
     QuadSpiStm.cpp
@@ -101,6 +112,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     NorFlashStm.hpp
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
+    SaiInputStm.cpp
+    SaiInputStm.hpp
+    SaiOutputStm.cpp
+    SaiOutputStm.hpp
+    SaiStm.cpp
+    SaiStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
@@ -137,7 +154,6 @@ if (TARGET_MCU_FAMILY STREQUAL stm32h7xx)
     set_source_files_properties(
         AnalogToDigitalPinStm.cpp
         BackupRamStm.cpp
-        DmaStm.cpp
         FlashInternalStm.cpp
         I2cStm.cpp
         LowPowerModeStm.cpp
@@ -193,7 +209,11 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F429Z(E-G-I)Tx.xml")
     elseif (TARGET_MCU STREQUAL stm32f746)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32F746_gpio_v1_0_Modes.xml")
-        set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746Z(E-G)Tx.xml")
+        if (TARGET_MCU_VARIANT STREQUAL stm32f746ng)
+            set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746NGHx.xml")
+        else()
+            set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F746Z(E-G)Tx.xml")
+        endif()
     elseif (TARGET_MCU STREQUAL stm32f767)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32F76x_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32F767Z(G-I)Tx.xml")
@@ -220,9 +240,9 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBA52x_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA52CGUx.xml")
     elseif (TARGET_MCU STREQUAL stm32wba55)
-        # WBA55CG shares the WBA52CG die, package and alternate function map.
-        set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBA52x_gpio_v1_0_Modes.xml")
-        set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA52CGUx.xml")
+        # The WBA52 pin data has no SAI1 block A/B signals; the WBA55 one does.
+        set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBAx_gpio_v1_0_Modes.xml")
+        set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA55CGUx.xml")
     elseif (TARGET_MCU STREQUAL stm32wba65)
         set(gpio_xml "${CMAKE_CURRENT_SOURCE_DIR}/ip/GPIO-STM32WBA6_gpio_v1_0_Modes.xml")
         set(mcu_xml "${CMAKE_CURRENT_SOURCE_DIR}/mcu/STM32WBA65RIVx.xml")

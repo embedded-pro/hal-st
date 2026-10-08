@@ -104,6 +104,7 @@ jobs:
             "stm32f407",
             "stm32f429",
             "stm32f746",
+            "stm32f746g-disco",
             "stm32f767",
             "stm32h563",
             "stm32h573",

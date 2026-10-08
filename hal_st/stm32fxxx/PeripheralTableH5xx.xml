@@ -9,6 +9,10 @@
     <item name="SPI"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Sai" type="SAI_TypeDef*">
+    <item name="SAI"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="I2c" type="I2C_TypeDef*">
     <item name="I2C"/>
     <interrupt name="Ev" postfix="_EV"/>

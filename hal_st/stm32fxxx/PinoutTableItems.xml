@@ -43,6 +43,18 @@
     <pin name="MClock" speed="High"><input name="SAI:_MCLK_A"/><input name="SAI:_MCLK_B"/></pin>
     <pin name="Sd" speed="High"><input name="SAI:_SD_A"/><input name="SAI:_SD_B"/></pin>
     <pin name="Fs" speed="High"><input name="SAI:_FS_A"/><input name="SAI:_FS_B"/></pin>
+    <pin name="Ck1" speed="High"><input name="SAI:_CK1"/></pin>
+    <pin name="Ck2" speed="High"><input name="SAI:_CK2"/></pin>
+    <pin name="D1" speed="High"><input name="SAI:_D1"/></pin>
+    <pin name="D2" speed="High"><input name="SAI:_D2"/></pin>
+    <pin name="D3" speed="High"><input name="SAI:_D3"/></pin>
+  </peripheral>
+  <peripheral name="I2s">
+    <pin name="Ck" speed="High"><input name="I2S:_CK"/></pin>
+    <pin name="Ws" speed="High"><input name="I2S:_WS"/></pin>
+    <pin name="MClock" speed="High"><input name="I2S:_MCK"/></pin>
+    <!-- H5 and H7 split the data line into SDI and SDO; one type serves both directions -->
+    <pin name="Sd" speed="High"><input name="I2S:_SD"/><input name="I2S:_SDI"/><input name="I2S:_SDO"/></pin>
   </peripheral>
   <peripheral name="Sd">
     <pin name="Clk" speed="High"><input name="SDMMC:_CK"/></pin>
