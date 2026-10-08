@@ -22,10 +22,13 @@ target_sources(hal_st.stm32fxxx PRIVATE
     AnalogToDigitalPinStm.hpp
     AdcTimerTriggeredBase.cpp
     AdcTimerTriggeredBase.hpp
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.cpp>
+    $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:AudioDmaStm.hpp>
     BackupRamStm.cpp
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    DataCacheStm.hpp
     DcmiStm.cpp
     DcmiStm.hpp
     $<$<STREQUAL:${TARGET_MCU},stm32f407>:DefaultClockDiscoveryF407G.cpp>
@@ -101,6 +104,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     NorFlashStm.hpp
     RandomDataGeneratorStm.cpp
     RandomDataGeneratorStm.hpp
+    SaiInputStm.cpp
+    SaiInputStm.hpp
+    SaiOutputStm.cpp
+    SaiOutputStm.hpp
+    SaiStm.cpp
+    SaiStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
