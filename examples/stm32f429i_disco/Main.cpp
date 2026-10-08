@@ -286,7 +286,7 @@ namespace
                     busy = false;
 
                     const int32_t tenths = TemperatureInTenthsOfDegrees(samples.front());
-                    services::GlobalTracer().Trace() << "die temperature " << tenths / 10 << "." << std::abs(tenths % 10) << " C";
+                    services::GlobalTracer().Trace() << "die temperature " << tenths / 10 << "." << std::abs(tenths % 10) << " C (raw " << static_cast<uint32_t>(samples.front()) << ", calibration " << static_cast<uint32_t>(*TEMPSENSOR_CAL1_ADDR) << " at 30 C and " << static_cast<uint32_t>(*TEMPSENSOR_CAL2_ADDR) << " at 110 C)";
                 });
         }
 
@@ -400,8 +400,8 @@ int main()
     static hal::DmaStm::TransmitStream uartTransmitStream{ dma, hal::DmaChannelId{ 2, 7, 4 } };
     static hal::UartStmDma uart{ uartTransmitStream, 1, uartTxPin, uartRxPin };
 
-    // The boot report is written before the event dispatcher runs, so the buffer must hold all of it
-    static services::StreamWriterOnSerialCommunication::WithStorage<1024> streamWriter{ uart };
+    // The boot report is written before the event dispatcher runs and the help table in one go, and the writer drops what does not fit, so the buffer must hold either
+    static services::StreamWriterOnSerialCommunication::WithStorage<2048> streamWriter{ uart };
     static infra::TextOutputStream::WithErrorPolicy textOutputStream{ streamWriter };
     static services::TracerWithDateTime tracer{ textOutputStream };
     services::SetGlobalTracerInstance(tracer);

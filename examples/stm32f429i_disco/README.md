@@ -29,7 +29,7 @@ SPI5 uses the DMA master (DMA2 streams 3 and 4): `hal::SpiMasterStm` ends the se
 
 The gyroscope is an I3G4250D on MB1075 revision E and later and an L3GD20 before that. Both use the register map of `drivers::L3gd20Core` and differ only in WHO_AM_I, so the example tries 0xD3 and then 0xD4 and traces the one that answers.
 
-The temperature uses the factory calibration values (30 °C and 110 °C), which ST takes at a VDDA of 3.3 V; another supply voltage shifts the reading.
+The temperature uses the factory calibration values (30 °C and 110 °C), which ST takes at a VDDA of 3.3 V; another supply voltage shifts the reading, for example about 30 °C too high at 3.0 V. The reply prints the raw count and both calibration counts so the reading can be checked.
 
 ## Terminal
 
@@ -46,7 +46,7 @@ The ST-LINK/V2-B of the STM32F429I-DISC1 routes its virtual COM port to USART1, 
 | `loopback`     | `loop` | Sweep the DAC over five levels and read each back on PC3 |
 | `sdram`        | `sd`   | Repeat the SDRAM test                                    |
 
-Touch events and the boot report are printed as they happen. The boot report is written before the event dispatcher starts, and the 1 KB transmit buffer holds all of it.
+Touch events and the boot report are printed as they happen. The boot report is written before the event dispatcher starts, and the 2 KB transmit buffer holds all of it and the `help` table.
 
 The boot counter lives in the RTC backup registers, so it survives a reset but not a power cycle.
 
