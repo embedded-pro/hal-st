@@ -125,6 +125,15 @@
       }
     },
     {
+      "name": "stm32f746g-disco",
+      "displayName": "stm32f746g-disco",
+      "description": "Build for the STM32F746G-DISCO (STM32F746NG, TFBGA216)",
+      "inherits": "stm32f746",
+      "cacheVariables": {
+        "TARGET_MCU_VARIANT": "stm32f746ng"
+      }
+    },
+    {
       "name": "stm32f767",
       "displayName": "stm32f767",
       "description": "Build for stm32f767",
@@ -298,6 +307,11 @@
       "name": "stm32f746-RelWithDebInfo",
       "configuration": "RelWithDebInfo",
       "configurePreset": "stm32f746"
+    },
+    {
+      "name": "stm32f746g-disco-RelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "configurePreset": "stm32f746g-disco"
     },
     {
       "name": "stm32f767-RelWithDebInfo",

@@ -20,7 +20,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
 - `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `display_demo` (shared, interface-only), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`), `stm32h757i_eval`
+- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `display_demo` (shared, interface-only), `audio_demo` (shared tone generator), `stm32f746g_disco` (SAI2 + WM8994), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`), `stm32h757i_eval`
 
 ## Memory — no heap
 
@@ -61,6 +61,16 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - It registers the HAL frame and error callbacks, so `USE_HAL_DCMI_REGISTER_CALLBACKS` is `1U` in the F4, F7, H5 and H7 `hal_conf` headers (keep on re-import).
 - Frame buffers are caller-owned: 4-byte aligned, a whole number of words, at most 262140 bytes per DMA pass (65535 on H5) unless the frame divides evenly into a power-of-two number of passes, and not in TCM. A JPEG frame is snapshot-only and must fit in one pass. On F7/H7 with the D-cache enabled they must be 32-byte aligned and sized; the driver cleans and invalidates the cache around a capture.
 
+## Audio (`SaiOutputStm`, `SaiInputStm`, `I2sOutputStm`, `I2sInputStm`)
+
+- They implement EMIL `hal::AudioOutput` / `hal::AudioInput` (EMIL `docs/ExecutionModel.md`, "Streaming audio"), one class per direction. SAI: `SaiStm` owns the instance (clock, reset) and each block (`Config::block`, A or B) is one object; a block that is `synchronousToOtherBlock` must be a slave and is started before the block that provides its clocks. I2S: one object per SPI instance, half duplex. SAI exists on F429, F746/F767, G4, WB55, WBA55/65, H5 and H7 (SAI1–3; SAI4 sits behind BDMA); I2S on F4, F7, G4, H5 and H7. G070 I2S is not supported because `DmaStm` cannot drive its shared DMA vectors
+- The format arrives in `Start()`, so `HAL_SAI_InitProtocol` / `HAL_I2S_Init` run there and `HAL_*_DeInit` in `Stop()`; the constructor only claims clock, pins and the DMA stream. The data is 16-bit I2S (Philips), master or slave. Mono: SAI uses its mono mode, I2S duplicates a mono output into both slots and keeps the left slot of a mono input, in place
+- `AudioDmaOutputStm` / `AudioDmaInputStm` cycle a caller-owned buffer (`WithBuffer<N>`, 32-byte aligned) with a `DmaStm` circular channel. The buffer is two periods and a period is a half: an even size, whole frames, at most 65535 bytes, not in TCM, and a multiple of 64 bytes where the D-cache is on (they clean and invalidate around each period). The DMA interrupt only records the completed half and schedules one event, so half and full-transfer events never coalesce; the callback runs on the event dispatcher, and a dispatcher more than a period late gets `onUnderrun` / `onOverrun` while the stream goes on. The first two periods of an output are silence. `SetVolume` / `SetMuted` are software (linear gain on the filled period)
+- The application owns the kernel clock. The driver derives the rate the HAL's divider really gives (`ActualSampleRate()`) and asserts when it is more than `maxRateErrorPermille` (default 10) off the request, so G4 and WBA, which have no audio PLL, only reach rates their system PLL divides to. `AudioClockSwitchStm` applies one of two application-supplied `RCC_PeriphCLKInitTypeDef` (the 48 kHz or the 44.1 kHz family) when a master stream starts: pass it in `Config::audioClock` and do not start a stream of the other family while one runs
+- PDM: `Config::mode = pdm` on an input captures one microphone. The format is EMIL's raw one (rate = clock / 16, one channel), a frame of two 16-bit slots is read as two consecutive words, and `pdmSampleEdge` selects the clock edge the microphone drives its data on. The SAI PDM interface for several microphones is not used; its pin types (`saiCk1`, `saiCk2`, `saiD1`–`saiD3`) exist
+- Examples: `examples/audio_demo` (a tone generator on `hal::AudioOutput`) and `examples/stm32f746g_disco` (SAI2 block A into EMIL `drivers::Wm8994` over I2C3). The board has the TFBGA216 part, whose pin data is `mcu/STM32F746NGHx.xml`, so the example is only built by the `stm32f746g-disco` preset (`TARGET_MCU_VARIANT=stm32f746ng`); its DMA stream and PLLI2S numbers are the ones of ST's board support package. H757I-EVAL has no audio example because `I2cStm` is not ported to H7
+- Nothing here has run on hardware and `validation/` does not cover it
+
 ## Style
 
 - Allman braces, 4-space indent, `.clang-format` authoritative
@@ -89,7 +99,7 @@ cmake --preset host && cmake --build --preset host-Debug   # host tooling/build 
 cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
 ```
 
-Other target presets: `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h757-cm7`, `stm32h757-cm4`.
+Other target presets: `stm32f746g-disco` (STM32F746G-DISCO, TFBGA216 pin data), `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h757-cm7`, `stm32h757-cm4`.
 
 Validation firmware (stm32wb55, stm32wba55): `cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware`.
 
