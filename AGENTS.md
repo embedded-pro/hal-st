@@ -7,6 +7,9 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 ## Architecture
 
 - `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, parallel memories on FSMC/FMC — `FmcStm` controller with `SramStm`, `NorFlashStm`, `SdRamStm` banks, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
+- Display: `LtdcStm` (`hal::DisplayController`), `Dma2dStm` (`hal::Blitter`) and `DsiHostStm` (`hal::DsiHost` + `hal::DsiVideoStream`) implement interfaces hosted in embedded-infra-lib (`hal/interfaces`). LTDC and DMA2D exist on F429, F746/F767 and H757, the DSI host on H757 only; the files compile to nothing elsewhere
+- Display pins and memory: LTDC pins are one `PinConfigTypeStm::ltdc*` per signal because some pins carry two LTDC signals on different alternate functions. Frame buffers must be reachable by the LTDC and DMA2D (not DTCM/CCM); nothing here does cache maintenance
+- Display panels: controller set-up (ILI9341, OTM8009A command tables) lives in EMIL `drivers/display` and `boards` (`Stm32f429iDiscoLcdSetup`, `Mb1166Setup`); the examples only wire it to the drivers
 - `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (`SynchronousUart`, `SynchronousSpiMaster`, …)
 - `hal_st/instantiations/` — Board event infrastructure (`StmEventInfrastructure`, `NucleoUi`, `DiscoveryUi`)
 - `hal_st/bringup/` — Startup glue (`Default_Handler_Forwarded`, HAL tick/assert hooks); the Cortex-M core code (`InterruptCortex`, `SystemTick`, …) comes from EMIL `hal.cortex_m`
@@ -16,7 +19,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
 - `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `stm32h757i_eval`
+- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `display_demo` (shared, interface-only), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`), `stm32h757i_eval`
 
 ## Memory — no heap
 
@@ -45,7 +48,9 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
 - Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported.
 - MB1246 (EVAL) board support lives in `examples/stm32h757i_eval/` (active-low LEDs via `InvertedGpioPin`, `DefaultClockEvalH757I`, USART1 tracer). `stm32h757-cm7` builds `examples_st.stm32h757i_eval_cm7` (green LED + trace), `stm32h757-cm4` builds `examples_st.stm32h757i_eval_cm4` (orange LED).
+- The CM7 image of `examples/stm32h757i_eval/` also runs the display demo on the 800 x 480 DSI panel (OTM8009A set up by EMIL's `boards.mb1166`, frame buffers in AXI SRAM, pixel clock from PLL3 via `ConfigureLtdcClockEvalH757I`)
 - Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) and the `.cpu cortex-m4` copy `startup_stm32h757xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, USART/COMP aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
+- Local vendor patches to keep on re-import (display): `USE_HAL_LTDC_REGISTER_CALLBACKS` and `USE_HAL_DMA2D_REGISTER_CALLBACKS` set to `1U` in `hal_conf/stm32{f4,f7,h7}xx_hal_conf.h`, because `LtdcStm` and `Dma2dStm` register their callbacks
 
 ## DCMI camera capture (`DcmiStm`)
 
@@ -65,7 +70,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 
 ## Interfaces & errors
 
-- Interfaces = pure virtual; `virtual ~I() = default` — **never** `= 0` destructors
+- Interfaces = pure virtual; `virtual ~I() = default` — **never** `= 0` destructors. Interfaces hosted in embedded-infra-lib follow that repo's style instead (protected non-virtual destructor)
 - No exceptions. `std::optional<T>` or status enums. `really_assert()` for preconditions
 - No global mutable state — all state lives in driver class members
 

@@ -165,15 +165,90 @@
       <input name="FSMC_NWAIT"/>
     </pin>
   </peripheral>
-  <peripheral name="Lcd">
-    <pin name="" speed="High">
-      <input name="LTDC_HSYNC"/>   <input name="LTDC_VSYNC"/>   <input name="LTDC_DE"/>      <input name="LTDC_CLK"/>
-      <input name="LTDC_R0"/>      <input name="LTDC_R1"/>      <input name="LTDC_R2"/>      <input name="LTDC_R3"/>
-      <input name="LTDC_R4"/>      <input name="LTDC_R5"/>      <input name="LTDC_R6"/>      <input name="LTDC_R7"/>
-      <input name="LTDC_G0"/>      <input name="LTDC_G1"/>      <input name="LTDC_G2"/>      <input name="LTDC_G3"/>
-      <input name="LTDC_G4"/>      <input name="LTDC_G5"/>      <input name="LTDC_G6"/>      <input name="LTDC_G7"/>
-      <input name="LTDC_B0"/>      <input name="LTDC_B1"/>      <input name="LTDC_B2"/>      <input name="LTDC_B3"/>
-      <input name="LTDC_B4"/>      <input name="LTDC_B5"/>      <input name="LTDC_B6"/>      <input name="LTDC_B7"/>
+  <peripheral name="Ltdc">
+    <pin name="Clk" speed="High">
+      <input name="LTDC_CLK"/>
+    </pin>
+    <pin name="Hsync" speed="High">
+      <input name="LTDC_HSYNC"/>
+    </pin>
+    <pin name="Vsync" speed="High">
+      <input name="LTDC_VSYNC"/>
+    </pin>
+    <pin name="De" speed="High">
+      <input name="LTDC_DE"/>
+    </pin>
+    <pin name="R0" speed="High">
+      <input name="LTDC_R0"/>
+    </pin>
+    <pin name="R1" speed="High">
+      <input name="LTDC_R1"/>
+    </pin>
+    <pin name="R2" speed="High">
+      <input name="LTDC_R2"/>
+    </pin>
+    <pin name="R3" speed="High">
+      <input name="LTDC_R3"/>
+    </pin>
+    <pin name="R4" speed="High">
+      <input name="LTDC_R4"/>
+    </pin>
+    <pin name="R5" speed="High">
+      <input name="LTDC_R5"/>
+    </pin>
+    <pin name="R6" speed="High">
+      <input name="LTDC_R6"/>
+    </pin>
+    <pin name="R7" speed="High">
+      <input name="LTDC_R7"/>
+    </pin>
+    <pin name="G0" speed="High">
+      <input name="LTDC_G0"/>
+    </pin>
+    <pin name="G1" speed="High">
+      <input name="LTDC_G1"/>
+    </pin>
+    <pin name="G2" speed="High">
+      <input name="LTDC_G2"/>
+    </pin>
+    <pin name="G3" speed="High">
+      <input name="LTDC_G3"/>
+    </pin>
+    <pin name="G4" speed="High">
+      <input name="LTDC_G4"/>
+    </pin>
+    <pin name="G5" speed="High">
+      <input name="LTDC_G5"/>
+    </pin>
+    <pin name="G6" speed="High">
+      <input name="LTDC_G6"/>
+    </pin>
+    <pin name="G7" speed="High">
+      <input name="LTDC_G7"/>
+    </pin>
+    <pin name="B0" speed="High">
+      <input name="LTDC_B0"/>
+    </pin>
+    <pin name="B1" speed="High">
+      <input name="LTDC_B1"/>
+    </pin>
+    <pin name="B2" speed="High">
+      <input name="LTDC_B2"/>
+    </pin>
+    <pin name="B3" speed="High">
+      <input name="LTDC_B3"/>
+    </pin>
+    <pin name="B4" speed="High">
+      <input name="LTDC_B4"/>
+    </pin>
+    <pin name="B5" speed="High">
+      <input name="LTDC_B5"/>
+    </pin>
+    <pin name="B6" speed="High">
+      <input name="LTDC_B6"/>
+    </pin>
+    <pin name="B7" speed="High">
+      <input name="LTDC_B7"/>
     </pin>
   </peripheral>
   <peripheral name="Dcmi">

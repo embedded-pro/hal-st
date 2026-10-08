@@ -54,3 +54,19 @@ void ConfigureDefaultClockEvalH757I()
     RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
     HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4);
 }
+
+void ConfigureLtdcClockEvalH757I()
+{
+    RCC_PeriphCLKInitTypeDef peripheralClock = {};
+
+    peripheralClock.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    peripheralClock.PLL3.PLL3M = 5;
+    peripheralClock.PLL3.PLL3N = 132;
+    peripheralClock.PLL3.PLL3P = 2;
+    peripheralClock.PLL3.PLL3Q = 2;
+    peripheralClock.PLL3.PLL3R = 24;
+    peripheralClock.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
+    peripheralClock.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
+    peripheralClock.PLL3.PLL3FRACN = 0;
+    HAL_RCCEx_PeriphCLKConfig(&peripheralClock);
+}
