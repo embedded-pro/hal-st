@@ -97,7 +97,8 @@
       "cacheVariables": {
         "TARGET_CORTEX": "m4",
         "TARGET_MCU_FAMILY": "stm32f4xx",
-        "TARGET_MCU": "stm32f407"
+        "TARGET_MCU": "stm32f407",
+        "EMIL_INCLUDE_SEGGER_RTT": true
       }
     },
     {
