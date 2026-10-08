@@ -51,7 +51,11 @@ The boot counter lives in the RTC backup registers, so it survives a reset but n
 
 ## DAC to ADC loopback
 
-The F4 cannot route the DAC to an ADC inside the chip, and hal-st claims a pin only once, so PA5 and PC3 are separate pins joined by a jumper wire. With the wire fitted, `dac 2048` should read back close to 2048 and `loopback` prints one line per level. The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584 and avoids 0 and 4095. The difference printed is the ADC reading minus the DAC code; a large one means the wire is missing or PC3 is loaded by something on the board.
+The F4 cannot route the DAC to an ADC inside the chip, and hal-st claims a pin only once, so PA5 and PC3 are separate pins joined by a jumper wire.
+With the wire fitted, `dac 2048` should read back close to 2048 and `loopback` prints one line per level.
+
+The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584 and avoids 0 and 4095.
+The difference printed is the ADC reading minus the DAC code; a large one means the wire is missing or PC3 is loaded by something on the board.
 
 ## Not included
 
