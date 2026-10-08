@@ -13,15 +13,15 @@ The `stm32f407` preset sets `EMIL_INCLUDE_SEGGER_RTT`; without it the example is
 
 ## What it does
 
-| Part | Pins | Driver | Behaviour |
-|---|---|---|---|
-| LEDs | PD12 green, PD13 orange, PD14 red, PD15 blue (TIM4 CH1-4) | `hal::PwmStm` | brightness follows the tilt: +Y green, -X orange, -Y red, +X blue |
-| LIS3DSH accelerometer | SPI1 PA5/PA6/PA7, CS PE3 | `hal::SpiMasterStmDma` + EMIL `drivers::Lis3dshCore` | polled at 100 Hz; INT1/INT2 are unused |
-| User button | PA0 | EMIL `services::DebouncedButton` | starts and stops the tone |
-| CS43L22 DAC | I2C1 PB6/PB9, I2S3 PC10/PC12/PA4, MCLK PC7, reset PD4 | `hal::I2cStm`, `hal::I2sOutputStm`, EMIL `drivers::Cs43l22` | 440 Hz tone on the headphone jack |
-| MP45DT02 microphone | I2S2 PB10 (clock), PC3 (data) | `hal::I2sInputStm` (PDM), EMIL `drivers::Mp45dt02`, `PdmDecimator` | RMS and peak level every 500 ms |
-| ADC | internal | `hal::AnalogToDigitalInternalTemperatureStm` | die temperature every 2 s |
-| RNG, unique ID, backup registers | | `hal::RandomDataGeneratorStm`, `hal::UniqueDeviceId`, `hal::BackupRamStm` | boot report with a boot counter |
+| Part                             | Pins                                                      | Driver                                                                    | Behaviour                                                         |
+|----------------------------------|-----------------------------------------------------------|---------------------------------------------------------------------------|-------------------------------------------------------------------|
+| LEDs                             | PD12 green, PD13 orange, PD14 red, PD15 blue (TIM4 CH1-4) | `hal::PwmStm`                                                             | brightness follows the tilt: +Y green, -X orange, -Y red, +X blue |
+| LIS3DSH accelerometer            | SPI1 PA5/PA6/PA7, CS PE3                                  | `hal::SpiMasterStmDma` + EMIL `drivers::Lis3dshCore`                      | polled at 100 Hz; INT1/INT2 are unused                            |
+| User button                      | PA0                                                       | EMIL `services::DebouncedButton`                                          | starts and stops the tone                                         |
+| CS43L22 DAC                      | I2C1 PB6/PB9, I2S3 PC10/PC12/PA4, MCLK PC7, reset PD4     | `hal::I2cStm`, `hal::I2sOutputStm`, EMIL `drivers::Cs43l22`               | 440 Hz tone on the headphone jack                                 |
+| MP45DT02 microphone              | I2S2 PB10 (clock), PC3 (data)                             | `hal::I2sInputStm` (PDM), EMIL `drivers::Mp45dt02`, `PdmDecimator`        | RMS and peak level every 500 ms                                   |
+| ADC                              | internal                                                  | `hal::AnalogToDigitalInternalTemperatureStm`                              | die temperature every 2 s                                         |
+| RNG, unique ID, backup registers |                                                           | `hal::RandomDataGeneratorStm`, `hal::UniqueDeviceId`, `hal::BackupRamStm` | boot report with a boot counter                                   |
 
 `PdmDecimator` is the `drivers::PdmToPcm` for the microphone: a fourth-order CIC filter (64:1, 1.024 MHz to 16 kHz), a three-tap compensation filter and a DC blocker.
 

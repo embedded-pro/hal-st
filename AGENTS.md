@@ -20,7 +20,7 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `services/st_util/` — ST bootloader communicator services
 - `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
 - `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `display_demo` (shared, interface-only), `audio_demo` (shared tone generator), `stm32f746g_disco` (SAI2 + WM8994), `stm32f407g_disco` (STM32F4DISCOVERY: LIS3DSH, CS43L22, MP45DT02, PWM LEDs, SEGGER RTT trace), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`), `stm32h757i_eval`
+- `examples/` — `blink`, `helloworld`, `sesame`, `freertos`, `ble_peripheral`, `ble_central`, `display_demo` (shared, interface-only), `audio_demo` (shared tone generator), `stm32f746g_disco` (SAI2 + WM8994), `stm32f407g_disco` (LIS3DSH, CS43L22, MP45DT02, RTT), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`), `stm32h757i_eval`
 
 ## Memory — no heap
 
