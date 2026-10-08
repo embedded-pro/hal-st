@@ -69,12 +69,12 @@ The board or the libraries do not allow these:
 
 ## Checked on hardware
 
-Run on an STM32F429I-DISC1 with an L3GD20 (WHO_AM_I 0xD4) through the ST-LINK virtual COM port: the boot report prints in full (SDRAM test 0 errors, STMPE811 and gyroscope found), every terminal command replies and LD3 toggles.
+Run on an STM32F429I-DISC1 with an L3GD20 (WHO_AM_I 0xD4) through the ST-LINK virtual COM port: the boot report prints in full (SDRAM test 0 errors, STMPE811 and gyroscope found), every terminal command replies, `help` prints the whole table and LD3 toggles.
 
 ## Not verified on hardware
 
 - The LCD pattern and the touch events: nobody has looked at the panel or touched it yet.
 - The DAC to ADC loopback: `adc`, `dac` and `loopback` read nonsense until the PA5 to PC3 wire is fitted.
-- The temperature: the first reading was 86.6 °C at room temperature. The reply now prints the raw and calibration counts; a VDDA below 3.3 V is the likely cause.
+- The temperature: it reads 87.5 °C (raw 1115, calibration 918 at 30 °C and 1192 at 110 °C) on a board at room temperature. The conversion matches the printed counts and the sample time is 480 cycles, so the suspects are a VDDA below 3.3 V, which the calibration assumes, and a die warmed by the LCD, SDRAM and DMA traffic. Measure VDDA with a multimeter.
 - Pin assignments not checked against the MB1075 schematic: PC1 (gyroscope chip select), PA15 (touch interrupt, also used by Zephyr's board file), PA5 (assumed free for the DAC) and PC3 (assumed free for the ADC).
 - The touch coordinates are the raw controller values; their orientation and range are not calibrated to the 240 x 320 panel.
