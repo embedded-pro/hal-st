@@ -58,6 +58,7 @@ namespace hal
 
         periodState = 0;
         monoOnStereoBus = channels != slots;
+        ++runId;
         armed = true;
     }
 
@@ -75,6 +76,17 @@ namespace hal
     bool AudioDmaStm::MonoOnStereoBus() const
     {
         return monoOnStereoBus;
+    }
+
+    // The other half having completed means the DMA is already back in the half that was just delivered
+    bool AudioDmaStm::PeriodElapsed() const
+    {
+        return periodState.load(std::memory_order_acquire) != 0;
+    }
+
+    uint32_t AudioDmaStm::RunId() const
+    {
+        return runId;
     }
 
     void AudioDmaStm::PeriodComplete(uint8_t half)
@@ -164,6 +176,7 @@ namespace hal
         if (!delivery)
             return;
 
+        const uint32_t run = RunId();
         std::fill(delivery->period.begin(), delivery->period.end(), 0);
 
         const Samples toFill = MonoOnStereoBus() ? Samples(delivery->period.begin(), delivery->period.begin() + delivery->period.size() / 2) : delivery->period;
@@ -171,7 +184,7 @@ namespace hal
         auto samplesRequired = onSamplesRequired;
         samplesRequired(toFill);
 
-        if (!Armed())
+        if (!Armed() || RunId() != run)
             return;
 
         ApplyLevel(toFill);
@@ -181,7 +194,7 @@ namespace hal
 
         CleanDataCache(delivery->period.begin(), Bytes(delivery->period));
 
-        if (delivery->lost)
+        if (delivery->lost || PeriodElapsed())
         {
             auto underrun = onUnderrun;
             underrun();
@@ -248,20 +261,27 @@ namespace hal
         if (!delivery)
             return;
 
+        const uint32_t run = RunId();
+        const bool mono = MonoOnStereoBus();
+
         InvalidateDataCache(delivery->period.begin(), Bytes(delivery->period));
 
-        if (MonoOnStereoBus())
+        if (mono)
             KeepFirstSlot(delivery->period);
 
-        const Samples received = MonoOnStereoBus() ? Samples(delivery->period.begin(), delivery->period.begin() + delivery->period.size() / 2) : Samples(delivery->period);
+        const Samples received = mono ? Samples(delivery->period.begin(), delivery->period.begin() + delivery->period.size() / 2) : Samples(delivery->period);
 
         auto samples = onSamples;
         samples(received);
 
-        if (!Armed())
+        // The converted samples would be written back over what the DMA stores here next, so they are dropped from the cache
+        if (mono)
+            InvalidateDataCache(delivery->period.begin(), Bytes(delivery->period));
+
+        if (!Armed() || RunId() != run)
             return;
 
-        if (delivery->lost)
+        if (delivery->lost || PeriodElapsed())
         {
             auto overrun = onOverrun;
             overrun();

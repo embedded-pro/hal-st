@@ -22,6 +22,34 @@ namespace hal
         constexpr uint32_t dividerFactor = 2;
 #endif
 
+        constexpr uint32_t maxMasterClockDivider = SAI_xCR1_MCKDIV >> SAI_xCR1_MCKDIV_Pos;
+
+        uint64_t TotalDivision(uint32_t masterClockDivider)
+        {
+            return masterClockDivider == 0 ? 1 : static_cast<uint64_t>(masterClockDivider) * dividerFactor;
+        }
+
+        // The HAL only accepts the standard rates when it derives the divider itself, so the divider that gives the rate closest to the requested one is chosen here
+        uint32_t MasterClockDivider(uint64_t kernelClock, uint32_t frameRate)
+        {
+            const uint64_t target = static_cast<uint64_t>(frameRate) * masterClockRatio;
+            const uint32_t lower = static_cast<uint32_t>(std::min<uint64_t>(kernelClock / (target * dividerFactor), maxMasterClockDivider + 1));
+            const uint32_t upper = lower + 1;
+
+            const auto scaledError = [&](uint32_t divider)
+            {
+                const uint64_t division = TotalDivision(divider);
+                const uint64_t rate = division * target;
+                return (rate > kernelClock ? rate - kernelClock : kernelClock - rate);
+            };
+
+            // Relative error of a candidate is scaledError / division, compared without dividing
+            const uint32_t best = scaledError(upper) * TotalDivision(lower) < scaledError(lower) * TotalDivision(upper) ? upper : lower;
+            really_assert(best <= maxMasterClockDivider);
+
+            return best;
+        }
+
         const std::array blockA{
             SAI1_Block_A,
 #if defined(SAI2)
@@ -128,7 +156,7 @@ namespace hal
         handle.Init.OutputDrive = SAI_OUTPUTDRIVE_ENABLE;
         handle.Init.NoDivider = SAI_MASTERDIVIDER_ENABLE;
         handle.Init.FIFOThreshold = SAI_FIFOTHRESHOLD_1QF;
-        handle.Init.AudioFrequency = master ? frameRate : SAI_AUDIO_FREQUENCY_MCKDIV;
+        handle.Init.AudioFrequency = SAI_AUDIO_FREQUENCY_MCKDIV;
         handle.Init.MonoStereoMode = format.channels == 1 && !Pdm() ? SAI_MONOMODE : SAI_STEREOMODE;
         handle.Init.CompandingMode = SAI_NOCOMPANDING;
         handle.Init.TriState = SAI_OUTPUT_NOTRELEASED;
@@ -138,6 +166,14 @@ namespace hal
 #elif defined(SAI_CLKSOURCE_PLLSAI)
         handle.Init.ClockSource = config.kernelClock == Config::KernelClock::pllSai ? SAI_CLKSOURCE_PLLSAI : SAI_CLKSOURCE_PLLI2S;
 #endif
+
+        uint64_t kernelClock = 0;
+
+        if (master)
+        {
+            kernelClock = KernelClockFrequency();
+            handle.Init.Mckdiv = MasterClockDivider(kernelClock, frameRate);
+        }
 
         const HAL_StatusTypeDef status = HAL_SAI_InitProtocol(&handle, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_16BIT, 2);
         really_assert(status == HAL_OK);
@@ -151,9 +187,7 @@ namespace hal
             return;
         }
 
-        // The HAL stores the divider it derived from the requested rate; the rate it really gives follows from that
-        const uint64_t divider = handle.Init.Mckdiv == 0 ? 1 : handle.Init.Mckdiv * dividerFactor;
-        const uint32_t actualFrameRate = static_cast<uint32_t>(KernelClockFrequency() / (masterClockRatio * divider));
+        const uint32_t actualFrameRate = static_cast<uint32_t>(kernelClock / (masterClockRatio * TotalDivision(handle.Init.Mckdiv)));
         actualSampleRate = Pdm() ? actualFrameRate * 2 : actualFrameRate;
 
         const uint64_t error = actualFrameRate > frameRate ? actualFrameRate - frameRate : frameRate - actualFrameRate;
@@ -182,6 +216,13 @@ namespace hal
 
     void SaiBlockStm::StopPeripheral()
     {
+        // A block that follows the clocks of the other one cannot finish its frame once they are gone
+        if (config.synchronization == Config::Synchronization::asynchronous)
+        {
+            const uint32_t other = OtherBlock()->CR1;
+            really_assert(!((other & SAI_xCR1_SAIEN) != 0 && (other & SAI_xCR1_SYNCEN) == SAI_xCR1_SYNCEN_0));
+        }
+
         handle.Instance->CR1 &= ~SAI_xCR1_DMAEN;
         HAL_SAI_DeInit(&handle);
     }

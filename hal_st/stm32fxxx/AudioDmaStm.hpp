@@ -36,6 +36,8 @@ namespace hal
         void PeriodComplete(uint8_t half);
         std::optional<Delivery> TakeDelivery();
         bool MonoOnStereoBus() const;
+        bool PeriodElapsed() const;
+        uint32_t RunId() const;
 
     public:
         bool Armed() const;
@@ -49,6 +51,7 @@ namespace hal
         std::atomic<bool> deliveryScheduled{ false };
         bool armed{ false };
         bool monoOnStereoBus{ false };
+        uint32_t runId{ 0 };
     };
 
     class AudioDmaOutputStm
