@@ -54,6 +54,10 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU},stm32wba65>:DefaultClockNucleoWBA65RI.hpp>
     DigitalToAnalogPinStm.cpp
     DigitalToAnalogPinStm.hpp
+    Dma2dStm.cpp
+    Dma2dStm.hpp
+    DsiHostStm.cpp
+    DsiHostStm.hpp
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>:DualCoreHandshakeStm.cpp>
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>:DualCoreHandshakeStm.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:DmaStm.cpp>
@@ -83,6 +87,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:QuadSpiStmDma.hpp>
     LowPowerModeStm.cpp
     LowPowerModeStm.hpp
+    LtdcStm.cpp
+    LtdcStm.hpp
     LpTimerStm.cpp
     LpTimerStm.hpp
     PwmStm.cpp

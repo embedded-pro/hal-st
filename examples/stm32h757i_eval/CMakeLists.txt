@@ -22,6 +22,8 @@ emil_build_for(examples_st.stm32h757i_eval_cm7
 )
 
 target_link_libraries(examples_st.stm32h757i_eval_cm7 PRIVATE
+    boards.mb1166
+    examples_st.display_demo
     services.util
     services.peripheral
     hal_st.instantiations
