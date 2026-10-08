@@ -23,4 +23,8 @@
   <peripheral name="SdRam" type="FMC_Bank5_6_TypeDef*" base="FMC_Bank5_6_R_BASE">
     <item name="FMC"/>
   </peripheral>
+  <peripheral name="Dcmi" type="DCMI_TypeDef*">
+    <item name="DCMI"/>
+    <interrupt/>
+  </peripheral>
 </peripherals>

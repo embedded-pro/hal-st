@@ -217,7 +217,7 @@ extern unsigned int hse_value;
 #define  USE_HAL_CORDIC_REGISTER_CALLBACKS    0U    /* CORDIC register callback disabled    */
 #define  USE_HAL_CRYP_REGISTER_CALLBACKS      0U    /* CRYP register callback disabled      */
 #define  USE_HAL_DAC_REGISTER_CALLBACKS       0U    /* DAC register callback disabled       */
-#define  USE_HAL_DCMI_REGISTER_CALLBACKS      0U    /* DCMI register callback disabled      */
+#define  USE_HAL_DCMI_REGISTER_CALLBACKS      1U    /* DCMI register callback enabled       */
 #define  USE_HAL_DTS_REGISTER_CALLBACKS       0U    /* DTS register callback disabled       */
 #define  USE_HAL_ETH_REGISTER_CALLBACKS       0U    /* ETH register callback disabled       */
 #define  USE_HAL_FDCAN_REGISTER_CALLBACKS     0U    /* FDCAN register callback disabled     */

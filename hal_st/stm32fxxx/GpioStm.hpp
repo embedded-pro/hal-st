@@ -97,6 +97,7 @@ namespace hal
         ltdcB5,
         ltdcB6,
         ltdcB7,
+        dcmi,
         timerChannel1,
         timerChannel2,
         timerChannel3,
