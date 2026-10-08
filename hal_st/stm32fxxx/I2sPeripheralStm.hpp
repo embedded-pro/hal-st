@@ -6,51 +6,25 @@
 #include <cstdint>
 #include DEVICE_HEADER
 
-#if defined(HAS_PERIPHERAL_SAI) && defined(HAL_SAI_MODULE_ENABLED)
+#if defined(HAS_PERIPHERAL_SPI) && defined(HAL_I2S_MODULE_ENABLED)
 
 namespace hal
 {
-    class SaiStm
-    {
-    public:
-        explicit SaiStm(uint8_t oneBasedIndex);
-        SaiStm(const SaiStm& other) = delete;
-        SaiStm& operator=(const SaiStm& other) = delete;
-        ~SaiStm();
-
-        uint8_t OneBasedIndex() const;
-
-    private:
-        uint8_t oneBasedIndex;
-    };
-
-    class SaiBlockStm
+    class I2sPeripheralStm
     {
     public:
         struct Config
         {
-            enum class Block : uint8_t
-            {
-                a,
-                b
-            };
-
             enum class Role : uint8_t
             {
                 master,
                 slave
             };
 
-            enum class Synchronization : uint8_t
-            {
-                asynchronous,
-                synchronousToOtherBlock
-            };
-
             enum class KernelClock : uint8_t
             {
-                pllI2s,
-                pllSai
+                pll,
+                external
             };
 
             enum class Mode : uint8_t
@@ -68,12 +42,10 @@ namespace hal
             constexpr Config()
             {}
 
-            Block block{ Block::a };
             Role role{ Role::master };
-            Synchronization synchronization{ Synchronization::asynchronous };
-            bool mclkOutput{ true };
+            bool mclkOutput{ false };
             uint16_t maxRateErrorPermille{ 10 };
-            KernelClock kernelClock{ KernelClock::pllI2s };
+            KernelClock kernelClock{ KernelClock::pll };
             Mode mode{ Mode::pcm };
             SampleEdge pdmSampleEdge{ SampleEdge::rising };
         };
@@ -89,10 +61,10 @@ namespace hal
             receive
         };
 
-        SaiBlockStm(SaiStm& sai, Direction direction, const Config& config, GpioPinStm& sd, GpioPinStm& sck, GpioPinStm& fs, GpioPinStm& mclk);
-        SaiBlockStm(const SaiBlockStm& other) = delete;
-        SaiBlockStm& operator=(const SaiBlockStm& other) = delete;
-        ~SaiBlockStm() = default;
+        I2sPeripheralStm(uint8_t oneBasedIndex, Direction direction, const Config& config, GpioPinStm& sd, GpioPinStm& ck, GpioPinStm& ws, GpioPinStm& mclk);
+        I2sPeripheralStm(const I2sPeripheralStm& other) = delete;
+        I2sPeripheralStm& operator=(const I2sPeripheralStm& other) = delete;
+        ~I2sPeripheralStm();
 
         volatile void* DataRegister() const;
         void Configure(AudioFormat format);
@@ -101,19 +73,18 @@ namespace hal
         bool Pdm() const;
 
     private:
-        uint32_t KernelClockFrequency();
-        SAI_Block_TypeDef* Block() const;
-        SAI_Block_TypeDef* OtherBlock() const;
+        uint32_t KernelClockFrequency() const;
+        void SetDmaRequest(bool enabled);
 
     private:
         uint8_t oneBasedIndex;
         Direction direction;
         Config config;
         PeripheralPinStm sd;
-        PeripheralPinStm sck;
-        PeripheralPinStm fs;
+        PeripheralPinStm ck;
+        PeripheralPinStm ws;
         PeripheralPinStm mclk;
-        SAI_HandleTypeDef handle{};
+        I2S_HandleTypeDef handle{};
         uint32_t actualSampleRate{ 0 };
     };
 }

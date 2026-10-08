@@ -20,7 +20,7 @@ namespace hal
         really_assert(!output.Armed());
 
         Configure(format);
-        output.Arm(format.channels, onSamplesRequired, onUnderrun);
+        output.Arm(format.channels, format.channels, onSamplesRequired, onUnderrun);
         StartPeripheral();
     }
 

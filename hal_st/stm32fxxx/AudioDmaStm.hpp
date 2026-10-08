@@ -31,10 +31,11 @@ namespace hal
         AudioDmaStm& operator=(const AudioDmaStm& other) = delete;
         ~AudioDmaStm() = default;
 
-        void Prepare(uint8_t channels);
+        void Prepare(uint8_t channels, uint8_t slots);
         void Release();
         void PeriodComplete(uint8_t half);
         std::optional<Delivery> TakeDelivery();
+        bool MonoOnStereoBus() const;
 
     public:
         bool Armed() const;
@@ -47,6 +48,7 @@ namespace hal
         std::atomic<uint32_t> periodState{ 0 };
         std::atomic<bool> deliveryScheduled{ false };
         bool armed{ false };
+        bool monoOnStereoBus{ false };
     };
 
     class AudioDmaOutputStm
@@ -58,7 +60,7 @@ namespace hal
         AudioDmaOutputStm(DmaStm::TransmitStream& stream, volatile void* dataRegister, infra::MemoryRange<int16_t> buffer);
         ~AudioDmaOutputStm();
 
-        void Arm(uint8_t channels, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun);
+        void Arm(uint8_t channels, uint8_t slots, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun);
         void Disarm();
 
         void SetVolume(uint8_t percent);
@@ -85,7 +87,7 @@ namespace hal
         AudioDmaInputStm(DmaStm::ReceiveStream& stream, volatile void* dataRegister, infra::MemoryRange<int16_t> buffer);
         ~AudioDmaInputStm();
 
-        void Arm(uint8_t channels, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun);
+        void Arm(uint8_t channels, uint8_t slots, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun);
         void Disarm();
 
     private:

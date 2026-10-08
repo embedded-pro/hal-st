@@ -70,7 +70,9 @@ namespace hal
         , sck(sck, PinConfigTypeStm::saiSck, sai.OneBasedIndex())
         , fs(fs, PinConfigTypeStm::saiFs, sai.OneBasedIndex())
         , mclk(mclk, PinConfigTypeStm::saiMClock, sai.OneBasedIndex())
-    {}
+    {
+        really_assert(config.synchronization == Config::Synchronization::asynchronous || config.role == Config::Role::slave);
+    }
 
     bool SaiBlockStm::IsSupported(AudioFormat format)
     {
@@ -87,17 +89,33 @@ namespace hal
         return config.block == Config::Block::a ? blockA[oneBasedIndex - 1] : blockB[oneBasedIndex - 1];
     }
 
+    SAI_Block_TypeDef* SaiBlockStm::OtherBlock() const
+    {
+        return config.block == Config::Block::a ? blockB[oneBasedIndex - 1] : blockA[oneBasedIndex - 1];
+    }
+
     volatile void* SaiBlockStm::DataRegister() const
     {
         return &Block()->DR;
     }
 
+    bool SaiBlockStm::Pdm() const
+    {
+        return config.mode == Config::Mode::pdm;
+    }
+
     void SaiBlockStm::Configure(AudioFormat format)
     {
-        really_assert(IsSupported(format));
-
         const bool transmit = direction == Direction::transmit;
         const bool master = config.role == Config::Role::master;
+
+        // A PDM stream is read as two 16-bit slots per frame, each holding 16 clock cycles of one microphone, so a frame carries two words
+        if (Pdm())
+            really_assert(!transmit && format.channels == 1 && format.sampleRate % 2 == 0 && IsSupported({ format.sampleRate / 2, 2 }));
+        else
+            really_assert(IsSupported(format));
+
+        const uint32_t frameRate = Pdm() ? format.sampleRate / 2 : format.sampleRate;
 
         handle = {};
         handle.Instance = Block();
@@ -107,8 +125,8 @@ namespace hal
         handle.Init.OutputDrive = SAI_OUTPUTDRIVE_ENABLE;
         handle.Init.NoDivider = SAI_MASTERDIVIDER_ENABLE;
         handle.Init.FIFOThreshold = SAI_FIFOTHRESHOLD_1QF;
-        handle.Init.AudioFrequency = master ? format.sampleRate : SAI_AUDIO_FREQUENCY_MCKDIV;
-        handle.Init.MonoStereoMode = format.channels == 1 ? SAI_MONOMODE : SAI_STEREOMODE;
+        handle.Init.AudioFrequency = master ? frameRate : SAI_AUDIO_FREQUENCY_MCKDIV;
+        handle.Init.MonoStereoMode = format.channels == 1 && !Pdm() ? SAI_MONOMODE : SAI_STEREOMODE;
         handle.Init.CompandingMode = SAI_NOCOMPANDING;
         handle.Init.TriState = SAI_OUTPUT_NOTRELEASED;
 #if defined(SAI_MCK_OUTPUT_ENABLE)
@@ -121,6 +139,9 @@ namespace hal
         const HAL_StatusTypeDef status = HAL_SAI_InitProtocol(&handle, SAI_I2S_STANDARD, SAI_PROTOCOL_DATASIZE_16BIT, 2);
         really_assert(status == HAL_OK);
 
+        if (Pdm() && config.pdmSampleEdge == Config::SampleEdge::falling)
+            handle.Instance->CR1 &= ~SAI_xCR1_CKSTR;
+
         if (!master)
         {
             actualSampleRate = format.sampleRate;
@@ -129,14 +150,19 @@ namespace hal
 
         // The HAL stores the divider it derived from the requested rate; the rate it really gives follows from that
         const uint64_t divider = std::max<uint32_t>(handle.Init.Mckdiv, 1);
-        actualSampleRate = static_cast<uint32_t>(KernelClockFrequency() / (masterClockRatio * dividerFactor * divider));
+        const uint32_t actualFrameRate = static_cast<uint32_t>(KernelClockFrequency() / (masterClockRatio * dividerFactor * divider));
+        actualSampleRate = Pdm() ? actualFrameRate * 2 : actualFrameRate;
 
-        const uint64_t error = actualSampleRate > format.sampleRate ? actualSampleRate - format.sampleRate : format.sampleRate - actualSampleRate;
-        really_assert(error * 1000 <= static_cast<uint64_t>(format.sampleRate) * config.maxRateErrorPermille);
+        const uint64_t error = actualFrameRate > frameRate ? actualFrameRate - frameRate : frameRate - actualFrameRate;
+        really_assert(error * 1000 <= static_cast<uint64_t>(frameRate) * config.maxRateErrorPermille);
     }
 
     void SaiBlockStm::StartPeripheral()
     {
+        // The block that provides the clocks must be enabled after the blocks that follow it
+        if (config.synchronization == Config::Synchronization::synchronousToOtherBlock)
+            really_assert((OtherBlock()->CR1 & SAI_xCR1_SAIEN) == 0);
+
         handle.Instance->CR1 |= SAI_xCR1_DMAEN;
 
         if (direction == Direction::transmit)

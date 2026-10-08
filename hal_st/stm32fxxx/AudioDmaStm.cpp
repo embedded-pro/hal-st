@@ -20,6 +20,23 @@ namespace hal
         {
             return samples.size() * sizeof(int16_t);
         }
+
+        // The samples occupy the first half of the period and spread to both slots of every frame, back to front so none is overwritten before it is read
+        void DuplicateIntoBothSlots(infra::MemoryRange<int16_t> mono)
+        {
+            for (std::size_t index = mono.size(); index > 0; --index)
+            {
+                mono.begin()[2 * (index - 1) + 1] = mono.begin()[index - 1];
+                mono.begin()[2 * (index - 1)] = mono.begin()[index - 1];
+            }
+        }
+
+        // Frames arrive as left, right; the left sample moves to the front, front to back so none is overwritten before it is read
+        void KeepFirstSlot(infra::MemoryRange<int16_t> stereo)
+        {
+            for (std::size_t index = 0; index < stereo.size() / 2; ++index)
+                stereo.begin()[index] = stereo.begin()[2 * index];
+        }
     }
 
     AudioDmaStm::AudioDmaStm(infra::MemoryRange<int16_t> buffer, const infra::Function<void()>& deliver)
@@ -27,18 +44,20 @@ namespace hal
         , deliver(deliver)
     {}
 
-    void AudioDmaStm::Prepare(uint8_t channels)
+    void AudioDmaStm::Prepare(uint8_t channels, uint8_t slots)
     {
         really_assert(!armed);
-        really_assert(channels != 0);
+        really_assert(channels != 0 && slots != 0);
+        really_assert(channels == slots || (channels == 1 && slots == 2));
         really_assert(buffer.size() % 2 == 0);
-        really_assert((buffer.size() / 2) % channels == 0);
+        really_assert((buffer.size() / 2) % slots == 0);
         really_assert(Bytes(buffer) <= maxDmaBytes);
 
         if (DataCacheEnabled())
             really_assert(reinterpret_cast<uintptr_t>(buffer.begin()) % dataCacheLineSize == 0 && (Bytes(buffer) / 2) % dataCacheLineSize == 0);
 
         periodState = 0;
+        monoOnStereoBus = channels != slots;
         armed = true;
     }
 
@@ -51,6 +70,11 @@ namespace hal
     bool AudioDmaStm::Armed() const
     {
         return armed;
+    }
+
+    bool AudioDmaStm::MonoOnStereoBus() const
+    {
+        return monoOnStereoBus;
     }
 
     void AudioDmaStm::PeriodComplete(uint8_t half)
@@ -99,9 +123,9 @@ namespace hal
             Disarm();
     }
 
-    void AudioDmaOutputStm::Arm(uint8_t channels, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun)
+    void AudioDmaOutputStm::Arm(uint8_t channels, uint8_t slots, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun)
     {
-        Prepare(channels);
+        Prepare(channels, slots);
 
         this->onSamplesRequired = onSamplesRequired;
         this->onUnderrun = onUnderrun;
@@ -142,13 +166,19 @@ namespace hal
 
         std::fill(delivery->period.begin(), delivery->period.end(), 0);
 
+        const Samples toFill = MonoOnStereoBus() ? Samples(delivery->period.begin(), delivery->period.begin() + delivery->period.size() / 2) : delivery->period;
+
         auto samplesRequired = onSamplesRequired;
-        samplesRequired(delivery->period);
+        samplesRequired(toFill);
 
         if (!Armed())
             return;
 
-        ApplyLevel(delivery->period);
+        ApplyLevel(toFill);
+
+        if (MonoOnStereoBus())
+            DuplicateIntoBothSlots(toFill);
+
         CleanDataCache(delivery->period.begin(), Bytes(delivery->period));
 
         if (delivery->lost)
@@ -190,9 +220,9 @@ namespace hal
             Disarm();
     }
 
-    void AudioDmaInputStm::Arm(uint8_t channels, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun)
+    void AudioDmaInputStm::Arm(uint8_t channels, uint8_t slots, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun)
     {
-        Prepare(channels);
+        Prepare(channels, slots);
 
         this->onSamples = onSamples;
         this->onOverrun = onOverrun;
@@ -220,8 +250,13 @@ namespace hal
 
         InvalidateDataCache(delivery->period.begin(), Bytes(delivery->period));
 
+        if (MonoOnStereoBus())
+            KeepFirstSlot(delivery->period);
+
+        const Samples received = MonoOnStereoBus() ? Samples(delivery->period.begin(), delivery->period.begin() + delivery->period.size() / 2) : Samples(delivery->period);
+
         auto samples = onSamples;
-        samples(Samples(delivery->period));
+        samples(received);
 
         if (!Armed())
             return;
