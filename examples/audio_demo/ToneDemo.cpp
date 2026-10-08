@@ -23,7 +23,7 @@ namespace examples
         for (std::size_t index = 0; index != sine.size(); ++index)
             sine[index] = static_cast<int16_t>(std::sin(2.0 * pi * static_cast<double>(index) / static_cast<double>(tableSize)) * fullScale);
 
-        output.SetVolume(config.volumePercent);
+        output.SetVolume(config.volumePercent, infra::emptyFunction);
     }
 
     ToneDemo::~ToneDemo()
@@ -44,9 +44,9 @@ namespace examples
             });
     }
 
-    void ToneDemo::Stop()
+    void ToneDemo::Stop(const infra::Function<void()>& onStopped)
     {
-        output.Stop();
+        output.Stop(onStopped);
     }
 
     uint32_t ToneDemo::Underruns() const

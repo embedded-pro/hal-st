@@ -1,4 +1,5 @@
 #include "hal_st/stm32fxxx/I2sOutputStm.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
 
 #if defined(HAS_PERIPHERAL_SPI) && defined(HAL_I2S_MODULE_ENABLED)
@@ -17,7 +18,7 @@ namespace hal
 
     I2sOutputStm::~I2sOutputStm()
     {
-        Stop();
+        StopStream();
     }
 
     void I2sOutputStm::Start(AudioFormat format, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun)
@@ -29,23 +30,31 @@ namespace hal
         StartPeripheral();
     }
 
-    void I2sOutputStm::Stop()
+    void I2sOutputStm::Stop(const infra::Function<void()>& onStopped)
+    {
+        StopStream();
+        infra::EventDispatcher::Instance().Schedule(onStopped);
+    }
+
+    void I2sOutputStm::SetVolume(uint8_t percent, const infra::Function<void()>& onDone)
+    {
+        output.SetVolume(percent);
+        infra::EventDispatcher::Instance().Schedule(onDone);
+    }
+
+    void I2sOutputStm::SetMuted(bool muted, const infra::Function<void()>& onDone)
+    {
+        output.SetMuted(muted);
+        infra::EventDispatcher::Instance().Schedule(onDone);
+    }
+
+    void I2sOutputStm::StopStream()
     {
         if (!output.Armed())
             return;
 
         StopPeripheral();
         output.Disarm();
-    }
-
-    void I2sOutputStm::SetVolume(uint8_t percent)
-    {
-        output.SetVolume(percent);
-    }
-
-    void I2sOutputStm::SetMuted(bool muted)
-    {
-        output.SetMuted(muted);
     }
 }
 
