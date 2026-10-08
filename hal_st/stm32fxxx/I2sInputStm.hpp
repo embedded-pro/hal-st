@@ -31,7 +31,10 @@ namespace hal
         ~I2sInputStm();
 
         void Start(AudioFormat format, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun) override;
-        void Stop() override;
+        void Stop(const infra::Function<void()>& onStopped) override;
+
+    private:
+        void StopStream();
 
     private:
         AudioDmaInputStm input;

@@ -31,9 +31,12 @@ namespace hal
         ~SaiOutputStm();
 
         void Start(AudioFormat format, const infra::Function<void(Samples toFill)>& onSamplesRequired, const infra::Function<void()>& onUnderrun) override;
-        void Stop() override;
-        void SetVolume(uint8_t percent) override;
-        void SetMuted(bool muted) override;
+        void Stop(const infra::Function<void()>& onStopped) override;
+        void SetVolume(uint8_t percent, const infra::Function<void()>& onDone) override;
+        void SetMuted(bool muted, const infra::Function<void()>& onDone) override;
+
+    private:
+        void StopStream();
 
     private:
         AudioDmaOutputStm output;

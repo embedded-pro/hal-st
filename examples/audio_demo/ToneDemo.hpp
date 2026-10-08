@@ -26,7 +26,7 @@ namespace examples
         ~ToneDemo();
 
         void Start();
-        void Stop();
+        void Stop(const infra::Function<void()>& onStopped = infra::emptyFunction);
 
         uint32_t Underruns() const;
 

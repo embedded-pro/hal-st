@@ -1,4 +1,5 @@
 #include "hal_st/stm32fxxx/SaiInputStm.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/util/ReallyAssert.hpp"
 
 #if defined(HAS_PERIPHERAL_SAI) && defined(HAL_SAI_MODULE_ENABLED)
@@ -12,7 +13,7 @@ namespace hal
 
     SaiInputStm::~SaiInputStm()
     {
-        Stop();
+        StopStream();
     }
 
     void SaiInputStm::Start(AudioFormat format, const infra::Function<void(Samples)>& onSamples, const infra::Function<void()>& onOverrun)
@@ -24,7 +25,13 @@ namespace hal
         StartPeripheral();
     }
 
-    void SaiInputStm::Stop()
+    void SaiInputStm::Stop(const infra::Function<void()>& onStopped)
+    {
+        StopStream();
+        infra::EventDispatcher::Instance().Schedule(onStopped);
+    }
+
+    void SaiInputStm::StopStream()
     {
         if (!input.Armed())
             return;
