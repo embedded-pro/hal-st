@@ -67,12 +67,14 @@ The board or the libraries do not allow these:
 - PWM: PG13 and PG14 have no timer output, so the LEDs cannot be dimmed.
 - Gyroscope interrupt lines: the example polls the status register instead.
 
+## Checked on hardware
+
+Run on an STM32F429I-DISC1 with an L3GD20 (WHO_AM_I 0xD4) through the ST-LINK virtual COM port: the boot report prints in full (SDRAM test 0 errors, STMPE811 and gyroscope found), every terminal command replies and LD3 toggles.
+
 ## Not verified on hardware
 
-Nothing here has run on a board yet. Things to check first:
-
-- The boot report: the SDRAM test must print 0 errors, and the gyroscope and the STMPE811 must both be found.
-- The virtual COM port wiring comes from Zephyr's and nanoFramework's board files, not from the schematic. If the terminal stays silent, check the solder bridges that connect the ST-LINK to USART1 in UM1670.
+- The LCD pattern and the touch events: nobody has looked at the panel or touched it yet.
+- The DAC to ADC loopback: `adc`, `dac` and `loopback` read nonsense until the PA5 to PC3 wire is fitted.
+- The temperature: the first reading was 86.6 °C at room temperature. The reply now prints the raw and calibration counts; a VDDA below 3.3 V is the likely cause.
 - Pin assignments not checked against the MB1075 schematic: PC1 (gyroscope chip select), PA15 (touch interrupt, also used by Zephyr's board file), PA5 (assumed free for the DAC) and PC3 (assumed free for the ADC).
 - The touch coordinates are the raw controller values; their orientation and range are not calibrated to the 240 x 320 panel.
-- The panel set-up and the gyroscope start up at the same time on SPI5; if either never answers, look at the arbitration in `services::SpiMultipleAccess` first.
