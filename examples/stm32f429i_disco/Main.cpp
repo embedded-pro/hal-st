@@ -11,13 +11,16 @@
 #include "hal_st/stm32fxxx/BackupRamStm.hpp"
 #include "hal_st/stm32fxxx/DigitalToAnalogPinStm.hpp"
 #include "hal_st/stm32fxxx/Dma2dStm.hpp"
+#include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/I2cStm.hpp"
 #include "hal_st/stm32fxxx/LtdcStm.hpp"
 #include "hal_st/stm32fxxx/RandomDataGeneratorStm.hpp"
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
 #include "hal_st/stm32fxxx/SpiMasterStm.hpp"
+#include "hal_st/stm32fxxx/UartStmDma.hpp"
 #include "hal_st/stm32fxxx/UniqueDeviceId.hpp"
+#include "infra/stream/StringInputStream.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include "services/peripheral/DebouncedButton.hpp"
@@ -25,7 +28,10 @@
 #include "services/peripheral/SpiMasterWithChipSelect.hpp"
 #include "services/peripheral/SpiMultipleAccess.hpp"
 #include "services/tracer/GlobalTracer.hpp"
-#include "services/tracer/TracerOnSeggerRttInfrastructure.hpp"
+#include "services/tracer/StreamWriterOnSerialCommunication.hpp"
+#include "services/tracer/TracerWithDateTime.hpp"
+#include "services/util/Terminal.hpp"
+#include "services/util/TerminalWithStorage.hpp"
 #include "stm32f4xx_ll_adc.h"
 #include <array>
 #include <chrono>
@@ -48,7 +54,21 @@ namespace
     // The MB1075 revision E and later carry an I3G4250D, the earlier ones an L3GD20; the register maps match and only WHO_AM_I differs
     constexpr std::array<uint8_t, 2> gyroscopeIdentifications{ 0xd3, 0xd4 };
 
-    constexpr std::array<uint16_t, 5> dacLevels{ 0, 1024, 2048, 3072, 4095 };
+    // The DAC output buffer cannot reach the rails, so the sweep stays clear of 0 and 4095
+    constexpr std::array<uint16_t, 5> loopbackLevels{ 512, 1024, 2048, 3072, 3584 };
+    constexpr uint32_t dacMaximum = 4095;
+    constexpr infra::Duration dacSettleTime = std::chrono::milliseconds(10);
+
+    // A moved event arrives every touch poll interval, which would take most of the serial link
+    constexpr uint32_t movedEventsPerTrace = 10;
+
+    bool Parse(infra::BoundedConstString params, uint32_t& value)
+    {
+        infra::StringInputStream stream{ params, infra::softFail };
+        stream >> value;
+
+        return !stream.Failed();
+    }
 
     // A word-wide data bus walk, then a different value per address and its complement, so a stuck data line, a shorted address line or a missed refresh all show up
     std::size_t TestSdram(infra::ByteRange memory)
@@ -82,6 +102,13 @@ namespace
         }
 
         return errors;
+    }
+
+    void TraceSdramTest(infra::ByteRange memory)
+    {
+        const std::size_t errors = TestSdram(memory);
+
+        services::GlobalTracer().Trace() << "SDRAM " << static_cast<uint32_t>(memory.size() / 1024) << " KB, test of " << static_cast<uint32_t>(sdramTestBytes / 1024) << " KB: " << static_cast<uint32_t>(errors) << " errors";
     }
 
     // The factory calibration is taken at a VDDA of 3.3 V, so another supply voltage shifts the reading
@@ -132,6 +159,8 @@ namespace
         {
             if (running)
                 services::GlobalTracer().Trace() << "gyroscope x=" << x << " y=" << y << " z=" << z << " mdps, " << samplesReceived << " samples";
+            else
+                services::GlobalTracer().Trace() << "gyroscope not available";
         }
 
     private:
@@ -201,10 +230,20 @@ namespace
 
             services::GlobalTracer().Trace() << "STMPE811 found";
 
-            touch.Start([](hal::TouchScreen::Event event)
+            touch.Start([this](hal::TouchScreen::Event event)
                 {
-                    services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " x=" << static_cast<uint32_t>(event.point.x) << " y=" << static_cast<uint32_t>(event.point.y);
+                    Report(event);
                 });
+        }
+
+        void Report(const hal::TouchScreen::Event& event)
+        {
+            if (event.phase != hal::TouchScreen::Phase::moved)
+                movedEvents = 0;
+            else if (++movedEvents % movedEventsPerTrace != 0)
+                return;
+
+            services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " x=" << static_cast<uint32_t>(event.point.x) << " y=" << static_cast<uint32_t>(event.point.y);
         }
 
         static const char* PhaseName(hal::TouchScreen::Phase phase)
@@ -224,69 +263,123 @@ namespace
 
     private:
         drivers::Stmpe811 touch;
+        uint32_t movedEvents = 0;
     };
 
-    class TemperatureMonitor
+    // The ADC serves the die temperature sensor and the loopback input, and AdcStm takes one measurement at a time
+    class AnalogMonitor
     {
     public:
-        explicit TemperatureMonitor(hal::AdcStm& adc)
-            : sensor(adc, SensorConfig())
+        AnalogMonitor(hal::AdcStm& adc, hal::GpioPinStm& inputPin, hal::DigitalToAnalogPinImplBase& output)
+            : temperatureSensor(adc, TemperatureConfig())
+            , input(inputPin, adc, InputConfig())
+            , output(output)
         {}
 
-        void Measure()
+        void MeasureTemperature()
         {
-            if (measuring)
+            if (!Claim())
                 return;
 
-            measuring = true;
-
-            sensor.Measure(1, [this](infra::MemoryRange<uint16_t> samples)
+            temperatureSensor.Measure(1, [this](infra::MemoryRange<uint16_t> samples)
                 {
-                    measuring = false;
+                    busy = false;
 
                     const int32_t tenths = TemperatureInTenthsOfDegrees(samples.front());
                     services::GlobalTracer().Trace() << "die temperature " << tenths / 10 << "." << std::abs(tenths % 10) << " C";
                 });
         }
 
+        void MeasureInput()
+        {
+            if (!Claim())
+                return;
+
+            input.Measure(1, [this](infra::MemoryRange<uint16_t> samples)
+                {
+                    busy = false;
+
+                    services::GlobalTracer().Trace() << "adc " << static_cast<uint32_t>(samples.front()) << " of " << dacMaximum;
+                });
+        }
+
+        void SetOutput(uint16_t value)
+        {
+            if (Claim())
+                Apply(value);
+        }
+
+        void Loopback()
+        {
+            if (!Claim())
+                return;
+
+            sweeping = true;
+            level = 0;
+            Apply(loopbackLevels[level]);
+        }
+
     private:
-        static hal::AnalogToDigitalInternalTemperatureStm::Config SensorConfig()
+        static hal::AnalogToDigitalInternalTemperatureStm::Config TemperatureConfig()
         {
             hal::AnalogToDigitalInternalTemperatureStm::Config config;
             config.samplingTime = ADC_SAMPLETIME_480CYCLES;
             return config;
         }
 
-    private:
-        hal::AnalogToDigitalInternalTemperatureStm sensor;
-        bool measuring = false;
-    };
-
-    class DacStaircase
-    {
-    public:
-        explicit DacStaircase(hal::DigitalToAnalogPinImplBase& output)
-            : output(output)
+        static hal::AnalogToDigitalPinImplStm::Config InputConfig()
         {
-            output.Set(dacLevels[level]);
+            hal::AnalogToDigitalPinImplStm::Config config;
+            config.samplingTime = ADC_SAMPLETIME_56CYCLES;
+            return config;
         }
 
-    private:
-        void Step()
+        bool Claim()
         {
-            level = (level + 1) % dacLevels.size();
-            output.Set(dacLevels[level]);
-
-            services::GlobalTracer().Trace() << "dac " << static_cast<uint32_t>(dacLevels[level]) << " of 4095";
-        }
-
-    private:
-        hal::DigitalToAnalogPinImplBase& output;
-        std::size_t level = 0;
-        infra::TimerRepeating timer{ std::chrono::seconds(1), [this]()
+            if (busy)
             {
-                Step();
-            } };
+                services::GlobalTracer().Trace() << "analog measurement in progress";
+                return false;
+            }
+
+            busy = true;
+            return true;
+        }
+
+        void Apply(uint16_t value)
+        {
+            applied = value;
+            output.Set(value);
+
+            settle.Start(dacSettleTime, [this]()
+                {
+                    input.Measure(1, [this](infra::MemoryRange<uint16_t> samples)
+                        {
+                            Applied(samples.front());
+                        });
+                });
+        }
+
+        void Applied(uint16_t counts)
+        {
+            services::GlobalTracer().Trace() << "dac " << static_cast<uint32_t>(applied) << " adc " << static_cast<uint32_t>(counts) << " difference " << static_cast<int32_t>(counts) - static_cast<int32_t>(applied);
+
+            if (sweeping && ++level != loopbackLevels.size())
+                return Apply(loopbackLevels[level]);
+
+            sweeping = false;
+            busy = false;
+        }
+
+    private:
+        hal::AnalogToDigitalInternalTemperatureStm temperatureSensor;
+        hal::AnalogToDigitalPinImplStm input;
+        hal::DigitalToAnalogPinImplBase& output;
+        infra::TimerSingleShot settle;
+        bool busy = false;
+        bool sweeping = false;
+        std::size_t level = 0;
+        uint16_t applied = 0;
     };
 }
 
@@ -300,7 +393,21 @@ int main()
     HAL_PWR_EnableBkUpAccess();
 
     static main_::StmEventInfrastructure eventInfrastructure;
-    static main_::TracerOnSeggerRttInfrastructure tracerInfrastructure;
+
+    static hal::DmaStm dma;
+    static hal::GpioPinStm uartTxPin{ hal::Port::A, 9 };
+    static hal::GpioPinStm uartRxPin{ hal::Port::A, 10 };
+    static hal::DmaStm::TransmitStream uartTransmitStream{ dma, hal::DmaChannelId{ 2, 7, 4 } };
+    static hal::UartStmDma uart{ uartTransmitStream, 1, uartTxPin, uartRxPin };
+
+    // The boot report is written before the event dispatcher runs, so the buffer must hold all of it
+    static services::StreamWriterOnSerialCommunication::WithStorage<1024> streamWriter{ uart };
+    static infra::TextOutputStream::WithErrorPolicy textOutputStream{ streamWriter };
+    static services::TracerWithDateTime tracer{ textOutputStream };
+    services::SetGlobalTracerInstance(tracer);
+
+    static services::TerminalWithCommandsImpl::WithMaxQueueAndMaxHistory<> terminalWithCommands{ uart, tracer };
+    static services::TerminalWithStorage::WithMaxSize<12> terminal{ terminalWithCommands, tracer };
 
     static hal::BackupRamStm backupRam;
     static hal::RandomDataGeneratorStm randomDataGenerator;
@@ -315,8 +422,7 @@ int main()
     static hal::MultiGpioPinStm sdramPins{ hal::stm32f429discoveryFmcPins, hal::Drive::PushPull, hal::Speed::High };
     static hal::SdRamStm sdram{ sdramPins, hal::stm32f429discoverySdRamConfig };
 
-    const std::size_t sdramErrors = TestSdram(sdram.Memory());
-    services::GlobalTracer().Trace() << "SDRAM " << static_cast<uint32_t>(sdram.Memory().size() / 1024) << " KB, test of " << static_cast<uint32_t>(sdramTestBytes / 1024) << " KB: " << static_cast<uint32_t>(sdramErrors) << " errors";
+    TraceSdramTest(sdram.Memory());
 
     static hal::GpioPinStm pa3{ hal::Port::A, 3 };
     static hal::GpioPinStm pa4{ hal::Port::A, 4 };
@@ -410,36 +516,64 @@ int main()
     static drivers::Stmpe811BusAccessI2c touchBus{ touchI2c };
     static TouchMonitor touchMonitor{ touchBus, touchInterruptPin };
 
-    static hal::AdcStm adc1{ 1 };
-    static TemperatureMonitor temperatureMonitor{ adc1 };
-
     static hal::GpioPinStm dacPin{ hal::Port::A, 5 };
+    static hal::GpioPinStm adcPin{ hal::Port::C, 3 };
     static hal::DacStm dac{ 1 };
     static hal::DigitalToAnalogPinImplStm dacOutput{ dacPin, dac };
-    static DacStaircase dacStaircase{ dacOutput };
+    static hal::AdcStm adc{ 1 };
+    static AnalogMonitor analogMonitor{ adc, adcPin, dacOutput };
 
     static hal::GpioPinStm userButtonPin{ hal::Port::A, 0 };
     static services::DebouncedButton userButton{ userButtonPin, []()
         {
             services::GlobalTracer().Trace() << "user button";
             gyroscopeMonitor.Report();
-            temperatureMonitor.Measure();
-        } };
-
-    static infra::TimerRepeating gyroscopeTimer{ std::chrono::seconds(1), []()
-        {
-            gyroscopeMonitor.Report();
-        } };
-
-    static infra::TimerRepeating temperatureTimer{ std::chrono::seconds(2), []()
-        {
-            temperatureMonitor.Measure();
+            analogMonitor.MeasureTemperature();
         } };
 
     static infra::TimerRepeating underrunTimer{ std::chrono::milliseconds(100), []()
         {
             underrunLed.Set(demo.Underruns() != 0);
         } };
+
+    terminal.AddCommand({ { "gyroscope", "gyro", "show the latest angular rate" }, [](const auto& params)
+        {
+            gyroscopeMonitor.Report();
+        } });
+
+    terminal.AddCommand({ { "temperature", "temp", "measure the die temperature" }, [](const auto& params)
+        {
+            analogMonitor.MeasureTemperature();
+        } });
+
+    terminal.AddCommand({ { "adc", "a", "measure the ADC input on PC3" }, [](const auto& params)
+        {
+            analogMonitor.MeasureInput();
+        } });
+
+    terminal.AddCommand({ { "dac", "d", "set the DAC output on PA5 and read it back on PC3, 0 to 4095", "<value>" }, [](const auto& params)
+        {
+            uint32_t value = 0;
+            if (!Parse(params, value) || value > dacMaximum)
+            {
+                services::GlobalTracer().Trace() << "dac: invalid parameter";
+                return;
+            }
+
+            analogMonitor.SetOutput(static_cast<uint16_t>(value));
+        } });
+
+    terminal.AddCommand({ { "loopback", "loop", "sweep the DAC and read each level back on PC3" }, [](const auto& params)
+        {
+            analogMonitor.Loopback();
+        } });
+
+    terminal.AddCommand({ { "sdram", "sd", "repeat the SDRAM test" }, [](const auto& params)
+        {
+            TraceSdramTest(sdram.Memory());
+        } });
+
+    services::GlobalTracer().Trace() << "type help for the commands";
 
     eventInfrastructure.Run();
     __builtin_unreachable();
