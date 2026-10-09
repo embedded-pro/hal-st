@@ -32,6 +32,14 @@ namespace hal
             burst
         };
 
+        enum class TestPattern : uint8_t
+        {
+            off,
+            verticalColorBars,
+            horizontalColorBars,
+            verticalBerPattern
+        };
+
         struct Pll
         {
             uint32_t inputClockHz;
@@ -113,6 +121,8 @@ namespace hal
 
         void Start(const infra::Function<void()>& onDone) override;
         void Stop(const infra::Function<void()>& onDone) override;
+
+        void ShowTestPattern(TestPattern pattern);
 
     private:
         uint32_t LaneByteClockHz(const Pll& pll) const;

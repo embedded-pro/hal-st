@@ -179,6 +179,34 @@ namespace hal
         CompleteWrite(onDone, HAL_OK);
     }
 
+    void DsiHostStm::ShowTestPattern(TestPattern pattern)
+    {
+        constexpr uint32_t colorBars = 0;
+        constexpr uint32_t berPattern = 1;
+        constexpr uint32_t vertical = 0;
+        constexpr uint32_t horizontal = 1;
+
+        HAL_StatusTypeDef result = HAL_ERROR;
+
+        switch (pattern)
+        {
+            case TestPattern::off:
+                result = HAL_DSI_PatternGeneratorStop(&handle);
+                break;
+            case TestPattern::verticalColorBars:
+                result = HAL_DSI_PatternGeneratorStart(&handle, colorBars, vertical);
+                break;
+            case TestPattern::horizontalColorBars:
+                result = HAL_DSI_PatternGeneratorStart(&handle, colorBars, horizontal);
+                break;
+            case TestPattern::verticalBerPattern:
+                result = HAL_DSI_PatternGeneratorStart(&handle, berPattern, vertical);
+                break;
+        }
+
+        really_assert(result == HAL_OK);
+    }
+
     uint32_t DsiHostStm::LaneByteClockHz(const Pll& pll) const
     {
         really_assert(pll.inputDivider >= 1 && pll.inputDivider <= 7);

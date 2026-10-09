@@ -68,6 +68,7 @@ namespace
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(500);
     constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
+    constexpr infra::Duration testPatternDuration = std::chrono::seconds(8);
     constexpr uint32_t movedEventsPerTrace = 10;
     constexpr uint8_t touchOrientations = 8;
 
@@ -643,6 +644,7 @@ int main()
     static PanelProbe panelProbe{ dsi };
     static infra::TimerSingleShot touchStart;
     static infra::TimerSingleShot displayReport;
+    static infra::TimerSingleShot testPattern;
 
     static StartedVideoStream videoStream;
     static std::optional<boards::Mb1166Setup> panel;
@@ -654,6 +656,13 @@ int main()
                 {
                     lcdBacklight.Set(true);
                     services::GlobalTracer().Trace() << "Display panel initialized";
+                    services::GlobalTracer().Trace() << "DSI test pattern: vertical colour bars for 8 s, then the dashboard";
+                    dsi.ShowTestPattern(hal::DsiHostStm::TestPattern::verticalColorBars);
+                    testPattern.Start(testPatternDuration, []()
+                        {
+                            dsi.ShowTestPattern(hal::DsiHostStm::TestPattern::off);
+                            services::GlobalTracer().Trace() << "DSI test pattern off";
+                        });
                     dashboard.Start(startAudio);
                     displayReport.Start(displayReportDelay, []()
                         {
@@ -793,6 +802,19 @@ int main()
         {
             muted = !muted;
             codec.SetMuted(muted, []() {});
+        } });
+
+    terminal.AddCommand({ { "pattern", "pt", "show a DSI host test pattern instead of the frame buffer, 0 off, 1 vertical colour bars, 2 horizontal colour bars, 3 vertical BER pattern", "<pattern>" }, [](const auto& params)
+        {
+            uint32_t value = 0;
+            if (!Parse(params, value) || value > static_cast<uint32_t>(hal::DsiHostStm::TestPattern::verticalBerPattern))
+            {
+                services::GlobalTracer().Trace() << "pattern: 0 to 3";
+                return;
+            }
+
+            dsi.ShowTestPattern(static_cast<hal::DsiHostStm::TestPattern>(value));
+            services::GlobalTracer().Trace() << "pattern: " << value;
         } });
 
     terminal.AddCommand({ { "touchmap", "tm", "select how the touch coordinates map to the screen, 0 to 7: bit 0 swaps the axes, bits 1 and 2 mirror them", "<mode>" }, [](const auto& params)
