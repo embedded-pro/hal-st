@@ -146,8 +146,8 @@ namespace hal
         auto result = HAL_LTDC_ConfigLayer_NoReload(&handle, &layerConfig, layer);
         really_assert(result == HAL_OK);
 
-        result = IsIndexed(framebuffer.format) ? HAL_LTDC_EnableCLUT_NoReload(&handle, layer) : HAL_LTDC_DisableCLUT_NoReload(&handle, layer);
-        really_assert(result == HAL_OK);
+        // A read of a shadowed layer register returns the active value, so the read-modify-write in HAL_LTDC_EnableCLUT_NoReload would drop the enable that HAL_LTDC_ConfigLayer_NoReload just set
+        WRITE_REG(LTDC_LAYER(&handle, layer)->CR, LTDC_LxCR_LEN | (IsIndexed(framebuffer.format) ? LTDC_LxCR_CLUTEN : 0U));
 
         framebufferExtents[layer] = (std::size_t{ framebuffer.size.height } - 1) * framebuffer.strideInBytes + std::size_t{ framebuffer.size.width } * bytesPerPixel;
     }
