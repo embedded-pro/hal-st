@@ -9,6 +9,8 @@ namespace main_
     struct EvalH757Ui
     {
         hal::GpioPinStm buttonWakeup{ hal::Port::A, 0 };
+        hal::GpioPinStm buttonTamperPin{ hal::Port::C, 13 };
+        InvertedGpioPin buttonTamper{ buttonTamperPin };
         hal::GpioPinStm ledGreenPin{ hal::Port::K, 3 };
         hal::GpioPinStm ledOrangePin{ hal::Port::K, 4 };
         hal::GpioPinStm ledRedPin{ hal::Port::K, 5 };

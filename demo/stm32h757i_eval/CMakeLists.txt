@@ -9,12 +9,25 @@ if (TARGET_MCU STREQUAL stm32h757)
 endif()
 
 add_executable(demo_st.stm32h757i_eval_cm7
+    AnalogMonitor.cpp
+    AnalogMonitor.hpp
+    Canvas.cpp
+    Canvas.hpp
+    Dashboard.cpp
+    Dashboard.hpp
     DefaultClockEvalH757I.cpp
     DefaultClockEvalH757I.hpp
-    EvalTracerInfrastructure.hpp
+    EvalMemories.hpp
     EvalUi.hpp
+    Ft6x06.cpp
+    Ft6x06.hpp
     InvertedGpioPin.hpp
     MainCm7.cpp
+    MemoryTests.hpp
+    Mfx.cpp
+    Mfx.hpp
+    QuadSpiMemory.cpp
+    QuadSpiMemory.hpp
 )
 emil_build_for(demo_st.stm32h757i_eval_cm7
     TARGET_MCU stm32h757
@@ -23,7 +36,9 @@ emil_build_for(demo_st.stm32h757i_eval_cm7
 
 target_link_libraries(demo_st.stm32h757i_eval_cm7 PRIVATE
     boards.mb1166
-    demo_st.display_demo
+    drivers.audio.wm8994
+    demo_st.audio_demo
+    services.flash
     services.util
     services.peripheral
     hal_st.instantiations
