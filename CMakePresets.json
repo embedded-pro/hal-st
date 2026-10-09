@@ -8,6 +8,7 @@
       "installDir": "${sourceDir}/install",
       "cacheVariables": {
         "HALST_BUILD_EXAMPLES": true,
+        "HALST_BUILD_DEMOS": true,
         "CMAKE_EXPORT_COMPILE_COMMANDS": "On"
       }
     },
