@@ -29,6 +29,7 @@
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
 #include "hal_st/stm32fxxx/SramStm.hpp"
 #include "hal_st/stm32fxxx/UartStm.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/stream/StringInputStream.hpp"
 #include "infra/stream/StringOutputStream.hpp"
 #include "infra/timer/Timer.hpp"
@@ -320,6 +321,21 @@ namespace
         hal::OutputPin& activityLed;
         main_::Mfx mfx;
         uint16_t previousPressed{ 0 };
+    };
+
+    class StartedVideoStream
+        : public hal::DsiVideoStream
+    {
+    public:
+        void Start(const infra::Function<void()>& onDone) override
+        {
+            infra::EventDispatcher::Instance().Schedule(onDone);
+        }
+
+        void Stop(const infra::Function<void()>& onDone) override
+        {
+            infra::EventDispatcher::Instance().Schedule(onDone);
+        }
     };
 
     class PanelProbe
@@ -627,31 +643,43 @@ int main()
     static infra::TimerSingleShot touchStart;
     static infra::TimerSingleShot displayReport;
 
-    static boards::Mb1166Setup panel{ dsi, dsi, lcdResetPin, hal::PixelFormat::rgb888, [](drivers::MipiDsiPanelCore::InitializationResult result)
+    static StartedVideoStream videoStream;
+    static std::optional<boards::Mb1166Setup> panel;
+    static auto panelInitialized = [](drivers::MipiDsiPanelCore::InitializationResult result)
+    {
+        if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
         {
-            if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
-            {
-                lcdBacklight.Set(true);
-                services::GlobalTracer().Trace() << "Display panel initialized";
-                dashboard.Start(startAudio);
-                displayReport.Start(displayReportDelay, []()
-                    {
-                        main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
-                    });
-                dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::ok, "DSI 800X480 OTM8009A");
-            }
-            else
-            {
-                dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::failed, "PANEL NOT READY");
-                services::GlobalTracer().Trace() << "Display panel did not initialize";
-                startAudio();
-            }
-
-            touchStart.Start(touchStartDelay, []()
+            lcdBacklight.Set(true);
+            services::GlobalTracer().Trace() << "Display panel initialized";
+            dashboard.Start(startAudio);
+            displayReport.Start(displayReportDelay, []()
                 {
-                    touchMonitor.Begin();
+                    main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
                 });
-        } };
+            dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::ok, "DSI 800X480 OTM8009A");
+        }
+        else
+        {
+            dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::failed, "PANEL NOT READY");
+            services::GlobalTracer().Trace() << "Display panel did not initialize";
+            startAudio();
+        }
+
+        touchStart.Start(touchStartDelay, []()
+            {
+                touchMonitor.Begin();
+            });
+    };
+
+    static auto startPanel = [](const infra::Function<void(drivers::MipiDsiPanelCore::InitializationResult)>& onInitialized)
+    {
+        panel.emplace(dsi, videoStream, lcdResetPin, hal::PixelFormat::rgb888, onInitialized);
+    };
+
+    dsi.Start([]()
+        {
+            startPanel(panelInitialized);
+        });
 
     static infra::TimerRepeating secondTimer{ std::chrono::seconds{ 1 }, []
         {
@@ -700,6 +728,14 @@ int main()
         {
             main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
             panelProbe.Run();
+        } });
+
+    terminal.AddCommand({ { "panel", "p", "reset and initialize the display panel again" }, [](const auto& params)
+        {
+            startPanel([](drivers::MipiDsiPanelCore::InitializationResult result)
+                {
+                    services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
+                });
         } });
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)
