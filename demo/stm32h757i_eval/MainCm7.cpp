@@ -12,6 +12,7 @@
 #include "demo/stm32h757i_eval/QuadSpiMemory.hpp"
 #include "drivers/audio/wm8994/Wm8994.hpp"
 #include "drivers/audio/wm8994/Wm8994BusAccessI2c.hpp"
+#include "drivers/display/mipi_dsi/MipiDcs.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/DigitalToAnalogPinStm.hpp"
@@ -649,14 +650,17 @@ int main()
     {
         if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
         {
-            lcdBacklight.Set(true);
-            services::GlobalTracer().Trace() << "Display panel initialized";
-            dashboard.Start(startAudio);
-            displayReport.Start(displayReportDelay, []()
+            dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), []()
                 {
-                    main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
+                    lcdBacklight.Set(true);
+                    services::GlobalTracer().Trace() << "Display panel initialized";
+                    dashboard.Start(startAudio);
+                    displayReport.Start(displayReportDelay, []()
+                        {
+                            main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
+                        });
+                    dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::ok, "DSI 800X480 OTM8009A");
                 });
-            dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::ok, "DSI 800X480 OTM8009A");
         }
         else
         {
@@ -734,7 +738,10 @@ int main()
         {
             startPanel([](drivers::MipiDsiPanelCore::InitializationResult result)
                 {
-                    services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
+                    dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), [result]()
+                        {
+                            services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
+                        });
                 });
         } });
 
