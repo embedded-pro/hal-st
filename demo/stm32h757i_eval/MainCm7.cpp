@@ -44,6 +44,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 
 unsigned int hse_value = 25'000'000;
@@ -59,6 +60,7 @@ namespace
     constexpr std::size_t audioBufferSamples = 2048;
     constexpr uint8_t codecInitialVolumePercent = 70;
     constexpr uint8_t minimumVolumePercent = 10;
+    constexpr int volumeHysteresisPercent = 2;
     constexpr uint16_t adcMaximum = 4095;
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr uint32_t movedEventsPerTrace = 10;
@@ -469,7 +471,7 @@ int main()
 
             const uint8_t volume = static_cast<uint8_t>(minimumVolumePercent + counts * (100 - minimumVolumePercent) / adcMaximum);
 
-            if (volume != lastVolumeAdjustment)
+            if (std::abs(static_cast<int>(volume) - static_cast<int>(lastVolumeAdjustment)) >= volumeHysteresisPercent)
             {
                 lastVolumeAdjustment = volume;
                 codec.SetVolume(volume, []() {});
