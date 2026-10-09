@@ -35,23 +35,23 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 
 `help` lists the commands; each one has a short alias.
 
-| Command          | Alias  | Description                                                                                    |
-|------------------|--------|------------------------------------------------------------------------------------------------|
-| `sdram`          | `sd`   | Repeat the SDRAM test on its last 4 MB                                                         |
-| `sram`           | `sr`   | Repeat the SRAM test                                                                           |
-| `qspi`           | `q`    | Read the QSPI flash identification and the start of the array twice                            |
-| `qspitest`       | `qt`   | Erase, program and verify the last sector of the QSPI flash (destroys that sector)             |
-| `display`        | `disp` | Print the DSI, LTDC, clock and frame buffer registers                                          |
-| `pattern <0-3>`  | `pt`   | Show a DSI host test pattern: 0 off, 1 and 2 colour bars, 3 BER pattern                        |
-| `i2cscan`        | `i2c`  | List the addresses on I2C1 that acknowledge                                                    |
-| `adc`            | `a`    | Measure PA1_C                                                                                  |
-| `dac <0-4095>`   | `d`    | Hold the DAC output on PA5                                                                     |
-| `wave`           | `w`    | Run the triangle wave again                                                                    |
-| `loopback`       | `loop` | Sweep the DAC over five levels and read each back on PA1_C                                     |
-| `volume <0-100>` | `v`    | Set the codec volume until the potentiometer moves again                                       |
-| `mute`           | `m`    | Toggle the audio mute                                                                          |
-
-After the panel is initialized the DSI host shows vertical colour bars for 8 seconds before the dashboard appears: bars mean the DSI link and the panel work and the LTDC data is at fault, noise means the DSI link or the panel set-up is.
+| Command                      | Alias  | Description                                                                        |
+|------------------------------|--------|------------------------------------------------------------------------------------|
+| `sdram`                      | `sd`   | Repeat the SDRAM test on its last 4 MB                                             |
+| `sram`                       | `sr`   | Repeat the SRAM test                                                               |
+| `qspi`                       | `q`    | Read the QSPI flash identification and the start of the array twice                |
+| `qspitest`                   | `qt`   | Erase, program and verify the last sector of the QSPI flash (destroys that sector) |
+| `display`                    | `disp` | Print the DSI, LTDC, clock and frame buffer registers                              |
+| `panel`                      | `p`    | Reset the panel and initialize it again                                            |
+| `pattern <0-3>`              | `pt`   | Show a DSI host test pattern: 0 off, 1 and 2 colour bars, 3 BER pattern            |
+| `dcs <command> [parameters]` | `dc`   | Send a DCS command to the panel, all values in hex                                 |
+| `i2cscan`                    | `i2c`  | List the addresses on I2C1 that acknowledge                                        |
+| `adc`                        | `a`    | Measure PA1_C                                                                      |
+| `dac <0-4095>`               | `d`    | Hold the DAC output on PA5                                                         |
+| `wave`                       | `w`    | Run the triangle wave again                                                        |
+| `loopback`                   | `loop` | Sweep the DAC over five levels and read each back on PA1_C                         |
+| `volume <0-100>`             | `v`    | Set the codec volume until the potentiometer moves again                           |
+| `mute`                       | `m`    | Toggle the audio mute                                                              |
 
 Touch and joystick events and the boot report are printed as they happen. The boot report is written before the event dispatcher starts, and the 4 KB transmit buffer holds all of it.
 
