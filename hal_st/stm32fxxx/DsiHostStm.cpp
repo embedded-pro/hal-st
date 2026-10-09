@@ -98,7 +98,10 @@ namespace hal
             ConfigureReceiveFilter(*config.lowPowerReceiveFilter);
 
         ConfigureFlowControl();
-        ConfigureCommands();
+
+        if (config.commandsInLowPower)
+            ConfigureCommands();
+
         __HAL_DSI_ENABLE(&handle);
     }
 

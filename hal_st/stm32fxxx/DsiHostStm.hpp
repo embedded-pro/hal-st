@@ -106,6 +106,7 @@ namespace hal
             {}
 
             uint8_t numberOfLanes{ 2 };
+            bool commandsInLowPower{ true };
             Video video;
             std::optional<PhyTimer> phyTimer;
             std::optional<uint8_t> lowPowerReceiveFilter;

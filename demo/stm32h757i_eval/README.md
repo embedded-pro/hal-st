@@ -50,7 +50,6 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 | `loopback`       | `loop` | Sweep the DAC over five levels and read each back on PA1_C                                     |
 | `volume <0-100>` | `v`    | Set the codec volume until the potentiometer moves again                                       |
 | `mute`           | `m`    | Toggle the audio mute                                                                          |
-| `touchmap <0-7>` | `tm`   | Select how touch coordinates map to the screen: bit 0 swaps the axes, bits 1 and 2 mirror them |
 
 After the panel is initialized the DSI host shows vertical colour bars for 8 seconds before the dashboard appears: bars mean the DSI link and the panel work and the LTDC data is at fault, noise means the DSI link or the panel set-up is.
 
@@ -79,7 +78,7 @@ First run on an STM32H757I-EVAL (DEV_ID 0x450, revision 0x2003) through an ST-LI
 
 - Boot report: SDRAM 32 MB and SRAM 2 MB with 0 errors, NOR manufacturer 0x89 and device 0x227e, QSPI 64 MB with JEDEC id 0x20ba20 and a stable read, MFX id 0x7b with the joystick pins released.
 - The display ran at about 60 frames per second without underruns while the SDRAM served the frame buffer.
-- `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume`, `mute` and `touchmap` reply.
+- `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume` and `mute` reply.
 - The option bytes of that board had BCM4 cleared, so the Cortex-M4 never started and the demo reported it; the fix is in `hal::WaitForCortexM4Stop()` and is not yet re-checked.
 - The FT6x06 did not answer at 0x38 in that run: it was probed once, while the panel was being reset (the controller probably shares that reset). It is now probed after the panel is ready and retried for three seconds, and `i2cscan` lists what answers.
 
