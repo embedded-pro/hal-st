@@ -77,7 +77,7 @@ The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584
 Run on an STM32H757I-EVAL (DEV_ID 0x450, revision 0x2003) with an MB1166-A03 display module, through an ST-LINK GDB server and USART1:
 
 - Boot report: SDRAM 32 MB and SRAM 2 MB with 0 errors, NOR manufacturer 0x89 and device 0x227e, QSPI 64 MB with JEDEC id 0x20ba20 and a stable read, MFX id 0x7b with the joystick pins released.
-- The display shows the dashboard at about 60 frames per second without underruns while the SDRAM serves the frame buffer. ST's own `LCD_DSI_VideoMode_SingleBuffer` example drives the same module on that board (`st_reference/build.sh` builds it); the demo only matched it once the panel was brought up in ST's order, see `AGENTS.md`.
+- The display shows the dashboard at about 60 frames per second without underruns while the SDRAM serves the frame buffer. ST's own `LCD_DSI_VideoMode_SingleBuffer` example drives the same module on that board; the demo only matched it once the panel was brought up in ST's order, see `AGENTS.md`.
 - The FT6x06 answers at 0x38 with vendor id 0x11 and chip id 0x64 and reports presses, moves and releases.
 - `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume` and `mute` reply.
 - The option bytes of that board had BCM4 cleared, so the Cortex-M4 never started and the demo reported it; the fix is in `hal::WaitForCortexM4Stop()` and is not yet re-checked.
