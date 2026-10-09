@@ -127,6 +127,26 @@ namespace
         return !stream.Failed();
     }
 
+    std::size_t ParseHexBytes(infra::BoundedConstString params, infra::MemoryRange<uint8_t> bytes)
+    {
+        infra::StringInputStream stream{ params, infra::softFail };
+        auto text = stream >> infra::hex;
+        std::size_t count = 0;
+
+        while (count != bytes.size())
+        {
+            uint32_t value = 0;
+            text >> value;
+
+            if (stream.Failed() || value > 0xff)
+                break;
+
+            bytes[count++] = static_cast<uint8_t>(value);
+        }
+
+        return count;
+    }
+
     void ReportMemory(main_::Dashboard& dashboard, main_::Dashboard::Item item, const char* name, uint32_t kibibytes, std::size_t errors)
     {
         infra::StringOutputStream::WithStorage<24> detail;
@@ -342,6 +362,107 @@ namespace
         }
     };
 
+    class PinWithoutOutput
+        : public hal::GpioPin
+    {
+    public:
+        explicit PinWithoutOutput(hal::GpioPin& pin)
+            : pin(pin)
+        {}
+
+        bool Get() const override
+        {
+            return pin.Get();
+        }
+
+        void Set(bool value) override
+        {}
+
+        bool GetOutputLatch() const override
+        {
+            return pin.GetOutputLatch();
+        }
+
+        void SetAsInput() override
+        {
+            pin.SetAsInput();
+        }
+
+        bool IsInput() const override
+        {
+            return pin.IsInput();
+        }
+
+        void Config(hal::PinConfigType config) override
+        {
+            pin.Config(config);
+        }
+
+        void Config(hal::PinConfigType config, bool startOutputState) override
+        {
+            pin.Config(config, startOutputState);
+        }
+
+        void ResetConfig() override
+        {
+            pin.ResetConfig();
+        }
+
+        void EnableInterrupt(const infra::Function<void()>& action, hal::InterruptTrigger trigger, hal::InterruptType type) override
+        {
+            pin.EnableInterrupt(action, trigger, type);
+        }
+
+        void DisableInterrupt() override
+        {
+            pin.DisableInterrupt();
+        }
+
+    private:
+        hal::GpioPin& pin;
+    };
+
+    // ST's board support package ends the panel initialization with a no-operation and a memory write start, both as short writes with one parameter
+    class MemoryWriteStart
+    {
+    public:
+        explicit MemoryWriteStart(hal::DsiHost& dsi)
+            : dsi(dsi)
+        {}
+
+        void Start(const infra::Function<void()>& onDone)
+        {
+            done = onDone;
+            dsi.WriteDcs(noOperation, infra::MakeRange(parameter), [this]()
+                {
+                    dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::MakeRange(parameter), [this]()
+                        {
+                            done();
+                        });
+                });
+        }
+
+    private:
+        static constexpr uint8_t noOperation = 0x00;
+
+        hal::DsiHost& dsi;
+        infra::AutoResetFunction<void()> done;
+        std::array<uint8_t, 1> parameter{};
+    };
+
+    void BusyWaitMilliseconds(uint32_t milliseconds)
+    {
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+        DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+        const uint32_t cycles = HAL_RCC_GetSysClockFreq() / 1000 * milliseconds;
+        const uint32_t start = DWT->CYCCNT;
+
+        while (DWT->CYCCNT - start < cycles)
+        {
+        }
+    }
+
     class PanelProbe
     {
     public:
@@ -479,6 +600,17 @@ int main()
     static hal::GpioPinStm lcdResetPin{ hal::Port::F, 10 };
     static hal::GpioPinStm lcdBacklightPin{ hal::Port::A, 6 };
     static hal::OutputPin lcdBacklight{ lcdBacklightPin };
+
+    // The ST board support package resets the panel and switches the backlight on before it brings up the DSI link; EMIL's panel driver would reset it with the clock lane already running
+    lcdBacklight.Set(true);
+    {
+        hal::OutputPin lcdReset{ lcdResetPin, true };
+        lcdReset.Set(false);
+        BusyWaitMilliseconds(20);
+        lcdReset.Set(true);
+        BusyWaitMilliseconds(10);
+    }
+    static PinWithoutOutput panelResetPin{ lcdResetPin };
 
     static hal::MultiGpioPinStm fmcPins{ main_::evalFmcPins, hal::Drive::PushPull, hal::Speed::High };
     static hal::FmcStm fmc{ fmcPins };
@@ -649,14 +781,14 @@ int main()
     static infra::TimerSingleShot testPattern;
 
     static StartedVideoStream videoStream;
+    static MemoryWriteStart memoryWriteStart{ dsi };
     static std::optional<boards::Mb1166Setup> panel;
     static auto panelInitialized = [](drivers::MipiDsiPanelCore::InitializationResult result)
     {
         if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
         {
-            dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), []()
+            memoryWriteStart.Start([]()
                 {
-                    lcdBacklight.Set(true);
                     services::GlobalTracer().Trace() << "Display panel initialized";
                     services::GlobalTracer().Trace() << "DSI test pattern: vertical colour bars for 8 s, then the dashboard";
                     dsi.ShowTestPattern(hal::DsiHostStm::TestPattern::verticalColorBars);
@@ -688,7 +820,7 @@ int main()
 
     static auto startPanel = [](const infra::Function<void(drivers::MipiDsiPanelCore::InitializationResult)>& onInitialized)
     {
-        panel.emplace(dsi, videoStream, lcdResetPin, hal::PixelFormat::rgb888, onInitialized);
+        panel.emplace(dsi, videoStream, panelResetPin, hal::PixelFormat::rgb888, onInitialized);
     };
 
     dsi.Start([]()
@@ -749,9 +881,9 @@ int main()
         {
             startPanel([](drivers::MipiDsiPanelCore::InitializationResult result)
                 {
-                    dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), [result]()
+                    memoryWriteStart.Start([]()
                         {
-                            services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
+                            services::GlobalTracer().Trace() << "panel initialized again";
                         });
                 });
         } });
@@ -804,6 +936,23 @@ int main()
         {
             muted = !muted;
             codec.SetMuted(muted, []() {});
+        } });
+
+    terminal.AddCommand({ { "dcs", "dc", "send a DCS command to the panel, all values in hex: no parameter is a short write without parameter, one parameter a short write with it, more a long write", "<command> [parameters]" }, [](const auto& params)
+        {
+            static std::array<uint8_t, 9> bytes;
+            const std::size_t count = ParseHexBytes(params, infra::MakeRange(bytes));
+
+            if (count == 0)
+            {
+                services::GlobalTracer().Trace() << "dcs: <command> [parameters] in hex";
+                return;
+            }
+
+            dsi.WriteDcs(bytes[0], infra::ConstByteRange(bytes.data() + 1, bytes.data() + count), []()
+                {
+                    services::GlobalTracer().Trace() << "dcs sent";
+                });
         } });
 
     terminal.AddCommand({ { "pattern", "pt", "show a DSI host test pattern instead of the frame buffer, 0 off, 1 vertical colour bars, 2 horizontal colour bars, 3 vertical BER pattern", "<pattern>" }, [](const auto& params)
