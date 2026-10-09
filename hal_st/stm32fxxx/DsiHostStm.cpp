@@ -160,6 +160,7 @@ namespace hal
         really_assert(!streaming);
         BeginOperation(0);
 
+        SET_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
         auto result = HAL_DSI_Start(&handle);
         really_assert(result == HAL_OK);
         streaming = true;
@@ -173,6 +174,7 @@ namespace hal
         BeginOperation(0);
 
         __HAL_DSI_WRAPPER_DISABLE(&handle);
+        CLEAR_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
         streaming = false;
 
         CompleteWrite(onDone, HAL_OK);
@@ -215,6 +217,9 @@ namespace hal
 
         auto result = HAL_DSI_Init(&handle, &pllInit);
         really_assert(result == HAL_OK);
+
+        // HAL_DSI_Init puts the clock lane in high speed mode for good; a panel that is reset while it runs never locks to it, so it only starts with the video stream
+        CLEAR_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
     }
 
     void DsiHostStm::ConfigureVideo(const DisplayTiming& timing)
