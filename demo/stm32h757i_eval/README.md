@@ -55,7 +55,8 @@ Touch and joystick events and the boot report are printed as they happen. The bo
 
 ## Pins shared between audio and the NOR flash
 
-On the MB1246 the SAI1 pins are also FMC address lines of the NOR flash: PE2 is A23 and PE4 to PE6 are A20 to A22 (solder bridges, closed by default). hal-st claims a pin once, so the FMC does not own them; the NOR flash is checked at boot with A20 to A22 driven low, which makes its first 2 MB readable, and the SAI takes the pins afterwards. The NOR array is therefore not reachable while the audio runs.
+On the MB1246 the SAI1 pins are also FMC address lines of the NOR flash: PE2 is A23 and PE4 to PE6 are A20 to A22 (solder bridges, closed by default).
+hal-st claims a pin once, so the FMC does not own them; the NOR flash is checked at boot with A20 to A22 driven low, which makes its first 2 MB readable, and the SAI takes the pins afterwards. The NOR array is therefore not reachable while the audio runs.
 PE3 (A19, also SAI1 SD_B) belongs to the FMC because the SRAM needs it; the demo does not record.
 
 ## DAC to ADC loopback

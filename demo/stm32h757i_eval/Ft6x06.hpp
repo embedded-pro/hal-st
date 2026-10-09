@@ -15,6 +15,8 @@ namespace main_
         : public hal::TouchScreen
     {
     public:
+        static constexpr hal::TouchScreenSize panelSize{ 480, 800 };
+
         enum class InitializationResult : uint8_t
         {
             success,
@@ -29,7 +31,7 @@ namespace main_
             infra::Duration pollInterval{ std::chrono::milliseconds(20) };
             infra::Duration retryInterval{ std::chrono::milliseconds(100) };
             uint8_t attempts{ 30 };
-            hal::TouchScreenSize size{ 480, 800 };
+            hal::TouchScreenSize size{ panelSize };
         };
 
         static constexpr hal::I2cAddress deviceAddress{ 0x38 };

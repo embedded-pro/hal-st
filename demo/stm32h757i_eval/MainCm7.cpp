@@ -215,7 +215,7 @@ namespace
         hal::TouchPoint Map(hal::TouchPoint raw) const
         {
             const bool swap = (orientation & 1) != 0;
-            const hal::TouchScreenSize size = main_::Ft6x06::Config{}.size;
+            const hal::TouchScreenSize size = main_::Ft6x06::panelSize;
             const uint16_t width = swap ? size.height : size.width;
             const uint16_t height = swap ? size.width : size.height;
 
