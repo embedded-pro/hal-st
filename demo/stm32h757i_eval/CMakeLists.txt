@@ -21,8 +21,6 @@ add_executable(demo_st.stm32h757i_eval_cm7
     DisplayReport.hpp
     EvalMemories.hpp
     EvalUi.hpp
-    Ft6x06.cpp
-    Ft6x06.hpp
     InvertedGpioPin.hpp
     MainCm7.cpp
     MemoryTests.hpp
@@ -39,6 +37,7 @@ emil_build_for(demo_st.stm32h757i_eval_cm7
 target_link_libraries(demo_st.stm32h757i_eval_cm7 PRIVATE
     boards.mb1166
     drivers.audio.wm8994
+    drivers.touch_screen.ft6x06
     demo_st.audio_demo
     services.flash
     services.util

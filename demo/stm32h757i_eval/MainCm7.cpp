@@ -6,13 +6,14 @@
 #include "demo/stm32h757i_eval/DisplayReport.hpp"
 #include "demo/stm32h757i_eval/EvalMemories.hpp"
 #include "demo/stm32h757i_eval/EvalUi.hpp"
-#include "demo/stm32h757i_eval/Ft6x06.hpp"
 #include "demo/stm32h757i_eval/MemoryTests.hpp"
 #include "demo/stm32h757i_eval/Mfx.hpp"
 #include "demo/stm32h757i_eval/QuadSpiMemory.hpp"
 #include "drivers/audio/wm8994/Wm8994.hpp"
 #include "drivers/audio/wm8994/Wm8994BusAccessI2c.hpp"
 #include "drivers/display/mipi_dsi/MipiDcs.hpp"
+#include "drivers/touch_screen/ft6x06/Ft6x06.hpp"
+#include "drivers/touch_screen/ft6x06/Ft6x06BusAccessI2c.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/DigitalToAnalogPinStm.hpp"
@@ -71,6 +72,15 @@ namespace
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(500);
     constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
     constexpr uint32_t movedEventsPerTrace = 10;
+
+    constexpr hal::TouchScreenSize touchPanelSize{ 480, 800 };
+
+    drivers::Ft6x06::Config TouchConfig()
+    {
+        drivers::Ft6x06::Config config;
+        config.size = touchPanelSize;
+        return config;
+    }
 
     // Display bring-up variants, kept over a software restart, to find out which part of the ST sequence the panel needs
     constexpr uint32_t bringupMagic = 0xb01d0001;
@@ -203,23 +213,23 @@ namespace
     {
     public:
         TouchMonitor(hal::I2cMaster& i2c, main_::Dashboard& dashboard, hal::OutputPin& activityLed)
-            : i2c(i2c)
+            : bus(i2c)
             , dashboard(dashboard)
             , activityLed(activityLed)
         {}
 
         void Begin()
         {
-            touch.emplace(i2c, main_::Ft6x06::Config{}, [this](main_::Ft6x06::InitializationResult result)
+            touch.emplace(bus, TouchConfig(), [this](drivers::Ft6x06::InitializationResult result)
                 {
                     Initialized(result);
                 });
         }
 
     private:
-        void Initialized(main_::Ft6x06::InitializationResult result)
+        void Initialized(drivers::Ft6x06::InitializationResult result)
         {
-            if (result != main_::Ft6x06::InitializationResult::success)
+            if (result != drivers::Ft6x06::InitializationResult::success)
             {
                 dashboard.SetStatus(main_::Dashboard::Item::touch, main_::Dashboard::State::failed, "FT6X06 NOT FOUND");
                 services::GlobalTracer().Trace() << "FT6x06 touch controller not found at 0x38";
@@ -255,7 +265,7 @@ namespace
         // The panel is portrait and the display is driven landscape with the axes exchanged: x follows the controller's y and y runs against its x
         static hal::TouchPoint Map(hal::TouchPoint raw)
         {
-            const hal::TouchScreenSize size = main_::Ft6x06::panelSize;
+            const hal::TouchScreenSize size = touchPanelSize;
             const uint16_t x = std::min<uint16_t>(raw.y, size.height - 1);
             const uint16_t y = static_cast<uint16_t>(size.width - 1 - std::min<uint16_t>(raw.x, size.width - 1));
 
@@ -278,10 +288,10 @@ namespace
         }
 
     private:
-        hal::I2cMaster& i2c;
+        drivers::Ft6x06BusAccessI2c bus;
         main_::Dashboard& dashboard;
         hal::OutputPin& activityLed;
-        std::optional<main_::Ft6x06> touch;
+        std::optional<drivers::Ft6x06> touch;
         uint32_t movedEvents = 0;
     };
 
