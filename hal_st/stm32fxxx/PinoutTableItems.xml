@@ -57,12 +57,16 @@
     <pin name="Sd" speed="High"><input name="I2S:_SD"/><input name="I2S:_SDI"/><input name="I2S:_SDO"/></pin>
   </peripheral>
   <peripheral name="Sd">
-    <pin name="Clk" speed="High"><input name="SDMMC:_CK"/></pin>
-    <pin name="Cmd" speed="High"><input name="SDMMC:_CMD"/></pin>
-    <pin name="D0" speed="High"><input name="SDMMC:_D0"/></pin>
-    <pin name="D1" speed="High"><input name="SDMMC:_D1"/></pin>
-    <pin name="D2" speed="High"><input name="SDMMC:_D2"/></pin>
-    <pin name="D3" speed="High"><input name="SDMMC:_D3"/></pin>
+    <pin name="Clk" speed="High"><input name="SDMMC:_CK"/><input name="SDIO_CK"/></pin>
+    <pin name="Cmd" speed="High"><input name="SDMMC:_CMD"/><input name="SDIO_CMD"/></pin>
+    <pin name="D0" speed="High"><input name="SDMMC:_D0"/><input name="SDIO_D0"/></pin>
+    <pin name="D1" speed="High"><input name="SDMMC:_D1"/><input name="SDIO_D1"/></pin>
+    <pin name="D2" speed="High"><input name="SDMMC:_D2"/><input name="SDIO_D2"/></pin>
+    <pin name="D3" speed="High"><input name="SDMMC:_D3"/><input name="SDIO_D3"/></pin>
+    <!-- level shifter direction signals, H5 and H7 only -->
+    <pin name="D0Dir" speed="High"><input name="SDMMC:_D0DIR"/></pin>
+    <pin name="D123Dir" speed="High"><input name="SDMMC:_D123DIR"/></pin>
+    <pin name="CDir" speed="High"><input name="SDMMC:_CDIR"/></pin>
   </peripheral>
   <peripheral name="QuadSpi">
     <pin name="Clock" speed="High"><input name="QUADSPI_CLK"/></pin>

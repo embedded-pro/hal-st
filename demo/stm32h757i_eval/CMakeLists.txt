@@ -39,6 +39,7 @@ target_link_libraries(demo_st.stm32h757i_eval_cm7 PRIVATE
     drivers.audio.wm8994
     drivers.touch_screen.ft6x06
     demo_st.audio_demo
+    demo_st.sd_card_demo
     services.flash
     services.util
     services.peripheral

@@ -20,6 +20,7 @@ cmake --build --preset stm32h757-cm4-RelWithDebInfo --target demo_st.stm32h757i_
 | Wake-up button           | PA0                                                                  | `services::DebouncedButton`                                                                | toggles the audio mute                                                                                                                                      |
 | Tamper (USER) button     | PC13, active low                                                     | `services::DebouncedButton`                                                                | repeats the SDRAM test                                                                                                                                      |
 | Joystick, microSD detect | MFX GPIO0 to GPIO4 (select, down, left, right, up), GPIO15           | `main_::Mfx` over I2C1, address 0x42                                                       | shown on the dashboard; select clears the touch pad; the SD detect level is traced                                                                          |
+| microSD                  | CK PC12, CMD PD2, D0-D3 PC8-PC11; level shifter PC6, PC7, PB9        | `hal::SdCardStm`, EMIL `hal::BlockDevice`, `examples::SdCardDemo`                          | boot: capacity of the card or `no card`, nothing is written; `sdcard` reads, erases, writes, verifies and restores its last two blocks                      |
 | 256 Mbit SDRAM           | FMC bank 2 (SDNE1, SDCKE1), 32-bit, 0xD0000000                       | `hal::SdRamStm`                                                                            | frame buffer in the first 768 KB; boot test: data bus, address bus and 2 MB patterns at both ends                                                           |
 | 16 Mbit SRAM             | FMC bank 3 (NE3), 16-bit, 0x68000000                                 | `hal::SramStm`                                                                             | boot test: data bus, address bus and the full 2 MB                                                                                                          |
 | 128 Mbit NOR flash       | FMC bank 1 (NE1), 16-bit, 0x60000000                                 | `hal::NorFlashStm`                                                                         | boot check: identification and the first 4 KB read twice (nothing is written)                                                                               |
@@ -41,6 +42,7 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 | `sram`                       | `sr`   | Repeat the SRAM test                                                               |
 | `qspi`                       | `q`    | Read the QSPI flash identification and the start of the array twice                |
 | `qspitest`                   | `qt`   | Erase, program and verify the last sector of the QSPI flash (destroys that sector) |
+| `sdcard`                     | `sc`   | Read, erase, write, verify and restore the last two blocks of the microSD card     |
 | `display`                    | `disp` | Print the DSI, LTDC, clock and frame buffer registers                              |
 | `panel`                      | `p`    | Reset the panel and initialize it again                                            |
 | `pattern <0-3>`              | `pt`   | Show a DSI host test pattern: 0 off, 1 and 2 colour bars, 3 BER pattern            |
@@ -68,7 +70,6 @@ The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584
 
 ## Not included
 
-- microSD: hal-st has no SDMMC driver; only the card-detect level is read from the MFX.
 - Ethernet, USB OTG, FDCAN, DFSDM microphones, RS-232 as a second port, camera: out of scope for this demo.
 - NOR flash writes and the second twin-flash die (QUADSPI bank 2).
 
@@ -82,4 +83,4 @@ Run on an STM32H757I-EVAL (DEV_ID 0x450, revision 0x2003) with an MB1166-A03 dis
 - `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume` and `mute` reply.
 - The option bytes of that board had BCM4 cleared, so the Cortex-M4 never started and the demo reported it; the fix is in `hal::WaitForCortexM4Stop()` and is not yet re-checked.
 
-Not yet verified: that the touch cursor sits under the finger after the axis orientation was set in the driver, audio, buttons, joystick tiles, LEDs, the DAC output and the PA5 to PA1_C loopback.
+Not yet verified: the microSD (`hal::SdCardStm`: the level shifter direction pins PC6, PC7 and PB9 are taken from the STM32H743I-EVAL and still have to be checked against the MB1246 schematic, and so does any card power control behind the MFX), that the touch cursor sits under the finger after the axis orientation was set in the driver, audio, buttons, joystick tiles, LEDs, the DAC output and the PA5 to PA1_C loopback.
