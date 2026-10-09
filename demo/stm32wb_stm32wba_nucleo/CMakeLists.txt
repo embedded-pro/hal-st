@@ -1,0 +1,2 @@
+add_subdirectory(ble_central)
+add_subdirectory(ble_peripheral)

@@ -1,0 +1,7 @@
+add_subdirectory(audio_demo)
+add_subdirectory(display_demo)
+add_subdirectory(stm32f407g_disco)
+add_subdirectory(stm32f429i_disco)
+add_subdirectory(stm32f746g_disco)
+add_subdirectory(stm32h757i_eval)
+add_subdirectory(stm32wb_stm32wba_nucleo)
