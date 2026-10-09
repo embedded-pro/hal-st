@@ -680,9 +680,17 @@ int main()
     static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin, hal::SdCardStm::Config{}, hal::SdCardStm::DirectionPins{ sdData0DirectionPin, sdData123DirectionPin, sdCommandDirectionPin } };
 
     if (sdCard.NumberOfBlocks() == 0)
+    {
+        dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::pending, "NO CARD");
         tracer.Trace() << "microSD: no card";
+    }
     else
+    {
+        infra::StringOutputStream::WithStorage<24> detail;
+        detail << static_cast<uint32_t>(uint64_t{ sdCard.NumberOfBlocks() } * sdCard.BlockSize() / (1024 * 1024)) << " MIB";
+        dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::ok, detail.Storage());
         tracer.Trace() << "microSD: " << sdCard.NumberOfBlocks() << " blocks of " << sdCard.BlockSize() << " bytes";
+    }
 
     alignas(32) static std::array<uint8_t, 3 * examples::SdCardDemo::scratchBlocks * sdBlockSize> sdBuffers;
     static examples::SdCardDemo sdDemo{ sdCard, infra::MakeRange(sdBuffers) };
@@ -870,10 +878,18 @@ int main()
                 return;
             }
 
+            if (sdCard.NumberOfBlocks() == 0)
+            {
+                services::GlobalTracer().Trace() << "sdcard: no card";
+                return;
+            }
+
             sdTestRunning = true;
-            sdDemo.Start([](bool)
+            dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::pending, "TEST RUNNING");
+            sdDemo.Start([](bool passed)
                 {
                     sdTestRunning = false;
+                    dashboard.SetStatus(main_::Dashboard::Item::sdCard, passed ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, passed ? "TEST PASSED" : "TEST FAILED");
                 });
         } });
 

@@ -20,7 +20,7 @@ namespace main_
 
         constexpr uint16_t margin = 16;
         constexpr uint16_t statusTop = 56;
-        constexpr uint16_t statusPitch = 34;
+        constexpr uint16_t statusPitch = 32;
         constexpr uint16_t statusWidth = 420;
         constexpr uint16_t swatchSide = 24;
         constexpr uint16_t statusNameLeft = 52;
@@ -43,7 +43,7 @@ namespace main_
         constexpr uint16_t titleScale = 3;
         constexpr uint16_t rowTextOffset = 6;
 
-        constexpr std::array<const char*, 10> itemNames{ "DISPLAY", "SDRAM", "SRAM", "NOR", "QSPI", "AUDIO", "TOUCH", "MFX", "ADC", "DAC" };
+        constexpr std::array<const char*, static_cast<std::size_t>(Dashboard::Item::count)> itemNames{ "DISPLAY", "SDRAM", "SRAM", "NOR", "QSPI", "SDCARD", "AUDIO", "TOUCH", "MFX", "ADC", "DAC" };
         constexpr std::array<const char*, 7> buttonNames{ "WKUP", "TAMP", "SEL", "UP", "DOWN", "LEFT", "RGHT" };
 
         hal::Argb8888 StateColor(Dashboard::State state)
