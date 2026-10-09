@@ -8,6 +8,7 @@
 #include "infra/util/Function.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include DEVICE_HEADER
 
 #if defined(HAS_PERIPHERAL_DSIHOST)
@@ -30,6 +31,14 @@ namespace hal
             nonBurstWithSyncPulses,
             nonBurstWithSyncEvents,
             burst
+        };
+
+        enum class TestPattern : uint8_t
+        {
+            off,
+            verticalColorBars,
+            horizontalColorBars,
+            verticalBerPattern
         };
 
         struct Pll
@@ -97,9 +106,10 @@ namespace hal
             {}
 
             uint8_t numberOfLanes{ 2 };
+            bool commandsInLowPower{ true };
             Video video;
-            PhyTimer phyTimer;
-            uint8_t lowPowerReceiveFilter{ 0 };
+            std::optional<PhyTimer> phyTimer;
+            std::optional<uint8_t> lowPowerReceiveFilter;
             std::size_t maxParametersSize{ 64 };
         };
 
@@ -114,15 +124,18 @@ namespace hal
         void Start(const infra::Function<void()>& onDone) override;
         void Stop(const infra::Function<void()>& onDone) override;
 
+        void ShowTestPattern(TestPattern pattern);
+
     private:
         uint32_t LaneByteClockHz(const Pll& pll) const;
         uint32_t EscapeClockDivider() const;
         uint32_t LaneByteClockCycles(uint32_t pixels, uint32_t pixelClockHz) const;
         void ConfigureHost(const Pll& pll);
         void ConfigureVideo(const DisplayTiming& timing);
-        void ConfigurePhy();
-        void ConfigureTimeouts();
+        void ConfigurePhy(const PhyTimer& phyTimer);
+        void ConfigureReceiveFilter(uint8_t filter);
         void ConfigureFlowControl();
+        void ConfigureCommands();
         void BeginOperation(std::size_t size);
         void CompleteWrite(const infra::Function<void()>& onDone, HAL_StatusTypeDef status);
         void CompleteLater();

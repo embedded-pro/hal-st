@@ -152,10 +152,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
 
 if (TARGET_MCU_FAMILY STREQUAL stm32h7xx)
     set_source_files_properties(
-        AnalogToDigitalPinStm.cpp
         BackupRamStm.cpp
         FlashInternalStm.cpp
-        I2cStm.cpp
         LowPowerModeStm.cpp
         SpiDataSizeConfiguratorStm.cpp
         SpiMasterStm.cpp

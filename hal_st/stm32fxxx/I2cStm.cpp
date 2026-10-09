@@ -7,6 +7,8 @@
 #include "stm32wbxx_ll_i2c.h"
 #elif defined(STM32WBA)
 #include "stm32wbaxx_ll_i2c.h"
+#elif defined(STM32H7)
+#include "stm32h7xx_ll_i2c.h"
 #endif
 
 namespace hal
@@ -42,7 +44,7 @@ namespace hal
         i2cHandle.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
         i2cHandle.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
         HAL_I2C_Init(&i2cHandle);
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
         LL_I2C_DisableOwnAddress1(i2cHandle.Instance);
 #endif
 
@@ -56,7 +58,7 @@ namespace hal
 
     I2cStm::~I2cStm()
     {
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
         HAL_I2C_DeInit(&i2cHandle);
 #endif
         DisableClockI2c(instance);
@@ -74,7 +76,7 @@ namespace hal
         this->address = address;
 #endif
         sent = 0;
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
         received = 0;
 #endif
 
@@ -105,7 +107,7 @@ namespace hal
         this->address = address;
 #endif
         received = 0;
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
         sent = 0;
 #endif
 
@@ -147,7 +149,7 @@ namespace hal
 #if defined(I2C_ISR_TXE)
         if ((peripheralI2c[instance]->ISR & I2C_ISR_NACKF) != 0)
         {
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
             const bool txPending = (peripheralI2c[instance]->ISR & I2C_ISR_TXE) == 0;
             peripheralI2c[instance]->CR1 &= ~(I2C_CR1_TXIE | I2C_CR1_RXIE | I2C_CR1_TCIE | I2C_CR1_NACKIE | I2C_CR1_ERRIE);
             __HAL_I2C_CLEAR_FLAG(&i2cHandle, I2C_FLAG_AF);
@@ -212,7 +214,7 @@ namespace hal
                 if (nextAction == Action::stop)
                     peripheralI2c[instance]->CR2 = I2C_CR2_STOP;
                 continuingPrevious = nextAction == Action::continueSession;
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
                 if (onSent != nullptr)
                     infra::EventDispatcher::Instance().Schedule([this]()
                         {
@@ -247,7 +249,7 @@ namespace hal
             if (nextAction == Action::stop)
                 peripheralI2c[instance]->CR2 = I2C_CR2_STOP;
             continuingPrevious = nextAction == Action::continueSession;
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
             if (onSent != nullptr)
                 infra::EventDispatcher::Instance().Schedule([this]()
                     {
@@ -388,7 +390,7 @@ namespace hal
     void I2cStm::ErrorInterrupt()
     {
 #if defined(I2C_ISR_BERR)
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32H7)
         const bool active = (peripheralI2c[instance]->CR1 & I2C_CR1_TCIE) != 0;
         const bool busError = (peripheralI2c[instance]->ISR & I2C_ISR_BERR) != 0;
         const bool arbitrationLost = (peripheralI2c[instance]->ISR & I2C_ISR_ARLO) != 0;

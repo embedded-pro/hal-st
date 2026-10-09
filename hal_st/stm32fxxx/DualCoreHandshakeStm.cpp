@@ -13,6 +13,10 @@ namespace hal
     bool WaitForCortexM4Stop()
     {
 #if defined(DUAL_CORE)
+        // With BCM4 cleared in the option bytes the Cortex-M4 stays gated until the Cortex-M7 sets BOOT_C2
+        if ((FLASH->OPTSR_CUR & FLASH_OPTSR_BCM4) == 0)
+            HAL_RCCEx_EnableBootCore(RCC_BOOT_C2);
+
         // The domain clock is requested again as soon as the Cortex-M7 enables a peripheral of the Cortex-M4 domain, so this has to run first
         for (uint32_t timeout = cortexM4StopTimeout; timeout != 0; --timeout)
             if (__HAL_RCC_GET_FLAG(RCC_FLAG_D2CKRDY) == RESET)

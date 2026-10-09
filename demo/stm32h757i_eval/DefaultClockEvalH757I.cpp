@@ -70,3 +70,22 @@ void ConfigureLtdcClockEvalH757I()
     peripheralClock.PLL3.PLL3FRACN = 0;
     HAL_RCCEx_PeriphCLKConfig(&peripheralClock);
 }
+
+// PLL2 at 1 MHz x 344.064 / 7 = 49.152 MHz serves SAI1 (the 48 kHz family) and the ADC kernel clock
+void ConfigureAudioClockEvalH757I()
+{
+    RCC_PeriphCLKInitTypeDef peripheralClock = {};
+
+    peripheralClock.PeriphClockSelection = RCC_PERIPHCLK_SAI1 | RCC_PERIPHCLK_ADC;
+    peripheralClock.Sai1ClockSelection = RCC_SAI1CLKSOURCE_PLL2;
+    peripheralClock.AdcClockSelection = RCC_ADCCLKSOURCE_PLL2;
+    peripheralClock.PLL2.PLL2M = 25;
+    peripheralClock.PLL2.PLL2N = 344;
+    peripheralClock.PLL2.PLL2P = 7;
+    peripheralClock.PLL2.PLL2Q = 2;
+    peripheralClock.PLL2.PLL2R = 2;
+    peripheralClock.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_0;
+    peripheralClock.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
+    peripheralClock.PLL2.PLL2FRACN = 524;
+    HAL_RCCEx_PeriphCLKConfig(&peripheralClock);
+}

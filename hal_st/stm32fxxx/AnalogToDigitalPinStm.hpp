@@ -1,8 +1,8 @@
 #ifndef HAL_ANALOG_TO_DIGITAL_PIN_STM_HPP
 #define HAL_ANALOG_TO_DIGITAL_PIN_STM_HPP
 
-#include "hal/interfaces/AnalogToDigitalPin.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
+#include "hal/interfaces/AnalogToDigitalPin.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/Function.hpp"
@@ -30,7 +30,7 @@ namespace hal
 
         struct AdcStmConfig
         {
-#ifdef STM32WBA
+#if defined(STM32WBA) || defined(STM32H7)
             uint32_t clockPrescaler{ ADC_CLOCK_ASYNC_DIV4 };
 #else
             uint32_t clockPrescaler{ ADC_CLOCKPRESCALER_PCLK_DIV4 };
@@ -53,6 +53,22 @@ namespace hal
     private:
         AnalogPinStm analogPin;
         AdcStm& adc;
+        Config config;
+    };
+
+    class AnalogToDigitalChannelStm
+        : public AnalogToDigitalPinImplBase<uint16_t>
+    {
+    public:
+        using Config = detail::AdcStmChannelConfig;
+
+        AnalogToDigitalChannelStm(AdcStm& adc, uint32_t channel, const Config& config = Config());
+
+        void Measure(std::size_t numberOfSamples, const infra::Function<void(infra::MemoryRange<uint16_t>)>& onDone) override;
+
+    private:
+        AdcStm& adc;
+        uint32_t channel;
         Config config;
     };
 
@@ -91,6 +107,7 @@ namespace hal
 
     private:
         friend class AnalogToDigitalPinImplStm;
+        friend class AnalogToDigitalChannelStm;
         friend class AnalogToDigitalInternalTemperatureStm;
 
         uint8_t index;

@@ -21,6 +21,8 @@ namespace hal
 #if defined(I2C_TIMINGR_PRESC)
 #if defined(STM32WB) || defined(STM32WBA)
             uint32_t timing = 0x70b03d3d;
+#elif defined(STM32H7)
+            uint32_t timing = 0x1051284b;
 #else
             uint32_t timing = 0x00304d4d;
 #endif

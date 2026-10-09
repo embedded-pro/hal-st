@@ -83,16 +83,25 @@ namespace hal
     {
         really_assert(config.numberOfLanes == 1 || config.numberOfLanes == 2);
         really_assert(config.maxParametersSize >= minParametersSize);
-        really_assert(config.lowPowerReceiveFilter <= maxLowPowerReceiveFilter);
+        really_assert(!config.lowPowerReceiveFilter || *config.lowPowerReceiveFilter <= maxLowPowerReceiveFilter);
 
         EnableClockDsiHost(0);
 
         handle.Instance = peripheralDsiHost[0];
         ConfigureHost(pll);
         ConfigureVideo(timing);
-        ConfigurePhy();
-        ConfigureTimeouts();
+
+        if (config.phyTimer)
+            ConfigurePhy(*config.phyTimer);
+
+        if (config.lowPowerReceiveFilter)
+            ConfigureReceiveFilter(*config.lowPowerReceiveFilter);
+
         ConfigureFlowControl();
+
+        if (config.commandsInLowPower)
+            ConfigureCommands();
+
         __HAL_DSI_ENABLE(&handle);
     }
 
@@ -178,6 +187,34 @@ namespace hal
         CompleteWrite(onDone, HAL_OK);
     }
 
+    void DsiHostStm::ShowTestPattern(TestPattern pattern)
+    {
+        constexpr uint32_t colorBars = 0;
+        constexpr uint32_t berPattern = 1;
+        constexpr uint32_t vertical = 0;
+        constexpr uint32_t horizontal = 1;
+
+        HAL_StatusTypeDef result = HAL_ERROR;
+
+        switch (pattern)
+        {
+            case TestPattern::off:
+                result = HAL_DSI_PatternGeneratorStop(&handle);
+                break;
+            case TestPattern::verticalColorBars:
+                result = HAL_DSI_PatternGeneratorStart(&handle, colorBars, vertical);
+                break;
+            case TestPattern::horizontalColorBars:
+                result = HAL_DSI_PatternGeneratorStart(&handle, colorBars, horizontal);
+                break;
+            case TestPattern::verticalBerPattern:
+                result = HAL_DSI_PatternGeneratorStart(&handle, berPattern, vertical);
+                break;
+        }
+
+        really_assert(result == HAL_OK);
+    }
+
     uint32_t DsiHostStm::LaneByteClockHz(const Pll& pll) const
     {
         really_assert(pll.inputDivider >= 1 && pll.inputDivider <= 7);
@@ -256,38 +293,51 @@ namespace hal
         really_assert(result == HAL_OK);
     }
 
-    void DsiHostStm::ConfigurePhy()
+    void DsiHostStm::ConfigurePhy(const PhyTimer& phyTimer)
     {
-        DSI_PHY_TimerTypeDef phyTimer{};
-        phyTimer.ClockLaneHS2LPTime = config.phyTimer.clockLaneHighSpeedToLowPower;
-        phyTimer.ClockLaneLP2HSTime = config.phyTimer.clockLaneLowPowerToHighSpeed;
-        phyTimer.DataLaneHS2LPTime = config.phyTimer.dataLaneHighSpeedToLowPower;
-        phyTimer.DataLaneLP2HSTime = config.phyTimer.dataLaneLowPowerToHighSpeed;
-        phyTimer.DataLaneMaxReadTime = config.phyTimer.dataLaneMaxReadTime;
-        phyTimer.StopWaitTime = config.phyTimer.stopWaitTime;
+        DSI_PHY_TimerTypeDef timer{};
+        timer.ClockLaneHS2LPTime = phyTimer.clockLaneHighSpeedToLowPower;
+        timer.ClockLaneLP2HSTime = phyTimer.clockLaneLowPowerToHighSpeed;
+        timer.DataLaneHS2LPTime = phyTimer.dataLaneHighSpeedToLowPower;
+        timer.DataLaneLP2HSTime = phyTimer.dataLaneLowPowerToHighSpeed;
+        timer.DataLaneMaxReadTime = phyTimer.dataLaneMaxReadTime;
+        timer.StopWaitTime = phyTimer.stopWaitTime;
 
-        auto result = HAL_DSI_ConfigPhyTimer(&handle, &phyTimer);
+        auto result = HAL_DSI_ConfigPhyTimer(&handle, &timer);
         really_assert(result == HAL_OK);
     }
 
-    void DsiHostStm::ConfigureTimeouts()
+    void DsiHostStm::ConfigureReceiveFilter(uint8_t filter)
     {
-        DSI_HOST_TimeoutTypeDef timeouts{};
-        timeouts.TimeoutCkdiv = 1;
-
-        auto result = HAL_DSI_ConfigHostTimeouts(&handle, &timeouts);
-        really_assert(result == HAL_OK);
-
-        result = HAL_DSI_SetLowPowerRXFilter(&handle, config.lowPowerReceiveFilter);
-        really_assert(result == HAL_OK);
-
-        result = HAL_DSI_ConfigErrorMonitor(&handle, HAL_DSI_ERROR_NONE);
+        auto result = HAL_DSI_SetLowPowerRXFilter(&handle, filter);
         really_assert(result == HAL_OK);
     }
 
     void DsiHostStm::ConfigureFlowControl()
     {
         auto result = HAL_DSI_ConfigFlowControl(&handle, DSI_FLOW_CONTROL_BTA);
+        really_assert(result == HAL_OK);
+    }
+
+    void DsiHostStm::ConfigureCommands()
+    {
+        // Left in high speed, a command sent before the video stream runs would not be loaded by panels that need their vendor registers written in low power
+        DSI_LPCmdTypeDef commands{};
+        commands.LPGenShortWriteNoP = DSI_LP_GSW0P_ENABLE;
+        commands.LPGenShortWriteOneP = DSI_LP_GSW1P_ENABLE;
+        commands.LPGenShortWriteTwoP = DSI_LP_GSW2P_ENABLE;
+        commands.LPGenShortReadNoP = DSI_LP_GSR0P_ENABLE;
+        commands.LPGenShortReadOneP = DSI_LP_GSR1P_ENABLE;
+        commands.LPGenShortReadTwoP = DSI_LP_GSR2P_ENABLE;
+        commands.LPGenLongWrite = DSI_LP_GLW_ENABLE;
+        commands.LPDcsShortWriteNoP = DSI_LP_DSW0P_ENABLE;
+        commands.LPDcsShortWriteOneP = DSI_LP_DSW1P_ENABLE;
+        commands.LPDcsShortReadNoP = DSI_LP_DSR0P_ENABLE;
+        commands.LPDcsLongWrite = DSI_LP_DLW_ENABLE;
+        commands.LPMaxReadPacket = DSI_LP_MRDP_ENABLE;
+        commands.AcknowledgeRequest = DSI_ACKNOWLEDGE_DISABLE;
+
+        auto result = HAL_DSI_ConfigCommand(&handle, &commands);
         really_assert(result == HAL_OK);
     }
 
