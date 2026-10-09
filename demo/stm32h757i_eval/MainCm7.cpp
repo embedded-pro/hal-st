@@ -72,7 +72,7 @@ namespace
     hal::DsiHostStm::Config DsiConfig()
     {
         hal::DsiHostStm::Config config;
-        config.video.colorCoding = hal::DsiHostStm::ColorCoding::rgb565;
+        config.video.colorCoding = hal::DsiHostStm::ColorCoding::rgb888;
         return config;
     }
 
@@ -320,6 +320,50 @@ namespace
         hal::OutputPin& activityLed;
         main_::Mfx mfx;
         uint16_t previousPressed{ 0 };
+    };
+
+    class PanelProbe
+    {
+    public:
+        explicit PanelProbe(hal::DsiHost& dsi)
+            : dsi(dsi)
+        {}
+
+        void Run()
+        {
+            if (running)
+                return;
+
+            running = true;
+            index = 0;
+            ReadNext();
+        }
+
+    private:
+        static constexpr std::array<uint8_t, 5> commands{ 0x0a, 0x0b, 0x0c, 0x0d, 0xda };
+
+        void ReadNext()
+        {
+            if (index == commands.size())
+            {
+                running = false;
+                return;
+            }
+
+            const uint8_t command = commands[index++];
+            value[0] = 0;
+            dsi.ReadDcs(command, infra::MakeRange(value), [this, command](hal::DsiHost::Result result)
+                {
+                    services::GlobalTracer().Trace() << "panel dcs " << infra::hex << static_cast<uint32_t>(command) << " = " << static_cast<uint32_t>(value[0]) << ", result " << static_cast<uint32_t>(result);
+                    ReadNext();
+                });
+        }
+
+    private:
+        hal::DsiHost& dsi;
+        std::array<uint8_t, 1> value{};
+        std::size_t index{ 0 };
+        bool running{ false };
     };
 
     class I2cScanner
@@ -579,10 +623,11 @@ int main()
             activityLed.Set(false);
         } };
 
+    static PanelProbe panelProbe{ dsi };
     static infra::TimerSingleShot touchStart;
     static infra::TimerSingleShot displayReport;
 
-    static boards::Mb1166Setup panel{ dsi, dsi, lcdResetPin, hal::PixelFormat::rgb565, [](drivers::MipiDsiPanelCore::InitializationResult result)
+    static boards::Mb1166Setup panel{ dsi, dsi, lcdResetPin, hal::PixelFormat::rgb888, [](drivers::MipiDsiPanelCore::InitializationResult result)
         {
             if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
             {
@@ -654,6 +699,7 @@ int main()
     terminal.AddCommand({ { "display", "disp", "print the DSI, LTDC, clock and frame buffer state" }, [](const auto& params)
         {
             main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
+            panelProbe.Run();
         } });
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)
