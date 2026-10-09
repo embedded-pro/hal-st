@@ -55,6 +55,8 @@ unsigned int hse_value = 25'000'000;
 namespace
 {
     constexpr hal::DisplayTiming lcdTiming{ 27'500'000, boards::mb1166Panel.size, 34, 2, 34, 16, 1, 15 };
+    // The ST board support package programs the DSI line period for a 27.429 MHz pixel clock, the value of an older clock set-up, and the panel is known to work with it
+    constexpr hal::DisplayTiming dsiTiming{ 27'429'000, boards::mb1166Panel.size, 34, 2, 34, 16, 1, 15 };
     constexpr hal::DsiHostStm::Pll dsiPll{ 25'000'000, 5, 100, 1 };
 
     constexpr std::size_t sdramPatternBytes = 2 * 1024 * 1024;
@@ -485,7 +487,7 @@ int main()
 
     static hal::LtdcStm ltdc{ lcdTiming, infra::MemoryRange<const hal::LtdcStm::SignalPin>() };
     static hal::Dma2dStm dma2d;
-    static hal::DsiHostStm dsi{ dsiPll, lcdTiming, DsiConfig() };
+    static hal::DsiHostStm dsi{ dsiPll, dsiTiming, DsiConfig() };
 
     static main_::Dashboard dashboard{ ltdc, dma2d, infra::Head(sdram.Memory(), main_::Dashboard::frameBytes), infra::MakeRange(cursorMemory) };
 

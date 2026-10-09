@@ -8,6 +8,7 @@
 #include "infra/util/Function.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include DEVICE_HEADER
 
 #if defined(HAS_PERIPHERAL_DSIHOST)
@@ -106,8 +107,8 @@ namespace hal
 
             uint8_t numberOfLanes{ 2 };
             Video video;
-            PhyTimer phyTimer;
-            uint8_t lowPowerReceiveFilter{ 0 };
+            std::optional<PhyTimer> phyTimer;
+            std::optional<uint8_t> lowPowerReceiveFilter;
             std::size_t maxParametersSize{ 64 };
         };
 
@@ -130,8 +131,8 @@ namespace hal
         uint32_t LaneByteClockCycles(uint32_t pixels, uint32_t pixelClockHz) const;
         void ConfigureHost(const Pll& pll);
         void ConfigureVideo(const DisplayTiming& timing);
-        void ConfigurePhy();
-        void ConfigureTimeouts();
+        void ConfigurePhy(const PhyTimer& phyTimer);
+        void ConfigureReceiveFilter(uint8_t filter);
         void ConfigureFlowControl();
         void ConfigureCommands();
         void BeginOperation(std::size_t size);
