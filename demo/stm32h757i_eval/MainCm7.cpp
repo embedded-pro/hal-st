@@ -81,38 +81,10 @@ namespace
         return config;
     }
 
-    // Display bring-up variants, kept over a software restart, to find out which part of the ST sequence the panel needs
-    constexpr uint32_t bringupMagic = 0xb01d0001;
-    constexpr uint32_t bringupEmilReset = 1;
-    constexpr uint32_t bringupNoParameterWrites = 2;
-    constexpr uint32_t bringupLineFor27500 = 4;
-    constexpr uint32_t bringupPhyTimers = 8;
-    constexpr uint32_t bringupHighSpeedCommands = 16;
-    constexpr uint32_t bringupLateBacklight = 32;
-    constexpr uint32_t bringupAll = 63;
-
-    struct BringupStore
-    {
-        uint32_t magic;
-        uint32_t flags;
-    };
-
-    __attribute__((section(".noinit"))) volatile BringupStore bringupStore;
-
-    uint32_t BringupFlags()
-    {
-        return bringupStore.magic == bringupMagic ? bringupStore.flags : 0;
-    }
-
-    hal::DsiHostStm::Config DsiConfig(uint32_t bringup)
+    hal::DsiHostStm::Config DsiConfig()
     {
         hal::DsiHostStm::Config config;
         config.video.colorCoding = hal::DsiHostStm::ColorCoding::rgb888;
-        config.commandsInLowPower = (bringup & bringupHighSpeedCommands) == 0;
-
-        if ((bringup & bringupPhyTimers) != 0)
-            config.phyTimer = hal::DsiHostStm::PhyTimer{};
-
         return config;
     }
 
@@ -428,24 +400,13 @@ namespace
     class MemoryWriteStart
     {
     public:
-        MemoryWriteStart(hal::DsiHost& dsi, bool withParameter)
+        explicit MemoryWriteStart(hal::DsiHost& dsi)
             : dsi(dsi)
-            , withParameter(withParameter)
         {}
 
         void Start(const infra::Function<void()>& onDone)
         {
             done = onDone;
-
-            if (!withParameter)
-            {
-                dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), [this]()
-                    {
-                        done();
-                    });
-                return;
-            }
-
             dsi.WriteDcs(noOperation, infra::MakeRange(parameter), [this]()
                 {
                     dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::MakeRange(parameter), [this]()
@@ -459,7 +420,6 @@ namespace
         static constexpr uint8_t noOperation = 0x00;
 
         hal::DsiHost& dsi;
-        bool withParameter;
         infra::AutoResetFunction<void()> done;
         std::array<uint8_t, 1> parameter{};
     };
@@ -615,14 +575,8 @@ int main()
     static hal::GpioPinStm lcdBacklightPin{ hal::Port::A, 6 };
     static hal::OutputPin lcdBacklight{ lcdBacklightPin };
 
-    static const uint32_t bringup = BringupFlags();
-    tracer.Trace() << "display bring-up variant " << bringup;
-
     // The ST board support package resets the panel and switches the backlight on before it brings up the DSI link; EMIL's panel driver would reset it with the clock lane already running
-    if ((bringup & bringupLateBacklight) == 0)
-        lcdBacklight.Set(true);
-
-    if ((bringup & bringupEmilReset) == 0)
+    lcdBacklight.Set(true);
     {
         hal::OutputPin lcdReset{ lcdResetPin, true };
         lcdReset.Set(false);
@@ -631,8 +585,7 @@ int main()
         BusyWaitMilliseconds(10);
     }
 
-    static PinWithoutOutput passiveResetPin{ lcdResetPin };
-    static hal::GpioPin& panelResetPin = (bringup & bringupEmilReset) != 0 ? static_cast<hal::GpioPin&>(lcdResetPin) : passiveResetPin;
+    static PinWithoutOutput panelResetPin{ lcdResetPin };
 
     static hal::MultiGpioPinStm fmcPins{ main_::evalFmcPins, hal::Drive::PushPull, hal::Speed::High };
     static hal::FmcStm fmc{ fmcPins };
@@ -641,7 +594,7 @@ int main()
 
     static hal::LtdcStm ltdc{ lcdTiming, infra::MemoryRange<const hal::LtdcStm::SignalPin>() };
     static hal::Dma2dStm dma2d;
-    static hal::DsiHostStm dsi{ dsiPll, (bringup & bringupLineFor27500) != 0 ? lcdTiming : dsiTiming, DsiConfig(bringup) };
+    static hal::DsiHostStm dsi{ dsiPll, dsiTiming, DsiConfig() };
 
     static main_::Dashboard dashboard{ ltdc, dma2d, infra::Head(sdram.Memory(), main_::Dashboard::frameBytes), infra::MakeRange(cursorMemory) };
 
@@ -800,10 +753,9 @@ int main()
     static PanelProbe panelProbe{ dsi };
     static infra::TimerSingleShot touchStart;
     static infra::TimerSingleShot displayReport;
-    static infra::TimerSingleShot restart;
 
     static StartedVideoStream videoStream;
-    static MemoryWriteStart memoryWriteStart{ dsi, (bringup & bringupNoParameterWrites) == 0 };
+    static MemoryWriteStart memoryWriteStart{ dsi };
     static std::optional<boards::Mb1166Setup> panel;
     static auto panelInitialized = [](drivers::MipiDsiPanelCore::InitializationResult result)
     {
@@ -811,9 +763,6 @@ int main()
         {
             memoryWriteStart.Start([]()
                 {
-                    if ((bringup & bringupLateBacklight) != 0)
-                        lcdBacklight.Set(true);
-
                     services::GlobalTracer().Trace() << "Display panel initialized";
                     dashboard.Start(startAudio);
                     displayReport.Start(displayReportDelay, []()
@@ -970,24 +919,6 @@ int main()
             dsi.WriteDcs(bytes[0], infra::ConstByteRange(bytes.data() + 1, bytes.data() + count), []()
                 {
                     services::GlobalTracer().Trace() << "dcs sent";
-                });
-        } });
-
-    terminal.AddCommand({ { "bringup", "bu", "show, or select and restart with, a display bring-up variant, the sum of: 1 EMIL resets the panel with the link running, 2 final writes without parameter, 4 line period for 27.5 MHz, 8 PHY timers of 35, 16 commands in high speed, 32 backlight after the init; 0 is the ST order", "<flags>" }, [](const auto& params)
-        {
-            uint32_t value = 0;
-            if (!Parse(params, value) || value > bringupAll)
-            {
-                services::GlobalTracer().Trace() << "bringup: current variant " << bringup << ", 0 to " << bringupAll;
-                return;
-            }
-
-            bringupStore.magic = bringupMagic;
-            bringupStore.flags = value;
-            services::GlobalTracer().Trace() << "bringup: restarting with variant " << value;
-            restart.Start(std::chrono::milliseconds(200), []()
-                {
-                    NVIC_SystemReset();
                 });
         } });
 
