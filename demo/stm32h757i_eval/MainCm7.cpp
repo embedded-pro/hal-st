@@ -677,7 +677,14 @@ int main()
     static hal::GpioPinStm sdData0DirectionPin{ hal::Port::C, 6 };
     static hal::GpioPinStm sdData123DirectionPin{ hal::Port::C, 7 };
     static hal::GpioPinStm sdCommandDirectionPin{ hal::Port::B, 9 };
-    static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin, hal::SdCardStm::Config{}, hal::SdCardStm::DirectionPins{ sdData0DirectionPin, sdData123DirectionPin, sdCommandDirectionPin } };
+    // Four blocks per transfer make the test split its larger requests
+    static hal::SdCardStm::Config sdConfig = []
+    {
+        hal::SdCardStm::Config config;
+        config.maxBlocksPerTransfer = 4;
+        return config;
+    }();
+    static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin, sdConfig, hal::SdCardStm::DirectionPins{ sdData0DirectionPin, sdData123DirectionPin, sdCommandDirectionPin } };
 
     if (sdCard.NumberOfBlocks() == 0)
     {

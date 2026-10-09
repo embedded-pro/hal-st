@@ -96,7 +96,14 @@ int main()
     static hal::GpioPinStm sdData2Pin{ hal::Port::C, 10 };
     static hal::GpioPinStm sdData3Pin{ hal::Port::C, 11 };
 
-    static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin };
+    // Four blocks per transfer make the test split its larger requests
+    static hal::SdCardStm::Config sdConfig = []
+    {
+        hal::SdCardStm::Config config;
+        config.maxBlocksPerTransfer = 4;
+        return config;
+    }();
+    static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin, sdConfig };
 
     alignas(32) static std::array<uint8_t, 3 * examples::SdCardDemo::scratchBlocks * sdBlockSize> sdBuffers;
     static examples::SdCardDemo sdDemo{ sdCard, infra::MakeRange(sdBuffers) };

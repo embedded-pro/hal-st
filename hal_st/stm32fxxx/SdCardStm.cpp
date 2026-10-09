@@ -30,13 +30,6 @@ namespace
 
     constexpr uint32_t wordSize = 4;
 
-    // The HAL programs the DMA with 16-bit word counts on F4 and F7, and the SDMMC data length is 25 bits on H5 and H7
-#if defined(SD_EXTERNAL_DMA)
-    constexpr uint32_t maxBlocksPerChunk = 511;
-#else
-    constexpr uint32_t maxBlocksPerChunk = 65535;
-#endif
-
 #if defined(SD_EXTERNAL_DMA)
     const std::array dmaStreams{ DMA2_Stream0, DMA2_Stream1, DMA2_Stream2, DMA2_Stream3, DMA2_Stream4, DMA2_Stream5, DMA2_Stream6, DMA2_Stream7 };
     const std::array dmaIrqs{ DMA2_Stream0_IRQn, DMA2_Stream1_IRQn, DMA2_Stream2_IRQn, DMA2_Stream3_IRQn, DMA2_Stream4_IRQn, DMA2_Stream5_IRQn, DMA2_Stream6_IRQn, DMA2_Stream7_IRQn };
@@ -99,6 +92,7 @@ namespace hal
     {
         really_assert(oneBasedIndex >= 1 && oneBasedIndex <= peripheralSd.size());
         really_assert(config.busyPollInterval.count() > 0);
+        really_assert(config.maxBlocksPerTransfer >= 1 && config.maxBlocksPerTransfer <= Config::maxBlocksPerTransferLimit);
         really_assert(config.busWidth == BusWidth::oneBit || (&data1 != &dummyPinStm && &data2 != &dummyPinStm && &data3 != &dummyPinStm));
 
         handle.owner = this;
@@ -342,7 +336,7 @@ namespace hal
 
     void SdCardStm::StartChunk()
     {
-        chunkBlocks = std::min(blocksLeft, maxBlocksPerChunk);
+        chunkBlocks = std::min(blocksLeft, config.maxBlocksPerTransfer);
 
         auto status = operation == Operation::read
                           ? HAL_SD_ReadBlocks_DMA(&handle, cursor, nextBlock, chunkBlocks)

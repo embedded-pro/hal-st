@@ -39,9 +39,13 @@ namespace hal
 #if defined(SD_EXTERNAL_DMA)
             // 12 MHz from the 48 MHz kernel clock of F4 and F7
             static constexpr uint32_t defaultClockDivider = 2;
+            // The HAL programs the DMA with 16-bit word counts
+            static constexpr uint32_t maxBlocksPerTransferLimit = 511;
 #else
             // At most 25 MHz from the 200 MHz maximum kernel clock of H5 and H7
             static constexpr uint32_t defaultClockDivider = 4;
+            // The SDMMC data length is 25 bits
+            static constexpr uint32_t maxBlocksPerTransferLimit = 65535;
 #endif
 
             BusWidth busWidth{ BusWidth::fourBit };
@@ -50,6 +54,7 @@ namespace hal
             std::chrono::milliseconds transferTimeout{ 1000 };
             std::chrono::milliseconds busyTimeout{ 5000 };
             std::chrono::milliseconds busyPollInterval{ 1 };
+            uint32_t maxBlocksPerTransfer{ maxBlocksPerTransferLimit };
 #if defined(SD_EXTERNAL_DMA)
             DmaChannelId dma{ 2, 3, 4 };
 #endif
