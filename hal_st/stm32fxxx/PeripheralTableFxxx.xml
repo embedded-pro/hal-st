@@ -13,7 +13,9 @@
   <peripheral name="Sai" type="SAI_TypeDef*"><item name="SAI"/>
     <interrupt/>
   </peripheral>
-  <peripheral name="Sd" type="SD_TypeDef*"><item name="SDMMC"/>
+  <peripheral name="Sd" type="SD_TypeDef*">
+    <item name="SDMMC"/>
+    <item name="SDIO"/>
     <interrupt/>
   </peripheral>
   <peripheral name="Fmc" type="FMC_Bank1_TypeDef*" base="FMC_Bank1_R_BASE">

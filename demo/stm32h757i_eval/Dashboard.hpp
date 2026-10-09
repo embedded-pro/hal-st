@@ -28,6 +28,7 @@ namespace main_
             sram,
             nor,
             qspi,
+            sdCard,
             audio,
             touch,
             mfx,

@@ -9,6 +9,7 @@ emil_build_for(demo_st.stm32f746g_disco
 target_link_libraries(demo_st.stm32f746g_disco PRIVATE
     drivers.audio.wm8994
     demo_st.audio_demo
+    demo_st.sd_card_demo
     services.util
     services.peripheral
     hal_st.instantiations

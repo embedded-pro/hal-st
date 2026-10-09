@@ -1,5 +1,6 @@
 add_subdirectory(audio_demo)
 add_subdirectory(display_demo)
+add_subdirectory(sd_card_demo)
 add_subdirectory(stm32f407g_disco)
 add_subdirectory(stm32f429i_disco)
 add_subdirectory(stm32f746g_disco)

@@ -95,7 +95,7 @@ DMA differs by MCU family — use the correct conditional:
 - **Stream-based** (STM32F4xx, F7xx, H7xx — on H7 `DmaChannelId::channel` is the DMAMUX1 request, `DMA_REQUEST_*`): `#ifdef DMA_STREAM_BASED`, `DmaChannelId::stream`
 - **Channel-based** (STM32G0xx, G4xx, WBxx, WBAxx, H5xx): `#ifdef DMA_CHANNEL_BASED`, `DmaChannelId::channel`
 
-Use the appropriate `hal_st` DMA wrappers (`TransmitDmaChannel`, `ReceiveDmaChannel`, `TransceiverDmaChannel`, or circular variants) — do not create raw DMA HAL handles. The documented exception is `DcmiStm` (see `AGENTS.md`, "DCMI camera capture").
+Use the appropriate `hal_st` DMA wrappers (`TransmitDmaChannel`, `ReceiveDmaChannel`, `TransceiverDmaChannel`, or circular variants) — do not create raw DMA HAL handles. The documented exceptions are `DcmiStm` (see `AGENTS.md`, "DCMI camera capture") and `SdCardStm` on F4/F7 (see "SD card").
 
 ## Naming Conventions
 

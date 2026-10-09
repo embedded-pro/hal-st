@@ -1,5 +1,6 @@
 #include "boards/mb1166/Mb1166Setup.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
+#include "demo/sd_card_demo/SdCardDemo.hpp"
 #include "demo/stm32h757i_eval/AnalogMonitor.hpp"
 #include "demo/stm32h757i_eval/Dashboard.hpp"
 #include "demo/stm32h757i_eval/DefaultClockEvalH757I.hpp"
@@ -28,6 +29,7 @@
 #include "hal_st/stm32fxxx/QuadSpiStm.hpp"
 #include "hal_st/stm32fxxx/SaiOutputStm.hpp"
 #include "hal_st/stm32fxxx/SaiStm.hpp"
+#include "hal_st/stm32fxxx/SdCardStm.hpp"
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
 #include "hal_st/stm32fxxx/SramStm.hpp"
 #include "hal_st/stm32fxxx/UartStm.hpp"
@@ -63,6 +65,7 @@ namespace
     constexpr std::size_t sdramPatternBytes = 2 * 1024 * 1024;
     constexpr std::size_t sdramRetestBytes = 4 * 1024 * 1024;
     constexpr std::size_t norCheckBytes = 4096;
+    constexpr std::size_t sdBlockSize = 512;
     constexpr std::size_t audioBufferSamples = 2048;
     constexpr uint8_t codecInitialVolumePercent = 70;
     constexpr uint8_t minimumVolumePercent = 10;
@@ -664,6 +667,42 @@ int main()
             }
         } };
 
+    // The microSD socket sits behind a level shifter on SDMMC1; the card detect is read through the MFX
+    static hal::GpioPinStm sdClockPin{ hal::Port::C, 12 };
+    static hal::GpioPinStm sdCommandPin{ hal::Port::D, 2 };
+    static hal::GpioPinStm sdData0Pin{ hal::Port::C, 8 };
+    static hal::GpioPinStm sdData1Pin{ hal::Port::C, 9 };
+    static hal::GpioPinStm sdData2Pin{ hal::Port::C, 10 };
+    static hal::GpioPinStm sdData3Pin{ hal::Port::C, 11 };
+    static hal::GpioPinStm sdData0DirectionPin{ hal::Port::C, 6 };
+    static hal::GpioPinStm sdData123DirectionPin{ hal::Port::C, 7 };
+    static hal::GpioPinStm sdCommandDirectionPin{ hal::Port::B, 9 };
+    // Four blocks per transfer make the test split its larger requests
+    static hal::SdCardStm::Config sdConfig = []
+    {
+        hal::SdCardStm::Config config;
+        config.maxBlocksPerTransfer = 4;
+        return config;
+    }();
+    static hal::SdCardStm sdCard{ 1, sdClockPin, sdCommandPin, sdData0Pin, sdData1Pin, sdData2Pin, sdData3Pin, sdConfig, hal::SdCardStm::DirectionPins{ sdData0DirectionPin, sdData123DirectionPin, sdCommandDirectionPin } };
+
+    if (sdCard.NumberOfBlocks() == 0)
+    {
+        dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::pending, "NO CARD");
+        tracer.Trace() << "microSD: no card";
+    }
+    else
+    {
+        infra::StringOutputStream::WithStorage<24> detail;
+        detail << static_cast<uint32_t>(uint64_t{ sdCard.NumberOfBlocks() } * sdCard.BlockSize() / (1024 * 1024)) << " MIB";
+        dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::ok, detail.Storage());
+        tracer.Trace() << "microSD: " << sdCard.NumberOfBlocks() << " blocks of " << sdCard.BlockSize() << " bytes";
+    }
+
+    alignas(32) static std::array<uint8_t, 3 * examples::SdCardDemo::scratchBlocks * sdBlockSize> sdBuffers;
+    static examples::SdCardDemo sdDemo{ sdCard, infra::MakeRange(sdBuffers) };
+    static bool sdTestRunning = false;
+
     static hal::GpioPinStm i2cSclPin{ hal::Port::B, 6 };
     static hal::GpioPinStm i2cSdaPin{ hal::Port::B, 7 };
     static EvalI2c i2c{ 1, i2cSclPin, i2cSdaPin };
@@ -835,6 +874,29 @@ int main()
             qspiMemory.EraseProgramVerify([](bool ok)
                 {
                     dashboard.SetStatus(main_::Dashboard::Item::qspi, ok ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, ok ? "WRITE TEST OK" : "WRITE TEST FAILED");
+                });
+        } });
+
+    terminal.AddCommand({ { "sdcard", "sc", "read, erase, write and restore the last two blocks of the microSD card" }, [](const auto& params)
+        {
+            if (sdTestRunning)
+            {
+                services::GlobalTracer().Trace() << "sdcard: test already running";
+                return;
+            }
+
+            if (sdCard.NumberOfBlocks() == 0)
+            {
+                services::GlobalTracer().Trace() << "sdcard: no card";
+                return;
+            }
+
+            sdTestRunning = true;
+            dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::pending, "TEST RUNNING");
+            sdDemo.Start([](bool passed)
+                {
+                    sdTestRunning = false;
+                    dashboard.SetStatus(main_::Dashboard::Item::sdCard, passed ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, passed ? "TEST PASSED" : "TEST FAILED");
                 });
         } });
 

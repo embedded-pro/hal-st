@@ -35,7 +35,7 @@ You triage incoming development requests and route them to the right specialist 
 
 - Which layer is affected?
   - `hal_st/cortex/` — ARM Cortex-M core (InterruptCortex, DataWatchpointAndTrace)
-  - `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, …)
+  - `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, SdCard, …)
   - `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (SynchronousUart, SynchronousSpiMaster, …)
   - `hal_st/instantiations/` — Board event infrastructure (StmEventInfrastructure, NucleoUi, DiscoveryUi)
   - `hal_st/default_init/` — Startup code and atomics shim

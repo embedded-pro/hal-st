@@ -50,4 +50,8 @@
     <item name="DCMI"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Sd" type="SD_TypeDef*">
+    <item name="SDMMC"/>
+    <interrupt/>
+  </peripheral>
 </peripherals>

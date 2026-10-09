@@ -118,6 +118,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     SaiOutputStm.hpp
     SaiStm.cpp
     SaiStm.hpp
+    SdCardStm.cpp
+    SdCardStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
