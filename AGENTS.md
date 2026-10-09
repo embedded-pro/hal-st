@@ -45,7 +45,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 
 ## STM32H7 (H757, dual-core)
 
-- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h757xx[_cm4].s` and `st/ldscripts/mem_stm32h757_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images; default option bytes boot both cores.
+- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h757xx[_cm4].s` and `st/ldscripts/mem_stm32h757_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images. `hal::WaitForCortexM4Stop()` sets `RCC_GCR.BOOT_C2` when the option bytes have BCM4 cleared (seen on an MB1246), otherwise the CM4 never runs.
 - `system_stm32h7xx_dualcore_boot_cm4_cm7.c` is the only system file compiled (`add_hal_driver(… SYSTEM_SOURCE …)`). CM7 first waits for the CM4 domain to stop (`hal::WaitForCortexM4Stop()`, before touching any D2 peripheral), configures the clocks and then calls `hal::ReleaseCortexM4()`; CM4 calls `hal::WaitForCortexM7()` before `HAL_Init()` (`hal_st/stm32fxxx/DualCoreHandshakeStm`).
 - Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
 - Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. `PeripheralTableH7xx.xml` has `I2c`, `Adc`, `Dac` and `QuadSpi` besides the display, FMC, SAI and DCMI entries.

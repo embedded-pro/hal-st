@@ -17,15 +17,9 @@ namespace main_
         : registerAccess(i2c, deviceAddress)
         , config(config)
         , onInitialized(onInitialized)
+        , attemptsLeft(config.attempts)
     {
-        registerAccess.ReadRegister(registerVendorId, infra::Head(infra::MakeRange(identification), 1), [this]()
-            {
-                registerAccess.ReadRegister(registerChipId, infra::Tail(infra::MakeRange(identification), 1), [this]()
-                    {
-                        const bool present = identification[0] != 0x00 && identification[0] != 0xff;
-                        this->onInitialized(present ? InitializationResult::success : InitializationResult::deviceNotFound);
-                    });
-            });
+        Identify();
     }
 
     hal::TouchScreenSize Ft6x06::Size() const
@@ -61,6 +55,39 @@ namespace main_
     uint8_t Ft6x06::ChipId() const
     {
         return identification[1];
+    }
+
+    void Ft6x06::Identify()
+    {
+        identification.fill(0);
+        registerAccess.ReadRegister(registerVendorId, infra::Head(infra::MakeRange(identification), 1), [this]()
+            {
+                registerAccess.ReadRegister(registerChipId, infra::Tail(infra::MakeRange(identification), 1), [this]()
+                    {
+                        IdentificationRead();
+                    });
+            });
+    }
+
+    // The controller shares its reset with the panel and needs a while after it before it answers
+    void Ft6x06::IdentificationRead()
+    {
+        if (identification[0] != 0x00 && identification[0] != 0xff)
+        {
+            onInitialized(InitializationResult::success);
+            return;
+        }
+
+        if (--attemptsLeft == 0)
+        {
+            onInitialized(InitializationResult::deviceNotFound);
+            return;
+        }
+
+        retryTimer.Start(config.retryInterval, [this]()
+            {
+                Identify();
+            });
     }
 
     void Ft6x06::Poll()

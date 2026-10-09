@@ -81,8 +81,10 @@ namespace main_
         DrawCursorSprite();
     }
 
-    void Dashboard::Start()
+    void Dashboard::Start(const infra::Function<void()>& onStarted)
     {
+        this->onStarted = onStarted;
+
         blitter.Fill(frame, backgroundColor, [this]()
             {
                 DrawAll();
@@ -297,6 +299,7 @@ namespace main_
             {
                 ready = true;
                 ApplyCursor();
+                this->onStarted();
             });
     }
 
