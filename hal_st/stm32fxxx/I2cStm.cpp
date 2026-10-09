@@ -379,6 +379,9 @@ namespace hal
         }
         else
             std::abort();
+
+        // The writes above reach the peripheral through the APB bridge after the core has moved on; without a read back the event line is still asserted when the exception returns and the interrupt fires again with nothing to handle
+        (void)peripheralI2c[instance]->CR2;
 #endif
     }
 

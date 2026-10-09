@@ -10,6 +10,8 @@ emil_build_for(examples_st.stm32f429i_disco
 
 target_link_libraries(examples_st.stm32f429i_disco PRIVATE
     boards.stm32f429i_disco_lcd
+    drivers.imu.l3gd20
+    drivers.touch_screen.stmpe811
     examples_st.display_demo
     services.util
     services.peripheral
