@@ -73,12 +73,11 @@ namespace
     constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
     constexpr uint32_t movedEventsPerTrace = 10;
 
-    constexpr hal::TouchScreenSize touchPanelSize{ 480, 800 };
-
+    // The portrait panel is driven landscape with the axes exchanged: x follows the controller's y and y runs against its x
     drivers::Ft6x06::Config TouchConfig()
     {
         drivers::Ft6x06::Config config;
-        config.size = touchPanelSize;
+        config.orientation = drivers::Ft6x06::Orientation{ true, false, true };
         return config;
     }
 
@@ -249,9 +248,7 @@ namespace
 
         void Report(const hal::TouchScreen::Event& event)
         {
-            const hal::TouchPoint mapped = Map(event.point);
-
-            dashboard.SetTouch(event.phase, mapped);
+            dashboard.SetTouch(event.phase, event.point);
             activityLed.Set(event.phase != hal::TouchScreen::Phase::released);
 
             if (event.phase != hal::TouchScreen::Phase::moved)
@@ -259,17 +256,7 @@ namespace
             else if (++movedEvents % movedEventsPerTrace != 0)
                 return;
 
-            services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " raw " << static_cast<uint32_t>(event.point.x) << "," << static_cast<uint32_t>(event.point.y) << " screen " << static_cast<uint32_t>(mapped.x) << "," << static_cast<uint32_t>(mapped.y);
-        }
-
-        // The panel is portrait and the display is driven landscape with the axes exchanged: x follows the controller's y and y runs against its x
-        static hal::TouchPoint Map(hal::TouchPoint raw)
-        {
-            const hal::TouchScreenSize size = touchPanelSize;
-            const uint16_t x = std::min<uint16_t>(raw.y, size.height - 1);
-            const uint16_t y = static_cast<uint16_t>(size.width - 1 - std::min<uint16_t>(raw.x, size.width - 1));
-
-            return { std::min<uint16_t>(x, main_::Dashboard::screenSize.width - 1), std::min<uint16_t>(y, main_::Dashboard::screenSize.height - 1) };
+            services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " " << static_cast<uint32_t>(event.point.x) << "," << static_cast<uint32_t>(event.point.y);
         }
 
         static const char* PhaseName(hal::TouchScreen::Phase phase)
