@@ -3,6 +3,7 @@
 #include "demo/stm32h757i_eval/AnalogMonitor.hpp"
 #include "demo/stm32h757i_eval/Dashboard.hpp"
 #include "demo/stm32h757i_eval/DefaultClockEvalH757I.hpp"
+#include "demo/stm32h757i_eval/DisplayReport.hpp"
 #include "demo/stm32h757i_eval/EvalMemories.hpp"
 #include "demo/stm32h757i_eval/EvalUi.hpp"
 #include "demo/stm32h757i_eval/Ft6x06.hpp"
@@ -64,6 +65,7 @@ namespace
     constexpr uint16_t adcMaximum = 4095;
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(500);
+    constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
     constexpr uint32_t movedEventsPerTrace = 10;
     constexpr uint8_t touchOrientations = 8;
 
@@ -578,13 +580,19 @@ int main()
         } };
 
     static infra::TimerSingleShot touchStart;
+    static infra::TimerSingleShot displayReport;
 
     static boards::Mb1166Setup panel{ dsi, dsi, lcdResetPin, hal::PixelFormat::rgb565, [](drivers::MipiDsiPanelCore::InitializationResult result)
         {
             if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
             {
                 lcdBacklight.Set(true);
+                services::GlobalTracer().Trace() << "Display panel initialized";
                 dashboard.Start(startAudio);
+                displayReport.Start(displayReportDelay, []()
+                    {
+                        main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
+                    });
                 dashboard.SetStatus(main_::Dashboard::Item::display, main_::Dashboard::State::ok, "DSI 800X480 OTM8009A");
             }
             else
@@ -641,6 +649,11 @@ int main()
                 {
                     dashboard.SetStatus(main_::Dashboard::Item::qspi, ok ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, ok ? "WRITE TEST OK" : "WRITE TEST FAILED");
                 });
+        } });
+
+    terminal.AddCommand({ { "display", "disp", "print the DSI, LTDC, clock and frame buffer state" }, [](const auto& params)
+        {
+            main_::TraceDisplayReport(dashboard.FramesShown(), dashboard.Underruns(), main_::evalSdRamBase);
         } });
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)

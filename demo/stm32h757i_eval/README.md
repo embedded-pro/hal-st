@@ -41,6 +41,7 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 | `sram`           | `sr`   | Repeat the SRAM test                                                                           |
 | `qspi`           | `q`    | Read the QSPI flash identification and the start of the array twice                            |
 | `qspitest`       | `qt`   | Erase, program and verify the last sector of the QSPI flash (destroys that sector)             |
+| `display`        | `disp` | Print the DSI, LTDC, clock and frame buffer registers                                          |
 | `i2cscan`        | `i2c`  | List the addresses on I2C1 that acknowledge                                                    |
 | `adc`            | `a`    | Measure PA1_C                                                                                  |
 | `dac <0-4095>`   | `d`    | Hold the DAC output on PA5                                                                     |

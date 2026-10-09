@@ -17,6 +17,8 @@ add_executable(demo_st.stm32h757i_eval_cm7
     Dashboard.hpp
     DefaultClockEvalH757I.cpp
     DefaultClockEvalH757I.hpp
+    DisplayReport.cpp
+    DisplayReport.hpp
     EvalMemories.hpp
     EvalUi.hpp
     Ft6x06.cpp
