@@ -19,39 +19,40 @@ extern "C"
 {
 #include "stm32f7xx_ll_adc.h"
 }
+#elif defined(STM32H7)
+#include "stm32h7xx_ll_adc.h"
 #endif
 
 namespace
 {
 #if defined(STM32G4) || defined(STM32H5)
-    constexpr std::array irqMap
-    {
+    constexpr std::array irqMap{
 #if defined(STM32G4)
 #if defined(ADC1)
         std::make_pair(1, IRQn_Type::ADC1_2_IRQn), // only ADC1 or ADC2 can be configured to use the single interrupt vector
 #endif
 #if defined(ADC2)
-            std::make_pair(2, IRQn_Type::ADC1_2_IRQn), // only ADC1 or ADC2 can be configured to use the single interrupt vector
+        std::make_pair(2, IRQn_Type::ADC1_2_IRQn), // only ADC1 or ADC2 can be configured to use the single interrupt vector
 #endif
 #else
 #if defined(ADC1)
         std::make_pair(1, IRQn_Type::ADC1_IRQn),
 #endif
 #if defined(ADC2)
-            std::make_pair(2, IRQn_Type::ADC2_IRQn),
+        std::make_pair(2, IRQn_Type::ADC2_IRQn),
 #endif
 #endif
 
 #if defined(ADC3)
-            std::make_pair(3, IRQn_Type::ADC3_IRQn),
+        std::make_pair(3, IRQn_Type::ADC3_IRQn),
 #endif
 
 #if defined(ADC4)
-            std::make_pair(4, IRQn_Type::ADC4_IRQn),
+        std::make_pair(4, IRQn_Type::ADC4_IRQn),
 #endif
 
 #if defined(ADC5)
-            std::make_pair(5, IRQn_Type::ADC5_IRQn),
+        std::make_pair(5, IRQn_Type::ADC5_IRQn),
 #endif
     };
 
@@ -92,6 +93,45 @@ namespace hal
         ADC_ChannelConfTypeDef channelConfig{};
         channelConfig.Channel = adc.Channel(analogPin);
 
+#ifdef ADC_REGULAR_RANK_1
+        channelConfig.Rank = ADC_REGULAR_RANK_1;
+#else
+        channelConfig.Rank = 1;
+#endif
+#ifdef ADC_SMPR_SMP1
+        channelConfig.SamplingTime = ADC_SAMPLINGTIME_COMMON_1;
+#else
+        channelConfig.SamplingTime = config.samplingTime;
+#endif
+#ifdef ADC_OFFSET_NONE
+        channelConfig.OffsetNumber = ADC_OFFSET_NONE;
+#endif
+#ifdef ADC_SINGLE_ENDED
+        channelConfig.SingleDiff = ADC_SINGLE_ENDED;
+#endif
+#ifdef ADC_OFFSET_1
+        channelConfig.Offset = 0;
+#endif
+        adc.SelectSingleConversion();
+        HAL_StatusTypeDef result = HAL_ADC_ConfigChannel(&adc.Handle(), &channelConfig);
+        assert(result == HAL_OK);
+
+        adc.Measure(onDone);
+    }
+
+    AnalogToDigitalChannelStm::AnalogToDigitalChannelStm(AdcStm& adc, uint32_t channel, const Config& config)
+        : adc(adc)
+        , channel(channel)
+        , config(config)
+    {
+        HAL_ADC_Stop(&adc.Handle());
+        LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_SOFTWARE_START);
+    }
+
+    void AnalogToDigitalChannelStm::Measure(std::size_t numberOfSamples, const infra::Function<void(infra::MemoryRange<uint16_t>)>& onDone)
+    {
+        ADC_ChannelConfTypeDef channelConfig{};
+        channelConfig.Channel = channel;
 #ifdef ADC_REGULAR_RANK_1
         channelConfig.Rank = ADC_REGULAR_RANK_1;
 #else
@@ -174,6 +214,8 @@ namespace hal
         , interruptHandler(ADC4_IRQn, [this]()
 #elif defined(STM32H5)
         , interruptHandler(LookupIrq(oneBasedIndex), [this]()
+#elif defined(STM32H7)
+        , interruptHandler(oneBasedIndex == 3 ? ADC3_IRQn : ADC_IRQn, [this]()
 #else
         , interruptHandler(ADC_IRQn, [this]()
 #endif
@@ -193,9 +235,15 @@ namespace hal
         handle.Init.NbrOfDiscConversion = 0;
 #endif
         handle.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-        handle.Init.DMAContinuousRequests = DISABLE;
         handle.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+#if defined(STM32H7)
+        handle.Init.LowPowerAutoWait = DISABLE;
+        handle.Init.ConversionDataManagement = ADC_CONVERSIONDATA_DR;
+        handle.Init.LeftBitShift = ADC_LEFTBITSHIFT_NONE;
+#else
+        handle.Init.DMAContinuousRequests = DISABLE;
         handle.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+#endif
         handle.Init.NbrOfConversion = 1;
         handle.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
 #ifdef ADC_OVR_DATA_OVERWRITTEN
@@ -210,7 +258,9 @@ namespace hal
         HAL_StatusTypeDef result = HAL_ADC_Init(&handle);
         assert(result == HAL_OK);
 
-#ifdef IS_ADC_SINGLE_DIFFERENTIAL
+#if defined(STM32H7)
+        result = HAL_ADCEx_Calibration_Start(&handle, ADC_CALIB_OFFSET_LINEARITY, ADC_SINGLE_ENDED);
+#elif defined(IS_ADC_SINGLE_DIFFERENTIAL)
         result = HAL_ADCEx_Calibration_Start(&handle, ADC_SINGLE_ENDED);
 #elif defined(IS_ADC_CALFACT)
         result = HAL_ADCEx_Calibration_Start(&handle);
