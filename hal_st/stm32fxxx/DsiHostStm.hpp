@@ -123,6 +123,7 @@ namespace hal
         void ConfigurePhy();
         void ConfigureTimeouts();
         void ConfigureFlowControl();
+        void ConfigureCommands();
         void BeginOperation(std::size_t size);
         void CompleteWrite(const infra::Function<void()>& onDone, HAL_StatusTypeDef status);
         void CompleteLater();

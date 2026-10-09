@@ -93,6 +93,7 @@ namespace hal
         ConfigurePhy();
         ConfigureTimeouts();
         ConfigureFlowControl();
+        ConfigureCommands();
         __HAL_DSI_ENABLE(&handle);
     }
 
@@ -160,7 +161,6 @@ namespace hal
         really_assert(!streaming);
         BeginOperation(0);
 
-        SET_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
         auto result = HAL_DSI_Start(&handle);
         really_assert(result == HAL_OK);
         streaming = true;
@@ -174,7 +174,6 @@ namespace hal
         BeginOperation(0);
 
         __HAL_DSI_WRAPPER_DISABLE(&handle);
-        CLEAR_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
         streaming = false;
 
         CompleteWrite(onDone, HAL_OK);
@@ -217,9 +216,6 @@ namespace hal
 
         auto result = HAL_DSI_Init(&handle, &pllInit);
         really_assert(result == HAL_OK);
-
-        // HAL_DSI_Init puts the clock lane in high speed mode for good; a panel that is reset while it runs never locks to it, so it only starts with the video stream
-        CLEAR_BIT(handle.Instance->CLCR, DSI_CLCR_DPCC);
     }
 
     void DsiHostStm::ConfigureVideo(const DisplayTiming& timing)
@@ -293,6 +289,28 @@ namespace hal
     void DsiHostStm::ConfigureFlowControl()
     {
         auto result = HAL_DSI_ConfigFlowControl(&handle, DSI_FLOW_CONTROL_BTA);
+        really_assert(result == HAL_OK);
+    }
+
+    void DsiHostStm::ConfigureCommands()
+    {
+        // Left in high speed, a command sent before the video stream runs would not be loaded by panels that need their vendor registers written in low power
+        DSI_LPCmdTypeDef commands{};
+        commands.LPGenShortWriteNoP = DSI_LP_GSW0P_ENABLE;
+        commands.LPGenShortWriteOneP = DSI_LP_GSW1P_ENABLE;
+        commands.LPGenShortWriteTwoP = DSI_LP_GSW2P_ENABLE;
+        commands.LPGenShortReadNoP = DSI_LP_GSR0P_ENABLE;
+        commands.LPGenShortReadOneP = DSI_LP_GSR1P_ENABLE;
+        commands.LPGenShortReadTwoP = DSI_LP_GSR2P_ENABLE;
+        commands.LPGenLongWrite = DSI_LP_GLW_ENABLE;
+        commands.LPDcsShortWriteNoP = DSI_LP_DSW0P_ENABLE;
+        commands.LPDcsShortWriteOneP = DSI_LP_DSW1P_ENABLE;
+        commands.LPDcsShortReadNoP = DSI_LP_DSR0P_ENABLE;
+        commands.LPDcsLongWrite = DSI_LP_DLW_ENABLE;
+        commands.LPMaxReadPacket = DSI_LP_MRDP_ENABLE;
+        commands.AcknowledgeRequest = DSI_ACKNOWLEDGE_DISABLE;
+
+        auto result = HAL_DSI_ConfigCommand(&handle, &commands);
         really_assert(result == HAL_OK);
     }
 

@@ -30,6 +30,7 @@
 #include "hal_st/stm32fxxx/SdRamStm.hpp"
 #include "hal_st/stm32fxxx/SramStm.hpp"
 #include "hal_st/stm32fxxx/UartStm.hpp"
+#include "infra/event/EventDispatcher.hpp"
 #include "infra/stream/StringInputStream.hpp"
 #include "infra/stream/StringOutputStream.hpp"
 #include "infra/timer/Timer.hpp"
@@ -321,6 +322,21 @@ namespace
         hal::OutputPin& activityLed;
         main_::Mfx mfx;
         uint16_t previousPressed{ 0 };
+    };
+
+    class StartedVideoStream
+        : public hal::DsiVideoStream
+    {
+    public:
+        void Start(const infra::Function<void()>& onDone) override
+        {
+            infra::EventDispatcher::Instance().Schedule(onDone);
+        }
+
+        void Stop(const infra::Function<void()>& onDone) override
+        {
+            infra::EventDispatcher::Instance().Schedule(onDone);
+        }
     };
 
     class PanelProbe
@@ -628,13 +644,12 @@ int main()
     static infra::TimerSingleShot touchStart;
     static infra::TimerSingleShot displayReport;
 
+    static StartedVideoStream videoStream;
     static std::optional<boards::Mb1166Setup> panel;
-    static bool videoRunning = false;
     static auto panelInitialized = [](drivers::MipiDsiPanelCore::InitializationResult result)
     {
         if (result == drivers::MipiDsiPanelCore::InitializationResult::success)
         {
-            videoRunning = true;
             dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), []()
                 {
                     lcdBacklight.Set(true);
@@ -662,10 +677,13 @@ int main()
 
     static auto startPanel = [](const infra::Function<void(drivers::MipiDsiPanelCore::InitializationResult)>& onInitialized)
     {
-        panel.emplace(dsi, dsi, lcdResetPin, hal::PixelFormat::rgb888, onInitialized);
+        panel.emplace(dsi, videoStream, lcdResetPin, hal::PixelFormat::rgb888, onInitialized);
     };
 
-    startPanel(panelInitialized);
+    dsi.Start([]()
+        {
+            startPanel(panelInitialized);
+        });
 
     static infra::TimerRepeating secondTimer{ std::chrono::seconds{ 1 }, []
         {
@@ -718,25 +736,13 @@ int main()
 
     terminal.AddCommand({ { "panel", "p", "reset and initialize the display panel again" }, [](const auto& params)
         {
-            static auto initializeAgain = []()
-            {
-                startPanel([](drivers::MipiDsiPanelCore::InitializationResult result)
-                    {
-                        videoRunning = result == drivers::MipiDsiPanelCore::InitializationResult::success;
-                        dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), [result]()
-                            {
-                                services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
-                            });
-                    });
-            };
-
-            if (videoRunning)
-            {
-                videoRunning = false;
-                dsi.Stop(initializeAgain);
-            }
-            else
-                initializeAgain();
+            startPanel([](drivers::MipiDsiPanelCore::InitializationResult result)
+                {
+                    dsi.WriteDcs(drivers::dcs::writeMemoryStart, infra::ConstByteRange(), [result]()
+                        {
+                            services::GlobalTracer().Trace() << "panel initialized again, result " << static_cast<uint32_t>(result);
+                        });
+                });
         } });
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)
