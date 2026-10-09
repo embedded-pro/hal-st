@@ -27,6 +27,8 @@ The `stm32f407` preset sets `EMIL_INCLUDE_SEGGER_RTT`; without it the example is
 
 PLLI2S is set once to 86 MHz in `Main.cpp` and shared by I2S2 and I2S3, so the codec runs at 48 kHz (MCLK = 256 x fs) and the microphone clock at about 1.024 MHz.
 
+The tone plays at 80 % (-20.5 dB). The CS43L22 volume code is linear in dB, so the `ToneDemo` default of 30 % is -71.5 dB, which cannot be heard on earphones.
+
 Not included, because the board or the libraries do not allow it:
 
 - USB OTG FS: hal-st only has the link layer and no device class stack.
@@ -55,11 +57,10 @@ probe-rs run --chip STM32F407VGTx build/stm32f407/demo/stm32f407g_disco/RelWithD
 
 The boot counter lives in the RTC backup registers, so it survives a reset but not a power cycle.
 
-## Not verified on hardware
+## Hardware status
 
-Nothing here has run on a board yet. Things to check first:
+Run on an STM32F4DISCOVERY: the boot report, the accelerometer, the tilt LEDs, the microphone clock without overruns, the die temperature and the 440 Hz tone on the headphone jack after a press of the user button. Not checked yet:
 
-- The PLLI2S values give the codec and the microphone a rate within 1 %; the I2S drivers assert otherwise.
-- The microphone data is valid on the clock edge that `pdmSampleEdge` selects (rising by default). If the level never leaves the noise floor, try `falling` in `Main.cpp`.
+- The microphone data is valid on the clock edge that `pdmSampleEdge` selects (rising by default). Only the noise floor has been seen, with no sound in front of the microphone. If the level never leaves the noise floor with sound, try `falling` in `Main.cpp`.
 - The LED mapping depends on how the board is held; swap the arguments of `pwm.Start` in `TiltLeds::Update` to taste.
 - Boards older than revision C carry a LIS302DL instead of the LIS3DSH; EMIL has `drivers.imu.lis302dl` for them.

@@ -41,7 +41,7 @@ namespace
     constexpr std::size_t microphoneBufferSamples = 2048;
     constexpr uint32_t microphoneSampleRate = 16000;
     constexpr uint16_t codecMasterClockRatio = 256;
-    constexpr uint8_t codecInitialVolumePercent = 70;
+    constexpr uint8_t toneVolumePercent = 80;
     constexpr int32_t oneG = 9807;
     constexpr uint32_t backupMagic = 0xb007c0de;
 
@@ -301,8 +301,14 @@ int main()
     static hal::I2sOutputStm::WithBuffer<toneBufferSamples> codecI2s{ 3, codecStream, codecSdPin, codecSckPin, codecWsPin, codecMclkPin, codecI2sConfig };
 
     static drivers::Cs43l22BusAccessI2c codecBus{ codecI2c };
-    static drivers::Cs43l22 codec{ codecBus, codecI2s, codecResetPin, drivers::Cs43l22::Config{ drivers::Cs43l22::Output::headphone, codecInitialVolumePercent, codecMasterClockRatio, std::nullopt } };
-    static examples::ToneDemo tone{ codec };
+    static drivers::Cs43l22 codec{ codecBus, codecI2s, codecResetPin, drivers::Cs43l22::Config{ drivers::Cs43l22::Output::headphone, toneVolumePercent, codecMasterClockRatio, std::nullopt } };
+    static examples::ToneDemo::Config toneConfig = []
+    {
+        examples::ToneDemo::Config config;
+        config.volumePercent = toneVolumePercent;
+        return config;
+    }();
+    static examples::ToneDemo tone{ codec, toneConfig };
     static ToneButton toneButton{ tone };
 
     static hal::GpioPinStm userButtonPin{ hal::Port::A, 0 };
