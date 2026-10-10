@@ -14,7 +14,8 @@
 namespace main_
 {
     // A quad-SPI flash in its power-up mode. Reads and programs use the quad lines, and every read is compared with a read on one line.
-    // The check reads the JEDEC identification and the first and the last block of the array; the test saves the last sector, erases and programs it, and restores it.
+    // The check reads the JEDEC identification and, on a Micron flash, makes the dummy cycles of its fast reads match the geometry, then reads the first and the last block of the array;
+    // the test saves the last sector, erases and programs it, and restores it.
     class QuadSpiMemory
     {
     public:
@@ -41,6 +42,13 @@ namespace main_
 
         void BeginCheck();
         void ReadIdentification();
+        void AlignDummyCycles();
+        bool FlashKeepsDummyCyclesInVolatileConfiguration() const;
+        bool DummyCyclesNeedAlignment() const;
+        void ReadVolatileConfiguration();
+        void WriteEnable();
+        void WriteVolatileConfiguration();
+        void TraceDummyCycles();
         void CheckFirstBlock();
         void CheckLastBlock();
         void EvaluateCheck();
@@ -67,6 +75,8 @@ namespace main_
         std::optional<services::FlashQuadSpiSingleSpeed> singleLineFlash;
         infra::Sequencer sequencer;
         std::array<uint8_t, 3> identification{};
+        std::array<uint8_t, 1> volatileConfiguration{};
+        uint8_t volatileConfigurationBefore{ 0 };
         Buffer reference{};
         Buffer candidate{};
         Buffer saved{};

@@ -7,12 +7,30 @@ namespace main_
     namespace
     {
         constexpr uint8_t commandReadJedecId = 0x9f;
+        constexpr uint8_t commandWriteEnable = 0x06;
+        constexpr uint8_t commandReadVolatileConfiguration = 0x85;
+        constexpr uint8_t commandWriteVolatileConfiguration = 0x81;
+        constexpr uint8_t manufacturerMicron = 0x20;
+        constexpr uint8_t dummyCyclesShift = 4;
+        constexpr uint8_t dummyCyclesMask = 0xf0;
+        constexpr uint8_t maxDummyCycles = 14;
+        constexpr uint8_t defaultDummyCycles = 15;
         constexpr uint8_t erasedByte = 0xff;
         constexpr uint32_t threeByteAddressRange = 1u << 24;
 
-        hal::QuadSpi::Header JedecHeader()
+        hal::QuadSpi::Header CommandHeader(uint8_t command)
         {
-            return hal::QuadSpi::Header{ std::make_optional<uint8_t>(commandReadJedecId), {}, {}, 0 };
+            return hal::QuadSpi::Header{ std::make_optional(command), {}, {}, 0 };
+        }
+
+        uint8_t DummyCycles(uint8_t volatileConfiguration)
+        {
+            return static_cast<uint8_t>((volatileConfiguration & dummyCyclesMask) >> dummyCyclesShift);
+        }
+
+        bool DummyCyclesAreDefault(uint8_t dummyCycles)
+        {
+            return dummyCycles == 0 || dummyCycles == defaultDummyCycles;
         }
 
         bool IsErased(infra::ConstByteRange data)
@@ -147,6 +165,7 @@ namespace main_
         sequencer.Load([this]()
             {
                 ReadIdentification();
+                AlignDummyCycles();
                 CheckFirstBlock();
                 CheckLastBlock();
             });
@@ -156,11 +175,100 @@ namespace main_
     {
         sequencer.Step([this]()
             {
-                spi.ReceiveData(JedecHeader(), infra::MakeRange(identification), hal::QuadSpi::Lines::SingleSpeed(), [this]()
+                spi.ReceiveData(CommandHeader(commandReadJedecId), infra::MakeRange(identification), hal::QuadSpi::Lines::SingleSpeed(), [this]()
                     {
                         sequencer.Continue();
                     });
             });
+    }
+
+    void QuadSpiMemory::AlignDummyCycles()
+    {
+        sequencer.If([this]()
+            {
+                return FlashKeepsDummyCyclesInVolatileConfiguration();
+            });
+        sequencer.Step([this]()
+            {
+                ReadVolatileConfiguration();
+            });
+        sequencer.Execute([this]()
+            {
+                volatileConfigurationBefore = volatileConfiguration[0];
+            });
+        sequencer.If([this]()
+            {
+                return DummyCyclesNeedAlignment();
+            });
+        sequencer.Step([this]()
+            {
+                WriteEnable();
+            });
+        sequencer.Step([this]()
+            {
+                WriteVolatileConfiguration();
+            });
+        sequencer.Step([this]()
+            {
+                ReadVolatileConfiguration();
+            });
+        sequencer.EndIf();
+        sequencer.Execute([this]()
+            {
+                TraceDummyCycles();
+            });
+        sequencer.EndIf();
+    }
+
+    bool QuadSpiMemory::FlashKeepsDummyCyclesInVolatileConfiguration() const
+    {
+        return identification[0] == manufacturerMicron && geometry.ReadDummyCycles() != 0 && geometry.ReadDummyCycles() <= maxDummyCycles;
+    }
+
+    bool QuadSpiMemory::DummyCyclesNeedAlignment() const
+    {
+        const uint8_t dummyCycles = DummyCycles(volatileConfiguration[0]);
+
+        return !DummyCyclesAreDefault(dummyCycles) && dummyCycles != geometry.ReadDummyCycles();
+    }
+
+    void QuadSpiMemory::ReadVolatileConfiguration()
+    {
+        spi.ReceiveData(CommandHeader(commandReadVolatileConfiguration), infra::MakeRange(volatileConfiguration), hal::QuadSpi::Lines::SingleSpeed(), [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::WriteEnable()
+    {
+        spi.SendData(CommandHeader(commandWriteEnable), {}, hal::QuadSpi::Lines::SingleSpeed(), [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::WriteVolatileConfiguration()
+    {
+        volatileConfiguration[0] = static_cast<uint8_t>((volatileConfiguration[0] & ~dummyCyclesMask) | (geometry.ReadDummyCycles() << dummyCyclesShift));
+
+        spi.SendData(CommandHeader(commandWriteVolatileConfiguration), infra::MakeConstRange(volatileConfiguration), hal::QuadSpi::Lines::SingleSpeed(), [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::TraceDummyCycles()
+    {
+        const uint8_t dummyCyclesBefore = DummyCycles(volatileConfigurationBefore);
+        const uint8_t dummyCyclesAfter = DummyCycles(volatileConfiguration[0]);
+        const auto before = static_cast<uint32_t>(volatileConfigurationBefore);
+        const auto after = static_cast<uint32_t>(volatileConfiguration[0]);
+
+        if (before == after)
+            services::GlobalTracer().Trace() << "QSPI flash dummy cycle field " << static_cast<uint32_t>(dummyCyclesAfter) << (DummyCyclesAreDefault(dummyCyclesAfter) ? " (default)" : "") << ", volatile configuration register " << infra::hex << after;
+        else
+            services::GlobalTracer().Trace() << "QSPI flash dummy cycle field " << static_cast<uint32_t>(dummyCyclesBefore) << ", set to " << static_cast<uint32_t>(dummyCyclesAfter) << " as the geometry says, volatile configuration register " << infra::hex << before << " now " << after;
     }
 
     void QuadSpiMemory::CheckFirstBlock()
