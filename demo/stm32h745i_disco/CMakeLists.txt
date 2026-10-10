@@ -11,7 +11,10 @@ endif()
 add_executable(demo_st.stm32h745i_disco_cm7
     DefaultClockDiscoveryH745I.cpp
     DefaultClockDiscoveryH745I.hpp
+    DiscoveryDashboard.cpp
+    DiscoveryDashboard.hpp
     DiscoveryH745Ui.hpp
+    DiscoveryLcdPins.hpp
     DiscoveryMemories.hpp
     MainCm7.cpp
 )
@@ -21,7 +24,9 @@ emil_build_for(demo_st.stm32h745i_disco_cm7
 )
 
 target_link_libraries(demo_st.stm32h745i_disco_cm7 PRIVATE
+    demo_st.audio_demo
     demo_st.common
+    drivers.audio.wm8994
     services.flash
     services.util
     services.peripheral

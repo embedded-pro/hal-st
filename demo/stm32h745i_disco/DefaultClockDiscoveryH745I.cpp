@@ -59,3 +59,38 @@ void ConfigureDefaultClockDiscoveryH745I()
     RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
     really_assert(HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) == HAL_OK);
 }
+
+// PLL3 at 5 MHz x 160 / 83 = 9.64 MHz gives the pixel clock of the 480x272 panel
+void ConfigureLtdcClockDiscoveryH745I()
+{
+    RCC_PeriphCLKInitTypeDef peripheralClock = {};
+
+    peripheralClock.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    peripheralClock.PLL3.PLL3M = 5;
+    peripheralClock.PLL3.PLL3N = 160;
+    peripheralClock.PLL3.PLL3P = 2;
+    peripheralClock.PLL3.PLL3Q = 2;
+    peripheralClock.PLL3.PLL3R = 83;
+    peripheralClock.PLL3.PLL3RGE = RCC_PLL3VCIRANGE_2;
+    peripheralClock.PLL3.PLL3VCOSEL = RCC_PLL3VCOWIDE;
+    peripheralClock.PLL3.PLL3FRACN = 0;
+    really_assert(HAL_RCCEx_PeriphCLKConfig(&peripheralClock) == HAL_OK);
+}
+
+// PLL2 at 1 MHz x 344.064 / 7 = 49.152 MHz serves SAI2 (the 48 kHz family)
+void ConfigureAudioClockDiscoveryH745I()
+{
+    RCC_PeriphCLKInitTypeDef peripheralClock = {};
+
+    peripheralClock.PeriphClockSelection = RCC_PERIPHCLK_SAI23;
+    peripheralClock.Sai23ClockSelection = RCC_SAI23CLKSOURCE_PLL2;
+    peripheralClock.PLL2.PLL2M = 25;
+    peripheralClock.PLL2.PLL2N = 344;
+    peripheralClock.PLL2.PLL2P = 7;
+    peripheralClock.PLL2.PLL2Q = 2;
+    peripheralClock.PLL2.PLL2R = 2;
+    peripheralClock.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_0;
+    peripheralClock.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
+    peripheralClock.PLL2.PLL2FRACN = 524;
+    really_assert(HAL_RCCEx_PeriphCLKConfig(&peripheralClock) == HAL_OK);
+}
