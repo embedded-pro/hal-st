@@ -1,5 +1,7 @@
 #include "boards/mb1166/Mb1166Setup.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
+#include "demo/common/CountingI2cStm.hpp"
+#include "demo/common/I2cScanner.hpp"
 #include "demo/common/MemoryTests.hpp"
 #include "demo/common/QuadSpiMemory.hpp"
 #include "demo/sd_card_demo/SdCardDemo.hpp"
@@ -90,44 +92,6 @@ namespace
         config.video.colorCoding = hal::DsiHostStm::ColorCoding::rgb888;
         return config;
     }
-
-    // The expander does not answer for a while after a reset, so a missing device is reported by its driver and not by an abort
-    class EvalI2c
-        : public hal::I2cStm
-    {
-    public:
-        using hal::I2cStm::I2cStm;
-
-        uint32_t NotAcknowledged() const
-        {
-            return notAcknowledged;
-        }
-
-        uint32_t BusErrors() const
-        {
-            return busErrors;
-        }
-
-    protected:
-        void DeviceNotFound() override
-        {
-            ++notAcknowledged;
-        }
-
-        void BusError() override
-        {
-            ++busErrors;
-        }
-
-        void ArbitrationLost() override
-        {
-            ++busErrors;
-        }
-
-    private:
-        uint32_t notAcknowledged = 0;
-        uint32_t busErrors = 0;
-    };
 
     bool Parse(infra::BoundedConstString params, uint32_t& value)
     {
@@ -483,59 +447,6 @@ namespace
         std::size_t index{ 0 };
         bool running{ false };
     };
-
-    class I2cScanner
-    {
-    public:
-        explicit I2cScanner(hal::I2cMaster& i2c)
-            : i2c(i2c)
-        {}
-
-        void Scan()
-        {
-            if (scanning)
-            {
-                services::GlobalTracer().Trace() << "i2c scan in progress";
-                return;
-            }
-
-            scanning = true;
-            found = 0;
-            address = firstAddress;
-            Probe();
-        }
-
-    private:
-        static constexpr uint16_t firstAddress = 0x08;
-        static constexpr uint16_t lastAddress = 0x77;
-
-        void Probe()
-        {
-            i2c.ReceiveData(hal::I2cAddress(address), infra::MakeRange(data), hal::Action::stop, [this](hal::Result result)
-                {
-                    if (result == hal::Result::complete)
-                    {
-                        ++found;
-                        services::GlobalTracer().Trace() << "i2c 0x" << infra::hex << static_cast<uint32_t>(address) << " acknowledged";
-                    }
-
-                    if (address++ != lastAddress)
-                        Probe();
-                    else
-                    {
-                        scanning = false;
-                        services::GlobalTracer().Trace() << "i2c scan done, " << found << " devices";
-                    }
-                });
-        }
-
-    private:
-        hal::I2cMaster& i2c;
-        std::array<uint8_t, 1> data{};
-        uint16_t address{ firstAddress };
-        uint32_t found{ 0 };
-        bool scanning{ false };
-    };
 }
 
 int main()
@@ -705,13 +616,13 @@ int main()
 
     static hal::GpioPinStm i2cSclPin{ hal::Port::B, 6 };
     static hal::GpioPinStm i2cSdaPin{ hal::Port::B, 7 };
-    static EvalI2c i2c{ 1, i2cSclPin, i2cSdaPin };
+    static main_::CountingI2cStm i2c{ 1, i2cSclPin, i2cSdaPin };
     static services::I2cMultipleAccessMaster i2cMaster{ i2c };
     static services::I2cMultipleAccess codecI2c{ i2cMaster };
     static services::I2cMultipleAccess touchI2c{ i2cMaster };
     static services::I2cMultipleAccess mfxI2c{ i2cMaster };
     static services::I2cMultipleAccess scanI2c{ i2cMaster };
-    static I2cScanner i2cScanner{ scanI2c };
+    static main_::I2cScanner i2cScanner{ scanI2c };
 
     static TouchMonitor touchMonitor{ touchI2c, dashboard, activityLed };
     static MfxMonitor mfxMonitor{ mfxI2c, dashboard, activityLed };

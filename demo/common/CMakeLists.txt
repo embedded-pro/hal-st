@@ -13,6 +13,9 @@ target_link_libraries(demo_st.common PUBLIC
 )
 
 target_sources(demo_st.common PRIVATE
+    CountingI2cStm.hpp
+    I2cScanner.cpp
+    I2cScanner.hpp
     InvertedGpioPin.hpp
     MemoryTests.hpp
     QuadSpiMemory.cpp
