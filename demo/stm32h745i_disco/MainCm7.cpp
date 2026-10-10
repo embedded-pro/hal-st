@@ -1,3 +1,4 @@
+#include "boards/rk043fn48h/Rk043fn48h.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
 #include "demo/common/CountingI2cStm.hpp"
 #include "demo/common/I2cScanner.hpp"
@@ -41,9 +42,6 @@ unsigned int hse_value = 25'000'000;
 
 namespace
 {
-    // The RK043FN48H panel runs from a 9.6 MHz pixel clock with active-low synchronisation and data enable. The data starts 43 clocks after the start of HSYNC, which is where ST's board support package puts it for this board, instead of the 54 of the older RK043FN48H timing
-    constexpr hal::DisplayTiming lcdTiming{ 9'600'000, main_::DiscoveryDashboard::screenSize, 32, 41, 2, 2, 10, 2 };
-
     constexpr uint32_t secondsPerUptimeTrace = 10;
     constexpr std::size_t sdramPatternBytes = 2 * 1024 * 1024;
     constexpr std::size_t sdramRetestBytes = 4 * 1024 * 1024;
@@ -153,7 +151,7 @@ int main()
     static hal::SdRamStm sdram{ fmcPins, main_::DiscoverySdRamConfig() };
 
     static main_::DiscoveryLcdPins lcdPins;
-    static hal::LtdcStm ltdc{ lcdTiming, lcdPins.Signals() };
+    static hal::LtdcStm ltdc{ boards::rk043fn48hTiming, lcdPins.Signals() };
     static hal::Dma2dStm dma2d;
     alignas(32) static std::array<uint8_t, main_::TouchCursor::bytes> cursorMemory;
     static main_::DiscoveryDashboard dashboard{ ltdc, dma2d, infra::Head(sdram.Memory(), main_::DiscoveryDashboard::frameBytes), infra::MakeRange(cursorMemory) };
@@ -305,7 +303,7 @@ int main()
             ReportSdram(dashboard, "SDRAM retest", static_cast<uint32_t>(sdramRetestBytes / 1024), TestSdram(sdram.Memory(), false));
         } });
 
-    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification and the start of the array twice" }, [](const auto& params)
+    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification, then the first and the last block of the array on one and on four lines" }, [](const auto& params)
         {
             qspiMemory.Check([](bool ok)
                 {
@@ -313,7 +311,7 @@ int main()
                 });
         } });
 
-    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the sector below 16 MB of the first QSPI flash, then restore it" }, [](const auto& params)
+    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the last sector of the first QSPI flash on four lines, then restore it" }, [](const auto& params)
         {
             qspiMemory.EraseProgramVerify([](bool ok)
                 {

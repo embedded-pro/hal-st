@@ -713,7 +713,7 @@ int main()
             ReportMemory(dashboard, main_::Dashboard::Item::sram, "SRAM", static_cast<uint32_t>(sram.Memory().size() / 1024), errors);
         } });
 
-    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification and the start of the array twice" }, [](const auto& params)
+    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification, then the first and the last block of the array on one and on four lines" }, [](const auto& params)
         {
             qspiMemory.Check([](bool ok)
                 {
@@ -721,7 +721,7 @@ int main()
                 });
         } });
 
-    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the sector below 16 MB of the QSPI flash, then restore it" }, [](const auto& params)
+    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the last sector of the QSPI flash on four lines, then restore it" }, [](const auto& params)
         {
             qspiMemory.EraseProgramVerify([](bool ok)
                 {

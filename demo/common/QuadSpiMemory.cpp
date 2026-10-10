@@ -8,6 +8,7 @@ namespace main_
     {
         constexpr uint8_t commandReadJedecId = 0x9f;
         constexpr uint8_t erasedByte = 0xff;
+        constexpr uint32_t threeByteAddressRange = 1u << 24;
 
         hal::QuadSpi::Header JedecHeader()
         {
@@ -20,6 +21,11 @@ namespace main_
                 {
                     return value == erasedByte;
                 });
+        }
+
+        uint32_t BigEndianWord(const uint8_t* bytes)
+        {
+            return static_cast<uint32_t>(bytes[0]) << 24 | static_cast<uint32_t>(bytes[1]) << 16 | static_cast<uint32_t>(bytes[2]) << 8 | bytes[3];
         }
 
         const char* Result(bool ok)
@@ -39,7 +45,7 @@ namespace main_
 
     bool QuadSpiMemory::Ready() const
     {
-        return flash.has_value();
+        return quadFlash.has_value();
     }
 
     uint32_t QuadSpiMemory::JedecId() const
@@ -49,61 +55,25 @@ namespace main_
 
     uint32_t QuadSpiMemory::Size() const
     {
-        return flash ? flash->TotalSize() : 0;
+        return quadFlash ? quadFlash->TotalSize() : 0;
     }
 
     void QuadSpiMemory::Check(const infra::Function<void(bool ok)>& onDone)
     {
-        if (!flash)
-        {
-            onDone(false);
-            return;
-        }
-
-        if (busy)
-        {
-            services::GlobalTracer().Trace() << "QSPI busy";
-            return;
-        }
-
-        busy = true;
-        this->onDone = onDone;
-
-        ReadIdentification([this]()
-            {
-                flash->ReadBuffer(infra::MakeRange(firstRead), 0, [this]()
-                    {
-                        flash->ReadBuffer(infra::MakeRange(secondRead), 0, [this]()
-                            {
-                                Evaluate();
-                            });
-                    });
-            });
+        if (Begin(onDone))
+            BeginCheck();
     }
 
     void QuadSpiMemory::EraseProgramVerify(const infra::Function<void(bool ok)>& onDone)
     {
-        if (!flash)
-        {
-            onDone(false);
-            return;
-        }
-
-        if (busy)
-        {
-            services::GlobalTracer().Trace() << "QSPI busy";
-            return;
-        }
-
-        busy = true;
-        this->onDone = onDone;
-
-        BeginTest();
+        if (Begin(onDone))
+            BeginTest();
     }
 
     void QuadSpiMemory::GeometryReady()
     {
-        flash.emplace(spi, geometry, infra::emptyFunction);
+        quadFlash.emplace(spi, geometry, services::FlashQuadSpiGeneric::Protocol::extendedSpi);
+        singleLineFlash.emplace(spi, geometry, infra::emptyFunction);
 
         Check([this](bool ok)
             {
@@ -111,31 +81,153 @@ namespace main_
             });
     }
 
-    void QuadSpiMemory::ReadIdentification(const infra::Function<void()>& onDone)
+    bool QuadSpiMemory::Begin(const infra::Function<void(bool ok)>& onDone)
     {
-        spi.ReceiveData(JedecHeader(), infra::MakeRange(identification), hal::QuadSpi::Lines::SingleSpeed(), onDone);
+        if (!quadFlash)
+        {
+            onDone(false);
+            return false;
+        }
+
+        if (busy)
+        {
+            services::GlobalTracer().Trace() << "QSPI busy";
+            return false;
+        }
+
+        busy = true;
+        this->onDone = onDone;
+        return true;
     }
 
-    void QuadSpiMemory::Evaluate()
+    void QuadSpiMemory::Finish(bool ok)
     {
-        const bool stable = firstRead == secondRead;
-        const std::size_t blank = static_cast<std::size_t>(std::count(firstRead.begin(), firstRead.end(), erasedByte));
+        busy = false;
+
+        auto done = onDone;
+        done(ok);
+    }
+
+    void QuadSpiMemory::ReadSingleLine(Buffer& buffer, uint32_t address)
+    {
+        singleLineFlash->ReadBuffer(infra::MakeRange(buffer), address, [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::ReadQuad(Buffer& buffer, uint32_t address)
+    {
+        quadFlash->ReadBuffer(infra::MakeRange(buffer), address, [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::ProgramQuad(infra::ConstByteRange data, uint32_t address)
+    {
+        quadFlash->WriteBuffer(data, address, [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::EraseTestSector()
+    {
+        quadFlash->EraseSector(testSector, [this]()
+            {
+                sequencer.Continue();
+            });
+    }
+
+    void QuadSpiMemory::BeginCheck()
+    {
+        lastBlockAddress = Size() - checkBytes;
+
+        sequencer.Load([this]()
+            {
+                ReadIdentification();
+                CheckFirstBlock();
+                CheckLastBlock();
+            });
+    }
+
+    void QuadSpiMemory::ReadIdentification()
+    {
+        sequencer.Step([this]()
+            {
+                spi.ReceiveData(JedecHeader(), infra::MakeRange(identification), hal::QuadSpi::Lines::SingleSpeed(), [this]()
+                    {
+                        sequencer.Continue();
+                    });
+            });
+    }
+
+    void QuadSpiMemory::CheckFirstBlock()
+    {
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(reference, 0);
+            });
+        sequencer.Execute([this]()
+            {
+                blank = static_cast<std::size_t>(std::count(reference.begin(), reference.end(), erasedByte));
+                firstWord = BigEndianWord(reference.data());
+            });
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(candidate, 0);
+            });
+        sequencer.Execute([this]()
+            {
+                stable = reference == candidate;
+            });
+        sequencer.Step([this]()
+            {
+                ReadQuad(candidate, 0);
+            });
+        sequencer.Execute([this]()
+            {
+                quadFirstBlockMatches = reference == candidate;
+            });
+    }
+
+    void QuadSpiMemory::CheckLastBlock()
+    {
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(reference, lastBlockAddress);
+            });
+        sequencer.Step([this]()
+            {
+                ReadQuad(candidate, lastBlockAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                quadLastBlockMatches = reference == candidate;
+                EvaluateCheck();
+            });
+    }
+
+    void QuadSpiMemory::EvaluateCheck()
+    {
         const bool identified = identification[0] != 0x00 && identification[0] != erasedByte;
-        const uint32_t firstWord = static_cast<uint32_t>(firstRead[0] << 24 | firstRead[1] << 16 | firstRead[2] << 8 | firstRead[3]);
 
         services::GlobalTracer().Trace() << "QSPI " << Size() / (1024 * 1024) << " MB, first " << static_cast<uint32_t>(checkBytes) << " bytes read twice: " << (stable ? "stable" : "unstable") << ", " << static_cast<uint32_t>(blank) << " blank, first word " << infra::hex << firstWord << ", JEDEC " << JedecId();
+        services::GlobalTracer().Trace() << "QSPI read on four lines matches the read on one line: first block " << Result(quadFirstBlockMatches) << ", last block at " << infra::hex << lastBlockAddress << " " << Result(quadLastBlockMatches);
 
-        busy = false;
-        onDone(identified && stable);
+        Finish(identified && stable && quadFirstBlockMatches && quadLastBlockMatches);
     }
 
     void QuadSpiMemory::BeginTest()
     {
-        const uint32_t reachableSectors = reachableBytes / flash->SizeOfSector(0);
-        testSector = std::min(flash->NumberOfSectors(), reachableSectors) - 1;
-        testAddress = flash->AddressOfSector(testSector);
+        testSector = quadFlash->NumberOfSectors() - 1;
+        testAddress = quadFlash->AddressOfSector(testSector);
+        aliasAddress = testAddress % threeByteAddressRange;
         erased = false;
-        programmed = false;
+        programmedOnFourLines = false;
+        programmedReadOnOneLine = false;
+        aliasUntouched = false;
         restored = false;
 
         for (std::size_t index = 0; index != programData.size(); ++index)
@@ -143,83 +235,106 @@ namespace main_
 
         sequencer.Load([this]()
             {
-                sequencer.Step([this]()
-                    {
-                        flash->ReadBuffer(infra::MakeRange(saved), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->EraseSector(testSector, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->ReadBuffer(infra::MakeRange(secondRead), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Execute([this]()
-                    {
-                        erased = IsErased(infra::MakeConstRange(secondRead));
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->WriteBuffer(infra::MakeConstRange(programData), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->ReadBuffer(infra::MakeRange(verifyData), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Execute([this]()
-                    {
-                        programmed = verifyData == programData;
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->EraseSector(testSector, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->WriteBuffer(infra::MakeConstRange(saved), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Step([this]()
-                    {
-                        flash->ReadBuffer(infra::MakeRange(secondRead), testAddress, [this]()
-                            {
-                                sequencer.Continue();
-                            });
-                    });
-                sequencer.Execute([this]()
-                    {
-                        restored = secondRead == saved;
-                        ReportTest();
-                    });
+                SaveTestSector();
+                ProgramTestSector();
+                VerifyTestSector();
+                RestoreTestSector();
             });
+    }
+
+    void QuadSpiMemory::SaveTestSector()
+    {
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(saved, testAddress);
+            });
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(alias, aliasAddress);
+            });
+    }
+
+    void QuadSpiMemory::ProgramTestSector()
+    {
+        sequencer.Step([this]()
+            {
+                EraseTestSector();
+            });
+        sequencer.Step([this]()
+            {
+                ReadQuad(candidate, testAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                erased = IsErased(infra::MakeConstRange(candidate));
+            });
+        sequencer.Step([this]()
+            {
+                ProgramQuad(infra::MakeConstRange(programData), testAddress);
+            });
+    }
+
+    void QuadSpiMemory::VerifyTestSector()
+    {
+        sequencer.Step([this]()
+            {
+                ReadQuad(candidate, testAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                programmedOnFourLines = std::equal(programData.begin(), programData.end(), candidate.begin());
+            });
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(reference, testAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                programmedReadOnOneLine = std::equal(programData.begin(), programData.end(), reference.begin());
+            });
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(candidate, aliasAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                aliasUntouched = !AliasIsSeparate() || candidate == alias;
+            });
+    }
+
+    void QuadSpiMemory::RestoreTestSector()
+    {
+        sequencer.Step([this]()
+            {
+                EraseTestSector();
+            });
+        sequencer.Step([this]()
+            {
+                ProgramQuad(infra::MakeConstRange(saved), testAddress);
+            });
+        sequencer.Step([this]()
+            {
+                ReadSingleLine(candidate, testAddress);
+            });
+        sequencer.Execute([this]()
+            {
+                restored = candidate == saved;
+                ReportTest();
+            });
+    }
+
+    bool QuadSpiMemory::AliasIsSeparate() const
+    {
+        return aliasAddress != testAddress;
     }
 
     void QuadSpiMemory::ReportTest()
     {
-        services::GlobalTracer().Trace() << "QSPI test of the sector at " << infra::hex << testAddress << ": erase " << Result(erased) << ", program " << Result(programmed) << ", restore " << Result(restored);
+        services::GlobalTracer().Trace() << "QSPI test of the sector at " << infra::hex << testAddress << ": erase " << Result(erased) << ", program on four lines " << Result(programmedOnFourLines) << ", read on one line " << Result(programmedReadOnOneLine) << ", restore " << Result(restored);
 
-        busy = false;
-        onDone(erased && programmed && restored);
+        if (AliasIsSeparate())
+            services::GlobalTracer().Trace() << "QSPI sector at " << infra::hex << aliasAddress << ", where a 3-byte address would land: untouched " << Result(aliasUntouched);
+
+        Finish(erased && programmedOnFourLines && programmedReadOnOneLine && aliasUntouched && restored);
     }
 }

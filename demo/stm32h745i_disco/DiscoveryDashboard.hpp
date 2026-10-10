@@ -1,5 +1,6 @@
 #pragma once
 
+#include "boards/rk043fn48h/Rk043fn48h.hpp"
 #include "demo/common/Canvas.hpp"
 #include "demo/common/DashboardStyle.hpp"
 #include "demo/common/TouchCursor.hpp"
@@ -18,7 +19,7 @@ namespace main_
     class DiscoveryDashboard
     {
     public:
-        static constexpr hal::DisplaySize screenSize{ 480, 272 };
+        static constexpr hal::DisplaySize screenSize = boards::rk043fn48hTiming.active;
         static constexpr std::size_t frameBytes = screenSize.width * screenSize.height * 2;
 
         enum class Item : uint8_t
