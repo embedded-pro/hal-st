@@ -721,7 +721,7 @@ int main()
                 });
         } });
 
-    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the last sector of the QSPI flash" }, [](const auto& params)
+    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the sector below 16 MB of the QSPI flash, then restore it" }, [](const auto& params)
         {
             qspiMemory.EraseProgramVerify([](bool ok)
                 {

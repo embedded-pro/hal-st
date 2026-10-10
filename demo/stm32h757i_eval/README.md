@@ -24,7 +24,7 @@ cmake --build --preset stm32h757-cm4-RelWithDebInfo --target demo_st.stm32h757i_
 | 256 Mbit SDRAM           | FMC bank 2 (SDNE1, SDCKE1), 32-bit, 0xD0000000                       | `hal::SdRamStm`                                                                            | frame buffer in the first 768 KB; boot test: data bus, address bus and 2 MB patterns at both ends                                                           |
 | 16 Mbit SRAM             | FMC bank 3 (NE3), 16-bit, 0x68000000                                 | `hal::SramStm`                                                                             | boot test: data bus, address bus and the full 2 MB                                                                                                          |
 | 128 Mbit NOR flash       | FMC bank 1 (NE1), 16-bit, 0x60000000                                 | `hal::NorFlashStm`                                                                         | boot check: identification and the first 4 KB read twice (nothing is written)                                                                               |
-| Twin quad-SPI flash      | QUADSPI bank 1: CLK PB2, NCS PG6, IO0 PF8, IO1 PF9, IO2 PF7, IO3 PF6 | `hal::QuadSpiStm`, EMIL `services::FlashGeometryQuadSfdp`, `services::FlashQuadSpiGeneric` | boot check: JEDEC id, SFDP geometry and the first 4 KB read twice; `qspitest` erases, programs and verifies the last sector                                 |
+| Twin quad-SPI flash      | QUADSPI bank 1: CLK PB2, NCS PG6, IO0 PF8, IO1 PF9, IO2 PF7, IO3 PF6 | `hal::QuadSpiStm`, EMIL `services::FlashGeometryQuadSfdp`, `services::FlashQuadSpiSingleSpeed` | boot check: JEDEC id, SFDP geometry and the first 4 KB read twice; `qspitest` saves the sector below 16 MB, erases, programs and verifies it, then restores it |
 | Potentiometer            | PA0_C, ADC1 channel 0                                                | `hal::AdcStm`, `hal::AnalogToDigitalChannelStm`                                            | sampled every 50 ms; shown as a bar and drives the codec volume                                                                                             |
 | DAC                      | DAC1 channel 2 on PA5 (CN6 pin 20)                                   | `hal::DacStm`, `hal::DigitalToAnalogPinImplStm`                                            | a 1.3 s triangle wave; shown as a bar                                                                                                                       |
 | WM8994 codec             | I2C1 address 0x1A, SAI1 block A: MCLK PE2, SCK PE5, FS PE4, SD PE6   | `hal::SaiOutputStm` (DMA1 stream 0), EMIL `drivers::Wm8994`                                | a 440 Hz tone on the headphone jack (CN17), 48 kHz stereo                                                                                                   |
@@ -41,7 +41,7 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 | `sdram`                      | `sd`   | Repeat the SDRAM test on its last 4 MB                                             |
 | `sram`                       | `sr`   | Repeat the SRAM test                                                               |
 | `qspi`                       | `q`    | Read the QSPI flash identification and the start of the array twice                |
-| `qspitest`                   | `qt`   | Erase, program and verify the last sector of the QSPI flash (destroys that sector) |
+| `qspitest`                   | `qt`   | Save, erase, program, verify and restore the sector below 16 MB of the QSPI flash  |
 | `sdcard`                     | `sc`   | Read, erase, write, verify and restore the last two blocks of the microSD card     |
 | `display`                    | `disp` | Print the DSI, LTDC, clock and frame buffer registers                              |
 | `panel`                      | `p`    | Reset the panel and initialize it again                                            |
@@ -77,7 +77,7 @@ The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584
 
 Run on an STM32H757I-EVAL (DEV_ID 0x450, revision 0x2003) with an MB1166-A03 display module, through an ST-LINK GDB server and USART1:
 
-- Boot report: SDRAM 32 MB and SRAM 2 MB with 0 errors, NOR manufacturer 0x89 and device 0x227e, QSPI 64 MB with JEDEC id 0x20ba20 and a stable read, MFX id 0x7b with the joystick pins released.
+- Boot report: SDRAM 32 MB and SRAM 2 MB with 0 errors, NOR manufacturer 0x89 and device 0x227e, QSPI 64 MB with JEDEC id 0x20ba20 and a stable read (made with the quad-speed flash class that the single-speed one has replaced since: it does not match a flash in its power-up mode and the single-speed access has not been run on this board), MFX id 0x7b with the joystick pins released.
 - The display shows the dashboard at about 60 frames per second without underruns while the SDRAM serves the frame buffer. ST's own `LCD_DSI_VideoMode_SingleBuffer` example drives the same module on that board; the demo only matched it once the panel was brought up in ST's order, see `AGENTS.md`.
 - The FT6x06 answers at 0x38 with vendor id 0x11 and chip id 0x64 and reports presses, moves and releases.
 - `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume` and `mute` reply.
