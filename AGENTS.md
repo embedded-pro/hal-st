@@ -43,9 +43,9 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - DMA: `DMA_STREAM_BASED` (F4/F7/H7; on H7 `DmaChannelId::channel` is the DMAMUX1 request, `DMA_REQUEST_*`; DMA1/DMA2 only, BDMA is not supported) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles (the exceptions are `DcmiStm`, see "DCMI camera capture", and `SdCardStm` on F4/F7, see "SD card")
 - Naming: `FooStm` drivers, `SynchronousFooStm` blocking variants
 
-## STM32H7 (H757, dual-core)
+## STM32H7 (H745, H757, dual-core)
 
-- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h757xx[_cm4].s` and `st/ldscripts/mem_stm32h757_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images. `hal::WaitForCortexM4Stop()` sets `RCC_GCR.BOOT_C2` when the option bytes have BCM4 cleared (seen on an MB1246), otherwise the CM4 never runs.
+- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h7{45,57}xx[_cm4].s` and `st/ldscripts/mem_stm32h7{45,57}_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images. `hal::WaitForCortexM4Stop()` sets `RCC_GCR.BOOT_C2` when the option bytes have BCM4 cleared (seen on an MB1246), otherwise the CM4 never runs.
 - `system_stm32h7xx_dualcore_boot_cm4_cm7.c` is the only system file compiled (`add_hal_driver(… SYSTEM_SOURCE …)`). CM7 first waits for the CM4 domain to stop (`hal::WaitForCortexM4Stop()`, before touching any D2 peripheral), configures the clocks and then calls `hal::ReleaseCortexM4()`; CM4 calls `hal::WaitForCortexM7()` before `HAL_Init()` (`hal_st/stm32fxxx/DualCoreHandshakeStm`).
 - Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
 - Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. `PeripheralTableH7xx.xml` has `I2c`, `Adc`, `Dac` and `QuadSpi` besides the display, FMC, SAI and DCMI entries.
@@ -56,7 +56,8 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - `DsiHostStm` sends every DCS and generic command in low power (`HAL_DSI_ConfigCommand`; `Config::commandsInLowPower` turns it off) and only programs the D-PHY timers when `Config::phyTimer` is set, so the timers, host timeouts and receive filter keep the reset values that ST's OTM8009A bring-up relies on. `Config::lowPowerReceiveFilter` is optional for the same reason
 - Panel bring-up on the MB1246: with EMIL's own order (DSI host running, then the panel reset, 0x05 final writes, PHY timers of 35) the OTM8009A kept showing its frame memory, static coloured pixels, even for the DSI host test pattern. ST's `LCD_DSI_VideoMode_SingleBuffer` drives the same module on that board
 - The demo follows that example: it resets the panel and switches the backlight on before `DsiHostStm` exists (EMIL gets a pin that ignores its own reset pulse), starts the stream before the panel init and ends it with a no-operation and a memory write start as one-parameter short writes. The steps were not tried one by one; ST's `LCD_DSI_VideoMode_SingleBuffer` is the register reference
-- Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) and the `.cpu cortex-m4` copy `startup_stm32h757xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, USART/COMP aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
+- `stm32h745-cm7`/`stm32h745-cm4` target the STM32H745XIH6 of the STM32H745I-DISCO (MB1381): the same memory map as the H757, pin data `mcu/STM32H745XIHx.xml` with the H747 GPIO modes file, no DSI. The MB1381 feeds the core from its SMPS. The vendor `Reset_Handler` calls `ExitRun0Mode` before `SystemInit`, which applies the supply picked by a `USE_PWR_*` define; no other target sets one, the H745 target defines `USE_PWR_DIRECT_SMPS_SUPPLY` in `st/CMakeLists.txt` and `DefaultClockDiscoveryH745I` checks it with `HAL_PWREx_ConfigSupply`. A firmware that selects another supply makes the ST-LINK lose the target (UM2488: move the 10 kOhm resistor from R143 to R144, erase the flash, move it back)
+- Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) and the `.cpu cortex-m4` copies `startup_stm32h757xx_cm4.s` and `startup_stm32h745xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, USART/COMP aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
 - Local vendor patches to keep on re-import (display): `USE_HAL_LTDC_REGISTER_CALLBACKS` and `USE_HAL_DMA2D_REGISTER_CALLBACKS` set to `1U` in `hal_conf/stm32{f4,f7,h7}xx_hal_conf.h`, because `LtdcStm` and `Dma2dStm` register their callbacks
 
 ## DCMI camera capture (`DcmiStm`)
@@ -117,7 +118,7 @@ cmake --preset host && cmake --build --preset host-Debug   # host tooling/build 
 cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
 ```
 
-Other target presets: `stm32f746g-disco` (STM32F746G-DISCO, TFBGA216 pin data), `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h757-cm7`, `stm32h757-cm4`.
+Other target presets: `stm32f746g-disco` (STM32F746G-DISCO, TFBGA216 pin data), `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h745-cm7`, `stm32h745-cm4`, `stm32h757-cm7`, `stm32h757-cm4`.
 
 Validation firmware (stm32wb55, stm32wba55): `cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware`.
 
