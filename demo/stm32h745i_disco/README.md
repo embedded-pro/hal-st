@@ -37,12 +37,12 @@ The board feeds the core from the internal SMPS (direct SMPS). `st/CMakeLists.tx
 | Command    | Alias  | Description                                                                        |
 |------------|--------|------------------------------------------------------------------------------------|
 | `info`     | `i`    | Print the device, clock and power supply state                                     |
-| `sdram`    | `sd`   | Repeat the SDRAM test on its last 4 MB; the first half holds the frame buffer      |
+| `sdram`    | `sd`   | Repeat the SDRAM test on its last 4 MB; the first half holds the frame buffer; blocks for about a second |
 | `qspi`     | `q`    | Read the QSPI flash identification and the start of the array twice                |
 | `qspitest` | `qt`   | Erase, program and verify the last sector of the first QSPI flash (destroys it)    |
 | `i2cscan`  | `i2c`  | List the addresses on I2C4 that acknowledge, expect 0x1A and 0x38                  |
 | `display`  | `d`    | Print the LTDC registers, the PLL3 settings and the frame and underrun counters    |
-| `mute`     | `m`    | Toggle the audio mute                                                              |
+| `mute`     | `m`    | Toggle the audio mute and trace the new state                                      |
 | `clear`    | `c`    | Clear the touch pad                                                                |
 
 Touch events and the boot report are printed as they happen. The boot report is written before the event dispatcher starts, and the 4 KB transmit buffer holds all of it.
@@ -57,6 +57,14 @@ The FT5336 reports portrait coordinates, x along the short side of the panel. `T
 - The second flash of the twin QSPI memory. The two chips share the clock and BK1_NCS, `hal::QuadSpiStm` drives bank 1 only, so the chip on the bank 2 data lines sees the clock and the chip select without data and is never addressed. Reaching the 128 MB array needs the dual-flash mode in `hal::QuadSpiStm` and a twin-chip geometry in EMIL.
 - Later revisions of the board (B03 and newer) carry a GT911 touch controller instead of the FT5336; EMIL has no driver for it.
 
-## Not yet verified on hardware
+## Checked on hardware
 
-Built with GCC 13.2 for the Cortex-M7 and the Cortex-M4, no warnings. Not yet run: the boot report and the supply check, the SDRAM test, the I2C scan, the QSPI check, the dashboard on the panel at about 60 frames per second without underruns, the touch coordinates and orientation, the 440 Hz tone, the button and the LEDs. The panel timing is ST's RK043FN48H timing (HSYNC 41, HFP 32, VSYNC 10, VBP 2, VFP 2) with the back porch cut from 13 to 2 clocks, so that the data starts 43 clocks after the start of HSYNC as it does in ST's board support package for this board; the board support package also keeps the data enable high for 11 more clocks after the last pixel, which the demo does not.
+Run on an STM32H745I-DISCO (DEV_ID 0x450, revision 0x2003), both images flashed in one ST-LINK GDB server session, trace and terminal on USART3:
+
+- Boot report: `supply: direct SMPS`, 400 MHz core and 200 MHz HCLK, SDRAM 8192 KB with 0 errors, QSPI 64 MB with JEDEC id 0x20ba20 and a stable read of the first 4 KB, which holds data (no 0xFF byte). The Cortex-M4 stopped and was released (no `did not enter stop mode` line).
+- I2C4: the scan finds 0x1A (WM8994) and 0x38 (FT5336) and nothing else; the touch controller answers with vendor id 0x51 and chip id 0x14. The NACK counter grows by 110 per scan and the error counter stays 0.
+- The LTDC runs at 60.7 frames per second (607 frames in 10 s) with no underrun, and its timing registers read back as programmed (SSCR 0x00280009, BPCR 0x002a000b, AWCR 0x020a011b, TWCR 0x022a011d, layer window 43 to 522 by 12 to 283, RGB565 at 0xD0000000 with a 960 byte pitch); PLL3 runs at 800 MHz / 83.
+- The audio DMA runs without underruns; the tone is started with the first frame.
+- `help`, `info`, `i2cscan`, `sdram` (4096 KB, 0 errors), `qspi`, `display` and `mute` reply. The `sdram` retest blocks the event loop for about a second, which costs the audio one underrun.
+
+Not yet verified: the picture on the panel and the backlight, the 440 Hz tone by ear, the touch coordinates and orientation, B1, LD6 to LD8, `qspitest`, and the dashboard rows turning from yellow to green. The panel timing is ST's RK043FN48H timing (HSYNC 41, HFP 32, VSYNC 10, VBP 2, VFP 2) with the back porch cut from 13 to 2 clocks, so that the data starts 43 clocks after the start of HSYNC as it does in ST's board support package for this board; the board support package also keeps the data enable high for 11 more clocks after the last pixel, which the demo does not.
