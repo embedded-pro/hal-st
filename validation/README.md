@@ -442,18 +442,18 @@ UM2505 could not be consulted, so no position has a sourced header number: the P
 The options a set offers are in its `options` (board file); `--with <tag>` enables one, and a tag no selected set offers, or two options that exclude each other, stop the run with a usage error.
 The table lists the pins each option loads (tests on them skip unless they use the option) and pulls up; the tables after it give, per net, the AD3 lead already on it, where the jumper or breadboard wire goes, and the source of each position.
 
-| Board          | Option     | Sets                 | Loads                                    | Pull-ups           | Excludes   |
-|----------------|------------|----------------------|------------------------------------------|--------------------|------------|
-| NUCLEO-WB55RG  | `loopback` | `bundle1`, `bundle2` | PA6, PA7                                 | -                  | `spiloop`  |
-| NUCLEO-WB55RG  | `i2c`      | `bundle1`            | PB8, PB9, PC0, PC1                       | PB8, PB9, PC0, PC1 | -          |
-| NUCLEO-WB55RG  | `spiloop`  | `bundle1`            | PA4-PA7, PB12-PB15                       | -                  | `loopback` |
-| NUCLEO-WBA55CG | `loopback` | `bundle1`, `bundle2` | PA15, PB3                                | -                  | `spiloop`  |
-| NUCLEO-WBA55CG | `i2c`      | `bundle2`            | PB2, PB1, PA6, PA7                       | PB2, PB1, PA6, PA7 | -          |
-| NUCLEO-WBA55CG | `spiloop`  | `bundle2`            | PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5 | -                  | `loopback` |
-| NUCLEO-G474RE  | `loopback` | `bundle1`            | PB5, PB4                                 | -                  | -          |
-| NUCLEO-G474RE  | `spiloop`  | `bundle2`            | PB13, PC10, PB14, PC11, PB15, PC12, PB12, PA4 | -             | -          |
-| NUCLEO-G474RE  | `i2c`      | `bundle3`            | PC6, PB8, PC7, PB9                       | PC6, PB8, PC7, PB9 | -          |
-| NUCLEO-G474RE  | `dac`      | `bundle3`            | PA4, PA6                                 | -                  | -          |
+| Board          | Option     | Sets                 | Loads                                         | Pull-ups           | Excludes   |
+|----------------|------------|----------------------|-----------------------------------------------|--------------------|------------|
+| NUCLEO-WB55RG  | `loopback` | `bundle1`, `bundle2` | PA6, PA7                                      | -                  | `spiloop`  |
+| NUCLEO-WB55RG  | `i2c`      | `bundle1`            | PB8, PB9, PC0, PC1                            | PB8, PB9, PC0, PC1 | -          |
+| NUCLEO-WB55RG  | `spiloop`  | `bundle1`            | PA4-PA7, PB12-PB15                            | -                  | `loopback` |
+| NUCLEO-WBA55CG | `loopback` | `bundle1`, `bundle2` | PA15, PB3                                     | -                  | `spiloop`  |
+| NUCLEO-WBA55CG | `i2c`      | `bundle2`            | PB2, PB1, PA6, PA7                            | PB2, PB1, PA6, PA7 | -          |
+| NUCLEO-WBA55CG | `spiloop`  | `bundle2`            | PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5      | -                  | `loopback` |
+| NUCLEO-G474RE  | `loopback` | `bundle1`            | PB5, PB4                                      | -                  | -          |
+| NUCLEO-G474RE  | `spiloop`  | `bundle2`            | PB13, PC10, PB14, PC11, PB15, PC12, PB12, PA4 | -                  | -          |
+| NUCLEO-G474RE  | `i2c`      | `bundle3`            | PC6, PB8, PC7, PB9                            | PC6, PB8, PC7, PB9 | -          |
+| NUCLEO-G474RE  | `dac`      | `bundle3`            | PA4, PA6                                      | -                  | -          |
 
 #### NUCLEO-WB55RG `--with loopback` (`bundle1`, `bundle2`)
 
@@ -543,11 +543,11 @@ One male-male wire from the D4 socket to the D5 socket; the SPI tests then leave
 
 SPI2 to SPI3, four wires; both ends of every net are observed by a DIO. The pins also serve USART3, UART4 and UART5, so the wires stay out of the other runs. Every net goes through a breadboard row: a male-female wire from each header pin to the row, and the two AD3 leads on male pins in the same row.
 
-| Net                | AD3 leads      |
-|--------------------|----------------|
-| SCK: PB13 to PC10  | DIO3 and DIO4  |
-| MISO: PB14 to PC11 | DIO2 and DIO5  |
-| MOSI: PB15 to PC12 | DIO12 and DIO8 |
+| Net                | AD3 leads       |
+|--------------------|-----------------|
+| SCK: PB13 to PC10  | DIO3 and DIO4   |
+| MISO: PB14 to PC11 | DIO2 and DIO5   |
+| MOSI: PB15 to PC12 | DIO12 and DIO8  |
 | NSS: PB12 to PA4   | DIO13 and DIO14 |
 
 #### NUCLEO-G474RE `--with i2c` (`bundle3`)
