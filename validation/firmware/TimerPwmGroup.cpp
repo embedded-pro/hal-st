@@ -1,4 +1,5 @@
 #include "validation/firmware/TimerPwmGroup.hpp"
+#include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/util/Tokenizer.hpp"
 #include "validation/firmware/Owners.hpp"
@@ -205,7 +206,7 @@ namespace validation
 
     uint8_t TimerPwmFactoryStm::Instances() const
     {
-        return 18;
+        return board::timerInstances;
     }
 
     infra::MemoryRange<const char* const> TimerPwmFactoryStm::OpenKeys() const

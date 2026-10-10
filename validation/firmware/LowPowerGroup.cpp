@@ -125,6 +125,12 @@ namespace validation
         if (request.wake == request.marker)
             return HilStatus::usage;
 
+#if defined(STM32G4)
+        // LowPowerModeStm enters Stop here, which stops the scaffold timer and drops the PLL: nothing would end the window
+        if (request.mode == hal::PowerMode::deepSleep)
+            return HilStatus::unsupported;
+#endif
+
         if (!IsBonded(request.wake) || !IsBonded(request.marker))
             return HilStatus::pin;
 

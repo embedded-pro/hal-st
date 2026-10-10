@@ -19,6 +19,9 @@ namespace validation::board
 
     inline constexpr const char* portLetters = "ABCDEFG";
     inline constexpr uint8_t maximumPinIndex = 15;
+    inline constexpr uint8_t uartInstances = 6;
+    inline constexpr uint8_t i2cInstances = 5;
+    inline constexpr uint8_t timerInstances = 21;
     static_assert(static_cast<uint8_t>(Port::G) == 6, "portLetters must follow hal::Port");
 
     // The generated pinout table lists the pins of the die; only these are bonded out on the LQFP64: PA-PC, PD2, PF0, PF1 and PG10
@@ -43,7 +46,7 @@ namespace validation::board
     } };
 
     inline constexpr std::optional<UartPins> defaultUart = UartPins{ 1, true, Pin(Port::C, 1), Pin(Port::C, 0) };
-    inline constexpr QeiPins defaultQei{ 3, Pin(Port::C, 6), Pin(Port::C, 7), Pin(Port::C, 8) };
+    inline constexpr QeiPins defaultQei{ 1, Pin(Port::A, 8), Pin(Port::A, 9), Pin(Port::A, 10) };
     inline constexpr std::array<I2cPins, 2> i2cPins{ {
         { 1, Pin(Port::B, 8), Pin(Port::B, 9) },
         { 3, Pin(Port::C, 8), Pin(Port::C, 9) },
@@ -53,7 +56,7 @@ namespace validation::board
         { 1, Pin(Port::A, 4) },
         { 2, Pin(Port::A, 6) },
     } };
-    inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 4), Pin(Port::C, 5) };
+    inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 4), Pin(Port::A, 12) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({
         { "terminaltx", terminal.tx },
@@ -73,43 +76,52 @@ namespace validation::board
         { "tim1ch1n", Pin(Port::A, 7) },
         { "tim1ch2n", Pin(Port::B, 0) },
         { "tim1ch3n", Pin(Port::B, 1) },
-        { "tim1bkin", Pin(Port::B, 12) },
-        { "tim2ch1", Pin(Port::A, 0) },
-        { "tim2ch2", Pin(Port::A, 1) },
+        { "tim1bkin", Pin(Port::A, 15) },
+        { "tim2ch1", Pin(Port::A, 15) },
+        { "tim2ch2", Pin(Port::B, 3) },
         { "tim2ch3", Pin(Port::B, 10) },
         { "tim2ch4", Pin(Port::B, 11) },
-        { "tim3ch1", Pin(Port::C, 6) },
-        { "tim3ch2", Pin(Port::C, 7) },
-        { "tim3ch3", Pin(Port::C, 8) },
-        { "tim3ch4", Pin(Port::C, 9) },
+        { "tim3ch1", Pin(Port::B, 4) },
+        { "tim3ch2", Pin(Port::B, 5) },
+        { "tim3ch3", Pin(Port::B, 0) },
+        { "tim3ch4", Pin(Port::B, 1) },
         { "tim4ch1", Pin(Port::B, 6) },
         { "tim4ch2", Pin(Port::B, 7) },
         { "tim4ch3", Pin(Port::B, 8) },
         { "tim4ch4", Pin(Port::B, 9) },
+        { "tim5ch1", Pin(Port::A, 0) },
+        { "tim5ch2", Pin(Port::A, 1) },
         { "tim8ch1", Pin(Port::C, 6) },
         { "tim8ch2", Pin(Port::C, 7) },
         { "tim8ch3", Pin(Port::C, 8) },
         { "tim8ch4", Pin(Port::C, 9) },
         { "tim15ch1", Pin(Port::B, 14) },
         { "tim15ch2", Pin(Port::B, 15) },
-        { "tim16ch1", Pin(Port::A, 6) },
+        { "tim15ch1n", Pin(Port::B, 15) },
+        { "tim16ch1", Pin(Port::A, 12) },
         { "tim16ch1n", Pin(Port::B, 6) },
-        { "tim17ch1", Pin(Port::B, 9) },
+        { "tim17ch1", Pin(Port::A, 7) },
         { "tim17ch1n", Pin(Port::B, 7) },
         { "tim20ch1", Pin(Port::B, 2) },
         { "tim20ch2", Pin(Port::C, 2) },
-        { "qei1a", Pin(Port::A, 8) },
-        { "qei1b", Pin(Port::A, 9) },
-        { "qei1idx", Pin(Port::A, 10) },
-        { "qei2a", Pin(Port::A, 0) },
-        { "qei2b", Pin(Port::A, 1) },
-        { "qei2idx", Pin(Port::A, 15) },
-        { "qei3a", defaultQei.a },
-        { "qei3b", defaultQei.b },
-        { "qei3idx", defaultQei.idx },
+        { "qei1a", defaultQei.a },
+        { "qei1b", defaultQei.b },
+        { "qei1idx", defaultQei.idx },
+        { "qei2a", Pin(Port::A, 15) },
+        { "qei2b", Pin(Port::B, 3) },
+        { "qei2idx", Pin(Port::C, 4) },
+        { "qei3a", Pin(Port::B, 4) },
+        { "qei3b", Pin(Port::B, 5) },
+        { "qei3idx", Pin(Port::C, 4) },
         { "qei4a", Pin(Port::B, 6) },
         { "qei4b", Pin(Port::B, 7) },
-        { "qei4idx", Pin(Port::B, 8) },
+        { "qei4idx", Pin(Port::C, 4) },
+        { "qei5a", Pin(Port::A, 0) },
+        { "qei5b", Pin(Port::A, 1) },
+        { "qei5idx", Pin(Port::C, 4) },
+        { "qei8a", Pin(Port::C, 6) },
+        { "qei8b", Pin(Port::C, 7) },
+        { "qei8idx", Pin(Port::C, 4) },
         { "lptim1in1", Pin(Port::B, 5) },
         { "lptim1in2", Pin(Port::B, 7) },
         { "lptim1ch1", Pin(Port::B, 2) },
@@ -146,11 +158,15 @@ namespace validation::board
         { "usart3cts", Pin(Port::B, 13) },
         { "uart4tx", Pin(Port::C, 10) },
         { "uart4rx", Pin(Port::C, 11) },
+        { "uart4rts", Pin(Port::A, 15) },
+        { "uart4cts", Pin(Port::B, 7) },
         { "uart5tx", Pin(Port::C, 12) },
         { "uart5rx", Pin(Port::D, 2) },
+        { "uart5rts", Pin(Port::B, 4) },
+        { "uart5cts", Pin(Port::B, 5) },
         { "lpuart1tx", defaultUart->tx },
         { "lpuart1rx", defaultUart->rx },
-        { "lpuart1rts", Pin(Port::B, 12) },
+        { "lpuart1rts", Pin(Port::B, 1) },
         { "lpuart1cts", Pin(Port::B, 13) },
         { "dac1out1", dacOutputs[0].pin },
         { "dac2out1", dacOutputs[1].pin },
@@ -180,6 +196,8 @@ namespace validation::board
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 176;
+    // Whether the sectors below the image end page stay untouched: an erase that takes the sector index for an absolute page needs it
+    inline constexpr bool imageLimitsErase = false;
     inline constexpr uint32_t flashScratchEndPage = 252;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)
@@ -222,7 +240,7 @@ namespace validation::board
     inline constexpr uint8_t adc = 1;
     inline constexpr uint8_t adcDmaRequest = DMA_REQUEST_ADC1;
     inline constexpr std::array<uint8_t, 2> adcTriggerTimers{ { 1, 2 } };
-    inline constexpr std::array<uint8_t, 3> breakFilterTimers{ { 1, 8, 20 } };
+    inline constexpr std::array<uint8_t, 6> breakFilterTimers{ { 1, 8, 15, 16, 17, 20 } };
     inline constexpr uint32_t adcDefaultSamplingTime = ADC_SAMPLETIME_2CYCLES_5;
     inline constexpr std::array<services::HilChoice<uint32_t>, 8> adcSamplingTimes{ {
         { "2.5", ADC_SAMPLETIME_2CYCLES_5 },

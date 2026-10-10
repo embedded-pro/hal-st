@@ -1431,6 +1431,9 @@ tests:
       - comp.irq 1 rising
       - comp.count 1
       - comp.close 1
+      - dac.open PA4
+      - dac.set PA4 2048
+      - dac.close PA4
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1

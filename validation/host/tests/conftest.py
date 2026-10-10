@@ -295,9 +295,9 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             _apply_known_gaps(config, item, board)
         if item.get_closest_marker("hil") and not (port or config.getoption("--fake")):
             item.add_marker(pytest.mark.skip(reason="HIL test: pass --port"))
-        marker = item.get_closest_marker("family")
-        if marker and family and marker.args[0] != family:
-            item.add_marker(pytest.mark.skip(reason=f"only for {marker.args[0]}"))
+        families = [marker.args[0] for marker in item.iter_markers("family")]
+        if families and family and family not in families:
+            item.add_marker(pytest.mark.skip(reason=f"only for {' and '.join(families)}"))
         for marker in item.iter_markers("requires_option"):
             if marker.args[0] not in tags:
                 item.add_marker(pytest.mark.skip(reason=f"enable with --with {marker.args[0]}"))

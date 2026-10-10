@@ -1,4 +1,5 @@
 #include "validation/firmware/I2cTarget.hpp"
+#include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "validation/firmware/I2cTiming.hpp"
 #include "validation/firmware/Owners.hpp"
@@ -25,7 +26,7 @@ namespace validation
         using services::HilChoice;
         using services::HilStatus;
 
-        constexpr uint8_t instances = 4;
+        constexpr uint8_t instances = board::i2cInstances;
         constexpr uint32_t minimumAddress = 0x08;
         constexpr uint32_t maximumAddress = 0x77;
         constexpr uint32_t defaultBus = 400000;

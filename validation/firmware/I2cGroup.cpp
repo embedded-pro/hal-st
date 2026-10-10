@@ -1,4 +1,5 @@
 #include "validation/firmware/I2cGroup.hpp"
+#include "BoardProfile.hpp"
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "infra/util/Endian.hpp"
@@ -27,7 +28,7 @@ namespace validation
         using services::HilChoice;
         using services::HilStatus;
 
-        constexpr uint8_t instances = 4;
+        constexpr uint8_t instances = board::i2cInstances;
         constexpr uint32_t maximumAddress = 0x7f;
         constexpr infra::Duration transferTimeout = std::chrono::milliseconds(1000);
 

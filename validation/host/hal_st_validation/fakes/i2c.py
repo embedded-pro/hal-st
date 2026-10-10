@@ -26,7 +26,6 @@ from ..i2c import BUS_MAX, BUS_MIN, expected_timing
 from ..patterns import PATTERNS, SEED_MAX, crc_text, generate
 from .base import UINT32_MAX, FakeGroup, _choice, _fail, _hex, _number, _shape
 
-_INSTANCES = 4
 _ADDRESS_MAX = 0x7F
 _TARGET_ADDRESS_MIN = 0x08
 _TARGET_ADDRESS_MAX = 0x77
@@ -252,7 +251,7 @@ class FakeI2c(FakeGroup):
 
     def cmd_open(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, _OPEN_KEYS)
-        index = _number(args[0], 0, _INSTANCES - 1)
+        index = _number(args[0], 0, self.fw.spec.i2c_instances - 1)
         if "scl" not in options or "sda" not in options or ("freq" in options and "timing" in options):
             _fail("usage")
         pull = _choice(options, "pull", ("none", "up"), "none")
@@ -277,7 +276,7 @@ class FakeI2c(FakeGroup):
 
     def _find(self, args: list[str], options: dict[str, str], keys: tuple[str, ...]) -> dict[str, Any]:
         _shape(args, options, 3, 3, keys)
-        return self.fw.find_instance(self.prefix, str(_number(args[0], 0, _INSTANCES - 1)))
+        return self.fw.find_instance(self.prefix, str(_number(args[0], 0, self.fw.spec.i2c_instances - 1)))
 
     def _hook(self, state: dict[str, Any], hook: str) -> None:
         self.fw.event(f"EVT i2c index={state['index']} hook={hook}")
@@ -338,7 +337,7 @@ class FakeI2c(FakeGroup):
 
     def cmd_close(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1)
-        key = str(_number(args[0], 0, _INSTANCES - 1))
+        key = str(_number(args[0], 0, self.fw.spec.i2c_instances - 1))
         self.fw.find_instance(self.prefix, key)
         return self.fw.close_instance(self.prefix, key)
 
@@ -352,7 +351,7 @@ class FakeI2cTarget(FakeGroup):
 
     def cmd_open(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, _TARGET_KEYS)
-        index = _number(args[0], 0, _INSTANCES - 1)
+        index = _number(args[0], 0, self.fw.spec.i2c_instances - 1)
         if "scl" not in options or "sda" not in options:
             _fail("usage")
         mode = _choice(options, "mode", ("regs", "sink"), "regs")
@@ -367,7 +366,7 @@ class FakeI2cTarget(FakeGroup):
 
     def _find(self, args: list[str], options: dict[str, str], low: int, high: int, keys: tuple[str, ...] = ()) -> _Target:
         _shape(args, options, low, high, keys)
-        self.fw.find_instance(self.prefix, str(_number(args[0], 0, _INSTANCES - 1)))
+        self.fw.find_instance(self.prefix, str(_number(args[0], 0, self.fw.spec.i2c_instances - 1)))
         assert self.device is not None
         return self.device
 
@@ -414,7 +413,7 @@ class FakeI2cTarget(FakeGroup):
 
     def cmd_close(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1)
-        key = str(_number(args[0], 0, _INSTANCES - 1))
+        key = str(_number(args[0], 0, self.fw.spec.i2c_instances - 1))
         self.fw.find_instance(self.prefix, key)
         self.device = None
         return self.fw.close_instance(self.prefix, key)
@@ -457,7 +456,7 @@ class FakeEeprom(FakeGroup):
 
     def cmd_attach(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, _ATTACH_KEYS)
-        index = _number(args[0], 0, _INSTANCES - 1)
+        index = _number(args[0], 0, self.fw.spec.i2c_instances - 1)
         if "scl" not in options or "sda" not in options:
             _fail("usage")
         address, size, page, abytes, wcycle, frequency = (

@@ -8,7 +8,7 @@ import pytest
 from hal_st_validation.config import ConfigError, KnownGap, known_gap_outcome, load_board, parse_board
 
 HOST_DIR = Path(__file__).resolve().parents[2]
-BOARDS = ["nucleo_wb55rg", "nucleo_wba55cg"]
+BOARDS = ["nucleo_wb55rg", "nucleo_wba55cg", "nucleo_g474re"]
 
 
 @pytest.mark.parametrize(

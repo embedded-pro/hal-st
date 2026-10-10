@@ -29,7 +29,11 @@ _ARM_KEYS = ("rx", "len", "pattern", "seed")
 _RESULT_KEYS = ("wait", "out")
 _FUNCTIONS = (("spiClock", "clk"), ("spiMiso", "miso"), ("spiMosi", "mosi"), ("spiSlaveSelect", "nss"))
 # `board::spiSlaveDma`: (transmit, receive) as `ResourceAllocation` keys.
-_SLAVE_DMA = {"stm32wb55": (("dma2", 1), ("dma2", 2)), "stm32wba55": (("dma1", 8), ("dma1", 7))}
+_SLAVE_DMA = {
+    "stm32wb55": (("dma2", 1), ("dma2", 2)),
+    "stm32wba55": (("dma1", 8), ("dma1", 7)),
+    "stm32g474": (("dma2", 1), ("dma2", 2)),
+}
 
 
 def _payload(args: list[str], options: dict[str, str], position: int, capacity: int) -> bytes:
@@ -145,6 +149,8 @@ class FakeSpiLoop(FakeGroup):
         loop = getattr(self.fw, "spi_loop", None)
         if loop is not None:
             return dict(loop)
+        if self.fw.spec.spi_loop:
+            return dict(self.fw.spec.spi_loop)
         first, second = sorted(self.fw.spec.spis)
         return {first: second, second: first}
 
