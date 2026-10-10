@@ -41,8 +41,8 @@ unsigned int hse_value = 25'000'000;
 
 namespace
 {
-    // The RK043FN48H panel runs from a 9.6 MHz pixel clock with active-low synchronisation and data enable
-    constexpr hal::DisplayTiming lcdTiming{ 9'600'000, main_::DiscoveryDashboard::screenSize, 32, 41, 13, 2, 10, 2 };
+    // The RK043FN48H panel runs from a 9.6 MHz pixel clock with active-low synchronisation and data enable. The data starts 43 clocks after the start of HSYNC, which is where ST's board support package puts it for this board, instead of the 54 of the older RK043FN48H timing
+    constexpr hal::DisplayTiming lcdTiming{ 9'600'000, main_::DiscoveryDashboard::screenSize, 32, 41, 2, 2, 10, 2 };
 
     constexpr uint32_t secondsPerUptimeTrace = 10;
     constexpr std::size_t sdramPatternBytes = 2 * 1024 * 1024;
