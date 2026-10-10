@@ -1,6 +1,8 @@
 #pragma once
 
 #include "demo/common/Canvas.hpp"
+#include "demo/common/DashboardStyle.hpp"
+#include "demo/common/TouchCursor.hpp"
 #include "hal/interfaces/Blitter.hpp"
 #include "hal/interfaces/DisplayController.hpp"
 #include "hal/interfaces/TouchScreen.hpp"
@@ -18,8 +20,7 @@ namespace main_
     public:
         static constexpr hal::DisplaySize screenSize{ 800, 480 };
         static constexpr std::size_t frameBytes = screenSize.width * screenSize.height * 2;
-        static constexpr uint16_t cursorSide = 28;
-        static constexpr std::size_t cursorBytes = cursorSide * cursorSide * 4;
+        static constexpr std::size_t cursorBytes = TouchCursor::bytes;
 
         enum class Item : uint8_t
         {
@@ -37,12 +38,7 @@ namespace main_
             count
         };
 
-        enum class State : uint8_t
-        {
-            pending,
-            ok,
-            failed
-        };
+        using State = StatusState;
 
         enum class Button : uint8_t
         {
@@ -82,16 +78,14 @@ namespace main_
         void DrawBar(uint16_t y, uint16_t counts);
         void DrawTouchPad();
         void DrawTouchText();
-        void DrawCursorSprite();
         void ShowLayers();
-        void ApplyCursor();
 
     private:
         hal::DisplayController& display;
         hal::Blitter& blitter;
         hal::Surface frame;
-        hal::Surface cursor;
         Canvas canvas;
+        TouchCursor cursor;
         std::array<State, itemCount> states{};
         std::array<infra::BoundedString::WithStorage<24>, itemCount> details;
         std::array<bool, buttonCount> buttons{};
@@ -102,9 +96,6 @@ namespace main_
         hal::TouchPoint touchPoint{ 0, 0 };
         infra::Function<void()> onStarted;
         bool ready{ false };
-        bool committing{ false };
-        bool cursorDirty{ false };
-        bool cursorVisible{ false };
         std::size_t framesShown{ 0 };
         std::size_t underruns{ 0 };
     };

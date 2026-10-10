@@ -4,6 +4,7 @@
 #include "demo/common/I2cScanner.hpp"
 #include "demo/common/MemoryTests.hpp"
 #include "demo/common/QuadSpiMemory.hpp"
+#include "demo/common/TouchMonitor.hpp"
 #include "demo/sd_card_demo/SdCardDemo.hpp"
 #include "demo/stm32h757i_eval/AnalogMonitor.hpp"
 #include "demo/stm32h757i_eval/Dashboard.hpp"
@@ -16,7 +17,6 @@
 #include "drivers/audio/wm8994/Wm8994BusAccessI2c.hpp"
 #include "drivers/display/mipi_dsi/MipiDcs.hpp"
 #include "drivers/touch_screen/ft6x06/Ft6x06.hpp"
-#include "drivers/touch_screen/ft6x06/Ft6x06BusAccessI2c.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/DigitalToAnalogPinStm.hpp"
@@ -76,7 +76,6 @@ namespace
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(500);
     constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
-    constexpr uint32_t movedEventsPerTrace = 10;
 
     // The portrait panel is driven landscape with the axes exchanged: x follows the controller's y and y runs against its x
     drivers::Ft6x06::Config TouchConfig()
@@ -146,80 +145,6 @@ namespace
 
         return main_::TestMemory<uint32_t>(memory, sdramPatternBytes) + main_::TestPattern(tail, sdramPatternBytes / sizeof(uint32_t));
     }
-
-    class TouchMonitor
-    {
-    public:
-        TouchMonitor(hal::I2cMaster& i2c, main_::Dashboard& dashboard, hal::OutputPin& activityLed)
-            : bus(i2c)
-            , dashboard(dashboard)
-            , activityLed(activityLed)
-        {}
-
-        void Begin()
-        {
-            touch.emplace(bus, TouchConfig(), [this](drivers::Ft6x06::InitializationResult result)
-                {
-                    Initialized(result);
-                });
-        }
-
-    private:
-        void Initialized(drivers::Ft6x06::InitializationResult result)
-        {
-            if (result != drivers::Ft6x06::InitializationResult::success)
-            {
-                dashboard.SetStatus(main_::Dashboard::Item::touch, main_::Dashboard::State::failed, "FT6X06 NOT FOUND");
-                services::GlobalTracer().Trace() << "FT6x06 touch controller not found at 0x38";
-                return;
-            }
-
-            infra::StringOutputStream::WithStorage<24> detail;
-            detail << "FT6X06 ID " << infra::hex << static_cast<uint32_t>(touch->ChipId());
-            dashboard.SetStatus(main_::Dashboard::Item::touch, main_::Dashboard::State::ok, detail.Storage());
-            services::GlobalTracer().Trace() << "FT6x06 vendor " << infra::hex << static_cast<uint32_t>(touch->VendorId()) << ", chip " << static_cast<uint32_t>(touch->ChipId());
-
-            touch->Start([this](hal::TouchScreen::Event event)
-                {
-                    Report(event);
-                });
-        }
-
-        void Report(const hal::TouchScreen::Event& event)
-        {
-            dashboard.SetTouch(event.phase, event.point);
-            activityLed.Set(event.phase != hal::TouchScreen::Phase::released);
-
-            if (event.phase != hal::TouchScreen::Phase::moved)
-                movedEvents = 0;
-            else if (++movedEvents % movedEventsPerTrace != 0)
-                return;
-
-            services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " " << static_cast<uint32_t>(event.point.x) << "," << static_cast<uint32_t>(event.point.y);
-        }
-
-        static const char* PhaseName(hal::TouchScreen::Phase phase)
-        {
-            switch (phase)
-            {
-                case hal::TouchScreen::Phase::pressed:
-                    return "pressed";
-                case hal::TouchScreen::Phase::moved:
-                    return "moved";
-                case hal::TouchScreen::Phase::released:
-                    return "released";
-            }
-
-            return "";
-        }
-
-    private:
-        drivers::Ft6x06BusAccessI2c bus;
-        main_::Dashboard& dashboard;
-        hal::OutputPin& activityLed;
-        std::optional<drivers::Ft6x06> touch;
-        uint32_t movedEvents = 0;
-    };
 
     class MfxMonitor
     {
@@ -624,7 +549,23 @@ int main()
     static services::I2cMultipleAccess scanI2c{ i2cMaster };
     static main_::I2cScanner i2cScanner{ scanI2c };
 
-    static TouchMonitor touchMonitor{ touchI2c, dashboard, activityLed };
+    static main_::TouchMonitor touchMonitor{ touchI2c, TouchConfig(),
+        [](bool found, uint8_t, uint8_t chipId)
+        {
+            infra::StringOutputStream::WithStorage<24> detail;
+
+            if (found)
+                detail << "FT6X06 ID " << infra::hex << static_cast<uint32_t>(chipId);
+            else
+                detail << "FT6X06 NOT FOUND";
+
+            dashboard.SetStatus(main_::Dashboard::Item::touch, found ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, detail.Storage());
+        },
+        [](const hal::TouchScreen::Event& event)
+        {
+            dashboard.SetTouch(event.phase, event.point);
+            activityLed.Set(event.phase != hal::TouchScreen::Phase::released);
+        } };
     static MfxMonitor mfxMonitor{ mfxI2c, dashboard, activityLed };
 
     static hal::GpioPinStm saiMclkPin{ hal::Port::E, 2 };
