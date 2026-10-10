@@ -106,8 +106,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LpTimerStm.hpp
     PwmStm.cpp
     PwmStm.hpp
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.cpp>
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.cpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.hpp>
     NorFlashStm.cpp
     NorFlashStm.hpp
     RandomDataGeneratorStm.cpp

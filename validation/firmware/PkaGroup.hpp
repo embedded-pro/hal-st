@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(STM32WB) || defined(STM32WBA)
+
 #include "hal_st/stm32fxxx/PkaStm.hpp"
 #include "infra/timer/Timer.hpp"
 #include "services/hil/HilCommand.hpp"
@@ -41,3 +43,5 @@ namespace validation
         std::array<Command, 3> commands;
     };
 }
+
+#endif

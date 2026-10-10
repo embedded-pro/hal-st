@@ -74,6 +74,14 @@ def test_pin_parts():
         "lptim1ch2",
         "lptim2ch1",
         "tim16ch1n",
+        "tim20ch1",
+        "tim20ch3n",
+        "qei20idx",
+        "i2c4sda",
+        "uart4tx",
+        "uart5cts",
+        "dac1out1",
+        "dac4out2",
         "mco",
     ],
 )
@@ -88,6 +96,7 @@ def test_generic_aliases(alias):
         "ain20",
         "tim0ch1",
         "tim18ch1",
+        "tim21ch1",
         "tim1ch5",
         "tim1ch4n",
         "tim1ch0",
@@ -100,6 +109,9 @@ def test_generic_aliases(alias):
         "spi1sck",
         "usart4tx",
         "uart1tx",
+        "uart6tx",
+        "dac0out1",
+        "dac1out3",
         "lpuart2tx",
         "led8",
         "gpio16",
@@ -110,7 +122,7 @@ def test_generic_aliases(alias):
         "phasea",
         "button1",
         "i2c0scl",
-        "i2c4sda",
+        "i2c5sda",
         "i2c1sck",
         "spi4nss",
         "qspiio4",
@@ -125,9 +137,9 @@ def test_not_aliases(name):
 
 
 def test_alias_scheme_size():
-    """terminal 2, ain 20, timers 17 * (4 + 3 + 1), qei 17 * 3, lptim 2 * (2 inputs + 2 channels), spi 3 * 5, i2c 3 * 2,
-    qspi 6, usart 12, lpuart 4, led 8, gpio 16, sw 3, mco 1."""
-    assert len(PIN_ALIASES) == 2 + 20 + 17 * 8 + 17 * 3 + 8 + 15 + 6 + 6 + 12 + 4 + 8 + 16 + 3 + 1
+    """terminal 2, ain 20, timers (1-17 and 20) 18 * (4 + 3 + 1), qei 18 * 3, lptim 2 * (2 inputs + 2 channels), spi 3 * 5,
+    i2c 4 * 2, qspi 6, usart 12, uart4 and uart5 8, lpuart 4, dac 4 * 2, led 8, gpio 16, sw 3, mco 1."""
+    assert len(PIN_ALIASES) == 2 + 20 + 18 * 8 + 18 * 3 + 8 + 15 + 8 + 6 + 12 + 8 + 4 + 8 + 8 + 16 + 3 + 1
 
 
 @pytest.mark.parametrize("table", [WB55_PINS, WBA55_PINS])

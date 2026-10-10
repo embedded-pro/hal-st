@@ -6,7 +6,9 @@
 #include <chrono>
 #include <limits>
 #include DEVICE_HEADER
-#if defined(STM32WBA)
+#if defined(STM32G4)
+#include "stm32g4xx_ll_rng.h"
+#elif defined(STM32WBA)
 #include "stm32wbaxx_ll_rng.h"
 #elif defined(STM32WB)
 #include "hal_st/synchronous_stm32fxxx/SynchronousSynchronizedRandomDataGeneratorStm.hpp"

@@ -15,6 +15,8 @@ namespace validation::board
     inline constexpr const char* name = "NUCLEO-WBA55CG";
     inline constexpr const char* family = "stm32wba55";
 
+    inline constexpr unsigned int hseValue = 32'000'000;
+
     inline constexpr const char* portLetters = "ABCH";
     inline constexpr uint8_t maximumPinIndex = 15;
     static_assert(static_cast<uint8_t>(Port::H) == 3, "portLetters must follow hal::Port");

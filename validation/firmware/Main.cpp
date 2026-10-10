@@ -21,6 +21,7 @@
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/DacGroup.hpp"
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/FlashGroup.hpp"
@@ -48,7 +49,7 @@
 #include "validation/firmware/WatchDogFactory.hpp"
 #include <chrono>
 
-unsigned int hse_value = 32'000'000;
+unsigned int hse_value = validation::board::hseValue;
 
 int main()
 {
@@ -108,7 +109,7 @@ int main()
     static validation::LpTimerFactoryStm lpTimerFactory{ naming, resources };
     static validation::LpTimerGroup lpTimer{ context, lpTimerFactory };
 #endif
-#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB)
+#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB) && !defined(STM32G4)
     static validation::LpTimerPwmFactoryStm lpTimerPwmFactory{ naming, resources };
     static validation::LpTimerPwmGroup lpTimerPwm{ context, lpTimerPwmFactory };
 #endif
@@ -117,11 +118,16 @@ int main()
     static validation::DmaCommands dmaWave{ context, naming, console.dma, timers, resources };
 
     static validation::SyncGpioCommands syncGpio{ context };
+#if defined(HAS_PERIPHERAL_DAC)
+    static validation::DacCommands dac{ context };
+#endif
     static validation::ClockCommands clocks{ context };
 
     static validation::RngCommands rng{ context, resources };
+#if defined(STM32WB) || defined(STM32WBA)
     static validation::AesCommands aes{ context };
     static validation::PkaCommands pka{ context };
+#endif
 
     static validation::FlashCommands flash{ context, watchDogFactory, resources };
 #if defined(STM32WB)

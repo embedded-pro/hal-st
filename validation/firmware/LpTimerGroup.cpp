@@ -171,7 +171,7 @@ namespace validation
         if (request.pin && !IsBonded(*request.pin))
             return HilStatus::pin;
 
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         if (arguments.Has("rep"))
             return HilStatus::unsupported;
 #endif

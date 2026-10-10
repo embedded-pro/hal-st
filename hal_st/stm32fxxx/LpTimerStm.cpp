@@ -17,7 +17,7 @@ namespace hal
         handle.Init.Clock.Source = LPTIM_CLOCKSOURCE_APBCLOCK_LPOSC;
         handle.Init.Clock.Prescaler = timing.prescaler;
         handle.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         handle.Init.CounterSource = LPTIM_COUNTERSOURCE_INTERNAL;
         handle.Init.Input1Source = LPTIM_INPUT1SOURCE_GPIO;
         handle.Init.Input2Source = LPTIM_INPUT2SOURCE_GPIO;
@@ -51,7 +51,7 @@ namespace hal
 
     void FreeRunningLowPowerTimerStm::Start()
     {
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         auto result = HAL_LPTIM_Counter_Start(&handle, currentPeriod);
 #else
         auto result = HAL_LPTIM_Counter_Start(&handle);
@@ -78,7 +78,7 @@ namespace hal
     {
         this->onIrq = onIrq;
         this->type = type;
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         auto result = HAL_LPTIM_Counter_Start_IT(&handle, currentPeriod);
 #else
         auto result = HAL_LPTIM_Counter_Start_IT(&handle);
@@ -94,7 +94,7 @@ namespace hal
 
     void LowPowerTimerWithInterruptStm::OnInterrupt()
     {
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         bool updateEvent = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_ARRM);
 #else
         bool updateEvent = __HAL_LPTIM_GET_FLAG(&handle, LPTIM_FLAG_UPDATE);

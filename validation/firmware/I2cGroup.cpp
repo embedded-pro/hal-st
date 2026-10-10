@@ -15,6 +15,9 @@
 #elif defined(STM32WBA)
 #include "stm32wbaxx_ll_gpio.h"
 #include "stm32wbaxx_ll_i2c.h"
+#elif defined(STM32G4)
+#include "stm32g4xx_ll_gpio.h"
+#include "stm32g4xx_ll_i2c.h"
 #endif
 
 namespace validation

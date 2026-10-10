@@ -12,12 +12,24 @@ namespace validation
             if (instance == TIM1)
                 return true;
 #endif
+#if defined(TIM8)
+            if (instance == TIM8)
+                return true;
+#endif
+#if defined(TIM15)
+            if (instance == TIM15)
+                return true;
+#endif
 #if defined(TIM16)
             if (instance == TIM16)
                 return true;
 #endif
 #if defined(TIM17)
             if (instance == TIM17)
+                return true;
+#endif
+#if defined(TIM20)
+            if (instance == TIM20)
                 return true;
 #endif
             return false;
@@ -51,8 +63,16 @@ namespace validation
         {
             case 1:
                 return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C1);
+#if defined(RCC_PERIPHCLK_I2C2)
+            case 2:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C2);
+#endif
             case 3:
                 return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C3);
+#if defined(RCC_PERIPHCLK_I2C4)
+            case 4:
+                return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_I2C4);
+#endif
             default:
                 return 0;
         }
@@ -87,8 +107,10 @@ namespace validation
         {
             case 1:
                 return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_LPTIM1);
+#if defined(RCC_PERIPHCLK_LPTIM2)
             case 2:
                 return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_LPTIM2);
+#endif
             default:
                 return 0;
         }

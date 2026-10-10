@@ -1,4 +1,7 @@
 #include "validation/firmware/AesGroup.hpp"
+
+#if defined(STM32WB) || defined(STM32WBA)
+
 #include "validation/firmware/Payload.hpp"
 
 namespace validation
@@ -86,3 +89,5 @@ namespace validation
         return HilStatus::done;
     }
 }
+
+#endif
