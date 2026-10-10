@@ -1,10 +1,10 @@
 #include "boards/mb1166/Mb1166Setup.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
 #include "demo/common/CountingI2cStm.hpp"
-#include "demo/common/I2cScanner.hpp"
 #include "demo/common/MemoryTests.hpp"
 #include "demo/common/QuadSpiMemory.hpp"
 #include "demo/common/TouchMonitor.hpp"
+#include "demo/common/TraceI2cScan.hpp"
 #include "demo/sd_card_demo/SdCardDemo.hpp"
 #include "demo/stm32h757i_eval/AnalogMonitor.hpp"
 #include "demo/stm32h757i_eval/Dashboard.hpp"
@@ -547,7 +547,7 @@ int main()
     static services::I2cMultipleAccess touchI2c{ i2cMaster };
     static services::I2cMultipleAccess mfxI2c{ i2cMaster };
     static services::I2cMultipleAccess scanI2c{ i2cMaster };
-    static main_::I2cScanner i2cScanner{ scanI2c };
+    static services::I2cScanner i2cScanner{ scanI2c };
 
     static main_::TouchMonitor touchMonitor{ touchI2c, TouchConfig(),
         [](bool found, uint8_t, uint8_t chipId)
@@ -771,7 +771,7 @@ int main()
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)
         {
-            i2cScanner.Scan();
+            main_::TraceI2cScan(i2cScanner);
         } });
 
     terminal.AddCommand({ { "adc", "a", "measure PA1_C" }, [](const auto& params)

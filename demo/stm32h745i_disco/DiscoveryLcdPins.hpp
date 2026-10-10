@@ -10,7 +10,6 @@
 
 namespace main_
 {
-    // The RK043FN48H panel takes the 24 colour lines straight from the LTDC
     class DiscoveryLcdPins
     {
     public:

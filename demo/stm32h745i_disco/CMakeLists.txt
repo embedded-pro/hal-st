@@ -39,7 +39,6 @@ halst_target_bringup(demo_st.stm32h745i_disco_cm7)
 
 emil_generate_artifacts(TARGET demo_st.stm32h745i_disco_cm7 LST MAP BIN HEX)
 
-######################################################################
 
 add_executable(demo_st.stm32h745i_disco_cm4
     DiscoveryH745Ui.hpp

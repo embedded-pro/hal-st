@@ -5,7 +5,6 @@
 
 namespace main_
 {
-    // MB1381 discovery board with H745XI; LD6 and LD7 are wired to 3.3 V and so are active low, LD8 (Arduino LED, switched by a transistor) and the user button are active high
     struct DiscoveryH745Ui
     {
         hal::GpioPinStm buttonUser{ hal::Port::C, 13 };

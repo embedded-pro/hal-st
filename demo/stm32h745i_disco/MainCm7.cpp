@@ -1,10 +1,10 @@
 #include "boards/rk043fn48h/Rk043fn48h.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
 #include "demo/common/CountingI2cStm.hpp"
-#include "demo/common/I2cScanner.hpp"
 #include "demo/common/MemoryTests.hpp"
 #include "demo/common/QuadSpiMemory.hpp"
 #include "demo/common/TouchMonitor.hpp"
+#include "demo/common/TraceI2cScan.hpp"
 #include "demo/stm32h745i_disco/DefaultClockDiscoveryH745I.hpp"
 #include "demo/stm32h745i_disco/DiscoveryDashboard.hpp"
 #include "demo/stm32h745i_disco/DiscoveryH745Ui.hpp"
@@ -52,7 +52,6 @@ namespace
     constexpr infra::Duration i2cScanDelay = std::chrono::milliseconds(500);
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(600);
 
-    // The controller reports portrait coordinates: its x runs along the short side of the landscape panel and its y along the long one
     drivers::Ft6x06::Config TouchConfig()
     {
         drivers::Ft6x06::Config config;
@@ -88,7 +87,6 @@ namespace
         services::GlobalTracer().Trace() << "display rcc pll3divr " << infra::hex << Value(RCC->PLL3DIVR) << " cr " << Value(RCC->CR) << ", frames " << static_cast<uint32_t>(dashboard.FramesShown()) << ", underruns " << static_cast<uint32_t>(dashboard.Underruns());
     }
 
-    // The first and the last 2 MB get the address-dependent pattern and the data bus and the address lines are walked over the whole memory; the retest leaves the frame buffer at the start alone
     std::size_t TestSdram(infra::ByteRange memory, bool boot)
     {
         if (!boot)
@@ -130,7 +128,6 @@ int main()
     static hal::GpioPinStm uartRxPin{ hal::Port::B, 11 };
     static hal::UartStm uart{ 3, uartTxPin, uartRxPin };
 
-    // The boot report is written before the event dispatcher runs and the writer drops what does not fit
     static services::StreamWriterOnSerialCommunication::WithStorage<4096> streamWriter{ uart };
     static infra::TextOutputStream::WithErrorPolicy textOutputStream{ streamWriter };
     static services::TracerWithDateTime tracer{ textOutputStream };
@@ -163,7 +160,6 @@ int main()
     static hal::OutputPin lcdDisplayEnable{ lcdDisplayEnablePin, true };
     static hal::OutputPin lcdBacklight{ lcdBacklightPin, false };
 
-    // The reset pin of the display connector also resets the touch controller
     static hal::GpioPinStm lcdResetPin{ hal::Port::B, 12 };
     static hal::OutputPin lcdReset{ lcdResetPin, false };
     static infra::TimerSingleShot lcdResetRelease{ touchResetDuration, []()
@@ -178,10 +174,10 @@ int main()
     static services::I2cMultipleAccess codecI2c{ i2cMaster };
     static services::I2cMultipleAccess touchI2c{ i2cMaster };
     static services::I2cMultipleAccess scanI2c{ i2cMaster };
-    static main_::I2cScanner i2cScanner{ scanI2c };
+    static services::I2cScanner i2cScanner{ scanI2c };
     static infra::TimerSingleShot i2cScanStart{ i2cScanDelay, []()
         {
-            i2cScanner.Scan();
+            main_::TraceI2cScan(i2cScanner);
         } };
 
     static main_::TouchMonitor touchMonitor{ touchI2c, TouchConfig(),
@@ -221,7 +217,6 @@ int main()
     static examples::ToneDemo tone{ codec };
     static bool muted = false;
 
-    // The codec is brought up and the tone started once the display shows its first frame, which also switches the backlight on
     static auto displayStarted = []()
     {
         lcdBacklight.Set(true);
@@ -231,7 +226,6 @@ int main()
         services::GlobalTracer().Trace() << "display started, tone started";
     };
 
-    // The two flash chips share the clock and BK1_NCS: only the one on the bank 1 data lines is used here, the other does not see any command
     static hal::GpioPinStm qspiClockPin{ hal::Port::F, 10 };
     static hal::GpioPinStm qspiSelectPin{ hal::Port::G, 6 };
     static hal::GpioPinStm qspiData0Pin{ hal::Port::D, 11 };
@@ -322,7 +316,7 @@ int main()
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C4 that acknowledge" }, [](const auto& params)
         {
-            i2cScanner.Scan();
+            main_::TraceI2cScan(i2cScanner);
         } });
 
     terminal.AddCommand({ { "display", "d", "print the LTDC, clock and frame counters" }, [](const auto& params)

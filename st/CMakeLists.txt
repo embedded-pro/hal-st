@@ -80,7 +80,6 @@ target_compile_definitions(st.hal_driver_stm32h7xx PUBLIC
     STM32H7=1
     DEVICE_HEADER="stm32h7xx.h"
     $<$<STREQUAL:${TARGET_MCU},stm32h745>:STM32H745xx=1>
-    # The STM32H745I-DISCO feeds the core from its SMPS; the system file applies this before main, and a firmware that selects another supply makes the ST-LINK lose the target
     $<$<STREQUAL:${TARGET_MCU},stm32h745>:USE_PWR_DIRECT_SMPS_SUPPLY=1>
     $<$<STREQUAL:${TARGET_MCU},stm32h757>:STM32H757xx=1>
     $<$<STREQUAL:${TARGET_CORTEX},m7>:CORE_CM7=1>

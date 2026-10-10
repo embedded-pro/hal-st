@@ -13,9 +13,6 @@
 
 namespace main_
 {
-    // A quad-SPI flash in its power-up mode. Reads and programs use the quad lines, and every read is compared with a read on one line.
-    // The check reads the JEDEC identification and, on a Micron flash, makes the dummy cycles of its fast reads match the geometry, then reads the first and the last block of the array;
-    // the test saves the last sector, erases and programs it, and restores it.
     class QuadSpiMemory
     {
     public:

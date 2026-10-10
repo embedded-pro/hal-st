@@ -10,6 +10,7 @@ target_link_libraries(demo_st.common PUBLIC
     hal.interfaces
     infra.util
     services.flash
+    services.peripheral
     services.tracer
 )
 
@@ -18,8 +19,6 @@ target_sources(demo_st.common PRIVATE
     Canvas.hpp
     CountingI2cStm.hpp
     DashboardStyle.hpp
-    I2cScanner.cpp
-    I2cScanner.hpp
     InvertedGpioPin.hpp
     MemoryTests.hpp
     QuadSpiMemory.cpp
@@ -29,4 +28,6 @@ target_sources(demo_st.common PRIVATE
     TouchCursor.hpp
     TouchMonitor.cpp
     TouchMonitor.hpp
+    TraceI2cScan.cpp
+    TraceI2cScan.hpp
 )

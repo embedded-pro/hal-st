@@ -5,7 +5,6 @@
 
 namespace main_
 {
-    // A device that does not answer, or a bus error, is counted instead of aborting, so a driver can report a missing device and an address scan can run
     class CountingI2cStm
         : public hal::I2cStm
     {

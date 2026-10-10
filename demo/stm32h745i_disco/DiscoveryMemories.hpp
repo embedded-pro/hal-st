@@ -9,10 +9,8 @@
 namespace main_
 {
     constexpr uint32_t discoverySdRamBase = 0xd0000000;
-    // The MT48LC4M32B2 has 16 MB, but only its lower 16 data lines are connected
     constexpr uint32_t discoverySdRamSize = 8 * 1024 * 1024;
 
-    // A0 to A11, BA0, BA1, D0 to D15, NBL0, NBL1 and the bank 2 controls SDNWE, SDNRAS, SDNCAS, SDNE1, SDCKE1 and SDCLK
     inline constexpr std::array<std::pair<hal::Port, uint8_t>, 38> discoveryFmcPins = { { { hal::Port::F, 0 }, { hal::Port::F, 1 }, { hal::Port::F, 2 }, { hal::Port::F, 3 },
         { hal::Port::F, 4 }, { hal::Port::F, 5 }, { hal::Port::F, 12 }, { hal::Port::F, 13 },
         { hal::Port::F, 14 }, { hal::Port::F, 15 }, { hal::Port::G, 0 }, { hal::Port::G, 1 },

@@ -10,7 +10,6 @@
 
 namespace main_
 {
-    // Identifies a FocalTech touch controller, reports what it found and then forwards every touch event, tracing the events too
     class TouchMonitor
     {
     public:

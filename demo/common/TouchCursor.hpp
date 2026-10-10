@@ -9,7 +9,6 @@
 
 namespace main_
 {
-    // A round pointer on its own display layer that follows the touch point, blended per pixel over the layer below
     class TouchCursor
     {
     public:
