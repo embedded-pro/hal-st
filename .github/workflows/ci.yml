@@ -108,6 +108,8 @@ jobs:
             "stm32f767",
             "stm32h563",
             "stm32h573",
+            "stm32h745-cm7",
+            "stm32h745-cm4",
             "stm32h757-cm7",
             "stm32h757-cm4"
           ]

@@ -79,6 +79,8 @@ emil_build_for(st.hal_driver_stm32h7xx TARGET_MCU_FAMILY stm32h7xx PREREQUISITE_
 target_compile_definitions(st.hal_driver_stm32h7xx PUBLIC
     STM32H7=1
     DEVICE_HEADER="stm32h7xx.h"
+    $<$<STREQUAL:${TARGET_MCU},stm32h745>:STM32H745xx=1>
+    $<$<STREQUAL:${TARGET_MCU},stm32h745>:USE_PWR_DIRECT_SMPS_SUPPLY=1>
     $<$<STREQUAL:${TARGET_MCU},stm32h757>:STM32H757xx=1>
     $<$<STREQUAL:${TARGET_CORTEX},m7>:CORE_CM7=1>
     $<$<STREQUAL:${TARGET_CORTEX},m4>:CORE_CM4=1>

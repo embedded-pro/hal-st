@@ -1,6 +1,6 @@
 #pragma once
 
-#include "demo/stm32h757i_eval/InvertedGpioPin.hpp"
+#include "demo/common/InvertedGpioPin.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 
 namespace main_

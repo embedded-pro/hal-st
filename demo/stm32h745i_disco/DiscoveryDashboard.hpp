@@ -1,5 +1,6 @@
 #pragma once
 
+#include "boards/rk043fn48h/Rk043fn48h.hpp"
 #include "demo/common/Canvas.hpp"
 #include "demo/common/DashboardStyle.hpp"
 #include "demo/common/TouchCursor.hpp"
@@ -15,51 +16,30 @@
 
 namespace main_
 {
-    class Dashboard
+    class DiscoveryDashboard
     {
     public:
-        static constexpr hal::DisplaySize screenSize{ 800, 480 };
+        static constexpr hal::DisplaySize screenSize = boards::rk043fn48hTiming.active;
         static constexpr std::size_t frameBytes = screenSize.width * screenSize.height * 2;
-        static constexpr std::size_t cursorBytes = TouchCursor::bytes;
 
         enum class Item : uint8_t
         {
             display,
             sdram,
-            sram,
-            nor,
             qspi,
-            sdCard,
             audio,
             touch,
-            mfx,
-            adc,
-            dac,
             count
         };
 
         using State = StatusState;
 
-        enum class Button : uint8_t
-        {
-            wakeup,
-            tamper,
-            select,
-            up,
-            down,
-            left,
-            right,
-            count
-        };
-
-        Dashboard(hal::DisplayController& display, hal::Blitter& blitter, infra::ByteRange frameMemory, infra::ByteRange cursorMemory);
+        DiscoveryDashboard(hal::DisplayController& display, hal::Blitter& blitter, infra::ByteRange frameMemory, infra::ByteRange cursorMemory);
 
         void Start(const infra::Function<void()>& onStarted = infra::emptyFunction);
 
         void SetStatus(Item item, State state, infra::BoundedConstString detail);
-        void SetButton(Button button, bool pressed);
-        void SetPotentiometer(uint16_t counts);
-        void SetDac(uint16_t counts);
+        void SetButton(bool pressed);
         void SetUptime(uint32_t seconds);
         void SetTouch(hal::TouchScreen::Phase phase, hal::TouchPoint point);
         void ClearTouchPad();
@@ -69,15 +49,14 @@ namespace main_
 
     private:
         static constexpr std::size_t itemCount = static_cast<std::size_t>(Item::count);
-        static constexpr std::size_t buttonCount = static_cast<std::size_t>(Button::count);
 
         void DrawAll();
         void DrawTitle();
         void DrawStatus(Item item);
-        void DrawButton(Button button);
-        void DrawBar(uint16_t y, uint16_t counts);
+        void DrawButton();
         void DrawTouchPad();
         void DrawTouchText();
+        void PaintTouchDot(hal::TouchPoint point);
         void ShowLayers();
 
     private:
@@ -87,10 +66,8 @@ namespace main_
         Canvas canvas;
         TouchCursor cursor;
         std::array<State, itemCount> states{};
-        std::array<infra::BoundedString::WithStorage<24>, itemCount> details;
-        std::array<bool, buttonCount> buttons{};
-        uint16_t potentiometer{ 0 };
-        uint16_t dac{ 0 };
+        std::array<infra::BoundedString::WithStorage<28>, itemCount> details;
+        bool buttonPressed{ false };
         uint32_t uptime{ 0 };
         hal::TouchScreen::Phase touchPhase{ hal::TouchScreen::Phase::released };
         hal::TouchPoint touchPoint{ 0, 0 };

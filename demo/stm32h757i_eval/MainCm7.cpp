@@ -1,5 +1,10 @@
 #include "boards/mb1166/Mb1166Setup.hpp"
 #include "demo/audio_demo/ToneDemo.hpp"
+#include "demo/common/CountingI2cStm.hpp"
+#include "demo/common/MemoryTests.hpp"
+#include "demo/common/QuadSpiMemory.hpp"
+#include "demo/common/TouchMonitor.hpp"
+#include "demo/common/TraceI2cScan.hpp"
 #include "demo/sd_card_demo/SdCardDemo.hpp"
 #include "demo/stm32h757i_eval/AnalogMonitor.hpp"
 #include "demo/stm32h757i_eval/Dashboard.hpp"
@@ -7,14 +12,11 @@
 #include "demo/stm32h757i_eval/DisplayReport.hpp"
 #include "demo/stm32h757i_eval/EvalMemories.hpp"
 #include "demo/stm32h757i_eval/EvalUi.hpp"
-#include "demo/stm32h757i_eval/MemoryTests.hpp"
 #include "demo/stm32h757i_eval/Mfx.hpp"
-#include "demo/stm32h757i_eval/QuadSpiMemory.hpp"
 #include "drivers/audio/wm8994/Wm8994.hpp"
 #include "drivers/audio/wm8994/Wm8994BusAccessI2c.hpp"
 #include "drivers/display/mipi_dsi/MipiDcs.hpp"
 #include "drivers/touch_screen/ft6x06/Ft6x06.hpp"
-#include "drivers/touch_screen/ft6x06/Ft6x06BusAccessI2c.hpp"
 #include "hal_st/instantiations/StmEventInfrastructure.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/DigitalToAnalogPinStm.hpp"
@@ -74,7 +76,6 @@ namespace
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr infra::Duration touchStartDelay = std::chrono::milliseconds(500);
     constexpr infra::Duration displayReportDelay = std::chrono::seconds(2);
-    constexpr uint32_t movedEventsPerTrace = 10;
 
     // The portrait panel is driven landscape with the axes exchanged: x follows the controller's y and y runs against its x
     drivers::Ft6x06::Config TouchConfig()
@@ -90,44 +91,6 @@ namespace
         config.video.colorCoding = hal::DsiHostStm::ColorCoding::rgb888;
         return config;
     }
-
-    // The expander does not answer for a while after a reset, so a missing device is reported by its driver and not by an abort
-    class EvalI2c
-        : public hal::I2cStm
-    {
-    public:
-        using hal::I2cStm::I2cStm;
-
-        uint32_t NotAcknowledged() const
-        {
-            return notAcknowledged;
-        }
-
-        uint32_t BusErrors() const
-        {
-            return busErrors;
-        }
-
-    protected:
-        void DeviceNotFound() override
-        {
-            ++notAcknowledged;
-        }
-
-        void BusError() override
-        {
-            ++busErrors;
-        }
-
-        void ArbitrationLost() override
-        {
-            ++busErrors;
-        }
-
-    private:
-        uint32_t notAcknowledged = 0;
-        uint32_t busErrors = 0;
-    };
 
     bool Parse(infra::BoundedConstString params, uint32_t& value)
     {
@@ -182,80 +145,6 @@ namespace
 
         return main_::TestMemory<uint32_t>(memory, sdramPatternBytes) + main_::TestPattern(tail, sdramPatternBytes / sizeof(uint32_t));
     }
-
-    class TouchMonitor
-    {
-    public:
-        TouchMonitor(hal::I2cMaster& i2c, main_::Dashboard& dashboard, hal::OutputPin& activityLed)
-            : bus(i2c)
-            , dashboard(dashboard)
-            , activityLed(activityLed)
-        {}
-
-        void Begin()
-        {
-            touch.emplace(bus, TouchConfig(), [this](drivers::Ft6x06::InitializationResult result)
-                {
-                    Initialized(result);
-                });
-        }
-
-    private:
-        void Initialized(drivers::Ft6x06::InitializationResult result)
-        {
-            if (result != drivers::Ft6x06::InitializationResult::success)
-            {
-                dashboard.SetStatus(main_::Dashboard::Item::touch, main_::Dashboard::State::failed, "FT6X06 NOT FOUND");
-                services::GlobalTracer().Trace() << "FT6x06 touch controller not found at 0x38";
-                return;
-            }
-
-            infra::StringOutputStream::WithStorage<24> detail;
-            detail << "FT6X06 ID " << infra::hex << static_cast<uint32_t>(touch->ChipId());
-            dashboard.SetStatus(main_::Dashboard::Item::touch, main_::Dashboard::State::ok, detail.Storage());
-            services::GlobalTracer().Trace() << "FT6x06 vendor " << infra::hex << static_cast<uint32_t>(touch->VendorId()) << ", chip " << static_cast<uint32_t>(touch->ChipId());
-
-            touch->Start([this](hal::TouchScreen::Event event)
-                {
-                    Report(event);
-                });
-        }
-
-        void Report(const hal::TouchScreen::Event& event)
-        {
-            dashboard.SetTouch(event.phase, event.point);
-            activityLed.Set(event.phase != hal::TouchScreen::Phase::released);
-
-            if (event.phase != hal::TouchScreen::Phase::moved)
-                movedEvents = 0;
-            else if (++movedEvents % movedEventsPerTrace != 0)
-                return;
-
-            services::GlobalTracer().Trace() << "touch " << PhaseName(event.phase) << " " << static_cast<uint32_t>(event.point.x) << "," << static_cast<uint32_t>(event.point.y);
-        }
-
-        static const char* PhaseName(hal::TouchScreen::Phase phase)
-        {
-            switch (phase)
-            {
-                case hal::TouchScreen::Phase::pressed:
-                    return "pressed";
-                case hal::TouchScreen::Phase::moved:
-                    return "moved";
-                case hal::TouchScreen::Phase::released:
-                    return "released";
-            }
-
-            return "";
-        }
-
-    private:
-        drivers::Ft6x06BusAccessI2c bus;
-        main_::Dashboard& dashboard;
-        hal::OutputPin& activityLed;
-        std::optional<drivers::Ft6x06> touch;
-        uint32_t movedEvents = 0;
-    };
 
     class MfxMonitor
     {
@@ -483,59 +372,6 @@ namespace
         std::size_t index{ 0 };
         bool running{ false };
     };
-
-    class I2cScanner
-    {
-    public:
-        explicit I2cScanner(hal::I2cMaster& i2c)
-            : i2c(i2c)
-        {}
-
-        void Scan()
-        {
-            if (scanning)
-            {
-                services::GlobalTracer().Trace() << "i2c scan in progress";
-                return;
-            }
-
-            scanning = true;
-            found = 0;
-            address = firstAddress;
-            Probe();
-        }
-
-    private:
-        static constexpr uint16_t firstAddress = 0x08;
-        static constexpr uint16_t lastAddress = 0x77;
-
-        void Probe()
-        {
-            i2c.ReceiveData(hal::I2cAddress(address), infra::MakeRange(data), hal::Action::stop, [this](hal::Result result)
-                {
-                    if (result == hal::Result::complete)
-                    {
-                        ++found;
-                        services::GlobalTracer().Trace() << "i2c 0x" << infra::hex << static_cast<uint32_t>(address) << " acknowledged";
-                    }
-
-                    if (address++ != lastAddress)
-                        Probe();
-                    else
-                    {
-                        scanning = false;
-                        services::GlobalTracer().Trace() << "i2c scan done, " << found << " devices";
-                    }
-                });
-        }
-
-    private:
-        hal::I2cMaster& i2c;
-        std::array<uint8_t, 1> data{};
-        uint16_t address{ firstAddress };
-        uint32_t found{ 0 };
-        bool scanning{ false };
-    };
 }
 
 int main()
@@ -705,15 +541,31 @@ int main()
 
     static hal::GpioPinStm i2cSclPin{ hal::Port::B, 6 };
     static hal::GpioPinStm i2cSdaPin{ hal::Port::B, 7 };
-    static EvalI2c i2c{ 1, i2cSclPin, i2cSdaPin };
+    static main_::CountingI2cStm i2c{ 1, i2cSclPin, i2cSdaPin };
     static services::I2cMultipleAccessMaster i2cMaster{ i2c };
     static services::I2cMultipleAccess codecI2c{ i2cMaster };
     static services::I2cMultipleAccess touchI2c{ i2cMaster };
     static services::I2cMultipleAccess mfxI2c{ i2cMaster };
     static services::I2cMultipleAccess scanI2c{ i2cMaster };
-    static I2cScanner i2cScanner{ scanI2c };
+    static services::I2cScanner i2cScanner{ scanI2c };
 
-    static TouchMonitor touchMonitor{ touchI2c, dashboard, activityLed };
+    static main_::TouchMonitor touchMonitor{ touchI2c, TouchConfig(),
+        [](bool found, uint8_t, uint8_t chipId)
+        {
+            infra::StringOutputStream::WithStorage<24> detail;
+
+            if (found)
+                detail << "FT6X06 ID " << infra::hex << static_cast<uint32_t>(chipId);
+            else
+                detail << "FT6X06 NOT FOUND";
+
+            dashboard.SetStatus(main_::Dashboard::Item::touch, found ? main_::Dashboard::State::ok : main_::Dashboard::State::failed, detail.Storage());
+        },
+        [](const hal::TouchScreen::Event& event)
+        {
+            dashboard.SetTouch(event.phase, event.point);
+            activityLed.Set(event.phase != hal::TouchScreen::Phase::released);
+        } };
     static MfxMonitor mfxMonitor{ mfxI2c, dashboard, activityLed };
 
     static hal::GpioPinStm saiMclkPin{ hal::Port::E, 2 };
@@ -861,7 +713,7 @@ int main()
             ReportMemory(dashboard, main_::Dashboard::Item::sram, "SRAM", static_cast<uint32_t>(sram.Memory().size() / 1024), errors);
         } });
 
-    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification and the start of the array twice" }, [](const auto& params)
+    terminal.AddCommand({ { "qspi", "q", "read the QSPI flash identification, then the first and the last block of the array on one and on four lines" }, [](const auto& params)
         {
             qspiMemory.Check([](bool ok)
                 {
@@ -869,7 +721,7 @@ int main()
                 });
         } });
 
-    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the last sector of the QSPI flash" }, [](const auto& params)
+    terminal.AddCommand({ { "qspitest", "qt", "erase, program and verify the last sector of the QSPI flash on four lines, then restore it" }, [](const auto& params)
         {
             qspiMemory.EraseProgramVerify([](bool ok)
                 {
@@ -919,7 +771,7 @@ int main()
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C1 that acknowledge" }, [](const auto& params)
         {
-            i2cScanner.Scan();
+            main_::TraceI2cScan(i2cScanner);
         } });
 
     terminal.AddCommand({ { "adc", "a", "measure PA1_C" }, [](const auto& params)
