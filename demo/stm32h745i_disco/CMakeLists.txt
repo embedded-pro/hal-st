@@ -12,6 +12,7 @@ add_executable(demo_st.stm32h745i_disco_cm7
     DefaultClockDiscoveryH745I.cpp
     DefaultClockDiscoveryH745I.hpp
     DiscoveryH745Ui.hpp
+    DiscoveryMemories.hpp
     MainCm7.cpp
 )
 emil_build_for(demo_st.stm32h745i_disco_cm7
@@ -20,6 +21,8 @@ emil_build_for(demo_st.stm32h745i_disco_cm7
 )
 
 target_link_libraries(demo_st.stm32h745i_disco_cm7 PRIVATE
+    demo_st.common
+    services.flash
     services.util
     services.peripheral
     hal_st.instantiations
@@ -42,6 +45,7 @@ emil_build_for(demo_st.stm32h745i_disco_cm4
 )
 
 target_link_libraries(demo_st.stm32h745i_disco_cm4 PRIVATE
+    demo_st.common
     services.util
     services.peripheral
     hal_st.instantiations
