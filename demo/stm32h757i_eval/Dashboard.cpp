@@ -57,6 +57,7 @@ namespace main_
         blitter.Fill(frame, style::backgroundColor, [this]()
             {
                 DrawAll();
+                drawn = true;
                 ShowLayers();
             });
     }
@@ -69,7 +70,7 @@ namespace main_
         details[index].clear();
         details[index].append(detail.substr(0, details[index].max_size()));
 
-        if (ready)
+        if (drawn)
             DrawStatus(item);
     }
 
@@ -77,7 +78,7 @@ namespace main_
     {
         buttons[static_cast<std::size_t>(button)] = pressed;
 
-        if (ready)
+        if (drawn)
             DrawButton(button);
     }
 
@@ -85,7 +86,7 @@ namespace main_
     {
         potentiometer = counts;
 
-        if (ready)
+        if (drawn)
             DrawBar(potentiometerBarTop, counts);
     }
 
@@ -93,7 +94,7 @@ namespace main_
     {
         dac = counts;
 
-        if (ready)
+        if (drawn)
             DrawBar(dacBarTop, counts);
     }
 
@@ -101,7 +102,7 @@ namespace main_
     {
         uptime = seconds;
 
-        if (ready)
+        if (drawn)
             DrawTitle();
     }
 
@@ -110,7 +111,7 @@ namespace main_
         touchPhase = phase;
         touchPoint = point;
 
-        if (phase != hal::TouchScreen::Phase::released && ready)
+        if (phase != hal::TouchScreen::Phase::released && drawn)
         {
             const bool onPad = point.x >= touchPad.x + touchDot && point.x + touchDot < touchPad.x + touchPad.width && point.y >= touchPad.y + touchDot && point.y + touchDot < touchPad.y + touchPad.height;
 
@@ -123,13 +124,13 @@ namespace main_
         else
             cursor.Show(point);
 
-        if (ready)
+        if (drawn)
             DrawTouchText();
     }
 
     void Dashboard::ClearTouchPad()
     {
-        if (ready)
+        if (drawn)
             DrawTouchPad();
     }
 
@@ -243,7 +244,6 @@ namespace main_
 
         display.Commit([this]()
             {
-                ready = true;
                 cursor.Enable();
                 this->onStarted();
             });
