@@ -106,8 +106,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LpTimerStm.hpp
     PwmStm.cpp
     PwmStm.hpp
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.cpp>
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.cpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.hpp>
     NorFlashStm.cpp
     NorFlashStm.hpp
     RandomDataGeneratorStm.cpp
@@ -177,7 +177,7 @@ if (TARGET_MCU IN_LIST UartMcus OR TARGET_MCU_FAMILY IN_LIST UartMcuFamilies)
 endif()
 
 list(APPEND AdcDmaMcus stm32wb55)
-list(APPEND AdcDmaMcuFamilies stm32wbaxx stm32h5xx)
+list(APPEND AdcDmaMcuFamilies stm32g4xx stm32wbaxx stm32h5xx)
 
 if (TARGET_MCU IN_LIST AdcDmaMcus OR TARGET_MCU_FAMILY IN_LIST AdcDmaMcuFamilies)
     target_sources(hal_st.stm32fxxx PRIVATE AdcDmaStm.cpp
@@ -300,4 +300,8 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PeripheralTable.cpp"
         "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PeripheralTable.hpp"
     )
+
+    if (TARGET_MCU STREQUAL stm32g474 AND TARGET_MCU_VARIANT STREQUAL stm32g474vxt)
+        target_compile_definitions(hal_st.stm32fxxx PRIVATE QUADSPI1_IRQn=QUADSPI_IRQn)
+    endif()
 endif()

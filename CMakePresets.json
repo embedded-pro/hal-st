@@ -316,6 +316,11 @@
       "configurePreset": "stm32g431"
     },
     {
+      "name": "stm32g474-RelWithDebInfo",
+      "configuration": "RelWithDebInfo",
+      "configurePreset": "stm32g474"
+    },
+    {
       "name": "stm32f407-RelWithDebInfo",
       "configuration": "RelWithDebInfo",
       "configurePreset": "stm32f407"

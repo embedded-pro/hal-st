@@ -1,3 +1,4 @@
+@family:stm32wb55 @family:stm32wba55
 Feature: AES-128 ECB
   AES-128 ECB (`hal::SynchronousAes128EcbStm`) through the `aes` group: the FIPS-197 C.1 and SP 800-38A F.1.1 known
   answers, decryption, one to five blocks per command, key changes between commands, and every data swapping mode

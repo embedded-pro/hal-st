@@ -341,9 +341,10 @@ namespace validation
     {
         const auto sectors = layout == Layout::table ? tableSectors : RegionSize() / FLASH_PAGE_SIZE;
 
-        // An unfixed erase (B.5) takes the sector index for the absolute page; every sector starts at or past the
-        // page of its index, so sectors from the image end page on cannot reach the running image
-        return { sectors, std::min(imageEndPage, sectors) };
+        // Where the erase is unfixed (B.5) it takes the sector index for the absolute page; every sector starts at or
+        // past the page of its index, so sectors from the image end page on cannot reach the running image
+        // (board::imageLimitsErase)
+        return { sectors, board::imageLimitsErase ? std::min(imageEndPage, sectors) : 0 };
     }
 
     uint32_t FlashCommands::AddressOfSector(Layout layout, uint32_t sector) const

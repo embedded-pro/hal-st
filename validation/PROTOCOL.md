@@ -5,9 +5,9 @@ The host package (`validation/host`) drives this terminal and a Digilent Analog 
 
 ## Board profiles
 
-Two boards are supported: NUCLEO-WB55RG (`TARGET_MCU` `stm32wb55`) and NUCLEO-WBA55CG (`TARGET_MCU` `stm32wba55`).
-The firmware runs from the default Nucleo clocks of hal-st (`ConfigureDefaultClockNucleoWB55RG`, 64 MHz from the HSI PLL; `ConfigureDefaultClockNucleoWBA55CG`, 100 MHz from the 32 MHz HSE PLL), with every APB prescaler at 1.
-The terminal is a `hal::UartStmDuplexDma` on USART1, the ST-LINK virtual COM port, at 921600 8N1 without flow control.
+Three boards are supported: NUCLEO-WB55RG (`TARGET_MCU` `stm32wb55`), NUCLEO-WBA55CG (`TARGET_MCU` `stm32wba55`) and NUCLEO-G474RE (`TARGET_MCU` `stm32g474`).
+The firmware runs from the default Nucleo clocks of hal-st (`ConfigureDefaultClockNucleoWB55RG`, 64 MHz from the HSI PLL; `ConfigureDefaultClockNucleoWBA55CG`, 100 MHz from the 32 MHz HSE PLL; `ConfigureDefaultClockNucleoG474xxx`, 170 MHz from the 24 MHz HSE PLL), with every APB prescaler at 1.
+The terminal is a `hal::UartStmDuplexDma` on USART1 (USART2 on the NUCLEO-G474RE: PA2/PA3, AF7), the ST-LINK virtual COM port, at 921600 8N1 without flow control.
 
 Aliases name the pins by peripheral function:
 
@@ -52,8 +52,42 @@ Aliases name the pins by peripheral function:
 | `gpio3` `gpio4`                               | PC13 PE4                | -                       | general-purpose test pins                                        |
 | `sw1` `sw2` `sw3`                             | PC4 PD0 PD1             | PC13 PB6 PB7            | user buttons (input only, pulled up)                             |
 
-- Wherever a pin is expected, an alias from this table may be used instead of `P<port><index>`; several aliases may name the same pin, and no alias carries a default pull.
-- Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`). Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
+The NUCLEO-G474RE aliases (the board has no `led`/`sw` alias: LD2 on PA5 is the debug LED and B1 on PC13 is not used):
+
+| Alias                                                                                                                                                                           | NUCLEO-G474RE                                                              | Function                                                           |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|--------------------------------------------------------------------|
+| `terminaltx` `terminalrx`                                                                                                                                                       | PA2 PA3                                                                    | terminal USART2 TX / RX (ST-LINK virtual COM port)                 |
+| `ain1` `ain2` `ain3` `ain4` `ain5` `ain6` `ain7` `ain8`                                                                                                                         | PA0 PA1 PB0 PC1 PC0 PC2 PC3 PB1                                            | ADC1 inputs                                                        |
+| `tim1ch1` `tim1ch2` `tim1ch3` `tim1ch4`                                                                                                                                         | PA8 PA9 PA10 PA11                                                          | TIM1 channels 1-4                                                  |
+| `tim1ch1n` `tim1ch2n` `tim1ch3n`                                                                                                                                                | PA7 PB0 PB1                                                                | TIM1 complementary channels 1N-3N                                  |
+| `tim1bkin`                                                                                                                                                                      | PA15                                                                       | TIM1 break input                                                   |
+| `tim2ch1` `tim2ch2` `tim2ch3` `tim2ch4`                                                                                                                                         | PA15 PB3 PB10 PB11                                                         | TIM2 channels (32-bit counter)                                     |
+| `tim3ch1` `tim3ch2` `tim3ch3` `tim3ch4`                                                                                                                                         | PB4 PB5 PB0 PB1                                                            | TIM3 channels 1-4                                                  |
+| `tim4ch1` `tim4ch2` `tim4ch3` `tim4ch4`                                                                                                                                         | PB6 PB7 PB8 PB9                                                            | TIM4 channels 1-4                                                  |
+| `tim5ch1` `tim5ch2`                                                                                                                                                             | PA0 PA1                                                                    | TIM5 channels 1-2 (32-bit counter)                                 |
+| `tim8ch1` `tim8ch2` `tim8ch3` `tim8ch4`                                                                                                                                         | PC6 PC7 PC8 PC9                                                            | TIM8 channels 1-4                                                  |
+| `tim15ch1` `tim15ch2`                                                                                                                                                           | PB14 PB15                                                                  | TIM15 channels 1-2                                                 |
+| `tim15ch1n`                                                                                                                                                                     | PB15                                                                       | TIM15 complementary channel 1N                                     |
+| `tim16ch1`                                                                                                                                                                      | PA12                                                                       | TIM16 channel 1                                                    |
+| `tim16ch1n`                                                                                                                                                                     | PB6                                                                        | TIM16 complementary channel 1N                                     |
+| `tim17ch1`                                                                                                                                                                      | PA7                                                                        | TIM17 channel 1                                                    |
+| `tim17ch1n`                                                                                                                                                                     | PB7                                                                        | TIM17 complementary channel 1N                                     |
+| `tim20ch1` `tim20ch2`                                                                                                                                                           | PB2 PC2                                                                    | TIM20 channels                                                     |
+| `qei1a` `qei1b` `qei2a` `qei2b` `qei3a` `qei3b` `qei4a` `qei4b` `qei5a` `qei5b` `qei8a` `qei8b`                                                                                 | PA8 PA9 PA15 PB3 PB4 PB5 PB6 PB7 PA0 PA1 PC6 PC7                           | encoder phase A / B                                                |
+| `qei1idx` `qei2idx` `qei3idx` `qei4idx` `qei5idx` `qei8idx`                                                                                                                     | PA10 PC4 PC4 PC4 PC4 PC4                                                   | encoder index input                                                |
+| `lptim1in1` `lptim1in2` `lptim1ch1`                                                                                                                                             | PB5 PB7 PB2                                                                | LPTIM1 encoder inputs and output                                   |
+| `spi1clk` `spi1miso` `spi1mosi` `spi1cs` `spi2clk` `spi2miso` `spi2mosi` `spi2cs` `spi3clk` `spi3miso` `spi3mosi` `spi3cs`                                                      | PB3 PB4 PB5 PA15 PB13 PB14 PB15 PB12 PC10 PC11 PC12 PA4                    | SPI clock / MISO / MOSI / chip select                              |
+| `spi1nss` `spi2nss` `spi3nss`                                                                                                                                                   | PA15 PB12 PA4                                                              | SPI hardware NSS (the pin of `spiNcs`)                             |
+| `i2c1scl` `i2c1sda` `i2c2scl` `i2c2sda` `i2c3scl` `i2c3sda` `i2c4scl` `i2c4sda`                                                                                                 | PB8 PB9 PA9 PA8 PC8 PC9 PC6 PC7                                            | I2C SCL / SDA                                                      |
+| `usart1tx` `usart1rx` `usart1rts` `usart1cts` `usart3tx` `usart3rx` `usart3rts` `usart3cts` `uart4tx` `uart4rx` `uart4rts` `uart4cts` `uart5tx` `uart5rx` `uart5rts` `uart5cts` | PA9 PA10 PA12 PA11 PB10 PB11 PB14 PB13 PC10 PC11 PA15 PB7 PC12 PD2 PB4 PB5 | USART / UART TX / RX / RTS / CTS                                   |
+| `lpuart1tx` `lpuart1rx` `lpuart1rts` `lpuart1cts`                                                                                                                               | PC1 PC0 PB1 PB13                                                           | LPUART1 TX / RX / RTS / CTS                                        |
+| `dac1out1` `dac2out1`                                                                                                                                                           | PA4 PA6                                                                    | DAC outputs (`dac` group)                                          |
+| `qspiclk` `qspincs` `qspiio0` `qspiio1` `qspiio2` `qspiio3`                                                                                                                     | PB10 PB11 PB1 PB0 PA7 PA6                                                  | QUADSPI clock / chip select / IO0-IO3                              |
+| `mco`                                                                                                                                                                           | PA8                                                                        | clock output MCO (`clock.mco`)                                     |
+| `gpio0` `gpio1` `gpio2` `gpio3` `gpio4`                                                                                                                                         | PC4 PC5 PD2 PB2 PA4                                                        | general-purpose test pins (`gpio0` is the watchdog warning toggle) |
+
+- Wherever a pin is expected, an alias from these tables may be used instead of `P<port><index>`; several aliases may name the same pin, and no alias carries a default pull.
+- Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`, G474 TIM1 `qei1a`/`qei1b`/`qei1idx`). Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
 - `board.pins` → `OK <alias>=<pin>,...` lists the table for the running board.
 - The buttons short their pin to ground when pressed; never configure `sw1`-`sw3` as outputs.
 
@@ -61,12 +95,13 @@ Aliases name the pins by peripheral function:
 
 The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix, number, hex and list syntax, open/close semantics) is specified in EMIL's [hardware-in-the-loop terminal documentation](https://github.com/embedded-pro/embedded-infra-lib/blob/main/docs/Hil.md). hal-st adds:
 
-- After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
-- Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55 and A-C and H on STM32WBA55, index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
+- After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
+- Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
-- The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); any other pin, aliased or not, can be reconfigured freely.
-  The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
+- The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
+  The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
   A pin held by another open instance returns `ERR busy`; a pin the hal-st pinout table does not offer for the requested function and instance returns `ERR pin`.
 - A timer serves one group at a time: a timer held by an open PWM, encoder, timer-triggered ADC, timer (`tim`) or timer PWM (`tpwm`), by a running `ain.burst` or `dma.wave` (both TIM2), or by the scaffold timer TIM17 while `lpm.enter` or `hsem.lock hold=` uses it, returns `ERR busy` to the other groups.
 - One peripheral instance serves one group at a time: an I2C instance is shared by `i2c`, `i2cs` and `eeprom`, an SPI instance by `spi` and `spis`, the ADC by `adc` and `ain`, an LPTIM by `qei` (`lp=1`), `lptim` and `lptpwm`, and the HSEM interrupt (claimed as HSEM 0, the semaphore the RNG driver waits on) by `flash ... variant=coord`, `hsem.lock` and `rng ... variant=hsem` (WB55).
@@ -86,14 +121,14 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - `reset` → no final line; the board resets and prints `EVT boot ...` with `reset=sw`
 - `delay <ms>` → `OK` after the given time (lets the host synchronise with firmware timing)
 
-## Clock (hal-st default clocks, `ConfigureDefaultClockNucleoWB55RG` and `ConfigureDefaultClockNucleoWBA55CG`)
+## Clock (hal-st default clocks, `ConfigureDefaultClockNucleoWB55RG`, `ConfigureDefaultClockNucleoWBA55CG` and `ConfigureDefaultClockNucleoG474xxx`)
 
 - `clock.info` → `OK sysclk=<hz> hclk=<hz> pclk1=<hz> pclk2=<hz> [pclk7=<hz>] hse=0|1 lse=0|1 hsi=0|1 [hsi48=0|1] pll=0|1 rngsel=<source> [clk48=<source>]`
   - the frequencies come from `HAL_RCC_Get*Freq`, the flags are the oscillator ready flags (`LL_RCC_*_IsReady`; `pll` is PLL1 on STM32WBA55)
-  - `pclk7` on STM32WBA55 only; `hsi48` and `clk48` on STM32WB55 only
-  - `rngsel` is the RNG kernel clock selection: `clk48`, `lsi` or `lse` on STM32WB55, where `clk48` names the CLK48 source (`hsi48`, `pllsai1`, `pll` or `msi`); `lse`, `lsi`, `hsi` or `pll` (PLL1 Q) on STM32WBA55
-- `clock.mco <sysclk|hse|hsi|lse|hsi48|off> [div=1|2|4|8|16]` → `OK` (STM32WB55): MCO source and divider (`LL_RCC_ConfigMCO`, default `div=1`); `off` stops the output. Validation scaffolding: `sgpio.af PA8 af=0` puts MCO on the pin
-- `clock.hsi48 <0|1>` → `OK` (STM32WB55): switches HSI48 off or on and waits for its ready flag (`ERR timeout` after 10 ms). Validation scaffolding for the RNG tests; switch it back on afterwards. `clock.hsi48 0` answers `ERR busy` while an `rng` driver holds the RNG clock (a `variant=async` read in flight, or one left by its `ERR timeout` until the next `rng` command): it would lose its kernel clock
+  - `pclk7` on STM32WBA55 only; `hsi48` and `clk48` on STM32WB55 and STM32G474
+  - `rngsel` is the RNG kernel clock selection: `clk48`, `lsi` or `lse` on STM32WB55, where `clk48` names the CLK48 source (`hsi48`, `pllsai1`, `pll` or `msi`); `lse`, `lsi`, `hsi` or `pll` (PLL1 Q) on STM32WBA55; always `clk48` on STM32G474, whose RNG has no selector of its own and runs on the CLK48 source (`hsi48` or `pll`, HSI48 once the board profile turned it on)
+- `clock.mco <sysclk|hse|hsi|lse|hsi48|off> [div=1|2|4|8|16]` → `OK` (STM32WB55 and STM32G474; PA8 on both): MCO source and divider (`LL_RCC_ConfigMCO`, default `div=1`); `off` stops the output. Validation scaffolding: `sgpio.af PA8 af=0` puts MCO on the pin
+- `clock.hsi48 <0|1>` → `OK` (STM32WB55 and STM32G474): switches HSI48 off or on and waits for its ready flag (`ERR timeout` after 10 ms). Validation scaffolding for the RNG tests; switch it back on afterwards. `clock.hsi48 0` answers `ERR busy` while an `rng` driver holds the RNG clock (a `variant=async` read in flight, or one left by its `ERR timeout` until the next `rng` command): it would lose its kernel clock
 - `clock.mco` and `clock.hsi48` return `ERR unsupported` on STM32WBA55: its only MCO pin is the terminal RX (PA8), and it has no HSI48
 
 ## GPIO (`hal::GpioPinStm`)
@@ -111,10 +146,10 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 - `sgpio.out <pin> <0|1> [od=0|1] [speed=low|medium|fast|high]` → `OK`: the first use of a pin builds a `SynchronousOutputPinStm` (push-pull, `speed=low` unless given), later uses set the level; an `od` or `speed` that differs from the pin's rebuilds it, an omitted one keeps its value. The pin has no pull: an open-drain high only releases it
 - `sgpio.latch <pin>` → `OK value=<0|1>`: the output latch (`GetOutputLatch`); `ERR notopen` for a pin `sgpio.out` does not hold
-- `sgpio.af <pin> timer=<1-17> [ch=<1-4>]` → `OK af=<n>`: a `SmallPeripheralPinStm` (push-pull, low speed, no pull) on the alternate function of channel `ch` (default 1) of TIM`timer` in the hal-st pinout table; a timer the MCU lacks returns `ERR range`, a pin without that channel `ERR pin`
+- `sgpio.af <pin> timer=<1-17|20> [ch=<1-4>]` → `OK af=<n>`: a `SmallPeripheralPinStm` (push-pull, low speed, no pull) on the alternate function of channel `ch` (default 1) of TIM`timer` in the hal-st pinout table; a timer the MCU lacks returns `ERR range`, a pin without that channel `ERR pin`
   - `sgpio.af <pin> af=<0-15>` muxes a raw alternate function instead (MCO is AF0 on PA8, alias `mco`); exactly one of `timer` and `af`, and `ch` only with `timer` (`ERR usage`)
   - the group only muxes the pin: what drives the function (a `tpwm` channel with no pin of its own, `clock.mco`) is set up by its own group
-- `sgpio.multi <pin>,<pin>[,...] timer=<1-17> [ch=<1-4>]` → `OK`: a `MultiGpioPinStm` over 1-4 different pins (`ERR usage` otherwise) muxed together to channel `ch` (default 1) of TIM`timer` by a `MultiPeripheralPinStm`; a pin without that channel returns `ERR pin`
+- `sgpio.multi <pin>,<pin>[,...] timer=<1-17|20> [ch=<1-4>]` → `OK`: a `MultiGpioPinStm` over 1-4 different pins (`ERR usage` otherwise) muxed together to channel `ch` (default 1) of TIM`timer` by a `MultiPeripheralPinStm`; a pin without that channel returns `ERR pin`
 - `sgpio.release <pin>` → `OK`: the pin returns to an input without pull; any pin of the `multi` set releases the whole set; `ERR notopen` for a pin the group does not hold
 - The group holds up to 4 output pins, 4 alternate-function pins and one `multi` set (one more returns `ERR busy`); a pin serves one of them at a time, and a pin another group holds returns `ERR busy`
 - `sgpio.out` checks the level, `od` and `speed` before the pin; `sgpio.af` and `sgpio.multi` check `timer`, `ch` and `af` (`usage`, then `range`) before the pins
@@ -138,6 +173,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - complementary outputs, `dead`, `idle`, `idlen` and `brk` need a timer with a break function, TIM1, TIM16 or TIM17 (`ERR unsupported` otherwise)
   - a channel the timer does not have, or a complementary output it does not have (CH4N; CH2-CH4 on TIM16/TIM17), returns `ERR unsupported`
   - each open rebuilds the timer, so no setting of a previous open survives
+  - STM32G474: the timers with a break function are TIM1, TIM8, TIM15, TIM16, TIM17 and TIM20 (TIM15, TIM16 and TIM17 have a single complementary output, TIM15 two channels, TIM16 and TIM17 one); the counter mode select (`mode` other than `edge`, `trgo`) exists on TIM1-TIM5, TIM8 and TIM20; the 32-bit counters are TIM2 and TIM5; TIM6 and TIM7 are basic timers without channels (`ERR unsupported`); the break filter exists on the timers with a break function
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`
@@ -148,9 +184,9 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 ## UART (`hal::UartStm`, `dma=1` selects `hal::UartStmDma`, `duplex=1` selects `hal::UartStmDuplexDma`, `sync=1` selects `hal::SynchronousUartStm`, `sendonly=1` selects `hal::SynchronousUartStmSendOnly`)
 
 - `uart.open <index> [lp=0|1] [tx=<pin>] [rx=<pin>] [rts=<pin>] [cts=<pin>] [baud=<bps>] [parity=none|even|odd] [flow=none|rts|cts|rtscts] [swap=0|1] [dma=0|1] [duplex=0|1] [sync=0|1] [sendonly=0|1]` → `OK`
-  - `lp=1` selects LPUART`<index>` instead of USART`<index>`; USART1 is the terminal (`ERR busy`)
+  - `lp=1` selects LPUART`<index>` instead of USART`<index>`; USART1 is the terminal (`ERR busy`; USART2 on the STM32G474); `lp=0` takes UART4 and UART5 as indexes 4 and 5 on the STM32G474
   - default 115200 8N1 (8 data bits, plus the parity bit when `parity` is not `none`; one stop bit)
-  - `baud` is 300-12000000, at most 8000000 on STM32WB55 where the HAL asserts that limit (`ERR range` outside); a rate whose divider does not fit the baud-rate register of the instance at its kernel clock returns `ERR range` (USART: 16 to 65535 with 8× oversampling; LPUART: 0x300 to 0xFFFFF)
+  - `baud` is 300-12000000, at most 8000000 on STM32WB55 where the HAL asserts that limit (`ERR range` outside; the STM32G474 HAL accepts up to 18750000); a rate whose divider does not fit the baud-rate register of the instance at its kernel clock returns `ERR range` (USART: 16 to 65535 with 8× oversampling; LPUART: 0x300 to 0xFFFFF)
   - without pins LPUART1 uses `lpuart1tx`/`lpuart1rx`; every other instance needs `tx` and `rx` (`rx` is optional with `sendonly=1`)
   - `flow` needs the matching `rts`/`cts` pins; `rts` and `cts` alone are only offered by `sync=1`, and `rts` alone by `sendonly=1` (`ERR unsupported` otherwise)
   - `swap=1` exchanges the TX and RX functions of the two pins (`ERR unsupported` with `sync=1` or `sendonly=1`)
@@ -180,7 +216,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 ## SPI slave (`hal::SpiSlaveStmDma`)
 
 - `spis.open <index> clk=<pin> miso=<pin> mosi=<pin> nss=<pin>` → `OK`: all four pins are required (`ERR usage`), each must offer its SPI function of the instance (`ERR pin`); the slave runs mode 0, 8-bit frames, MSB first, with the hardware NSS input (low selects it)
-  - DMA: STM32WB55 DMA2 channels 1 (transmit) and 2 (receive); STM32WBA55 GPDMA1 channels 8 (transmit) and 7 (receive), shared with `adc`, `ain.burst` and `dma.wave`. The instance held by `spi`, a held channel or pin returns `ERR busy`
+  - DMA: STM32WB55 and STM32G474 DMA2 channels 1 (transmit) and 2 (receive); STM32WBA55 GPDMA1 channels 8 (transmit) and 7 (receive), shared with `adc`, `ain.burst` and `dma.wave`. The instance held by `spi`, a held channel or pin returns `ERR busy`
 - `spis.arm <index> <txHex|-> [rx=<n>] [len=<n>] [pattern=inc|const|prbs] [seed=<n>]` → `OK` once the transfer is handed to the driver (`SendAndReceive`)
   - full duplex: `rx` left out or equal to the transmit length (another value returns `ERR usage`); send only: `rx=0`; receive only: `-` with `rx=<n>`; nothing to send or receive returns `ERR usage`. Lengths 1-1024 (`ERR range`)
   - `-` with `len=<n>` sends a payload generated in firmware (see "Framing"); `pattern`/`seed` without `len`, or `len` with hex, return `ERR usage`
@@ -198,20 +234,20 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 
 - `adc.open <adc> pins=<pin>[,<pin>...] [sampling=<cycles>] [timer=<timer>] [rate=<hz>] [trgo=<timer>]` → `OK`
   - `pins` is required (`ERR usage`), one conversion per pin in the given order, at most 8 (`ERR range`); a pin without an ADC channel returns `ERR pin`
-  - `sampling` is the sampling time of every channel, in ADC clock cycles: WB55 `2.5`, `6.5`, `12.5`, `24.5`, `47.5`, `92.5`, `247.5`, `640.5` (default `2.5`); WBA55 `1.5`, `3.5`, `7.5`, `12.5`, `19.5`, `39.5`, `79.5`, `814.5` (default `3.5`); the value is handed to the driver's per-channel `samplingTime`
+  - `sampling` is the sampling time of every channel, in ADC clock cycles: WB55 `2.5`, `6.5`, `12.5`, `24.5`, `47.5`, `92.5`, `247.5`, `640.5` (default `2.5`); WBA55 `1.5`, `3.5`, `7.5`, `12.5`, `19.5`, `39.5`, `79.5`, `814.5` (default `3.5`); G474 the values of WB55 (default `2.5`); the value is handed to the driver's per-channel `samplingTime`
   - without `timer` each run converts the sequence once from a software trigger (DMA one-shot mode), and the firmware starts the next run from the event loop after the previous one completed
   - `timer=<t>` triggers the conversions from the TRGO of timer `t` at `rate` runs per second (default 1000, 1-100000, `ERR range` outside) in DMA circular mode; the timers the driver can trigger from are TIM1 and TIM2 (`ERR unsupported` for others); `rate` without `timer` returns `ERR usage`
   - `trgo=<t>` converts the sequence once per trigger output of timer `t` while the `pwm` group drives it (open `pwm.open <t> ... trgo=<source>` first; `adc.open` never takes the timer), in DMA circular mode; nothing arrives before `pwm.duty` starts the timer
     - `trgo` with `timer` or `rate` returns `ERR usage`, a timer the MCU lacks `ERR range`
-    - `ERR unsupported` when no group holds the timer, or when the ADC cannot trigger from its TRGO: TIM1 and TIM2 on STM32WB55, TIM2 only on STM32WBA55 (ADC4 reaches TIM1 through TRGO2, which PWM leaves at reset)
+    - `ERR unsupported` when no group holds the timer, or when the ADC cannot trigger from its TRGO: TIM1 and TIM2 on STM32WB55 and STM32G474 (ADC1), TIM2 only on STM32WBA55 (ADC4 reaches TIM1 through TRGO2, which PWM leaves at reset)
     - `ERR busy` when another group (encoder, timer-triggered ADC, `ain.burst`, `dma.wave`, `tim`, `tpwm`) holds the timer
-  - while open the group holds the ADC and its DMA channel (channel 7 of DMA1 on STM32WB55, of GPDMA1 on STM32WBA55), which `ain` needs too (`ERR busy` both ways)
+  - while open the group holds the ADC and its DMA channel (channel 7 of DMA1 on STM32WB55 and STM32G474, of GPDMA1 on STM32WBA55), which `ain` needs too (`ERR busy` both ways)
 - `adc.measure <adc> [n=<samples>]` → `OK samples=<v>[,<v>...]` (raw 12-bit codes); `n` is the number of sequence runs (default 1), each contributing one value per pin, at most 64 values; returns `ERR timeout` after 1000 ms
 - `adc.close <adc>` → `OK`
 
 ## Analog input (`hal::AnalogToDigitalPinImplStm`, `hal::AnalogToDigitalInternalTemperatureStm`, `hal::AdcTriggeredByTimerWithDma`)
 
-Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the ADC's DMA channel, which `spis` receives on as well on STM32WBA55) until it answers and then releases them; while `adc` is open, another group holds one of them, or a command of this group still runs, it answers `ERR busy`. `<adc>` is the ADC of `adc.open` (1 on STM32WB55, 4 on STM32WBA55, `ERR range` otherwise).
+Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the ADC's DMA channel, which `spis` receives on as well on STM32WBA55) until it answers and then releases them; while `adc` is open, another group holds one of them, or a command of this group still runs, it answers `ERR busy`. `<adc>` is the ADC of `adc.open` (1 on STM32WB55 and STM32G474, 4 on STM32WBA55, `ERR range` otherwise).
 
 - `ain.read <adc> <pin|temp> [sampling=<cycles>]` → `OK code=<v>`, or `OK code=<v> mcelsius=<n>` for `temp`
   - one conversion of `pin` (an analog pin, `ERR pin` otherwise) or of the internal temperature sensor; `sampling` takes the values of `adc.open` (default the same); the STM32WBA55 driver samples every channel with its common sampling time (79.5 cycles) whatever `sampling` says
@@ -227,19 +263,19 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
 
 - `dma.wave <pin> rate=<1-1000000> pattern=<hex> [ms=<1-10000>]` → `OK` after `ms` (default 50)
   - drives `pin` (an output) with `pattern`, 1 to 32 bytes, one bit per TIM2 update at `rate` per second, byte by byte and least significant bit first, repeated: TIM2 update requests make a `CircularTransmitDmaChannel` write a 32-bit set/reset word to the port's BSRR (32-bit memory and peripheral transfers)
-  - the channel is DMA2 channel 4 on STM32WB55 and GPDMA1 channel 8 on STM32WBA55; TIM2, the channel and the pin are held until the reply, so a group using any of them answers `ERR busy`, and so does `dma.wave` while they are in use
+  - the channel is DMA2 channel 4 on STM32WB55 and STM32G474 and GPDMA1 channel 8 on STM32WBA55; TIM2, the channel and the pin are held until the reply, so a group using any of them answers `ERR busy`, and so does `dma.wave` while they are in use
   - `rate` and `pattern` are required (`ERR usage`); `pattern=-` or an odd number of hex digits is `ERR usage`, more than 32 bytes `ERR range`
 
 ## Quadrature encoder (`hal::SynchronousQuadratureEncoderStm`, `lp=1` selects `hal::SynchronousQuadratureEncoderLpTimStm`)
 
 - `qei.open <timer> [lp=0|1] [a=<pin>] [b=<pin>] [idx=<pin>] [res=<n>] [offset=<n>] [inva=0|1] [invb=0|1] [cap=a|b|ab|rise|fall] [filter=<0-15>] [vel=<us>|off]` → `OK`
   - defaults `res=4096 offset=0 inva=0 invb=0 cap=ab filter=0 vel=1000`; without pins the default encoder takes its default pins, other instances need `a` and `b`
-  - `a` and `b` are channels 1 and 2 of the timer; the timer must offer encoder mode (TIM1, TIM2, TIM3; `ERR unsupported` for TIM16/TIM17)
+  - `a` and `b` are channels 1 and 2 of the timer; the timer must offer encoder mode (TIM1, TIM2, TIM3; on the STM32G474 TIM1-TIM5, TIM8 and TIM20; `ERR unsupported` for the others)
   - `res` is the count at which the counter wraps (2 to 65536, up to 4294967295 on TIM2), `offset` the starting count (below `res`, `ERR range` otherwise)
   - `cap=ab` counts both edges of both phases, `cap=a` and `cap=b` both edges of one phase; `cap=rise` and `cap=fall` need `lp=1` (`ERR usage` otherwise)
   - `vel` is the speed sampling period in µs (1-1000000), `off` leaves speed at 0
   - `idx` is a plain input read by `qei.index`; it never changes the count
-  - `lp=1` selects the LPTIM encoder: LPTIM1 on STM32WB55 (LPTIM2 has no encoder interface, `ERR range`), LPTIM1 and LPTIM2 on STM32WBA55. It takes `a`/`b` on the LPTIM inputs 1/2 (`lptim<n>in1`/`lptim<n>in2`), `res` up to 65536, `inva=1` as the mirrored-mounting reversal and `filter` 0, 2, 4 or 8 (consecutive samples)
+  - `lp=1` selects the LPTIM encoder: LPTIM1 on STM32WB55 (LPTIM2 has no encoder interface, `ERR range`), LPTIM1 and LPTIM2 on STM32WBA55, LPTIM1 on STM32G474 (the only LPTIM). It takes `a`/`b` on the LPTIM inputs 1/2 (`lptim<n>in1`/`lptim<n>in2`), `res` up to 65536, `inva=1` as the mirrored-mounting reversal and `filter` 0, 2, 4 or 8 (consecutive samples)
   - with `lp=1`, `cap=ab` (default) counts both edges of both inputs, `cap=rise` and `cap=fall` only the rising or falling edges of both inputs (two counts per quadrature cycle); `cap=a`, `cap=b`, `offset` and `invb` return `ERR unsupported`
   - the LPTIM of an `lp=1` encoder is held against `lptim` and `lptpwm` (`ERR busy`)
 - `qei.read <timer>` → `OK pos=<n> dir=<fwd|rev> speed=<n> res=<n>` (`speed` is in counts per second, `res` is the driver's `Resolution()`)
@@ -249,12 +285,12 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
 ## Timer (`hal::FreeRunningTimerStm`, `irq=immediate|dispatched` selects `hal::TimerWithInterruptStm`)
 
 - `tim.open <timer> [prescaler=<0-65535>] [period=<n>] [irq=immediate|dispatched|none] [mode=up|down] [pin=<pin>]` → `OK timclk=<hz>`
-  - defaults `prescaler=0 period=999 irq=dispatched mode=up`; `period` is the auto-reload, 1-65535 (1-4294967295 on TIM2); `timclk` is the timer kernel clock
-  - one update per `period + 1` ticks of `timclk / (prescaler + 1)`
+  - defaults `prescaler=0 period=999 irq=dispatched mode=up`; `period` is the auto-reload, 1-65535 (1-4294967295 on TIM2, and on TIM5 of the STM32G474); `timclk` is the timer kernel clock
+  - one update per `period + 1` ticks of `timclk / (prescaler + 1)`; the STM32G474 timers run at 170 MHz, so an update rate under 100 kHz needs a `prescaler` (the default `period=999` gives 170 kHz with none)
   - `irq=none` builds a `FreeRunningTimerStm` without interrupt; `immediate` and `dispatched` build a `TimerWithInterruptStm` whose update callback runs in the interrupt or from the event loop. Dispatched callbacks coalesce while one is queued: above about 1 kHz `irqs` counts fewer than the updates
   - with `irq=immediate|dispatched` an update rate `timclk / ((prescaler + 1) (period + 1))` (integer division) above 100 kHz returns `ERR range`: the interrupt runs on every update in both modes and would starve the event loop
   - `pin` (any free bonded pin) is driven low and toggled by every update callback, so it runs at half the update rate; `pin` with `irq=none` returns `ERR usage`
-  - `mode=down` counts down from `period`; it needs `irq=none` and a timer with a counter mode select (TIM1, TIM2, TIM3), `ERR unsupported` otherwise
+  - `mode=down` counts down from `period`; it needs `irq=none` and a timer with a counter mode select (TIM1, TIM2, TIM3; on the STM32G474 TIM1-TIM5, TIM8 and TIM20), `ERR unsupported` otherwise
 - `tim.start <timer>`, `tim.stop <timer>` → `OK`; starting a running or stopping a stopped timer changes nothing
 - `tim.count <timer>` → `OK cnt=<n> irqs=<n>`: the counter register and the update callbacks since `tim.open`
 - `tim.close <timer>` → `OK`
@@ -290,7 +326,7 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
 
 - `wdt.start <index> timeout=<ms> [feed=auto|manual] [pin=<pin>]` → `OK`
   - index 0 is the WWDG; `timeout` 1-30000
-  - the firmware picks the smallest WWDG prescaler (1, 2, 4, ..., 128) whose early-warning period, 63 × 4096 × prescaler / PCLK1, is at least `timeout`; a longer `timeout` returns `ERR range` (about 516 ms on WB55 and 330 ms on WBA55)
+  - the firmware picks the smallest WWDG prescaler (1, 2, 4, ..., 128) whose early-warning period, 63 × 4096 × prescaler / PCLK1, is at least `timeout`; a longer `timeout` returns `ERR range` (about 516 ms on WB55, 330 ms on WBA55 and 194 ms on STM32G474)
   - with `feed=auto` (default) the firmware refreshes on every early warning; the watchdog resets the board one counter tick after a warning that is not answered
   - `pin` is driven low and toggled in the early-warning interrupt, so its period can be measured; it stays claimed until reset
   - a started watchdog cannot be stopped: it runs until reset
@@ -302,7 +338,7 @@ Each command builds its drivers, holds the ADC (and for `ain.burst` TIM2 and the
 ## I2C master (`hal::I2cStm`)
 
 - `i2c.open <index> scl=<pin> sda=<pin> [freq=<hz>] [timing=<hex>] [pull=none|up]` → `OK timing=<0x........> kernel=<hz>`
-  - checks in order: `scl` or `sda` missing, or `freq` together with `timing` → `ERR usage`; an index other than 1 and 3, `freq` outside 20000-400000 → `ERR range`; a pin without the `i2cScl`/`i2cSda` function of that instance → `ERR pin`; the instance held by `i2c`, `i2cs` or `eeprom.attach`, or a pin held → `ERR busy`
+  - checks in order: `scl` or `sda` missing, or `freq` together with `timing` → `ERR usage`; an index the MCU lacks (other than 1 and 3 on STM32WB/WBA; 1-4 exist on STM32G474), `freq` outside 20000-400000 → `ERR range`; a pin without the `i2cScl`/`i2cSda` function of that instance → `ERR pin`; the instance held by `i2c`, `i2cs` or `eeprom.attach`, or a pin held → `ERR busy`
   - neither `freq` nor `timing`: the driver's default `Config` (TIMINGR 0x70B03D3D on STM32WB/WBA: Standard mode at 63.8 kHz with a 64 MHz kernel clock, 99.2 kHz at 100 MHz); `freq` takes the TIMINGR below; `timing` is written as given (`HAL_I2C_Init` drops the reserved bits 24-27)
   - `timing` in the reply is TIMINGR read back from the peripheral, `kernel` the I2C kernel clock
   - `pull=up` turns on the MCU pull-ups of both pins after the driver configured them (validation scaffolding; the pinout table configures the I2C pins open drain without pull): enough for Standard mode on a short bus without resistors; Fast mode needs external pull-ups. Default `none`
@@ -371,17 +407,17 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 - `rng.read <len> [variant=sync|async|hsem] [lock5=0|1]` → `OK data=<hex>`: `len` random bytes, 1-128; after a `variant=hsem` read the line ends with `hsi48=<0|1>`, the HSI48 ready flag (`LL_RCC_HSI48_IsReady`) once the driver is done
   - every command builds the driver of its variant and destroys it afterwards; `variant` defaults to `sync`
   - `variant=async` answers from the driver's completion (RNG interrupt), `ERR timeout` after 1 s
-  - `variant=hsem` exists on STM32WB55 only (`ERR unsupported` on STM32WBA55): the driver holds HSEM semaphore 0 during the read, through the firmware's one `SynchronousHardwareSemaphoreMasterStm` (shared with `hsem` and `flash`)
+  - `variant=hsem` exists on STM32WB55 only (`ERR unsupported` on STM32WBA55 and STM32G474): the driver holds HSEM semaphore 0 during the read, through the firmware's one `SynchronousHardwareSemaphoreMasterStm` (shared with `hsem` and `flash`)
   - unless this core holds semaphore 5 (clock configuration), the driver's `Hsi48Enabler` starts HSI48, the RNG kernel clock, for the read when it is off and stops it again afterwards
   - `variant=hsem` answers `ERR busy` while this core holds semaphore 0 (`hsem.take 0`: nothing could free it while the driver blocks the event loop) or the coordinated flash driver exists (HSEM 0 of the sharing rule), and `ERR failed` while this core holds semaphore 5 (`lock5=1` or `hsem.take 5`, any process) and HSI48 is off
-  - on STM32WB55 `variant=sync` and `variant=async` answer `ERR failed` while HSI48, their kernel clock (CLK48), is off: only `Hsi48Enabler` starts it, and the plain drivers would abort on the clock error
+  - on STM32WB55 and STM32G474 `variant=sync` and `variant=async` answer `ERR failed` while HSI48, their kernel clock (CLK48), is off: only `Hsi48Enabler` starts it, and the plain drivers would abort on the clock error
   - `lock5=1` (validation scaffolding, STM32WB55 only: `ERR unsupported` on STM32WBA55; only with `variant=hsem`: `ERR usage` otherwise) holds semaphore 5 (`HAL_HSEM_FastTake`, process 0) around the read, so `Hsi48Enabler` takes its locked branch; `ERR busy` when semaphore 5 is taken, `ERR failed` when HSI48 is off (the driver asserts that HSI48 runs while semaphore 5 is locked)
 - `rng.stats <len> [variant=sync|async|hsem]` → `OK n=<bytes> ones=<n> runs=<n> chisq=<x1000> crc=<hex8> us=<n>`: `len` bytes, 16-65536, generated by one driver in chunks of 256 bytes; `variant=async` answers `ERR timeout` after 5 s; `variant` follows the rules of `rng.read`
   - the bytes form one bit stream, each byte most significant bit first: `ones` counts its set bits, `runs` its bit transitions plus one
   - `chisq` is the chi-square of the byte histogram against the uniform distribution (255 degrees of freedom) times 1000, rounded down and at most 4294967295; `crc` is the CRC-32 of the bytes (8 lower-case hex digits, as `out=crc`); `us` is the generation time
 - After an `ERR timeout` of `variant=async` the next `rng` command drops that driver and runs; until the timeout another `rng` command returns `ERR busy`
 
-## AES (`hal::SynchronousAes128EcbStm`)
+## AES (`hal::SynchronousAes128EcbStm`, STM32WB55 and STM32WBA55)
 
 - `aes.enc <key> <data> [swap=none|half|byte|bit]` → `OK data=<hex>`: AES-128 ECB encryption of `data` under `key`; `aes.dec` takes the same arguments and decrypts
   - `key` is 16 bytes (32 hex digits) and `data` 16-80 bytes in whole 16-byte blocks; any other length, an empty (`-`) or malformed hex returns `ERR usage`
@@ -389,7 +425,7 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
   - `none`, `half` and `bit` give `T(AES(T(data)))`, where T reverses the bytes of every 32-bit word (`none`), swaps the two bytes of every 16-bit half-word (`half`) or reverses the bits of every byte (`bit`)
   - every command builds the driver, sets the key, runs and destroys the driver
 
-## Public key accelerator (`hal::PkaStm` on `services::secp256r1`)
+## Public key accelerator (`hal::PkaStm` on `services::secp256r1`, STM32WB55 and STM32WBA55)
 
 - `pka.mul [k=<hex>] [x=<hex> y=<hex>]` → `OK x=<hex> y=<hex> us=<n>`: the scalar multiplication k × (x, y) on the NIST P-256 curve; each result coordinate has 32 bytes (64 hex digits); `us` runs from the start of the operation to its completion
   - `k` defaults to 1 and the point to the base point G of the curve; `x` and `y` come together (`ERR usage` otherwise)
@@ -404,25 +440,27 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 - The commands work on a scratch region of the flash; addresses are relative to the region:
   - STM32WB55: absolute pages 64-143, 0x08040000-0x0808FFFF in 4 KB pages, past the image and below the secure area of the wireless stack (the region ends at the secure flash start address when that is lower)
   - STM32WBA55: absolute pages 64-127, 0x08080000-0x080FFFFF in 8 KB pages
+  - STM32G474: absolute pages 176-251 of the 2 KB pages, 0x08058000-0x0807DFFF, in bank 2 (the part is dual bank: the drivers select the bank of a page and assert `FLASH_OPTR.DBANK`)
 - `variant=sync|async|coord` (default `sync`) selects the driver; each command builds its driver and destroys it when done:
   - `sync`: the `Synchronous*InternalStm` classes
   - `async`: the `hal::Flash` classes (completion scheduled on the event loop)
   - `coord` (STM32WB55; `ERR unsupported` on STM32WBA55): `FlashCoordinatedWithWirelessStack` over the async driver
 - `layout=homogeneous|table` (default `homogeneous`) selects the sectors:
   - `homogeneous`: one sector per page (`Flash*HomogeneousInternalStm`)
-  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over the 80 pages of the STM32WB55 that is 72 sectors, of which sectors 64-71 have 1, 1, 2, 4, 1, 1, 2, 4 pages; over the 64 pages of the STM32WBA55, 56 sectors with the pattern on sectors 48-55.
+  - `table`: a sector-size table (`FlashInternalStm`/`SynchronousFlashInternalStm`) of single pages followed by the page pattern 1, 1, 2, 4 twice; over the 80 pages of the STM32WB55 that is 72 sectors, of which sectors 64-71 have 1, 1, 2, 4, 1, 1, 2, 4 pages; over the 64 pages of the STM32WBA55, 56 sectors with the pattern on sectors 48-55; over the 76 pages of the STM32G474, 68 sectors with the pattern on sectors 60-67.
     A sector is accepted only from index `first` (the image end page, below) on, so the STM32WB55 region has 80 pages: its multi-page sectors stay accepted for any image below the region (about 60 of its 4 KB pages today)
 - `flash.info [variant=] [layout=]` → `OK base=<0x........> sectors=<n> size=<bytes> first=<sector> image=<page> layout=<homogeneous|table>`
   - `image` is the first absolute page past the running image (`_sidata` plus the size of `.data`)
   - `first` is the first sector `flash.erase` and `flash.write` accept, `min(image, sectors)`. Every sector starts at or past the page of its index, so even an erase that took the sector index for the absolute page (as `EraseSectors` did on STM32WB/WBA before its fix) cannot reach the running image
   - when the image reaches page 64, every `flash.*` command returns `ERR unsupported`
+  - the STM32G474 erase takes the region offset and selects the bank, so the running image cannot be reached through the sector index and `first` is 0 there (`board::imageLimitsErase`)
 - `flash.erase <first> <end> [variant=] [layout=]` → `OK us=<n>`: erases sectors `first` up to `end` (exclusive)
   - `first` below the accepted first sector, `first >= end` or `end` past the last sector return `ERR range`
   - `us` is the duration (CYCCNT); with `variant=sync` it covers the blocking erase
 - `flash.write <address> <hex|-> [len=<n>] [pattern=inc|const|prbs] [seed=<n>] [variant=] [layout=]` → `OK us=<n>`
   - the payload is the hex bytes or, with `-` and `len=1..512`, the firmware-generated pattern of the payload convention (`inc` default, `seed` default 0); an empty payload, `len` with hex, or `pattern`/`seed` without `len` return `ERR usage`
   - a payload outside the region or starting before the first accepted sector returns `ERR range`
-  - a write that touches a flash word (64 bits on STM32WB55, 128 bits on STM32WBA55) that is not erased returns `ERR failed`: the drivers program whole words (padding with 0xFF), and programming a word twice between erases fails their assertion
+  - a write that touches a flash word (64 bits on STM32WB55 and STM32G474, 128 bits on STM32WBA55) that is not erased returns `ERR failed`: the drivers program whole words (padding with 0xFF), and programming a word twice between erases fails their assertion
 - `flash.read <address> <len> [out=hex|crc] [variant=] [layout=]` → `OK data=<hex>` or `OK len=<n> crc=<8 hex digits>`
   - anywhere in the region, `len` from 1 up to the region size; `out=hex` (default) up to 128 bytes, else `ERR range`
 - `flash.stack <stopped|starting|fus> [layout=]` → `OK` (STM32WB55)
@@ -453,7 +491,7 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 
 ## Backup RAM (`hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>`)
 
-- STM32WB55: RTC BKP0R-BKP19R (20 words); STM32WBA55: TAMP BKP0R-BKP15R (16 words). The words survive a system reset (`reset`, the watchdog), not a power cycle
+- STM32WB55: RTC BKP0R-BKP19R (20 words); STM32WBA55: TAMP BKP0R-BKP15R (16 words, also on STM32G474, where `BackupRamStm` enables the backup domain access first). The words survive a system reset (`reset`, the watchdog), not a power cycle
 - `bkp.info` → `OK words=<n>`
 - `bkp.write <index> <value>` → `OK`: `value` a 32-bit number (decimal or `0x` hex); an index past the last word returns `ERR range`
 - `bkp.read <index>` → `OK value=<8 hex digits>`
@@ -463,16 +501,18 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 ## Low power (`hal::LowPowerModeStm`)
 
 - `lpm.enter <sleep|deep> [wake=<pin>] [edge=rising|falling] [marker=<pin>] [timeout=<1..10000 ms>]` → `OK woke=exti restored=<n> us=<n> sleeps=<n>`
-  - defaults: `wake` STM32WB55 PC6 (`gpio0`), STM32WBA55 PB14 (`gpio0`); `marker` STM32WB55 PB0 (`led0`), STM32WBA55 PA2 (`tim1bkin`); `edge=rising`; `timeout=2000`
+  - defaults: `wake` STM32WB55 PC6 (`gpio0`), STM32WBA55 PB14 (`gpio0`), STM32G474 PC4 (`gpio0`); `marker` STM32WB55 PB0 (`led0`), STM32WBA55 PA2 (`tim1bkin`), STM32G474 PA12 (`usart1rts`); `edge=rising`; `timeout=2000`
   - the wake pin is an input with the pull against its edge (pull-down for `rising`) and an EXTI interrupt; the marker is an output, high, driven low while the core sleeps and high again right after it wakes
   - inside the window the interrupts are masked (PRIMASK), every NVIC interrupt but the wake line's EXTI and TIM17's is disabled and the SysTick tick interrupt is off: WFI returns only on the wake edge or a TIM17 update
   - the scaffold timer TIM17 counts 1 us ticks (CYCCNT stops while the core sleeps) and gives `us`, the time asleep; at `timeout` ms it ends the window with `ERR timeout`
   - `sleeps` counts the `LowPowerModeStm::Enter` calls: WFI returns only on a TIM17 update (every millisecond) or the wake edge, so a core that sleeps makes about one call per elapsed millisecond plus one, a driver that returns without sleeping hundreds per millisecond
-  - `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it never calls the clock-restore callback: `restored` counts its calls and is 0
+  - `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it never calls the clock-restore callback: `restored` counts its calls and is 0; on STM32G474 it would enter Stop, which stops the scaffold timer and the PLL, so `lpm.enter deep` returns `ERR unsupported` there (after the argument checks)
   - the wake and marker pins must differ (`ERR usage`); a pin the package lacks returns `ERR pin`, a wake pin whose EXTI line serves a pin of another port `ERR unsupported`, a held pin or TIM17 held by another group `ERR busy`
   - the terminal and every other interrupt (including the watchdog's early warning: a running watchdog is not fed) are blocked for the window: send nothing until the final line
 
-## QUADSPI (`hal::QuadSpiStm`, `variant=dma` selects `hal::QuadSpiStmDma`, `variant=spi` adds `hal::SingleSpeedQuadSpiStmDma`, NUCLEO-WB55RG only)
+## QUADSPI (`hal::QuadSpiStm`, `variant=dma` selects `hal::QuadSpiStmDma`, `variant=spi` adds `hal::SingleSpeedQuadSpiStmDma`, NUCLEO-WB55RG and NUCLEO-G474RE)
+
+The pins and the DMA channel come from the board profile. NUCLEO-WB55RG: `qspiclk` PA3, `qspincs` PA2, `qspiio0`-`qspiio3` PB9, PB8, PA7, PA6 and DMA2 channel 3. NUCLEO-G474RE: `qspiclk` PB10, `qspincs` PB11, `qspiio0`-`qspiio3` PB1, PB0, PA7, PA6, DMA2 channel 3 (the group is built, but the board file configures no QUADSPI test).
 
 - `qspi.open <1> [variant=poll|dma|spi] [prescaler=<0-255>] [size=<1-32>]` → `OK clk=<hz>`
   - QUADSPI 1 is the only instance (`ERR range` otherwise); the pins come from the board profile: `qspiclk` PA3, `qspincs` PA2, `qspiio0`-`qspiio3` PB9, PB8, PA7, PA6 (all six held, `ERR busy` when one is taken)
@@ -499,12 +539,20 @@ Not a hal-st driver (hal-st has no I2C slave): the other end of the bus for the 
 - `qspi.cmd`, `qspi.poll` and `qspi.xfer` answer within 2000 ms or `ERR timeout`; a command that timed out keeps the group busy until `qspi.close`
 - while a command is in flight, `qspi.cmd` returns `ERR busy` before checking its data arguments (`tx`, `len`, `pattern`, `seed`, `rx`, `out`, `repeat`) and `qspi.xfer` before its payload, `rx` and `repeat` (the command in flight uses the data buffer they fill); `qspi.xfer` reports `ERR unsupported` before that
 
+## DAC (`hal::DigitalToAnalogPinImplStm`, NUCLEO-G474RE only)
+
+- `dac.open <pin>` → `OK dac=<n>`: starts the DAC channel of an output pin (`dac1out1` PA4, DAC1 OUT1; `dac2out1` PA6, DAC2 OUT1) with the output buffer on and the pin only (`external`), at code 0; `ERR pin` for a pin without a DAC output, `ERR busy` when the pin is held (also by `gpio`, `sgpio` or the ADC)
+- `dac.set <pin> <value>` → `OK value=<n>`: writes the 12-bit code; a value above 4095 is clamped to 4095; the unloaded output is `VREF+ x value / 4095`; `ERR notopen` for a pin `dac.open` does not hold
+- `dac.close <pin>` → `OK`: the pin returns to the pool; `ERR notopen` when it is not open
+- Both outputs can be open at once; PA4 and PA6 are also ADC inputs and SPI pins, which the pin pool keeps apart
+
 ## Not available on these boards
 
-hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55, so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has COMP, OPAMP, CORDIC, HRTIM and FMAC peripherals that hal-st has no driver for), so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
-- STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB).
-- STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48).
+- STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
+- STM32G474: `lptpwm.*` (not built for STM32G4), `aes.enc`, `aes.dec` (no AES), `pka.mul`, `pka.check`, `pka.cmp` (no PKA), `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `flash.stack` (no wireless coprocessor); `lpm.enter deep` answers `ERR unsupported` as well (above).
+- STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
 
 The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

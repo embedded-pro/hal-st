@@ -59,19 +59,24 @@ namespace hal
             }
         }
 
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         inline void ErasePages(uint32_t page, uint32_t endPage)
         {
 #if defined(FLASH_DBANK_SUPPORT)
             const uint32_t pagesPerBank = FLASH_PAGE_NB;
             const bool swapped = READ_BIT(FLASH->OPTR, FLASH_OPTR_SWAP_BANK) != 0;
+#elif defined(STM32G4) && defined(FLASH_OPTR_DBANK)
+            // The HAL page macros describe the dual-bank layout only: single-bank mode has 4 KB pages
+            really_assert(READ_BIT(FLASH->OPTR, FLASH_OPTR_DBANK) != 0);
+            const uint32_t pagesPerBank = FLASH_PAGE_NB;
+            const bool swapped = false;
 #endif
 
             while (page != endPage)
             {
                 FLASH_EraseInitTypeDef eraseInitStruct{};
                 eraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-#if defined(FLASH_DBANK_SUPPORT)
+#if defined(FLASH_DBANK_SUPPORT) || (defined(STM32G4) && defined(FLASH_OPTR_DBANK))
                 const uint32_t bankEndPage = std::min(endPage, (page / pagesPerBank + 1) * pagesPerBank);
                 eraseInitStruct.Banks = (page >= pagesPerBank) == swapped ? FLASH_BANK_1 : FLASH_BANK_2;
                 eraseInitStruct.Page = page % pagesPerBank;

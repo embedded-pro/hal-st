@@ -61,7 +61,7 @@ namespace hal
 
         timer.Start();
         Configure();
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         const auto samples = std::min(numberOfSamples, buffer.size());
         really_assert(samples != 0);
         measurement = infra::Head(buffer, samples);
@@ -100,7 +100,7 @@ namespace hal
 
     void AdcTriggeredByTimerWithDma::TransferDone()
     {
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         // External-trigger mode keeps ADSTART set, and ADC_Disable refuses while it is set
         LL_ADC_REG_StopConversion(adc.Handle().Instance);
         while (LL_ADC_REG_IsStopConversionOngoing(adc.Handle().Instance))
@@ -115,7 +115,7 @@ namespace hal
         if (this->onDone)
             infra::EventDispatcher::Instance().Schedule([this]()
                 {
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
                     onDone(measurement);
 #else
                     onDone(buffer);

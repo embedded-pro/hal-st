@@ -2,6 +2,9 @@
 #include "validation/firmware/Stopwatch.hpp"
 #include <cstdint>
 #include DEVICE_HEADER
+#if defined(STM32G4)
+#include "stm32g4xx_ll_rcc.h"
+#endif
 
 namespace validation
 {
@@ -23,7 +26,14 @@ namespace validation
             { "pll", LL_RCC_CLK48_CLKSOURCE_PLL },
             { "msi", LL_RCC_CLK48_CLKSOURCE_MSI },
         } };
-
+#endif
+#if defined(STM32G4)
+        constexpr std::array<HilChoice<uint32_t>, 2> clk48Sources{ {
+            { "hsi48", LL_RCC_RNG_CLKSOURCE_HSI48 },
+            { "pll", LL_RCC_RNG_CLKSOURCE_PLL },
+        } };
+#endif
+#if defined(STM32WB) || defined(STM32G4)
         constexpr std::array<HilChoice<uint32_t>, 6> mcoSources{ {
             { "sysclk", LL_RCC_MCO1SOURCE_SYSCLK },
             { "hse", LL_RCC_MCO1SOURCE_HSE },
@@ -67,7 +77,7 @@ namespace validation
         , context(context)
         , commands{ {
               services::HilBind<ClockCommands, &ClockCommands::Info>("clock.info", "", *this, context.response),
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
               services::HilBind<ClockCommands, &ClockCommands::Mco>("clock.mco", "<sysclk|hse|hsi|lse|hsi48|off> [div=1|2|4|8|16]", *this, context.response),
               services::HilBind<ClockCommands, &ClockCommands::Hsi48>("clock.hsi48", "<0|1>", *this, context.response),
 #endif
@@ -90,19 +100,27 @@ namespace validation
         line << " pclk7=" << HAL_RCC_GetPCLK7Freq();
 #endif
         line << " hse=" << LL_RCC_HSE_IsReady() << " lse=" << LL_RCC_LSE_IsReady() << " hsi=" << LL_RCC_HSI_IsReady();
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         line << " hsi48=" << LL_RCC_HSI48_IsReady() << " pll=" << LL_RCC_PLL_IsReady();
 #else
         line << " pll=" << LL_RCC_PLL1_IsReady();
 #endif
+#if defined(STM32G4)
+        line << " rngsel=clk48";
+#else
         line << " rngsel=" << NameOf(rngSources, __HAL_RCC_GET_RNG_SOURCE());
-#if defined(STM32WB)
+#endif
+#if defined(STM32WB) || defined(STM32G4)
+#if defined(STM32G4)
+        line << " clk48=" << NameOf(clk48Sources, LL_RCC_GetRNGClockSource(LL_RCC_RNG_CLKSOURCE));
+#else
         line << " clk48=" << NameOf(clk48Sources, LL_RCC_GetCLK48ClockSource(LL_RCC_CLK48_CLKSOURCE));
+#endif
 #endif
         return HilStatus::done;
     }
 
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
     HilStatus ClockCommands::Mco(const services::HilArguments& arguments)
     {
         if (!arguments.Shape(1, 1, { "div" }))

@@ -12,7 +12,7 @@
 #include <optional>
 #include <variant>
 
-#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB)
+#if defined(HAS_PERIPHERAL_LPTIMER) && !defined(STM32WB) && !defined(STM32G4)
 
 namespace validation
 {

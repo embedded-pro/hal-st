@@ -204,7 +204,8 @@ def open_second_update_with_marker(fw, timer_cfg, timer):
 
 @when("the timer opens with immediate interrupts and the marker pin")
 def open_with_marker(fw, timer_cfg, timer):
-    fw.tim.open(timer["timer"], irq="immediate", pin=timer_cfg["marker"])
+    update = timer_cfg["interrupt"]["update"][0]
+    fw.tim.open(timer["timer"], prescaler=update["prescaler"], period=update["period"], irq="immediate", pin=timer_cfg["marker"])
 
 
 @when("the timer opens without interrupts")
@@ -403,7 +404,16 @@ def count_refused(fw, timer, reason):
 
 @then(parsers.parse('opening the timer with immediate interrupts and the marker pin fails with "{reason}"'))
 def open_with_marker_refused(fw, timer_cfg, timer, reason):
-    expect_error(reason, fw.tim.open, timer["timer"], irq="immediate", pin=timer_cfg["marker"])
+    update = timer_cfg["interrupt"]["update"][0]
+    expect_error(
+        reason,
+        fw.tim.open,
+        timer["timer"],
+        prescaler=update["prescaler"],
+        period=update["period"],
+        irq="immediate",
+        pin=timer_cfg["marker"],
+    )
 
 
 @then("every invalid open is refused with its reason in the protocol order")
@@ -469,14 +479,18 @@ def first_of_pair_refused(fw, pair, reason):
 
 @then(parsers.parse('opening pwm on the timer with channel {channel:d} fails with "{reason}"'))
 def pwm_refused(fw, timer, channel, reason):
+    if not expect.timer_has_channel(timer["timer"], channel):
+        pytest.skip(f"TIM{timer['timer']} has no channel {channel}")
     expect_error(reason, fw.pwm.open, timer["timer"], channels=[channel])
 
 
 @then(parsers.parse('opening tpwm on the timer with its first timer PWM pin fails with "{reason}"'))
 def tpwm_refused(fw, board_cfg, timer, reason):
     index = timer["timer"]
-    pwm_pin = next(entry for entry in board_cfg.param("timer_pwm.timers") if entry["timer"] == index)["pins"][0]
-    expect_error(reason, fw.tpwm.open, index, pins=[pwm_pin])
+    entry = next((entry for entry in board_cfg.param("timer_pwm.timers") if entry["timer"] == index), None)
+    if entry is None:
+        pytest.skip(f"TIM{index} has no timer PWM pin in `tests.timer_pwm.timers`")
+    expect_error(reason, fw.tpwm.open, index, pins=[entry["pins"][0]])
 
 
 @then(parsers.parse('opening the encoder on the timer fails with "{reason}", if the timer has one'))

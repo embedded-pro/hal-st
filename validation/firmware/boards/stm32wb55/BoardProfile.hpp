@@ -15,8 +15,13 @@ namespace validation::board
     inline constexpr const char* name = "NUCLEO-WB55RG";
     inline constexpr const char* family = "stm32wb55";
 
+    inline constexpr unsigned int hseValue = 32'000'000;
+
     inline constexpr const char* portLetters = "ABCDEH";
     inline constexpr uint8_t maximumPinIndex = 15;
+    inline constexpr uint8_t uartInstances = 3;
+    inline constexpr uint8_t i2cInstances = 4;
+    inline constexpr uint8_t timerInstances = 18;
     static_assert(static_cast<uint8_t>(Port::H) == 5, "portLetters must follow hal::Port");
 
     // The generated pinout table also lists pins of larger packages; only these are bonded out on the VFQFPN68
@@ -125,6 +130,8 @@ namespace validation::board
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 64;
+    // Whether the sectors below the image end page stay untouched: an erase that takes the sector index for an absolute page needs it
+    inline constexpr bool imageLimitsErase = true;
     inline constexpr uint32_t flashScratchEndPage = 144;
 
     constexpr std::optional<DmaRequests> UartDma(uint8_t index, bool lpuart)

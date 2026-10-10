@@ -13,7 +13,7 @@ namespace
 
     constexpr std::array irqMap{
 #if defined(TIM1)
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         IRQn_Type::TIM1_UP_TIM16_IRQn,
 #elif defined(STM32F7) || defined(STM32F4)
         IRQn_Type::TIM1_UP_TIM10_IRQn,
@@ -44,7 +44,7 @@ namespace
         TimerIrqUnsupported,
 #endif
 #if defined(TIM6)
-#if defined(STM32F7) || defined(STM32F4)
+#if defined(STM32F7) || defined(STM32F4) || defined(STM32G4)
         IRQn_Type::TIM6_DAC_IRQn,
 #else
         IRQn_Type::TIM6_IRQn,
@@ -53,7 +53,11 @@ namespace
         TimerIrqUnsupported,
 #endif
 #if defined(TIM7)
+#if defined(STM32G4)
+        IRQn_Type::TIM7_DAC_IRQn,
+#else
         IRQn_Type::TIM7_IRQn,
+#endif
 #else
         TimerIrqUnsupported,
 #endif
@@ -121,12 +125,16 @@ namespace
         TimerIrqUnsupported,
 #endif
 #if defined(TIM15)
+#if defined(STM32G4)
+        IRQn_Type::TIM1_BRK_TIM15_IRQn,
+#else
         IRQn_Type::TIM15_IRQn,
+#endif
 #else
         TimerIrqUnsupported,
 #endif
 #if defined(TIM16)
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         IRQn_Type::TIM1_UP_TIM16_IRQn,
 #else
         IRQn_Type::TIM16_IRQn,
@@ -135,11 +143,18 @@ namespace
         TimerIrqUnsupported,
 #endif
 #if defined(TIM17)
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         IRQn_Type::TIM1_TRG_COM_TIM17_IRQn,
 #else
         IRQn_Type::TIM17_IRQn,
 #endif
+#else
+        TimerIrqUnsupported,
+#endif
+        TimerIrqUnsupported,
+        TimerIrqUnsupported,
+#if defined(TIM20)
+        IRQn_Type::TIM20_UP_IRQn,
 #else
         TimerIrqUnsupported,
 #endif

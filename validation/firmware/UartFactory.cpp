@@ -178,7 +178,7 @@ namespace validation
 
     uint8_t UartFactoryStm::Instances() const
     {
-        return 3;
+        return board::uartInstances;
     }
 
     infra::MemoryRange<const char* const> UartFactoryStm::OpenKeys() const

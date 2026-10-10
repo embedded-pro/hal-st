@@ -1,5 +1,8 @@
 #include "hal_st/synchronous_stm32fxxx/SynchronousQuadratureEncoderLpTimStm.hpp"
 #include "infra/util/ReallyAssert.hpp"
+#if defined(STM32G4)
+#include "stm32g4xx_ll_lptim.h"
+#endif
 
 #if defined(HAS_PERIPHERAL_LPTIMER)
 
@@ -83,7 +86,7 @@ namespace hal
         handle.Init.UltraLowPowerClock.Polarity = static_cast<uint32_t>(config.decodeMode);
         handle.Init.UltraLowPowerClock.SampleTime = static_cast<uint32_t>(config.filter);
         handle.Init.Trigger.Source = LPTIM_TRIGSOURCE_SOFTWARE;
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         handle.Init.OutputPolarity = LPTIM_OUTPUTPOLARITY_HIGH;
 #else
         handle.Init.Period = config.resolution - 1;
@@ -97,7 +100,7 @@ namespace hal
         auto result = HAL_LPTIM_Init(&handle);
         really_assert(result == HAL_OK);
 
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         result = HAL_LPTIM_Encoder_Start(&handle, config.resolution - 1);
 #else
         result = HAL_LPTIM_Encoder_Start(&handle);
@@ -152,6 +155,17 @@ namespace hal
 
     uint32_t SynchronousQuadratureEncoderLpTimStm::StableCounter() const
     {
+#if defined(STM32G4)
+        // The G4 HAL has no const-qualified HAL_LPTIM_ReadCounter
+        uint32_t previous = LL_LPTIM_GetCounter(handle.Instance);
+        uint32_t current = LL_LPTIM_GetCounter(handle.Instance);
+
+        while (current != previous)
+        {
+            previous = current;
+            current = LL_LPTIM_GetCounter(handle.Instance);
+        }
+#else
         uint32_t previous = HAL_LPTIM_ReadCounter(&handle);
         uint32_t current = HAL_LPTIM_ReadCounter(&handle);
 
@@ -160,6 +174,7 @@ namespace hal
             previous = current;
             current = HAL_LPTIM_ReadCounter(&handle);
         }
+#endif
 
         return current;
     }

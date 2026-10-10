@@ -29,7 +29,7 @@ namespace hal
 
         LPTIM_HandleTypeDef handle{};
         const uint8_t timerIndex;
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         uint32_t currentPeriod{ 0 };
 #endif
 

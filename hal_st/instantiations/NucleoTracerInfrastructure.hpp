@@ -23,6 +23,24 @@ namespace main_
         services::Tracer& alwaysEnabledTracer;
     };
 
+    struct NucleoG474reTracerInfrastructure
+    {
+        NucleoG474reTracerInfrastructure(bool loggingEnabled = true)
+            : traceUartTx(hal::Port::A, 2)
+            , traceUartRx(hal::Port::A, 3)
+            , tracerInfrastructure({ 2, traceUartTx, traceUartRx }, loggingEnabled)
+            , tracer(tracerInfrastructure.tracer)
+            , alwaysEnabledTracer(tracerInfrastructure.alwaysEnabledTracer)
+        {}
+
+        hal::GpioPinStm traceUartTx;
+        hal::GpioPinStm traceUartRx;
+
+        StmTracerInfrastructure tracerInfrastructure;
+        services::Tracer& tracer;
+        services::Tracer& alwaysEnabledTracer;
+    };
+
     struct NucleoWb55rgTracerInfrastructure
     {
         NucleoWb55rgTracerInfrastructure(bool loggingEnabled = true)

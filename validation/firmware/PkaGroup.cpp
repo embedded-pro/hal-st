@@ -1,4 +1,7 @@
 #include "validation/firmware/PkaGroup.hpp"
+
+#if defined(STM32WB) || defined(STM32WBA)
+
 #include "services/crypto/Secp256r1.hpp"
 #include <algorithm>
 #include <chrono>
@@ -212,3 +215,5 @@ namespace validation
         return *pka;
     }
 }
+
+#endif

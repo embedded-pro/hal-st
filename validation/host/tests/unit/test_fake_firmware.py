@@ -138,7 +138,7 @@ def test_unsupported_names_follow_the_mcu():
     assert {"hsem.take", "qspi.open", "flash.stack", "clock.mco", "clock.hsi48"} <= set(UNSUPPORTED_COMMANDS["stm32wba55"])
     assert {"lptpwm.open", "lptpwm.close"} <= set(UNSUPPORTED_COMMANDS["stm32wb55"])
     common = set(UNSUPPORTED_COMMANDS["stm32wb55"]) & set(UNSUPPORTED_COMMANDS["stm32wba55"])
-    assert {name.split(".")[0] for name in common} == {"comp", "can", "eth"}
+    assert {name.split(".")[0] for name in common} == {"comp", "can", "eth", "dac"}
     assert not any(name.startswith("eeprom.") for names in UNSUPPORTED_COMMANDS.values() for name in names)
     terminal, _ = make_terminal()
     assert reason(terminal, "hsem.take 0 procid=1") != "unsupported"

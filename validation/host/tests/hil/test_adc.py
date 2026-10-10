@@ -298,11 +298,13 @@ def trigger_timer_refused(fw, adc_cfg, timer, reason):
 def open_errors(fw, board_cfg, adc_cfg):
     adc, pin = adc_cfg["adc"], adc_cfg["inputs"][0]
     sampling = expect.ADC_SAMPLING_TIMES[board_cfg.family]
-    other_family = next(times for family, times in expect.ADC_SAMPLING_TIMES.items() if family != board_cfg.family)
+    foreign_sampling = next(
+        time for family, times in expect.ADC_SAMPLING_TIMES.items() if family != board_cfg.family for time in times if time not in sampling
+    )
     cases = [
         ({}, "usage"),
         ({"pins": [pin], "rate": 1000}, "usage"),
-        ({"pins": [pin], "sampling": next(time for time in other_family if time not in sampling)}, "usage"),
+        ({"pins": [pin], "sampling": foreign_sampling}, "usage"),
         ({"pins": [pin] * (expect.ADC_MAX_PINS + 1)}, "range"),
         ({"pins": [pin], "timer": 2, "rate": 0}, "range"),
         ({"pins": [pin], "timer": 2, "rate": expect.ADC_RATE_MAX + 1}, "range"),

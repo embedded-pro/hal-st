@@ -15,13 +15,24 @@ from ad3_waveforms_bench import analysis
 
 PwmMode = Literal["edge", "center"]
 
-# Timer features of STM32WB55/STM32WBA55 (TIM1 advanced; TIM2 32-bit; TIM2/TIM3 general purpose;
-# TIM16/TIM17 one channel with complementary output and break).
-TIMERS_32BIT = frozenset({2})
-BREAK_TIMERS = frozenset({1, 16, 17})
-BREAK_FILTER_TIMERS = {"stm32wb55": frozenset({1}), "stm32wba55": frozenset({1, 16, 17})}
+# Timer features of STM32WB55, STM32WBA55 and STM32G474, by timer number (a board only queries the timers it has):
+# TIM1, TIM8 and TIM20 advanced; TIM2 and TIM5 32-bit; TIM3 and TIM4 general purpose; TIM15 two channels, TIM16 and
+# TIM17 one channel, all three with a complementary output and break.
+TIMERS_32BIT = frozenset({2, 5})
+BREAK_TIMERS = frozenset({1, 8, 15, 16, 17, 20})
+BREAK_FILTER_TIMERS = {
+    "stm32wb55": frozenset({1}),
+    "stm32wba55": frozenset({1, 16, 17}),
+    "stm32g474": frozenset({1, 8, 15, 16, 17, 20}),
+}
 SINGLE_CHANNEL_TIMERS = frozenset({16, 17})
-ENCODER_TIMERS = frozenset({1, 2, 3})
+# Timers with centre-aligned counting; TIM15, TIM16 and TIM17 only count up.
+CENTER_ALIGNED_TIMERS = frozenset({1, 2, 3, 4, 5, 8, 20})
+# Channels of the timers that do not have four (TIM6 and TIM7 are basic timers without any).
+TIMER_CHANNELS = {6: 0, 7: 0, 15: 2, 16: 1, 17: 1}
+# Complementary outputs hal-st has pin functions for (CH1N to CH3N); TIM15, TIM16 and TIM17 have CH1N only.
+TIMER_COMPLEMENTARY_CHANNELS = {1: 3, 8: 3, 20: 3, 15: 1, 16: 1, 17: 1}
+ENCODER_TIMERS = frozenset({1, 2, 3, 4, 5, 8, 20})
 ADC_TRIGGER_TIMERS = frozenset({1, 2})
 
 PWM_PRESCALER_MAX = 0xFFFF
@@ -45,17 +56,18 @@ def timer_has_break_filter(family: str, timer: int) -> bool:
 
 
 def timer_has_center_mode(timer: int) -> bool:
-    return timer not in SINGLE_CHANNEL_TIMERS
+    return timer in CENTER_ALIGNED_TIMERS
 
 
 def timer_has_channel(timer: int, channel: int) -> bool:
-    """`IS_TIM_CCX_INSTANCE`: TIM16/TIM17 have channel 1 only."""
-    return 1 <= channel <= (1 if timer in SINGLE_CHANNEL_TIMERS else 4)
+    """`IS_TIM_CCX_INSTANCE`: TIM15 has channels 1 and 2, TIM16/TIM17 channel 1 only, TIM6/TIM7 none."""
+    return 1 <= channel <= TIMER_CHANNELS.get(timer, 4)
 
 
 def timer_has_complementary(timer: int, channel: int) -> bool:
-    """`IS_TIM_CCXN_INSTANCE` up to CH3N (hal-st has no CH4N pin function): CH1N-CH3N on TIM1, CH1N on TIM16/TIM17."""
-    return timer in BREAK_TIMERS and 1 <= channel <= (1 if timer in SINGLE_CHANNEL_TIMERS else 3)
+    """`IS_TIM_CCXN_INSTANCE` up to CH3N (hal-st has no CH4N pin function): CH1N-CH3N on TIM1, TIM8 and TIM20, CH1N
+    on TIM15, TIM16 and TIM17."""
+    return 1 <= channel <= TIMER_COMPLEMENTARY_CHANNELS.get(timer, 0)
 
 
 def pwm_clock(timer_clock: int, prescaler: int = 0) -> int:
@@ -188,7 +200,7 @@ def spi_clock(spiclk: int, baud: int) -> float:
 UART_BAUD_MIN = 300
 UART_BAUD_MAX = 12_000_000
 # `IS_UART_BAUDRATE` of the ST HAL, which `HAL_UART_Init` asserts (the firmware is built with USE_FULL_ASSERT).
-UART_HAL_BAUD_MAX = {"stm32wb55": 8_000_000, "stm32wba55": 12_499_999}
+UART_HAL_BAUD_MAX = {"stm32wb55": 8_000_000, "stm32wba55": 12_499_999, "stm32g474": 18_750_000}
 USART_BRR_MIN = 16
 USART_BRR_MAX = 0xFFFF
 LPUART_BRR_MIN = 0x300
@@ -196,8 +208,10 @@ LPUART_BRR_MAX = 0xFFFFF
 
 
 def uart_clock_name(index: int, lp: bool = False) -> str:
-    """Key of the board file's `clocks.uart` table: `usart2`, `lpuart1`."""
-    return f"{'lpuart' if lp else 'usart'}{index}"
+    """Key of the board file's `clocks.uart` table: `usart2`, `uart4` (the STM32G4 has USART1-3 and UART4-5), `lpuart1`."""
+    if lp:
+        return f"lpuart{index}"
+    return f"{'uart' if index >= 4 else 'usart'}{index}"
 
 
 def uart_baud_max(family: str) -> int:
@@ -311,8 +325,9 @@ def wwdg_warning_outruns_reset(timeout_ms: int, pclk1: int, baud: int, margin: f
 ADC_SAMPLING_TIMES = {
     "stm32wb55": ("2.5", "6.5", "12.5", "24.5", "47.5", "92.5", "247.5", "640.5"),
     "stm32wba55": ("1.5", "3.5", "7.5", "12.5", "19.5", "39.5", "79.5", "814.5"),
+    "stm32g474": ("2.5", "6.5", "12.5", "24.5", "47.5", "92.5", "247.5", "640.5"),
 }
-ADC_DEFAULT_SAMPLING = {"stm32wb55": "2.5", "stm32wba55": "3.5"}
+ADC_DEFAULT_SAMPLING = {"stm32wb55": "2.5", "stm32wba55": "3.5", "stm32g474": "2.5"}
 ADC_MAX_PINS = 8
 ADC_MAX_VALUES = 64
 ADC_RATE_MAX = 100_000
