@@ -21,13 +21,9 @@ add_executable(demo_st.stm32h757i_eval_cm7
     DisplayReport.hpp
     EvalMemories.hpp
     EvalUi.hpp
-    InvertedGpioPin.hpp
     MainCm7.cpp
-    MemoryTests.hpp
     Mfx.cpp
     Mfx.hpp
-    QuadSpiMemory.cpp
-    QuadSpiMemory.hpp
 )
 emil_build_for(demo_st.stm32h757i_eval_cm7
     TARGET_MCU stm32h757
@@ -39,6 +35,7 @@ target_link_libraries(demo_st.stm32h757i_eval_cm7 PRIVATE
     drivers.audio.wm8994
     drivers.touch_screen.ft6x06
     demo_st.audio_demo
+    demo_st.common
     demo_st.sd_card_demo
     services.flash
     services.util
@@ -55,7 +52,6 @@ emil_generate_artifacts(TARGET demo_st.stm32h757i_eval_cm7 LST MAP BIN HEX)
 
 add_executable(demo_st.stm32h757i_eval_cm4
     EvalUi.hpp
-    InvertedGpioPin.hpp
     MainCm4.cpp
 )
 emil_build_for(demo_st.stm32h757i_eval_cm4
@@ -64,6 +60,7 @@ emil_build_for(demo_st.stm32h757i_eval_cm4
 )
 
 target_link_libraries(demo_st.stm32h757i_eval_cm4 PRIVATE
+    demo_st.common
     services.util
     services.peripheral
     hal_st.instantiations

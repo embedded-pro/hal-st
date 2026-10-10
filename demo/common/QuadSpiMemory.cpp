@@ -1,4 +1,4 @@
-#include "demo/stm32h757i_eval/QuadSpiMemory.hpp"
+#include "demo/common/QuadSpiMemory.hpp"
 #include "services/tracer/GlobalTracer.hpp"
 #include <algorithm>
 
