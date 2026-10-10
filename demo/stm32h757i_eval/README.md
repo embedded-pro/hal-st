@@ -13,22 +13,22 @@ cmake --build --preset stm32h757-cm4-RelWithDebInfo --target demo_st.stm32h757i_
 
 ## What it does
 
-| Part                     | Pins                                                                 | Driver                                                                                     | Behaviour                                                                                                                                                   |
-|--------------------------|----------------------------------------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 4.3" 800 x 480 DSI panel | DSI lanes, reset PF10, backlight PA6                                 | `hal::DsiHostStm`, `hal::LtdcStm`, `hal::Dma2dStm`, EMIL `boards::Mb1166Setup`             | RGB565 dashboard in SDRAM; DMA2D clears it, the CPU draws the text, bars and tiles                                                                          |
-| FT6x06 touch controller  | I2C1 PB6/PB7, address 0x38                                           | `hal::I2cStm`, EMIL `drivers::Ft6x06` (`hal::TouchScreen`)                                 | probed from 0.5 s after the panel is ready, then polled at 50 Hz; a cursor on the second LTDC layer follows the finger and the pad on the right is drawn on |
-| Wake-up button           | PA0                                                                  | `services::DebouncedButton`                                                                | toggles the audio mute                                                                                                                                      |
-| Tamper (USER) button     | PC13, active low                                                     | `services::DebouncedButton`                                                                | repeats the SDRAM test                                                                                                                                      |
-| Joystick, microSD detect | MFX GPIO0 to GPIO4 (select, down, left, right, up), GPIO15           | `main_::Mfx` over I2C1, address 0x42                                                       | shown on the dashboard; select clears the touch pad; the SD detect level is traced                                                                          |
-| microSD                  | CK PC12, CMD PD2, D0-D3 PC8-PC11; level shifter PC6, PC7, PB9        | `hal::SdCardStm`, EMIL `hal::BlockDevice`, `examples::SdCardDemo`                          | boot: capacity on the dashboard or `NO CARD`, nothing is written; `sdcard` runs the validation test on the last 16 blocks and shows the result              |
-| 256 Mbit SDRAM           | FMC bank 2 (SDNE1, SDCKE1), 32-bit, 0xD0000000                       | `hal::SdRamStm`                                                                            | frame buffer in the first 768 KB; boot test: data bus, address bus and 2 MB patterns at both ends                                                           |
-| 16 Mbit SRAM             | FMC bank 3 (NE3), 16-bit, 0x68000000                                 | `hal::SramStm`                                                                             | boot test: data bus, address bus and the full 2 MB                                                                                                          |
-| 128 Mbit NOR flash       | FMC bank 1 (NE1), 16-bit, 0x60000000                                 | `hal::NorFlashStm`                                                                         | boot check: identification and the first 4 KB read twice (nothing is written)                                                                               |
+| Part                     | Pins                                                                 | Driver                                                                                         | Behaviour                                                                                                                                                      |
+|--------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 4.3" 800 x 480 DSI panel | DSI lanes, reset PF10, backlight PA6                                 | `hal::DsiHostStm`, `hal::LtdcStm`, `hal::Dma2dStm`, EMIL `boards::Mb1166Setup`                 | RGB565 dashboard in SDRAM; DMA2D clears it, the CPU draws the text, bars and tiles                                                                             |
+| FT6x06 touch controller  | I2C1 PB6/PB7, address 0x38                                           | `hal::I2cStm`, EMIL `drivers::Ft6x06` (`hal::TouchScreen`)                                     | probed from 0.5 s after the panel is ready, then polled at 50 Hz; a cursor on the second LTDC layer follows the finger and the pad on the right is drawn on    |
+| Wake-up button           | PA0                                                                  | `services::DebouncedButton`                                                                    | toggles the audio mute                                                                                                                                         |
+| Tamper (USER) button     | PC13, active low                                                     | `services::DebouncedButton`                                                                    | repeats the SDRAM test                                                                                                                                         |
+| Joystick, microSD detect | MFX GPIO0 to GPIO4 (select, down, left, right, up), GPIO15           | `main_::Mfx` over I2C1, address 0x42                                                           | shown on the dashboard; select clears the touch pad; the SD detect level is traced                                                                             |
+| microSD                  | CK PC12, CMD PD2, D0-D3 PC8-PC11; level shifter PC6, PC7, PB9        | `hal::SdCardStm`, EMIL `hal::BlockDevice`, `examples::SdCardDemo`                              | boot: capacity on the dashboard or `NO CARD`, nothing is written; `sdcard` runs the validation test on the last 16 blocks and shows the result                 |
+| 256 Mbit SDRAM           | FMC bank 2 (SDNE1, SDCKE1), 32-bit, 0xD0000000                       | `hal::SdRamStm`                                                                                | frame buffer in the first 768 KB; boot test: data bus, address bus and 2 MB patterns at both ends                                                              |
+| 16 Mbit SRAM             | FMC bank 3 (NE3), 16-bit, 0x68000000                                 | `hal::SramStm`                                                                                 | boot test: data bus, address bus and the full 2 MB                                                                                                             |
+| 128 Mbit NOR flash       | FMC bank 1 (NE1), 16-bit, 0x60000000                                 | `hal::NorFlashStm`                                                                             | boot check: identification and the first 4 KB read twice (nothing is written)                                                                                  |
 | Twin quad-SPI flash      | QUADSPI bank 1: CLK PB2, NCS PG6, IO0 PF8, IO1 PF9, IO2 PF7, IO3 PF6 | `hal::QuadSpiStm`, EMIL `services::FlashGeometryQuadSfdp`, `services::FlashQuadSpiSingleSpeed` | boot check: JEDEC id, SFDP geometry and the first 4 KB read twice; `qspitest` saves the sector below 16 MB, erases, programs and verifies it, then restores it |
-| Potentiometer            | PA0_C, ADC1 channel 0                                                | `hal::AdcStm`, `hal::AnalogToDigitalChannelStm`                                            | sampled every 50 ms; shown as a bar and drives the codec volume                                                                                             |
-| DAC                      | DAC1 channel 2 on PA5 (CN6 pin 20)                                   | `hal::DacStm`, `hal::DigitalToAnalogPinImplStm`                                            | a 1.3 s triangle wave; shown as a bar                                                                                                                       |
-| WM8994 codec             | I2C1 address 0x1A, SAI1 block A: MCLK PE2, SCK PE5, FS PE4, SD PE6   | `hal::SaiOutputStm` (DMA1 stream 0), EMIL `drivers::Wm8994`                                | a 440 Hz tone on the headphone jack (CN17), 48 kHz stereo                                                                                                   |
-| LEDs                     | PK3 green, PK4 orange (CM4), PK5 red, PK6 blue, active low           | `hal::GpioPinStm`, `services::DebugLed`                                                    | green heartbeat; red for a second after a display or audio underrun; blue while a button, the joystick or the screen is pressed                             |
+| Potentiometer            | PA0_C, ADC1 channel 0                                                | `hal::AdcStm`, `hal::AnalogToDigitalChannelStm`                                                | sampled every 50 ms; shown as a bar and drives the codec volume                                                                                                |
+| DAC                      | DAC1 channel 2 on PA5 (CN6 pin 20)                                   | `hal::DacStm`, `hal::DigitalToAnalogPinImplStm`                                                | a 1.3 s triangle wave; shown as a bar                                                                                                                          |
+| WM8994 codec             | I2C1 address 0x1A, SAI1 block A: MCLK PE2, SCK PE5, FS PE4, SD PE6   | `hal::SaiOutputStm` (DMA1 stream 0), EMIL `drivers::Wm8994`                                    | a 440 Hz tone on the headphone jack (CN17), 48 kHz stereo                                                                                                      |
+| LEDs                     | PK3 green, PK4 orange (CM4), PK5 red, PK6 blue, active low           | `hal::GpioPinStm`, `services::DebugLed`                                                        | green heartbeat; red for a second after a display or audio underrun; blue while a button, the joystick or the screen is pressed                                |
 
 PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI1 and the ADC kernel clock.
 
@@ -36,24 +36,24 @@ PLL1 runs the cores at 400 MHz, PLL3 the pixel clock and PLL2 49.152 MHz for SAI
 
 `help` lists the commands; each one has a short alias.
 
-| Command                      | Alias  | Description                                                                        |
-|------------------------------|--------|------------------------------------------------------------------------------------|
-| `sdram`                      | `sd`   | Repeat the SDRAM test on its last 4 MB                                             |
-| `sram`                       | `sr`   | Repeat the SRAM test                                                               |
-| `qspi`                       | `q`    | Read the QSPI flash identification and the start of the array twice                |
-| `qspitest`                   | `qt`   | Save, erase, program, verify and restore the sector below 16 MB of the QSPI flash  |
-| `sdcard`                     | `sc`   | Read, erase, write, verify and restore the last two blocks of the microSD card     |
-| `display`                    | `disp` | Print the DSI, LTDC, clock and frame buffer registers                              |
-| `panel`                      | `p`    | Reset the panel and initialize it again                                            |
-| `pattern <0-3>`              | `pt`   | Show a DSI host test pattern: 0 off, 1 and 2 colour bars, 3 BER pattern            |
-| `dcs <command> [parameters]` | `dc`   | Send a DCS command to the panel, all values in hex                                 |
-| `i2cscan`                    | `i2c`  | List the addresses on I2C1 that acknowledge                                        |
-| `adc`                        | `a`    | Measure PA1_C                                                                      |
-| `dac <0-4095>`               | `d`    | Hold the DAC output on PA5                                                         |
-| `wave`                       | `w`    | Run the triangle wave again                                                        |
-| `loopback`                   | `loop` | Sweep the DAC over five levels and read each back on PA1_C                         |
-| `volume <0-100>`             | `v`    | Set the codec volume until the potentiometer moves again                           |
-| `mute`                       | `m`    | Toggle the audio mute                                                              |
+| Command                      | Alias  | Description                                                                       |
+|------------------------------|--------|-----------------------------------------------------------------------------------|
+| `sdram`                      | `sd`   | Repeat the SDRAM test on its last 4 MB                                            |
+| `sram`                       | `sr`   | Repeat the SRAM test                                                              |
+| `qspi`                       | `q`    | Read the QSPI flash identification and the start of the array twice               |
+| `qspitest`                   | `qt`   | Save, erase, program, verify and restore the sector below 16 MB of the QSPI flash |
+| `sdcard`                     | `sc`   | Read, erase, write, verify and restore the last two blocks of the microSD card    |
+| `display`                    | `disp` | Print the DSI, LTDC, clock and frame buffer registers                             |
+| `panel`                      | `p`    | Reset the panel and initialize it again                                           |
+| `pattern <0-3>`              | `pt`   | Show a DSI host test pattern: 0 off, 1 and 2 colour bars, 3 BER pattern           |
+| `dcs <command> [parameters]` | `dc`   | Send a DCS command to the panel, all values in hex                                |
+| `i2cscan`                    | `i2c`  | List the addresses on I2C1 that acknowledge                                       |
+| `adc`                        | `a`    | Measure PA1_C                                                                     |
+| `dac <0-4095>`               | `d`    | Hold the DAC output on PA5                                                        |
+| `wave`                       | `w`    | Run the triangle wave again                                                       |
+| `loopback`                   | `loop` | Sweep the DAC over five levels and read each back on PA1_C                        |
+| `volume <0-100>`             | `v`    | Set the codec volume until the potentiometer moves again                          |
+| `mute`                       | `m`    | Toggle the audio mute                                                             |
 
 Touch and joystick events and the boot report are printed as they happen. The boot report is written before the event dispatcher starts, and the 4 KB transmit buffer holds all of it.
 
