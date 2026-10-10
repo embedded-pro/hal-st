@@ -13,6 +13,8 @@ target_link_libraries(demo_st.common PUBLIC
 )
 
 target_sources(demo_st.common PRIVATE
+    Canvas.cpp
+    Canvas.hpp
     CountingI2cStm.hpp
     I2cScanner.cpp
     I2cScanner.hpp

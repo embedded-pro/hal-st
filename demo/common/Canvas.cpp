@@ -1,4 +1,4 @@
-#include "demo/stm32h757i_eval/Canvas.hpp"
+#include "demo/common/Canvas.hpp"
 #include <algorithm>
 #include <array>
 

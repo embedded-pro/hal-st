@@ -11,8 +11,6 @@ endif()
 add_executable(demo_st.stm32h757i_eval_cm7
     AnalogMonitor.cpp
     AnalogMonitor.hpp
-    Canvas.cpp
-    Canvas.hpp
     Dashboard.cpp
     Dashboard.hpp
     DefaultClockEvalH757I.cpp

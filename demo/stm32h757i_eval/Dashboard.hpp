@@ -1,6 +1,6 @@
 #pragma once
 
-#include "demo/stm32h757i_eval/Canvas.hpp"
+#include "demo/common/Canvas.hpp"
 #include "hal/interfaces/Blitter.hpp"
 #include "hal/interfaces/DisplayController.hpp"
 #include "hal/interfaces/TouchScreen.hpp"
