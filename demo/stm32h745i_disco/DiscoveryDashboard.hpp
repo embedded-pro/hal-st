@@ -71,7 +71,7 @@ namespace main_
         hal::TouchScreen::Phase touchPhase{ hal::TouchScreen::Phase::released };
         hal::TouchPoint touchPoint{ 0, 0 };
         infra::Function<void()> onStarted;
-        bool ready{ false };
+        bool drawn{ false };
         std::size_t framesShown{ 0 };
         std::size_t underruns{ 0 };
     };

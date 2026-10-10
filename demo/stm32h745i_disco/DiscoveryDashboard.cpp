@@ -52,6 +52,7 @@ namespace main_
         blitter.Fill(frame, style::backgroundColor, [this]()
             {
                 DrawAll();
+                drawn = true;
                 ShowLayers();
             });
     }
@@ -64,7 +65,7 @@ namespace main_
         details[index].clear();
         details[index].append(detail.substr(0, details[index].max_size()));
 
-        if (ready)
+        if (drawn)
             DrawStatus(item);
     }
 
@@ -72,7 +73,7 @@ namespace main_
     {
         buttonPressed = pressed;
 
-        if (ready)
+        if (drawn)
             DrawButton();
     }
 
@@ -80,7 +81,7 @@ namespace main_
     {
         uptime = seconds;
 
-        if (ready)
+        if (drawn)
             DrawTitle();
     }
 
@@ -95,17 +96,17 @@ namespace main_
         {
             cursor.Show(point);
 
-            if (ready)
+            if (drawn)
                 PaintTouchDot(point);
         }
 
-        if (ready)
+        if (drawn)
             DrawTouchText();
     }
 
     void DiscoveryDashboard::ClearTouchPad()
     {
-        if (ready)
+        if (drawn)
             DrawTouchPad();
     }
 
@@ -203,7 +204,6 @@ namespace main_
 
         display.Commit([this]()
             {
-                ready = true;
                 cursor.Enable();
                 this->onStarted();
             });
