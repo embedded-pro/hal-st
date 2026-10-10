@@ -265,13 +265,19 @@ int main()
             }
         } };
 
+    static auto toggleMute = []()
+    {
+        muted = !muted;
+        codec.SetMuted(muted, []() {});
+        services::GlobalTracer().Trace() << "audio " << (muted ? "muted" : "unmuted");
+    };
+
     static services::DebouncedButton userButton{ ui.buttonUser, []()
         {
-            muted = !muted;
-            codec.SetMuted(muted, []() {});
             dashboard.SetButton(true);
             activityLed.Set(true);
-            services::GlobalTracer().Trace() << "user button, audio " << (muted ? "muted" : "unmuted");
+            services::GlobalTracer().Trace() << "user button pressed";
+            toggleMute();
         },
         []()
         {
@@ -328,8 +334,7 @@ int main()
 
     terminal.AddCommand({ { "mute", "m", "toggle the audio mute" }, [](const auto& params)
         {
-            muted = !muted;
-            codec.SetMuted(muted, []() {});
+            toggleMute();
         } });
 
     terminal.AddCommand({ { "clear", "c", "clear the touch pad" }, [](const auto& params)
