@@ -33,7 +33,6 @@ if (HALST_STANDALONE)
     add_definitions(-DEMIL_ENABLE_TRACING=1)
 
     set(EMIL_ENABLE_DOCKER_TOOLS Off CACHE BOOL "" FORCE)
-    set(EMIL_BUILD_ECHO_COMPILERS On CACHE BOOL "" FORCE)
 
     # hal.cortex_m.runtime contains ARM-only inline assembly; only build it when actually
     # cross-compiling for an ST target, not for the host toolchain (TARGET_MCU_VENDOR is
