@@ -190,6 +190,16 @@ namespace hal
             WaitForCard();
     }
 
+    void SdCardStm::Flush(const infra::Function<void(Result)>& onDone)
+    {
+        Begin(Operation::flush, onDone);
+
+        if (!cardPresent)
+            Complete(Result::notPresent);
+        else
+            WaitForCard();
+    }
+
     void SdCardStm::OnReceiveComplete(SD_HandleTypeDef* handle)
     {
         static_cast<Handle*>(handle)->owner->PostEvent(Event::transferred, HAL_SD_ERROR_NONE);
