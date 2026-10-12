@@ -27,13 +27,12 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        4eda84e0cf56309e7e4794cb8ed2164910d40e8a # Unreleased
+        GIT_TAG        6364c1a12112098a009074dfa3b89bd6180b7be6 # Unreleased
     )
 
     add_definitions(-DEMIL_ENABLE_TRACING=1)
 
     set(EMIL_ENABLE_DOCKER_TOOLS Off CACHE BOOL "" FORCE)
-    set(EMIL_BUILD_ECHO_COMPILERS On CACHE BOOL "" FORCE)
 
     # hal.cortex_m.runtime contains ARM-only inline assembly; only build it when actually
     # cross-compiling for an ST target, not for the host toolchain (TARGET_MCU_VENDOR is
