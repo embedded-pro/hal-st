@@ -39,6 +39,7 @@ if (HALST_STANDALONE)
     # unset there).
     if (TARGET_MCU_VENDOR STREQUAL st)
         set(EMIL_BUILD_CORTEX_M On CACHE BOOL "" FORCE)
+        set(CMAKE_PROJECT_emil_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/cmake/NativeEchoPlugins.cmake")
     endif()
 
     FetchContent_MakeAvailable(emil)
