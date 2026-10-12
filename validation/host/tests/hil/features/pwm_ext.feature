@@ -30,7 +30,7 @@ Feature: PWM extensions
   Scenario: The counter modes and trgo need a master timer
     Every mode but `edge` needs a counter mode select and `trgo` a master mode (both: TIM1, TIM2 and on
     STM32WBA55 TIM3); TIM16/TIM17 answer `ERR unsupported`, the others open.
-    Then every mode but edge, trgo update and trgo oc1ref open on the first channel of the timer exactly when it has a counter mode select, else fail with "unsupported"
+    Then every mode but edge open on the first channel of the timer exactly when it has a counter mode select, trgo update and trgo oc1ref exactly when it has a master mode, else fail with "unsupported"
 
   @ad3
   Scenario: Compare preload holds a duty write until the next period

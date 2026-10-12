@@ -78,10 +78,10 @@ namespace hal
 
 #if defined(ADC_EXTERNALTRIGCONV_T2_TRGO)
         LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_EXTERNALTRIGCONV_T2_TRGO);
-#elif defined(ADC_EXTERNALTRIG_T3_TRGO)
-        LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_EXTERNALTRIG_T3_TRGO);
-#else
+#elif defined(TIM2)
         LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_EXTERNALTRIG_T2_TRGO);
+#else
+        LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, ADC_EXTERNALTRIG_T3_TRGO);
 #endif
         LL_ADC_REG_SetTriggerEdge(adc.Handle().Instance, ADC_EXTERNALTRIGCONVEDGE_RISING);
     }

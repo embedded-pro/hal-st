@@ -59,6 +59,11 @@ def timer_has_center_mode(timer: int) -> bool:
     return timer in CENTER_ALIGNED_TIMERS
 
 
+def timer_has_master_mode(timer: int) -> bool:
+    """`IS_TIM_MASTER_INSTANCE` of the pwm timers: the centre-aligned ones and, on the STM32G474, TIM15."""
+    return timer in CENTER_ALIGNED_TIMERS or timer == 15
+
+
 def timer_has_channel(timer: int, channel: int) -> bool:
     """`IS_TIM_CCX_INSTANCE`: TIM15 has channels 1 and 2, TIM16/TIM17 channel 1 only, TIM6/TIM7 none."""
     return 1 <= channel <= TIMER_CHANNELS.get(timer, 4)

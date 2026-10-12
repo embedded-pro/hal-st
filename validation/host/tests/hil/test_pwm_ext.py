@@ -388,15 +388,15 @@ def zero_duty_one_tick(state):
 
 @then(
     parsers.parse(
-        "every mode but edge, trgo update and trgo oc1ref open on the first channel of the timer exactly when it has a counter mode "
-        'select, else fail with "{reason}"'
+        "every mode but edge open on the first channel of the timer exactly when it has a counter mode select, trgo update and trgo "
+        'oc1ref exactly when it has a master mode, else fail with "{reason}"'
     )
 )
 def master_timer_needed(fw, timer, reason):
     number, pin = timer["timer"], timer["channels"][0]["pin"]
-    supported = expect.timer_has_center_mode(number)
     cases = [{"mode": mode} for mode in ALIGNMENTS if mode != "edge"] + [{"trgo": "update"}, {"trgo": "oc1ref"}]
     for options in cases:
+        supported = expect.timer_has_master_mode(number) if "trgo" in options else expect.timer_has_center_mode(number)
         try:
             fw.pwm.open(number, pins=[pin], **options)
         except FirmwareError as error:

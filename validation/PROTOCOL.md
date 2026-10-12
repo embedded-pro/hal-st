@@ -173,7 +173,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - complementary outputs, `dead`, `idle`, `idlen` and `brk` need a timer with a break function, TIM1, TIM16 or TIM17 (`ERR unsupported` otherwise)
   - a channel the timer does not have, or a complementary output it does not have (CH4N; CH2-CH4 on TIM16/TIM17), returns `ERR unsupported`
   - each open rebuilds the timer, so no setting of a previous open survives
-  - STM32G474: the timers with a break function are TIM1, TIM8, TIM15, TIM16, TIM17 and TIM20 (TIM15, TIM16 and TIM17 have a single complementary output, TIM15 two channels, TIM16 and TIM17 one); the counter mode select (`mode` other than `edge`, `trgo`) exists on TIM1-TIM5, TIM8 and TIM20; the 32-bit counters are TIM2 and TIM5; TIM6 and TIM7 are basic timers without channels (`ERR unsupported`); the break filter exists on the timers with a break function
+  - STM32G474: the timers with a break function are TIM1, TIM8, TIM15, TIM16, TIM17 and TIM20 (TIM15, TIM16 and TIM17 have a single complementary output, TIM15 two channels, TIM16 and TIM17 one); the counter mode select (`mode` other than `edge`) exists on TIM1-TIM5, TIM8 and TIM20 and the master mode select (`trgo`) also on TIM15; the 32-bit counters are TIM2 and TIM5; TIM6 and TIM7 are basic timers without channels (`ERR unsupported`); the break filter exists on the timers with a break function
 - `pwm.duty <timer> <duty1%> [duty2%] [duty3%] [duty4%]` → `OK`; one duty per opened channel in channel order, or a single duty for all of them, starts the outputs; duty accepts decimals (`12.5`, up to 4 digits), `0` and `100`
 - `pwm.freq <timer> <hz>` → `OK`
 - `pwm.stop <timer>` → `OK`

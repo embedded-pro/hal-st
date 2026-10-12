@@ -172,7 +172,7 @@ namespace hal
 #ifdef ADC_CHANNEL_TEMPSENSOR
         channelConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
 #else
-        if (adc.index == 1)
+        if (adc.index == 0)
             channelConfig.Channel = ADC_CHANNEL_TEMPSENSOR_ADC1;
         else
             channelConfig.Channel = ADC_CHANNEL_TEMPSENSOR_ADC5;
