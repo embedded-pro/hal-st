@@ -139,8 +139,9 @@ namespace hal
         this->results = results;
         this->onDone = onDone;
 
-        WriteArguments();
+        // The CORDIC requests its interrupt when RRDY becomes set, so a result ready before IEN never raises one
         LL_CORDIC_EnableIT(Instance());
+        WriteArguments();
     }
 
     void CordicStm::ResultReady()

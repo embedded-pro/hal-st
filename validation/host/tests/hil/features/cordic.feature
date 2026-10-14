@@ -26,6 +26,12 @@ Feature: CORDIC co-processor
     When the firmware calculates the generated batch with each variant
     Then every variant answers the length and CRC of the polled batch
 
+  Scenario: One calculation answers in every variant
+    The CORDIC requests its interrupt when a result becomes ready, so a variant that misses the first one never
+    answers, whatever the batch.
+    When the firmware calculates the cosine of 0 alone with the variant
+    Then the result is 1 within the bound of the default precision
+
   Scenario: DMA is faster than interrupts
     When the firmware calculates the generated batch with each variant
     Then the DMA variant took less time than the interrupt variant

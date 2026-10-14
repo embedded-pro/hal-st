@@ -68,6 +68,12 @@ def test_variants_agree():
     pass
 
 
+@pytest.mark.board_params("variant", "cordic.variants")
+@scenario("cordic.feature", "One calculation answers in every variant")
+def test_one_calculation(variant):
+    pass
+
+
 @scenario("cordic.feature", "DMA is faster than interrupts")
 def test_dma_is_faster():
     pass
@@ -127,6 +133,17 @@ def calculate_every_precision(fw, cordic_cfg, function, scale, arguments):
         sent, results = calculate(fw, function, scale, arguments, precision)
         largest[precision] = max(cordic_ref.errors(function, scale, sent, results))
     return largest
+
+
+@when("the firmware calculates the cosine of 0 alone with the variant", target_fixture="single")
+def calculate_one(fw, variant):
+    return fw.cordic.calc("cos", cordic_ref.pack_arguments([(0.0, 1.0)]), variant=variant)
+
+
+@then("the result is 1 within the bound of the default precision")
+def single_is_one(single, tolerance):
+    (result,) = cordic_ref.unpack_results(single.data)
+    assert abs(result[0] - 1.0) <= tolerance.bound("cos", 6, 32), result
 
 
 @when("the firmware calculates the generated batch with each variant", target_fixture="batches")
