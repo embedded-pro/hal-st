@@ -37,6 +37,14 @@ namespace validation
             "opamp.dac",
             "opamp.read",
             "opamp.close",
+            "hrtim.open",
+            "hrtim.duty",
+            "hrtim.phase",
+            "hrtim.freq",
+            "hrtim.stop",
+            "hrtim.fault",
+            "hrtim.adc",
+            "hrtim.close",
         });
 #elif defined(STM32G4)
         constexpr auto commandNames = std::to_array<const char*>({
@@ -102,6 +110,14 @@ namespace validation
             "opamp.dac",
             "opamp.read",
             "opamp.close",
+            "hrtim.open",
+            "hrtim.duty",
+            "hrtim.phase",
+            "hrtim.freq",
+            "hrtim.stop",
+            "hrtim.fault",
+            "hrtim.adc",
+            "hrtim.close",
         });
 #else
 #error "UnsupportedGroups needs the list of commands this MCU answers with ERR unsupported"

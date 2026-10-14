@@ -261,6 +261,20 @@ namespace validation::board
     inline constexpr uint8_t adc = 1;
     inline constexpr uint8_t adcDmaRequest = DMA_REQUEST_ADC1;
     inline constexpr std::array<uint8_t, 2> adcTriggerTimers{ { 1, 2 } };
+
+    // ADC1 and ADC2 take only the odd HRTIM ADC triggers and 6, 8 and 10 on their regular group
+    inline constexpr std::array<std::optional<uint32_t>, 10> hrtimAdcTriggers{ {
+        ADC_EXTERNALTRIG_HRTIM_TRG1,
+        std::nullopt,
+        ADC_EXTERNALTRIG_HRTIM_TRG3,
+        std::nullopt,
+        ADC_EXTERNALTRIG_HRTIM_TRG5,
+        ADC_EXTERNALTRIG_HRTIM_TRG6,
+        ADC_EXTERNALTRIG_HRTIM_TRG7,
+        ADC_EXTERNALTRIG_HRTIM_TRG8,
+        ADC_EXTERNALTRIG_HRTIM_TRG9,
+        ADC_EXTERNALTRIG_HRTIM_TRG10,
+    } };
     inline constexpr std::array<uint8_t, 6> breakFilterTimers{ { 1, 8, 15, 16, 17, 20 } };
     inline constexpr uint32_t adcDefaultSamplingTime = ADC_SAMPLETIME_2CYCLES_5;
     inline constexpr std::array<services::HilChoice<uint32_t>, 8> adcSamplingTimes{ {

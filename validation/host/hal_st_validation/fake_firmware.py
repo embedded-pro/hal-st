@@ -332,6 +332,14 @@ _UNSUPPORTED_G474_ONLY = (
     "opamp.dac",
     "opamp.read",
     "opamp.close",
+    "hrtim.open",
+    "hrtim.duty",
+    "hrtim.phase",
+    "hrtim.freq",
+    "hrtim.stop",
+    "hrtim.fault",
+    "hrtim.adc",
+    "hrtim.close",
 )
 
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.
@@ -539,6 +547,24 @@ _G474_FUNCTIONS: dict[str, Table] = {
     "compOutput": _table(
         i1="PA0 PA6 PA11 PB8 PF4", i2="PA2 PA7 PA12 PB9", i3="PB7 PB15 PC2", i4="PB1 PB6 PB14", i5="PA9 PC7", i6="PA10 PC6", i7="PA8 PC8"
     ),
+    "hrtimChA1": _table(i1="PA8"),
+    "hrtimChA2": _table(i1="PA9"),
+    "hrtimChB1": _table(i1="PA10"),
+    "hrtimChB2": _table(i1="PA11"),
+    "hrtimChC1": _table(i1="PB12"),
+    "hrtimChC2": _table(i1="PB13"),
+    "hrtimChD1": _table(i1="PB14"),
+    "hrtimChD2": _table(i1="PB15"),
+    "hrtimChE1": _table(i1="PC8"),
+    "hrtimChE2": _table(i1="PC9"),
+    "hrtimChF1": _table(i1="PC6"),
+    "hrtimChF2": _table(i1="PC7"),
+    "hrtimFlt1": _table(i1="PA12"),
+    "hrtimFlt2": _table(i1="PA15"),
+    "hrtimFlt3": _table(i1="PB10"),
+    "hrtimFlt4": _table(i1="PB11"),
+    "hrtimFlt5": _table(i1="PB0 PC7"),
+    "hrtimFlt6": _table(i1="PC10"),
 }
 
 

@@ -28,6 +28,7 @@
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/FlashGroup.hpp"
 #include "validation/firmware/FmacGroup.hpp"
+#include "validation/firmware/HrtimGroup.hpp"
 #include "validation/firmware/HsemGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
@@ -140,6 +141,9 @@ int main()
 #endif
 #if defined(HAS_PERIPHERAL_OPAMP)
     static validation::OpampCommands opamp{ context, resources };
+#endif
+#if defined(HAS_PERIPHERAL_HRTIM)
+    static validation::HrtimCommands hrtim{ context, resources };
 #endif
 
     static validation::RngCommands rng{ context, resources };

@@ -1416,3 +1416,11 @@ tests:
       - opamp.dac 1 2048
       - opamp.read 1
       - opamp.close 1
+      - hrtim.open 1
+      - hrtim.duty 1 50
+      - hrtim.phase 1 0
+      - hrtim.freq 1 100000
+      - hrtim.stop 1
+      - hrtim.fault 1
+      - hrtim.adc 1 2
+      - hrtim.close 1

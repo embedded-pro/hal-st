@@ -98,7 +98,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
 - Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
-  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`) and OPAMP 1-6 (`opamp`).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`), OPAMP 1-6 (`opamp`) and the HRTIM timing units A-F as 1-6 (`hrtim`).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
 - The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
@@ -606,14 +606,40 @@ One amplifier is open at a time (`ERR busy` for a second one). Instances are OPA
 - `opamp.close <i>` → `OK`
 - The pins are held exclusively (VOUT as an analog pin), the DAC channel through the shared resources (a comparator on the same DAC channel answers `ERR busy`)
 
+## High-resolution timer (`hal::HighResolutionPwmStm`, NUCLEO-G474RE only)
+
+One timing unit of HRTIM1 is open at a time (`ERR busy` for a second one). Units A-F are 1-6; output 1 and output 2 of a unit are its CHx1 and CHx2 pins of the pinout table (LQFP64: A PA8/PA9, B PA10/PA11, C PB12/PB13, D PB14/PB15, E PC8/PC9, F PC6/PC7).
+The driver is a `hal::SingleChannelPwm` and a `hal::TwoChannelsPwm`, and `hrtim.duty`, `hrtim.freq` and `hrtim.stop` work as `pwm.duty`, `pwm.freq` and `pwm.stop`.
+The HRTIM runs on the APB2 timer clock fHRTIM (170 MHz); the DLL multiplies it by 32 and the prescaler ratio 0-7 (MUL32 to DIV4) divides that into fHRCK = fHRTIM x 32 / 2^ratio, the tick of the period and compares.
+
+- `hrtim.open <1-6> [out=both|1|2] [mode=inphase|comp|shift] [freq=<hz>] [dead=<ns>] [deadfall=<ns>] [flt=<pin>] [fltpol=low|high] [adc=<1-10>]` → `OK clock=<fHRTIM> ratio=<0-7> period=<ticks> dead=<ticks> dtprsc=<0-7>`
+  - `out` the outputs whose pins the unit takes (default both); `freq` (default 10000) picks the finest ratio whose rounded period fHRCK/freq is at most 0xFFDF and whose exact period holds two minimum distances of three fHRTIM periods (96 ticks at MUL32, 3 from DIV1); a frequency no ratio fits (below 649 Hz, above 28333333 Hz) is `ERR range`
+  - `mode=inphase` (default): both outputs start at the period event, output 1 ends at its duty and output 2 at its own (`hrtim.duty` with two values) or the same one
+  - `mode=comp`: output 2 is the complement of output 1 with dead time (`dead` before the rising edge of output 1, `deadfall`, default `dead`, before the rising edge of output 2, 0-10000 ns); the dead-time generator takes the finest prescaler `dtprsc` (fHRTIM x 8 / 2^dtprsc) whose 9-bit counter holds the longer one; the reply gives the ticks of `dead`
+  - `mode=shift`: output 2 is the reference pulse (period event to the duty), output 1 the same pulse shifted by `hrtim.phase` (wrapping across the period end); `dead`/`deadfall` outside `mode=comp` are `ERR usage`
+  - `flt` is a fault input pin FLT1-FLT6 of the pinout table (LQFP64 FLT1 PA12, FLT2 PA15, FLT3 PB10, FLT4 PB11, FLT5 PB0 or PC7, FLT6 PC10; another pin is `ERR pin`), active low by default (`fltpol`, which without `flt` is `ERR usage`): a fault forces both outputs inactive (low) until `hrtim.duty` starts the unit again, as the break input of `pwm` without `brkauto`
+  - `adc` routes HRTIM ADC trigger n to the unit's period event; unit E has no period event on triggers 2, 4, 6, 8 and 10 (`ERR unsupported`)
+  - The unit opens stopped. Errors come in this order: the keys in the order above, the key combinations (`ERR usage`), the fault pin (`ERR pin`), the frequency (`ERR range`), the ADC trigger (`ERR unsupported`), another open unit (`ERR busy`), then the pins
+- `hrtim.duty <u> <duty%> [<duty%>]` → `OK compare=<ticks>[,<ticks>]`: starts the unit, or changes its duty from the next period, with one duty for both outputs or, with `mode=inphase` and both outputs, one per output (another count is `ERR usage`); duties are parsed as `pwm.duty` (0-100 with up to 4 decimals, else `ERR usage`)
+  - `compare` is the end of each output's pulse in fHRCK ticks (`DutyCycle::ToCounts` of the period), kept three fHRTIM periods away from 0 and the period, so 0 and 100 % give the shortest and longest pulse
+- `hrtim.phase <u> <phase%>` → `OK`: the shift of output 1 in percent of the period (`ERR usage` outside `mode=shift` or unparsable, `ERR range` for 100 %)
+- `hrtim.freq <u> <hz>` → the reply of `hrtim.open` (`ERR range` as there); the duties stay the same fraction of the period
+- `hrtim.stop <u>` → `OK`: the counter and the outputs
+- `hrtim.fault <u>` → `OK active=<0|1>`: whether the outputs are in the fault state; `ERR usage` without `flt`
+- `hrtim.adc <u> <2-1000>` → `OK samples=<n> us=<n>`: ADC1 converts on the HRTIM trigger of the unit and the firmware counts `n` conversions, `us` from the first to the last (so the trigger rate is (n - 1) / us)
+  - ADC1 takes HRTIM triggers 1, 3, 5, 6, 7, 8, 9 and 10 (`ERR unsupported` for 2 and 4); `ERR usage` without `adc`; ADC1 is held for the count (`ERR busy` while `adc`, `ain` or `opamp` hold it); `ERR timeout` when no conversion comes within 10 ms (the unit is not running); the command blocks the terminal while it counts
+- `hrtim.close <u>` → `OK`
+- The output and fault pins are held exclusively while the unit is open
+
 ## Not available on these boards
 
-hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has an HRTIM that hal-st has no driver for), so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474, so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
 - STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
 - STM32G474: `lptpwm.*` (not built for STM32G4), `aes.enc`, `aes.dec` (no AES), `pka.mul`, `pka.check`, `pka.cmp` (no PKA), `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `flash.stack` (no wireless coprocessor); `lpm.enter deep` answers `ERR unsupported` as well (above).
 - STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
-- STM32WB55 and STM32WBA55, the groups built for the STM32G474 only: `cordic.calc` (CORDIC), `fmac.load`, `fmac.fir`, `fmac.iir` (FMAC) and `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `comp.dac` (hal-st's comparator driver covers the STM32G4 COMP only) and `opamp.open`, `opamp.dac`, `opamp.read`, `opamp.close` (OPAMP).
+- STM32WB55 and STM32WBA55, the groups built for the STM32G474 only: `cordic.calc` (CORDIC), `fmac.load`, `fmac.fir`, `fmac.iir` (FMAC) and `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `comp.dac` (hal-st's comparator driver covers the STM32G4 COMP only),
+  `opamp.open`, `opamp.dac`, `opamp.read`, `opamp.close` (OPAMP) and `hrtim.open`, `hrtim.duty`, `hrtim.phase`, `hrtim.freq`, `hrtim.stop`, `hrtim.fault`, `hrtim.adc`, `hrtim.close` (HRTIM).
 
 The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

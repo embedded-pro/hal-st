@@ -1593,6 +1593,60 @@ tests:
     trim_max: 31
     settle_s: 0.01
     vref: 3.3
+  hrtim:
+    # Unit A: CHA1 PA8 (DIO4) and CHA2 PA9 (DIO5) in bundle1; FLT1 PA12
+    # (DIO11). Unit B is opened only to check that one unit runs at a time.
+    # Duties and phases are percent, as pwm.duty takes them.
+    unit: 1
+    out1: PA8
+    out2: PA9
+    other_unit: 2
+    fault_pin: PA12
+    # Replies only: the prescaler ratio and period of the driver's arithmetic.
+    timings: [649, 700, 10000, 50000, 100000, 1000000, 10000000, 28333333]
+    dead_ns: [0, 50, 100, 250, 500, 1000, 5000, 10000]
+    frequency_changes: [100000, 20000, 1000000, 5000]
+    duty_changes: ["0", "0.01", "10", "12.3456", "50", "90", "99.99", "100"]
+    # Scope cases (bundle1).
+    waveforms:
+      - {name: 10k-10, freq: 10000, duty: 10}
+      - {name: 10k-50, freq: 10000, duty: 50}
+      - {name: 10k-90, freq: 10000, duty: 90}
+      - {name: 100k-10, freq: 100000, duty: 10}
+      - {name: 100k-50, freq: 100000, duty: 50}
+      - {name: 100k-90, freq: 100000, duty: 90}
+      - {name: 1m-10, freq: 1000000, duty: 10}
+      - {name: 1m-50, freq: 1000000, duty: 50}
+      - {name: 1m-90, freq: 1000000, duty: 90}
+    # Both outputs in phase with their own duty (TwoChannelsPwm).
+    two_duties:
+      frequency: 100000
+      cases:
+        - {name: 25-75, duty1: 25, duty2: 75}
+        - {name: 90-10, duty1: 90, duty2: 10}
+    complementary:
+      frequency: 200000
+      duty: 40
+      dead_ns: [50, 100, 250]
+    shifted:
+      frequency: 200000
+      duty: 30
+      phases: [10, 25, 50]
+    # Unit A with output 1 only (PA8); ADC1 converts on HRTIM trigger 1.
+    adc:
+      trigger: 1
+      samples: 200
+      frequencies: [1000, 10000, 50000]
+    capture_periods: 20
+    # Dead-time and phase captures: periods at the highest logic rate.
+    fine_capture_periods: 4
+    tolerance:
+      frequency: 0.01
+      duty: 1.0
+      dead_s: 2.0e-8
+      phase_s: 3.0e-8
+      adc_rate: 0.02
+    fault_settle_s: 0.01
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.
