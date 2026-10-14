@@ -1280,8 +1280,8 @@ class FakeFirmware(FakeTerminalDevice):
         # PwmStm asserts a counter mode select instance for every alignment but edgeAligned (PwmStm.cpp:224).
         if mode != "edge" and not expect.timer_has_center_mode(timer):
             _fail("unsupported")
-        # `IS_TIM_MASTER_INSTANCE`: the timers with a counter mode select, on both MCUs.
-        if trgo is not None and not expect.timer_has_center_mode(timer):
+        # `IS_TIM_MASTER_INSTANCE`: the timers with a counter mode select and, on the STM32G474, TIM15.
+        if trgo is not None and not expect.timer_has_master_mode(timer):
             _fail("unsupported")
         complementary = any(output.npin is not None for output in outputs)
         needs_break = complementary or dead is not None or flags["idle"] or flags["idlen"] or brk is not None
