@@ -1429,6 +1429,56 @@ tests:
     settle_s: 0.02
     # A bonded pin without a DAC output.
     foreign_pin: gpio0
+  cordic:
+    # One case per function and scale of cordic_ref.DOMAINS (atan at three of
+    # its eight scales).
+    functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: sin, function: sin, scale: 0}
+      - {name: phase, function: phase, scale: 0}
+      - {name: mod, function: mod, scale: 0}
+      - {name: atan-s0, function: atan, scale: 0}
+      - {name: atan-s3, function: atan, scale: 3}
+      - {name: atan-s7, function: atan, scale: 7}
+      - {name: cosh, function: cosh, scale: 1}
+      - {name: sinh, function: sinh, scale: 1}
+      - {name: atanh, function: atanh, scale: 1}
+      - {name: ln-s1, function: ln, scale: 1}
+      - {name: ln-s2, function: ln, scale: 2}
+      - {name: ln-s3, function: ln, scale: 3}
+      - {name: ln-s4, function: ln, scale: 4}
+      - {name: sqrt-s0, function: sqrt, scale: 0}
+      - {name: sqrt-s1, function: sqrt, scale: 1}
+      - {name: sqrt-s2, function: sqrt, scale: 2}
+    precisions: [3, 6, 15]
+    # Two-argument, two-result functions for the q1.15 packing.
+    q15_functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: phase, function: phase, scale: 0}
+    q15_precision: 6
+    sweep_functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: sqrt-s1, function: sqrt, scale: 1}
+    sweep_precisions: [1, 2, 3, 4, 6, 15]
+    # Calculations per command: a 255-character line holds 8 two-argument
+    # calculations in hex.
+    samples: 8
+    # Bound max(2^-(4P - slack_bits - extra_bits), floor LSB); set from
+    # memory of RM0440, to be tightened from a bench run.
+    tolerance:
+      slack_bits: 2
+      floor_q31: 8192
+      floor_q15: 2
+      extra_bits: {cosh: 2, sinh: 2, atanh: 2, ln: 2, sqrt: 2}
+    variants: [poll, zo, it, dma]
+    # 512 calculations of generated arguments, 1024 result words.
+    bulk:
+      function: cos
+      len: 2048
+      seed: 1
+      nargs: 1
+      nres: 2
+    max_us: 200000
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.

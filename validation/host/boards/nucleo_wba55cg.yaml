@@ -1453,3 +1453,4 @@ tests:
       - flash.stack stopped
       - clock.mco sysclk
       - clock.hsi48 1
+      - cordic.calc cos 00000000

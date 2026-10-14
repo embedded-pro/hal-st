@@ -1407,3 +1407,4 @@ tests:
       - lptpwm.start 1
       - lptpwm.stop 1
       - lptpwm.close 1
+      - cordic.calc cos 00000000

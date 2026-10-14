@@ -98,7 +98,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
 - Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
-  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`, no instance number).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
 - The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
@@ -546,13 +546,25 @@ The pins and the DMA channel come from the board profile. NUCLEO-WB55RG: `qspicl
 - `dac.close <pin>` → `OK`: the pin returns to the pool; `ERR notopen` when it is not open
 - Both outputs can be open at once; PA4 and PA6 are also ADC inputs and SPI pins, which the pin pool keeps apart
 
+## CORDIC (`hal::SynchronousCordicStm`, `hal::CordicStm`, `hal::CordicStmDma`, NUCLEO-G474RE only)
+
+- `cordic.calc <cos|sin|phase|mod|atan|cosh|sinh|atanh|ln|sqrt> <hex|-> [len=] [pattern=] [seed=] [precision=1-15] [scale=0-7] [insize=32|16] [outsize=32|16] [nargs=1|2] [nres=1|2] [variant=poll|zo|it|dma] [out=hex|crc]` → `OK data=<hex> us=<n>`, or with `out=crc` `OK len=<n> crc=<crc32> us=<n>`
+  - one batch of calculations of the function; the payload is the argument words, little-endian, 4-2048 bytes (hex, or `-` with `len`, see "Line length" in General); the reply is the result words, little-endian
+  - `insize`/`outsize` 32 is q1.31, one word per argument or result: a calculation takes `nargs` words (ARG1, ARG2) and gives `nres` words (RES1, RES2); 16 is q1.15, one word per calculation with ARG1 or RES1 in the low half and ARG2 or RES2 in the high half (`nargs`/`nres` then make no difference)
+  - with q1.31 and `nargs=1`, ARG2 is +1 (0x7FFFFFFF): the driver resets the CORDIC when the command builds it
+  - the RM0440 conventions: angles in units of pi, `atan`/`ln`/`sqrt` take x * 2^-`scale`, the hyperbolic functions x * 2^-1 (`scale=1`); `precision` is the number of cycles of 4 iterations (default 6, `scale` 0)
+  - `variant=poll` is `HAL_CORDIC_Calculate` and `zo` `HAL_CORDIC_CalculateZO` (`hal::SynchronousCordicStm`), `it` is `hal::CordicStm` (the result interrupt, dispatched), `dma` is `hal::CordicStmDma` on DMA2 channel 5 (arguments) and 6 (results); `us` is the duration of the batch measured with the DWT cycle counter, without building the driver
+  - `ERR usage` for a payload that is empty or not a whole number of calculations; `ERR range` for more than 128 result bytes with `out=hex`; `ERR busy` while an `it` or `dma` batch is in flight (it answers within 1000 ms or `ERR timeout`) or when another group holds a DMA channel
+- The group is stateless: the driver is built for each command and destroyed after the reply
+
 ## Not available on these boards
 
-hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has COMP, OPAMP, CORDIC, HRTIM and FMAC peripherals that hal-st has no driver for), so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has COMP, OPAMP, HRTIM and FMAC peripherals that hal-st has no driver for), so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
 - STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
 - STM32G474: `lptpwm.*` (not built for STM32G4), `aes.enc`, `aes.dec` (no AES), `pka.mul`, `pka.check`, `pka.cmp` (no PKA), `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `flash.stack` (no wireless coprocessor); `lpm.enter deep` answers `ERR unsupported` as well (above).
 - STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
+- STM32WB55 and STM32WBA55, the peripherals only the STM32G474 has: `cordic.calc` (CORDIC).
 
 The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

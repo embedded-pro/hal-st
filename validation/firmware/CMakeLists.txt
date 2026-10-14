@@ -38,6 +38,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     ClockGroup.hpp
     Console.cpp
     Console.hpp
+    CordicGroup.cpp
+    CordicGroup.hpp
     DacGroup.cpp
     DacGroup.hpp
     DmaGroup.cpp

@@ -21,6 +21,7 @@
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/CordicGroup.hpp"
 #include "validation/firmware/DacGroup.hpp"
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
@@ -122,6 +123,9 @@ int main()
     static validation::DacCommands dac{ context };
 #endif
     static validation::ClockCommands clocks{ context };
+#if defined(HAS_PERIPHERAL_CORDIC)
+    static validation::CordicCommands cordic{ context, console.dma, resources };
+#endif
 
     static validation::RngCommands rng{ context, resources };
 #if defined(STM32WB) || defined(STM32WBA)

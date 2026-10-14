@@ -7,7 +7,7 @@ namespace validation
     namespace
     {
 #if defined(STM32WB)
-        constexpr std::array<const char*, 20> commandNames{ {
+        constexpr auto commandNames = std::to_array<const char*>({
             "comp.open",
             "comp.read",
             "comp.irq",
@@ -28,9 +28,10 @@ namespace validation
             "dac.open",
             "dac.set",
             "dac.close",
-        } };
+            "cordic.calc",
+        });
 #elif defined(STM32G4)
-        constexpr std::array<const char*, 28> commandNames{ {
+        constexpr auto commandNames = std::to_array<const char*>({
             "comp.open",
             "comp.read",
             "comp.irq",
@@ -59,9 +60,9 @@ namespace validation
             "lptpwm.start",
             "lptpwm.stop",
             "lptpwm.close",
-        } };
+        });
 #elif defined(STM32WBA)
-        constexpr std::array<const char*, 27> commandNames{ {
+        constexpr auto commandNames = std::to_array<const char*>({
             "comp.open",
             "comp.read",
             "comp.irq",
@@ -89,7 +90,8 @@ namespace validation
             "dac.open",
             "dac.set",
             "dac.close",
-        } };
+            "cordic.calc",
+        });
 #else
 #error "UnsupportedGroups needs the list of commands this MCU answers with ERR unsupported"
 #endif

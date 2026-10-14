@@ -193,6 +193,7 @@ namespace validation::board
     inline constexpr uint8_t qspiDmaRequest = DMA_REQUEST_QUADSPI;
     inline constexpr DmaChannel dmaGroupDma{ 2, 4 };
     inline constexpr uint8_t dmaGroupDmaRequest = DMA_REQUEST_TIM2_UP;
+    inline constexpr DmaPair cordicDma{ { 2, 5 }, { 2, 6 } };
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 176;
