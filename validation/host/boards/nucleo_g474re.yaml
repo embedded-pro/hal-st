@@ -1465,11 +1465,12 @@ tests:
     # Calculations per command: a 255-character line holds 8 two-argument
     # calculations in hex.
     samples: 8
-    # Bound max(2^-(4P - slack_bits - extra_bits), floor LSB); set from
-    # memory of RM0440, to be tightened from a bench run.
+    # Bound max(2^-(4P - slack_bits - extra_bits), floor LSB). The floor is
+    # the bench run's: the q1.31 error stops shrinking at about 6 cycles
+    # (7e-7) and reaches 6.2e-6 (2^-17.3) at 15, under 16384 LSB (2^-17).
     tolerance:
       slack_bits: 2
-      floor_q31: 8192
+      floor_q31: 16384
       floor_q15: 2
       extra_bits: {cosh: 2, sinh: 2, atanh: 2, ln: 2, sqrt: 2}
     variants: [poll, zo, it, dma]

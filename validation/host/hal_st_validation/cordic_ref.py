@@ -10,8 +10,10 @@ Functions in the RM0440 conventions: angles in units of pi; `atan`, `ln` and `sq
 units written to the CORDIC) per function and scale.
 
 The error bound for a precision of P cycles (4 iterations each) is iteration-limited, 2^-(4P - slack), with a floor
-for the word length; slack and floor come from the board file (`tests.cordic.tolerance`). RM0440 was not at hand
-when this was written: the domains and the bound are to be confirmed, and tightened, from a bench run.
+for the word length; slack and floor come from the board file (`tests.cordic.tolerance`). On a NUCLEO-G474RE the
+q1.31 error stops shrinking at about 6 cycles (7e-7) and grows to 2^-17.3 at 15, which sets the floor. The upper
+bounds of RM0440's ranges are exclusive: a `sqrt` argument of exactly 0.75 at scale 0 or 1.75 at scale 1 gives a
+result far off, so `DOMAINS` holds the largest arguments sent.
 """
 
 from __future__ import annotations
@@ -42,7 +44,7 @@ DOMAINS: dict[str, dict[int, tuple[tuple[float, float], ...]]] = {
     "sinh": {1: ((-0.559, 0.559),)},
     "atanh": {1: ((-0.403, 0.403),)},
     "ln": {1: ((0.0535, 0.5),), 2: ((0.25, 0.75),), 3: ((0.375, 0.875),), 4: ((0.4375, 0.584),)},
-    "sqrt": {0: ((0.027, 0.75),), 1: ((0.375, 0.875),), 2: ((0.4375, 0.585),)},
+    "sqrt": {0: ((0.027, 0.749),), 1: ((0.375, 0.874),), 2: ((0.4375, 0.585),)},
 }
 
 _LSB = {32: 2.0**-31, 16: 2.0**-15}
@@ -159,7 +161,7 @@ class Tolerance:
     """`tests.cordic.tolerance`: the bound is max(2^-(4P - slack_bits - extra), floor_lsb LSB of the output)."""
 
     slack_bits: int = 2
-    floor_q31: int = 8192
+    floor_q31: int = 16384
     floor_q15: int = 2
     # Extra slack for the functions that converge slower than one bit per iteration.
     extra_bits: dict[str, int] | None = None

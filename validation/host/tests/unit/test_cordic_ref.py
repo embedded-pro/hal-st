@@ -89,6 +89,13 @@ def test_domains_give_representable_results(function, scale):
             assert -1.0 <= value <= 1.0, (function, scale, arg1, arg2, value)
 
 
+@pytest.mark.parametrize(("scale", "limit"), [(0, 0.75), (1, 1.75), (2, 2.341)])
+def test_sqrt_arguments_stay_below_the_exclusive_range_limit(scale, limit):
+    """RM0440's `sqrt` ranges end below 0.75, 1.75 and 2.341; the bench saw results far off at exactly the limit."""
+    largest = max(arg1 for arg1, _ in cordic_ref.sweep("sqrt", scale, 9)) * 2.0**scale
+    assert largest < limit
+
+
 def test_out_of_domain_arguments_do_not_raise():
     for function in cordic_ref.FUNCTIONS:
         for argument in (-1.0, -0.5, 0.0, 0.999):
