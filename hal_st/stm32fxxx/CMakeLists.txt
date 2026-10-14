@@ -84,6 +84,10 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
+    FmacStm.cpp
+    FmacStm.hpp
+    FmacStmDma.cpp
+    FmacStmDma.hpp
     FmcStm.cpp
     FmcStm.hpp
     GpioStm.cpp

@@ -70,5 +70,9 @@
     <item name="CORDIC"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Fmac" type="FMAC_TypeDef*">
+    <item name="FMAC"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="Rtc" type="RTC_TypeDef*"><item name="RTC"/></peripheral>
 </peripherals>

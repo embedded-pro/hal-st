@@ -17,6 +17,8 @@ target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     SynchronousAesStm.hpp
     SynchronousCordicStm.cpp
     SynchronousCordicStm.hpp
+    SynchronousFmacStm.cpp
+    SynchronousFmacStm.hpp
     SynchronousGpioStm.cpp
     SynchronousGpioStm.hpp
     $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>>:SynchronousFlashInternalStm.cpp>
