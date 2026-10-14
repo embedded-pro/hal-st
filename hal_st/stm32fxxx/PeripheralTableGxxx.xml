@@ -73,6 +73,9 @@
   <peripheral name="Comp" type="COMP_TypeDef*">
     <item name="COMP"/>
   </peripheral>
+  <peripheral name="Opamp" type="OPAMP_TypeDef*">
+    <item name="OPAMP"/>
+  </peripheral>
   <peripheral name="Fmac" type="FMAC_TypeDef*">
     <item name="FMAC"/>
     <interrupt/>

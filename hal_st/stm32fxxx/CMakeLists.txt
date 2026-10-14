@@ -112,6 +112,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LowPowerModeStm.hpp
     LtdcStm.cpp
     LtdcStm.hpp
+    OpampStm.cpp
+    OpampStm.hpp
     LpTimerStm.cpp
     LpTimerStm.hpp
     PwmStm.cpp
