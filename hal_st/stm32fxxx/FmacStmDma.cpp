@@ -4,18 +4,11 @@
 
 #if defined(HAS_PERIPHERAL_FMAC)
 
-#if defined(STM32G4)
-#include "stm32g4xx_ll_fmac.h"
-#endif
-
 namespace hal
 {
     FmacStmDma::FmacStmDma(DmaStm::TransmitStream& writeStream, DmaStm::ReceiveStream& readStream, const Config& config)
-        : FmacBaseStm(config)
-        , write(writeStream, &Instance()->WDATA, sizeof(uint32_t), [this]()
-              {
-                  WriteDone();
-              })
+        : FmacBaseStm(config, FMAC_BUFFER_ACCESS_DMA)
+        , write(writeStream, &Instance()->WDATA, sizeof(uint32_t), []() {})
         , read(readStream, &Instance()->RDATA, sizeof(uint32_t), [this]()
               {
                   ReadDone();
@@ -24,8 +17,6 @@ namespace hal
 
     FmacStmDma::~FmacStmDma()
     {
-        LL_FMAC_DisableDMAReq_WRITE(Instance());
-        LL_FMAC_DisableDMAReq_READ(Instance());
         write.StopTransfer();
         read.StopTransfer();
     }
@@ -41,18 +32,10 @@ namespace hal
 
         read.StartReceive(output);
         write.StartTransmit(input);
-        LL_FMAC_EnableDMAReq_READ(Instance());
-        LL_FMAC_EnableDMAReq_WRITE(Instance());
-    }
-
-    void FmacStmDma::WriteDone()
-    {
-        LL_FMAC_DisableDMAReq_WRITE(Instance());
     }
 
     void FmacStmDma::ReadDone()
     {
-        LL_FMAC_DisableDMAReq_READ(Instance());
         onDone(Saturated());
     }
 }

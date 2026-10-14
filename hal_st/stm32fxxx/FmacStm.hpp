@@ -36,7 +36,7 @@ namespace hal
         bool Saturated() const;
 
     protected:
-        explicit FmacBaseStm(const Config& config);
+        explicit FmacBaseStm(const Config& config, uint8_t bufferAccess = FMAC_BUFFER_ACCESS_POLLING);
         FmacBaseStm(const FmacBaseStm& other) = delete;
         FmacBaseStm& operator=(const FmacBaseStm& other) = delete;
         ~FmacBaseStm();
@@ -51,6 +51,7 @@ namespace hal
     private:
         FMAC_HandleTypeDef handle{};
         Config config;
+        uint8_t bufferAccess;
         bool started = false;
     };
 

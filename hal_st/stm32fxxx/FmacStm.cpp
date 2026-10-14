@@ -25,8 +25,9 @@ namespace hal
         }
     }
 
-    FmacBaseStm::FmacBaseStm(const Config& config)
+    FmacBaseStm::FmacBaseStm(const Config& config, uint8_t bufferAccess)
         : config(config)
+        , bufferAccess(bufferAccess)
     {
         EnableClockFmac(fmacIndex);
         __HAL_RCC_FMAC_FORCE_RESET();
@@ -94,8 +95,9 @@ namespace hal
         filterConfig.CoeffBSize = static_cast<uint8_t>(b.size());
         filterConfig.pCoeffA = a.empty() ? nullptr : const_cast<int16_t*>(a.begin());
         filterConfig.CoeffASize = static_cast<uint8_t>(a.size());
-        filterConfig.InputAccess = FMAC_BUFFER_ACCESS_POLLING;
-        filterConfig.OutputAccess = FMAC_BUFFER_ACCESS_POLLING;
+        // HAL_FMAC_FilterStart sets DMAWEN and DMAREN from these before START: the FMAC ignores them once it runs
+        filterConfig.InputAccess = bufferAccess;
+        filterConfig.OutputAccess = bufferAccess;
         filterConfig.Clip = config.clip ? FMAC_CLIP_ENABLED : FMAC_CLIP_DISABLED;
         filterConfig.Filter = filter;
         filterConfig.P = static_cast<uint8_t>(b.size());

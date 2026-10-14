@@ -17,7 +17,6 @@ namespace hal
         void Filter(infra::MemoryRange<const int16_t> input, infra::MemoryRange<int16_t> output, const infra::Function<void(bool saturated)>& onDone);
 
     private:
-        void WriteDone();
         void ReadDone();
 
     private:
