@@ -5,6 +5,10 @@
     <item name="USART"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Lpuart" type="USART_TypeDef*">
+    <item name="LPUART"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="Spi" type="SPI_TypeDef*"><item name="SPI"/><interrupt/></peripheral>
   <peripheral name="I2c" type="I2C_TypeDef*"><item name="I2C"/>
     <interrupt name="Ev" postfix="_EV"/>
@@ -41,6 +45,12 @@
     <item name="TIM6_7F37"/>
     <item name="TIM1_8F77"/>
     <item name="TIM6_7F77"/>
+    <item name="TIM1_8G4"/>
+    <item name="TIM6_7G4"/>
+  </peripheral>
+  <peripheral name="LpTimer" type="LPTIM_TypeDef*" prefix="LPTIM">
+    <item name="LPTIM"/>
+    <interrupt/>
   </peripheral>
   <peripheral name="Adc" type="ADC_TypeDef*"><item name="ADC"/></peripheral>
   <peripheral name="Dac" type="DAC_TypeDef*"><item name="DAC"/></peripheral>
@@ -51,14 +61,10 @@
   <peripheral name="USB" type="USB_OTG_GlobalTypeDef*" base="USB_OTG_HS_PERIPH_BASE">
     <item name="USB_OTG_FS"/>
   </peripheral>
-  <!--
-  Disabled, IRQn generated as QUADSPI1_IRQn, but the G474VxT uses QUADSPI_IRQn
-
   <peripheral name="QuadSpi" type="QUADSPI_TypeDef*" base="QSPI_R_BASE">
     <item name="QUADSPI"/>
     <interrupt/>
   </peripheral>
-  -->
   <peripheral name="Rng" type="RNG_TypeDef*"><item name="RNG"/></peripheral>
   <peripheral name="Rtc" type="RTC_TypeDef*"><item name="RTC"/></peripheral>
 </peripherals>

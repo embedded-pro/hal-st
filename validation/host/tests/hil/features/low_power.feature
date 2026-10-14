@@ -5,8 +5,10 @@ Feature: Low-power mode
   WFI really sleeps) shows that it did.
 
   `deep` maps to Sleep on STM32WB/WBA (`LowPowerModeStm::Stop`), so it behaves like `sleep` and never calls the
-  clock-restore callback (`restored=0`). The wake edge comes from the AD3 on the wake pin (bundle1 `gpio0`); the logic
-  analyzer sees the marker low before the edge and high right after it. The wake and marker pins, the modes, the
+  clock-restore callback (`restored=0`). On the STM32G474 it enters Stop, which stops the scaffold timer and the
+  PLL, so `deep` answers `ERR unsupported` there and only `sleep` is in the board file. The wake edge comes from the
+  AD3 on the wake pin (bundle1 `gpio0`); the logic analyzer sees the marker low before the edge and high right after
+  it. The wake and marker pins, the modes, the
   edges, the latency, the delays, the timeouts, the logic analyzer rate and the unbonded pin are in tests.lowpower of
   the board file.
 

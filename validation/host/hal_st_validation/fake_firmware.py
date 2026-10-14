@@ -178,6 +178,133 @@ WBA55_PINS: dict[str, str] = {
     "tim16ch1n": "PB8",
 }
 
+# NUCLEO-G474RE: validation/firmware/boards/stm32g474/BoardProfile.hpp.
+G474_PINS: dict[str, str] = {
+    "terminaltx": "PA2",
+    "terminalrx": "PA3",
+    "ain1": "PA0",
+    "ain2": "PA1",
+    "ain3": "PB0",
+    "ain4": "PC1",
+    "ain5": "PC0",
+    "ain6": "PC2",
+    "ain7": "PC3",
+    "ain8": "PB1",
+    "tim1ch1": "PA8",
+    "tim1ch2": "PA9",
+    "tim1ch3": "PA10",
+    "tim1ch4": "PA11",
+    "tim1ch1n": "PA7",
+    "tim1ch2n": "PB0",
+    "tim1ch3n": "PB1",
+    "tim1bkin": "PA15",
+    "tim2ch1": "PA15",
+    "tim2ch2": "PB3",
+    "tim2ch3": "PB10",
+    "tim2ch4": "PB11",
+    "tim3ch1": "PB4",
+    "tim3ch2": "PB5",
+    "tim3ch3": "PB0",
+    "tim3ch4": "PB1",
+    "tim4ch1": "PB6",
+    "tim4ch2": "PB7",
+    "tim4ch3": "PB8",
+    "tim4ch4": "PB9",
+    "tim5ch1": "PA0",
+    "tim5ch2": "PA1",
+    "tim8ch1": "PC6",
+    "tim8ch2": "PC7",
+    "tim8ch3": "PC8",
+    "tim8ch4": "PC9",
+    "tim15ch1": "PB14",
+    "tim15ch2": "PB15",
+    "tim15ch1n": "PB15",
+    "tim16ch1": "PA12",
+    "tim16ch1n": "PB6",
+    "tim17ch1": "PA7",
+    "tim17ch1n": "PB7",
+    "tim20ch1": "PB2",
+    "tim20ch2": "PC2",
+    "qei1a": "PA8",
+    "qei1b": "PA9",
+    "qei1idx": "PA10",
+    "qei2a": "PA15",
+    "qei2b": "PB3",
+    "qei2idx": "PC4",
+    "qei3a": "PB4",
+    "qei3b": "PB5",
+    "qei3idx": "PC4",
+    "qei4a": "PB6",
+    "qei4b": "PB7",
+    "qei4idx": "PC4",
+    "qei5a": "PA0",
+    "qei5b": "PA1",
+    "qei5idx": "PC4",
+    "qei8a": "PC6",
+    "qei8b": "PC7",
+    "qei8idx": "PC4",
+    "lptim1in1": "PB5",
+    "lptim1in2": "PB7",
+    "lptim1ch1": "PB2",
+    "spi1clk": "PB3",
+    "spi1miso": "PB4",
+    "spi1mosi": "PB5",
+    "spi1cs": "PA15",
+    "spi1nss": "PA15",
+    "spi2clk": "PB13",
+    "spi2miso": "PB14",
+    "spi2mosi": "PB15",
+    "spi2cs": "PB12",
+    "spi2nss": "PB12",
+    "spi3clk": "PC10",
+    "spi3miso": "PC11",
+    "spi3mosi": "PC12",
+    "spi3cs": "PA4",
+    "spi3nss": "PA4",
+    "i2c1scl": "PB8",
+    "i2c1sda": "PB9",
+    "i2c2scl": "PA9",
+    "i2c2sda": "PA8",
+    "i2c3scl": "PC8",
+    "i2c3sda": "PC9",
+    "i2c4scl": "PC6",
+    "i2c4sda": "PC7",
+    "usart1tx": "PA9",
+    "usart1rx": "PA10",
+    "usart1rts": "PA12",
+    "usart1cts": "PA11",
+    "usart3tx": "PB10",
+    "usart3rx": "PB11",
+    "usart3rts": "PB14",
+    "usart3cts": "PB13",
+    "uart4tx": "PC10",
+    "uart4rx": "PC11",
+    "uart4rts": "PA15",
+    "uart4cts": "PB7",
+    "uart5tx": "PC12",
+    "uart5rx": "PD2",
+    "uart5rts": "PB4",
+    "uart5cts": "PB5",
+    "lpuart1tx": "PC1",
+    "lpuart1rx": "PC0",
+    "lpuart1rts": "PB1",
+    "lpuart1cts": "PB13",
+    "dac1out1": "PA4",
+    "dac2out1": "PA6",
+    "gpio0": "PC4",
+    "gpio1": "PC5",
+    "gpio2": "PD2",
+    "gpio3": "PB2",
+    "gpio4": "PA4",
+    "qspiclk": "PB10",
+    "qspincs": "PB11",
+    "qspiio0": "PB1",
+    "qspiio1": "PB0",
+    "qspiio2": "PA7",
+    "qspiio3": "PA6",
+    "mco": "PA8",
+}
+
 _UNSUPPORTED_EVERYWHERE = (
     "comp.open",
     "comp.read",
@@ -192,10 +319,33 @@ _UNSUPPORTED_EVERYWHERE = (
     "eth.close",
 )
 
+_UNSUPPORTED_DAC = ("dac.open", "dac.set", "dac.close")
+
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.
 UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
     "stm32wb55": (
         *_UNSUPPORTED_EVERYWHERE,
+        "lptpwm.open",
+        "lptpwm.duty",
+        "lptpwm.pulse",
+        "lptpwm.start",
+        "lptpwm.stop",
+        "lptpwm.close",
+        *_UNSUPPORTED_DAC,
+    ),
+    "stm32g474": (
+        *_UNSUPPORTED_EVERYWHERE,
+        "aes.enc",
+        "aes.dec",
+        "pka.mul",
+        "pka.check",
+        "pka.cmp",
+        "hsem.take",
+        "hsem.release",
+        "hsem.status",
+        "hsem.lock",
+        "hsem.mine",
+        "flash.stack",
         "lptpwm.open",
         "lptpwm.duty",
         "lptpwm.pulse",
@@ -218,6 +368,7 @@ UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
         "flash.stack",
         "clock.mco",
         "clock.hsi48",
+        *_UNSUPPORTED_DAC,
     ),
 }
 
@@ -301,6 +452,105 @@ _WBA55_FUNCTIONS: dict[str, Table] = {
 }
 
 
+def _timer_af(**channels: str) -> dict[tuple[int, int, str], int]:
+    """`_timer_af(c1="1:PA8:6 1:PC0:2")` → `{(1, 1, "PA8"): 6, (1, 1, "PC0"): 2}`: per channel, `timer:pin:alternate
+    function` of the generated pinout tables."""
+    table: dict[tuple[int, int, str], int] = {}
+    for name, cells in channels.items():
+        for cell in cells.split():
+            timer, pin, alternate = cell.split(":")
+            table[(int(timer), int(name[1:]), pin)] = int(alternate)
+    return table
+
+
+# The STM32G474 tables come from the LQFP64 pin data; QUADSPI uses instance 0 as on the STM32WB55.
+_G474_FUNCTIONS: dict[str, Table] = {
+    "uartTx": _table(i1="PA9 PB6 PC4 PE0 PG9", i2="PA2 PA14 PB3 PD5", i3="PB9 PB10 PC10 PD8", i4="PC10", i5="PC12"),
+    "uartRx": _table(i1="PA10 PB7 PC5 PE1", i2="PA3 PA15 PB4 PD6", i3="PB8 PB11 PC11 PD9 PE15", i4="PC11", i5="PD2"),
+    "uartRts": _table(i1="PA12", i2="PA1 PD4", i3="PB14 PD12 PF6", i4="PA15", i5="PB4"),
+    "uartCts": _table(i1="PA11", i2="PA0 PD3", i3="PA13 PB13 PD11", i4="PB7", i5="PB5"),
+    "lpuartTx": _table(i1="PA2 PB11 PC1 PG7"),
+    "lpuartRx": _table(i1="PA3 PB10 PC0 PG8"),
+    "lpuartRts": _table(i1="PB1 PB12 PG6"),
+    "lpuartCts": _table(i1="PA6 PB13 PG5"),
+    "spiClock": _table(i1="PA5 PB3 PG2", i2="PB13 PF1 PF9 PF10", i3="PB3 PC10 PG9"),
+    "spiMiso": _table(i1="PA6 PB4 PG3", i2="PA10 PB14", i3="PB4 PC11"),
+    "spiMosi": _table(i1="PA7 PB5 PG4", i2="PA11 PB15", i3="PB5 PC12"),
+    "spiSlaveSelect": _table(i1="PA4 PA15 PG5", i2="PB12 PD15 PF0", i3="PA4 PA15"),
+    "i2cScl": _table(i1="PA13 PA15 PB8", i2="PA9 PC4 PF6", i3="PA8 PC8 PF3 PG7", i4="PA13 PC6 PF14 PG3"),
+    "i2cSda": _table(i1="PA14 PB7 PB9", i2="PA8 PF0", i3="PB5 PC9 PC11 PF4 PG8", i4="PB7 PC7 PF15 PG4"),
+    "timerChannel1": _table(
+        i1="PA8 PC0 PE9",
+        i2="PA0 PA5 PA15 PD3",
+        i3="PA6 PB4 PC6 PE2",
+        i4="PA11 PB6 PD12",
+        i5="PA0 PB2 PF6",
+        i8="PA15 PB6 PC6",
+        i15="PA2 PB14 PF9",
+        i16="PA6 PA12 PB4 PB8 PE0",
+        i17="PA7 PB5 PB9 PE1",
+        i20="PB2 PE2 PF12",
+    ),
+    "timerChannel2": _table(
+        i1="PA9 PC1 PE11",
+        i2="PA1 PB3 PD4",
+        i3="PA4 PA7 PB5 PC7 PE3",
+        i4="PA12 PB7 PD13",
+        i5="PA1 PC12 PF7",
+        i8="PA14 PB8 PC7",
+        i15="PA3 PB15 PF10",
+        i20="PC2 PE3 PF13",
+    ),
+    "timerChannel3": _table(
+        i1="PA10 PC2 PE13", i2="PA2 PA9 PB10 PD7", i3="PB0 PC8 PE4", i4="PA13 PB8 PD14", i5="PA2 PE8 PF8", i8="PB9 PC8", i20="PC8 PF2 PF14"
+    ),
+    "timerChannel4": _table(
+        i1="PA11 PC3 PE14", i2="PA3 PA10 PB11 PD6", i3="PB1 PB7 PC9 PE5", i4="PB9 PD15 PF6", i5="PA3 PE9 PF9", i8="PC9 PD1"
+    ),
+    "timerChannel1N": _table(i1="PA7 PA11 PB13 PC13 PE8", i8="PA7 PB3 PC10", i15="PA1 PB15 PG9", i16="PA13 PB6", i17="PB7"),
+    "timerChannel2N": _table(i1="PA12 PB0 PB14 PE10", i8="PB0 PB4 PC11"),
+    "timerChannel3N": _table(i1="PB1 PB9 PB15 PE12 PF0", i8="PB1 PB5 PC12"),
+    "timerBreak": _table(i1="PA6 PA14 PA15 PB8 PB10 PB12 PC13 PE15", i8="PA0 PA6 PA10 PB7 PD2", i15="PA9 PC5", i16="PB5", i17="PA10 PB4"),
+    "lpTimerChannel1": {},
+    "lpTimerChannel2": {},
+    "lpTimerInput1": _table(i1="PB5 PC0"),
+    "lpTimerInput2": _table(i1="PB7 PC2"),
+    "quadSpiClock": _table(i0="PA3 PB10 PE10 PF10"),
+    "quadSpiSlaveSelect": _table(i0="PA2 PB11 PE11"),
+    "quadSpiData0": _table(i0="PB1 PE12 PF8"),
+    "quadSpiData1": _table(i0="PB0 PE13 PF9"),
+    "quadSpiData2": _table(i0="PA7 PE14 PF7"),
+    "quadSpiData3": _table(i0="PA6 PE15 PF6"),
+}
+
+
+_G474_TIMER_AF = _timer_af(
+    c1=(
+        "1:PA8:6 1:PC0:2 1:PE9:2 2:PA0:1 2:PA5:1 2:PA15:1 2:PD3:2 3:PA6:2 "
+        "3:PB4:2 3:PC6:2 3:PE2:2 4:PA11:10 4:PB6:2 4:PD12:2 5:PA0:2 5:PB2:2 "
+        "5:PF6:6 8:PA15:2 8:PB6:5 8:PC6:4 15:PA2:9 15:PB14:1 15:PF9:3 16:PA6:1 "
+        "16:PA12:1 16:PB4:1 16:PB8:1 16:PE0:4 17:PA7:1 17:PB5:10 17:PB9:1 17:PE1:4 "
+        "20:PB2:3 20:PE2:6 20:PF12:2"
+    ),
+    c2=(
+        "1:PA9:6 1:PC1:2 1:PE11:2 2:PA1:1 2:PB3:1 2:PD4:2 3:PA4:2 3:PA7:2 "
+        "3:PB5:2 3:PC7:2 3:PE3:2 4:PA12:10 4:PB7:2 4:PD13:2 5:PA1:2 5:PC12:1 "
+        "5:PF7:6 8:PA14:5 8:PB8:10 8:PC7:4 15:PA3:9 15:PB15:1 15:PF10:3 20:PC2:6 "
+        "20:PE3:6 20:PF13:2"
+    ),
+    c3=(
+        "1:PA10:6 1:PC2:2 1:PE13:2 2:PA2:1 2:PA9:10 2:PB10:1 2:PD7:2 3:PB0:2 "
+        "3:PC8:2 3:PE4:2 4:PA13:10 4:PB8:2 4:PD14:2 5:PA2:2 5:PE8:1 5:PF8:6 "
+        "8:PB9:10 8:PC8:4 20:PC8:6 20:PF2:2 20:PF14:2"
+    ),
+    c4=(
+        "1:PA11:11 1:PC3:2 1:PE14:2 2:PA3:1 2:PA10:10 2:PB11:1 2:PD6:2 3:PB1:2 "
+        "3:PB7:10 3:PC9:2 3:PE5:2 4:PB9:2 4:PD15:2 4:PF6:2 5:PA3:2 5:PE9:1 "
+        "5:PF9:6 8:PC9:4 8:PD1:4"
+    ),
+)
+
+
 @dataclass(frozen=True)
 class _Family:
     family: str
@@ -331,6 +581,27 @@ class _Family:
     default_qei: tuple[int, str, str, str]
     functions: dict[str, Table]
     analog: dict[str, int]
+    # USART of the terminal (`board::terminal`).
+    terminal_usart: int = 1
+    # `Instances()` of the UART factory and of the timer based factories (PWM and encoder), and of the I2C factories.
+    uart_instances: int = 3
+    timer_instances: int = 18
+    i2c_instances: int = 4
+    # Entries of `hal::peripheralTimer`: TIM1 .. TIM17, or TIM1 .. TIM20.
+    timer_table: int = 17
+    # Alternate function per (channel, timer, pin) where it differs between the pins of a timer; the older boards
+    # use one alternate function per timer (`fakes/io.py`).
+    timer_af: Mapping[tuple[int, int, str], int] = field(default_factory=dict)
+    # The LPTIM has a repetition counter (`lptim.open rep=`): the STM32WBA55 only.
+    lptim_repetition: bool = False
+    # Pin -> DAC number of the `dac` group (`board::dacOutputs`); empty where the MCU has no DAC.
+    dac_outputs: Mapping[str, int] = field(default_factory=dict)
+    # `board::imageLimitsErase`: the sectors below the firmware image end page are left out of the erase tests.
+    image_limits_erase: bool = True
+    # {master: slave} of the SPI instances wired to each other when the MCU has more than two (`spiloop` option).
+    spi_loop: Mapping[int, int] = field(default_factory=dict)
+    # `lpm.enter deep` runs: not where `LowPowerModeStm` enters Stop and the scaffold timer stops with the clocks.
+    lpm_deep: bool = True
 
     @property
     def sampling(self) -> tuple[str, ...]:
@@ -393,20 +664,71 @@ _FAMILIES: dict[str, _Family] = {
         timers=frozenset({1, 2, 3, 16, 17}),
         lptims=frozenset({1, 2}),
         lptim_encoders=frozenset({1, 2}),
+        lptim_repetition=True,
         adc=4,
         default_lpuart=("PB5", "PA10"),
         default_qei=(1, "PA11", "PA12", "PA15"),
         functions=_WBA55_FUNCTIONS,
         analog={"PA0": 9, "PA1": 8, "PA2": 7, "PA3": 6, "PA5": 4, "PA6": 3, "PA7": 2, "PA8": 1, "PB9": 10},
     ),
+    # LQFP64: PA-PC, PD2, PF0, PF1 and PG10 are bonded out. The ADC channels are those of ADC1.
+    "stm32g474": _Family(
+        family="stm32g474",
+        board="NUCLEO-G474RE",
+        sysclk=170_000_000,
+        ports="ABCDEFG",
+        bonded={"A": 0xFFFF, "B": 0xFFFF, "C": 0xFFFF, "D": 0x0004, "E": 0x0000, "F": 0x0003, "G": 0x0400},
+        pins=G474_PINS,
+        debug_led="PA5",
+        reserved=("PA13", "PA14", "PC14", "PC15", "PF0", "PF1", "PG10"),
+        usarts=frozenset({1, 2, 3, 4, 5}),
+        lpuarts=frozenset({1}),
+        uart_dma=frozenset({(False, 1), (False, 2), (False, 3), (False, 4), (False, 5), (True, 1)}),
+        lpuart_send_only=False,
+        spis=frozenset({1, 2, 3}),
+        spi_limited=frozenset(),
+        i2cs=frozenset({1, 2, 3, 4}),
+        qspi=frozenset({1}),
+        timers=frozenset({1, 2, 3, 4, 5, 6, 7, 8, 15, 16, 17, 20}),
+        lptims=frozenset({1}),
+        lptim_encoders=frozenset({1}),
+        adc=1,
+        default_lpuart=("PC1", "PC0"),
+        default_qei=(1, "PA8", "PA9", "PA10"),
+        functions=_G474_FUNCTIONS,
+        analog={
+            "PA0": 1,
+            "PA1": 2,
+            "PA2": 3,
+            "PA3": 4,
+            "PB0": 15,
+            "PB1": 12,
+            "PB11": 14,
+            "PB12": 11,
+            "PB14": 5,
+            "PC0": 6,
+            "PC1": 7,
+            "PC2": 8,
+            "PC3": 9,
+            "PF0": 10,
+        },
+        terminal_usart=2,
+        uart_instances=6,
+        timer_instances=21,
+        i2c_instances=5,
+        timer_table=20,
+        timer_af=_G474_TIMER_AF,
+        image_limits_erase=False,
+        spi_loop={2: 3, 3: 2},
+        lpm_deep=False,
+        dac_outputs={"PA4": 1, "PA6": 2},
+    ),
 }
 
-_TERMINAL_USART = 1
 _DEFAULT_LPUART = 1
-# `Instances()` of the factories: instance numbers 0 .. n-1 parse, the others answer `ERR range`.
-_INSTANCES = {"uart": 3, "spi": 4, "pwm": 18, "qei": 18, "wdt": 1}
-# `hal::peripheralTimer` holds TIM1 .. TIM17.
-_TIMER_TABLE_SIZE = 17
+# `Instances()` of the factories: instance numbers 0 .. n-1 parse, the others answer `ERR range`. The UART and the
+# timer based factories take theirs from the board (`_Family`).
+_INSTANCES = {"spi": 4, "wdt": 1}
 _ADC_KEY_MAX = 0xFFFF
 # Instances a group holds at once (PROTOCOL.md: one per group, eight GPIO pins); groups not listed hold one.
 OPEN_LIMITS = {
@@ -442,7 +764,7 @@ _RECEIVE_TIMEOUT_MAX_MS = 10_000
 _ADC_MEASURE_TIMEOUT = 1.0
 _ADC_DMA = ("dma1", 7)
 # `adc.open trgo=`: PwmStm drives TRGO only, and the WBA55 ADC4 reaches TIM1 through TRGO2 alone (AdcFactory.cpp).
-_ADC_PWM_TRIGGER_TIMERS = {"stm32wb55": frozenset({1, 2}), "stm32wba55": frozenset({2})}
+_ADC_PWM_TRIGGER_TIMERS = {"stm32wb55": frozenset({1, 2}), "stm32wba55": frozenset({2}), "stm32g474": frozenset({1, 2})}
 _QEI_RESOLUTION_16BIT = 65536
 _QEI_VELOCITY_MAX_US = 1_000_000
 _QEI_CAPTURES = ("a", "b", "ab")
@@ -687,6 +1009,10 @@ class FakeFirmware(FakeTerminalDevice):
     def timer_exists(self, timer: int) -> bool:
         return timer in self.spec.timers
 
+    def timer_af(self, channel: int, timer: int, pin: str, default: int) -> int:
+        """Alternate function `sgpio.af` muxes: the pin's own where the generated table differs per pin."""
+        return self.spec.timer_af.get((timer, channel, pin), default)
+
     def open_instance(
         self,
         group: str,
@@ -730,7 +1056,14 @@ class FakeFirmware(FakeTerminalDevice):
 
     def _index(self, group: str, text: str) -> int:
         """`HilSingleInstance::Parse`: the instance number of the command."""
-        return _number(text, 0, _INSTANCES[group] - 1)
+        return _number(text, 0, self._instances(group) - 1)
+
+    def _instances(self, group: str) -> int:
+        if group == "uart":
+            return self.spec.uart_instances
+        if group in ("pwm", "qei"):
+            return self.spec.timer_instances
+        return _INSTANCES[group]
 
     def _find(self, group: str, text: str) -> tuple[str, dict[str, Any]]:
         key = str(self._index(group, text))
@@ -1031,7 +1364,7 @@ class FakeFirmware(FakeTerminalDevice):
             _fail("unsupported")
         if not expect.uart_baud_fits(self.kernel_clock, baud, lp, expect.uart_baud_max(self.family)):
             _fail("range")
-        terminal = not lp and index == _TERMINAL_USART
+        terminal = not lp and index == self.spec.terminal_usart
         defaults = self._terminal_pins() if terminal else self.spec.default_lpuart if lp and index == _DEFAULT_LPUART else None
         if defaults is not None and tx is None and rx is None and rts is None and cts is None:
             tx, rx = defaults
@@ -1143,9 +1476,9 @@ class FakeFirmware(FakeTerminalDevice):
         _shape(args, options, 1, 1, ("pins", "sampling", "timer", "rate", "trgo"))
         key = self._adc_key(args)
         _choice(options, "sampling", self.spec.sampling, expect.ADC_DEFAULT_SAMPLING[self.family])
-        timer = _number(options["timer"], 0, _TIMER_TABLE_SIZE) if "timer" in options else None
+        timer = _number(options["timer"], 0, self.spec.timer_table) if "timer" in options else None
         rate = _number(options.get("rate", str(expect.ADC_DEFAULT_RATE)), 1, expect.ADC_RATE_MAX)
-        trgo = _number(options["trgo"], 0, _TIMER_TABLE_SIZE) if "trgo" in options else None
+        trgo = _number(options["trgo"], 0, self.spec.timer_table) if "trgo" in options else None
         if "rate" in options and timer is None:
             _fail("usage")
         if trgo is not None and (timer is not None or "rate" in options):

@@ -15,7 +15,7 @@ namespace validation
     struct Console
     {
         static constexpr std::size_t receiveBufferSize = 128;
-        static constexpr std::size_t transmitBufferSize = 1024;
+        static constexpr std::size_t transmitBufferSize = 2048;
         static constexpr std::size_t queueSize = 256;
 
         static_assert(queueSize >= receiveBufferSize / 2, "terminal queue must absorb a whole DMA half-buffer");

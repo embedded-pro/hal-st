@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(STM32WB) || defined(STM32WBA)
+
 #include "hal_st/synchronous_stm32fxxx/SynchronousAesStm.hpp"
 #include "services/hil/HilCommand.hpp"
 #include <array>
@@ -28,3 +30,5 @@ namespace validation
         std::array<Command, 2> commands;
     };
 }
+
+#endif

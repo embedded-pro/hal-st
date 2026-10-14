@@ -19,6 +19,7 @@ namespace validation::owners
     inline constexpr services::HilOwner lowPower = 28;
     inline constexpr services::HilOwner dma = 29;
     inline constexpr services::HilOwner scaffold = 30;
+    inline constexpr services::HilOwner dac = 31;
 
-    static_assert(i2c == services::HilOwners::extension && scaffold < services::HilOwners::last);
+    static_assert(i2c == services::HilOwners::extension && dac == services::HilOwners::last);
 }

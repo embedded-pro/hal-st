@@ -11,8 +11,18 @@ def test_timer_features():
     assert expect.timer_counter_max(1) == expect.timer_counter_max(16) == 0xFFFF
     assert [timer for timer in (1, 2, 3, 16, 17) if expect.timer_has_break(timer)] == [1, 16, 17]
     assert [timer for timer in (1, 2, 3, 16, 17) if expect.timer_has_center_mode(timer)] == [1, 2, 3]
-    assert sorted(expect.ENCODER_TIMERS) == [1, 2, 3]
+    assert sorted(expect.ENCODER_TIMERS) == [1, 2, 3, 4, 5, 8, 20]
     assert sorted(expect.ADC_TRIGGER_TIMERS) == [1, 2]
+
+
+def test_g4_timer_features():
+    assert expect.timer_counter_max(5) == 0xFFFFFFFF
+    assert [timer for timer in (1, 8, 15, 16, 17, 20) if expect.timer_has_break(timer)] == [1, 8, 15, 16, 17, 20]
+    assert [channel for channel in (1, 2, 3, 4) if expect.timer_has_channel(15, channel)] == [1, 2]
+    assert [timer for timer in (1, 3, 4, 8, 15, 16, 20) if expect.timer_has_center_mode(timer)] == [1, 3, 4, 8, 20]
+    assert expect.timer_has_complementary(8, 3) and expect.timer_has_complementary(15, 1)
+    assert not expect.timer_has_complementary(15, 2) and not expect.timer_has_complementary(3, 1)
+    assert expect.timer_has_break_filter("stm32g474", 15) and not expect.timer_has_break_filter("stm32wb55", 16)
 
 
 def test_pwm_clock_and_ticks():

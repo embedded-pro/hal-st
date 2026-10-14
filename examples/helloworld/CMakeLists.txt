@@ -13,7 +13,7 @@ target_compile_definitions(examples_st.helloworld_nucleo64 PUBLIC
     $<$<STREQUAL:${TARGET_MCU},stm32wba55>:NUCLEO=Nucleo64WBA55Ui>
     $<$<STREQUAL:${TARGET_MCU},stm32wba65>:NUCLEO=Nucleo64WBA6Ui>
     $<$<STREQUAL:${TARGET_MCU},stm32wb55>:NUCLEO=Nucleo64WBUi>
-    $<$<STREQUAL:${TARGET_MCU},stm32g474>:NUCLEO=Nucleo64WBUi>
+    $<$<STREQUAL:${TARGET_MCU},stm32g474>:NUCLEO=Nucleo64Ui>
 )
 
 target_link_libraries(examples_st.helloworld_nucleo64 PRIVATE

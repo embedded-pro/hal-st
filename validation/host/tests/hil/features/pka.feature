@@ -1,3 +1,4 @@
+@family:stm32wb55 @family:stm32wba55
 Feature: Public key accelerator
   The public key accelerator (`hal::PkaStm` on `services::secp256r1`) through the `pka` group: scalar multiplication
   (multiples of G, the CAVP ECC CDH vector, n - 1, operands shorter than 32 bytes padded by the firmware), the point

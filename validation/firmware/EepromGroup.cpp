@@ -1,4 +1,5 @@
 #include "validation/firmware/EepromGroup.hpp"
+#include "BoardProfile.hpp"
 #include "infra/event/EventDispatcher.hpp"
 #include "validation/firmware/I2cTiming.hpp"
 #include "validation/firmware/Owners.hpp"
@@ -12,7 +13,7 @@ namespace validation
     {
         using services::HilStatus;
 
-        constexpr uint32_t instances = 4;
+        constexpr uint32_t instances = board::i2cInstances;
         constexpr uint32_t minimumAddress = 0x08;
         constexpr uint32_t maximumAddress = 0x77;
         constexpr uint32_t maximumSize = 65536;

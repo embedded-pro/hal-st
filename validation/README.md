@@ -1,13 +1,13 @@
 # Hardware-in-the-loop validation
 
-This directory validates the hal-st drivers on real hardware: a NUCLEO-WB55RG or NUCLEO-WBA55CG runs a validation firmware, and a host PC drives that firmware and a Digilent Analog Discovery 3 (AD3) to stimulate and measure every peripheral.
+This directory validates the hal-st drivers on real hardware: a NUCLEO-WB55RG, NUCLEO-WBA55CG or NUCLEO-G474RE runs a validation firmware, and a host PC drives that firmware and a Digilent Analog Discovery 3 (AD3) to stimulate and measure every peripheral.
 Every driver is exercised generically, with each variant it has (interrupt, DMA, synchronous, low-power instance) and with every option the firmware exposes.
 The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardware-in-the-loop terminal and the host reuses the generic bench code of ad3-waveforms-bench.
 
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
 - `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
-- hal-st has no comparator, CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards").
+- hal-st has no comparator, CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards"). The `dac` group exists on the NUCLEO-G474RE only.
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
 
 ## Why C++ and Python
@@ -36,19 +36,25 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
   - `bundle1` wires all 16 DIOs and W1/W2 on two ADC inputs, and runs nearly the whole suite.
   - `bundle2` of the NUCLEO-WB55RG moves DIO9/DIO10 to the LPTIM1 inputs PC0/PC2 for the LPTIM encoder tests; W2 and scope 2 are unplugged because PC2 is then driven by a DIO.
   - `bundle2` of the NUCLEO-WBA55CG moves DIO8, DIO9, DIO11 and DIO14 to PA7, PA6, PB8 and PA0 for SPI3, TIM2 CH3/CH4, TIM16 CH1N and the LPTIM1 encoder, and carries the I2C and SPI loop options; W1, W2 and both scopes are unplugged (with `--with i2c` the scopes measure the I2C rise time).
+  - `bundle1` of the NUCLEO-G474RE puts the TIM1 channels, SPI1, USART1, LPUART1 and the GPIO/EXTI pin on DIO0-15, with W1/W2 on ADC1 IN2 (PA1) and IN8 (PC2).
+  - `bundle2` of the NUCLEO-G474RE moves all 16 DIOs to USART3, UART4, UART5, SPI2 and SPI3 (W1/W2 as in `bundle1`) and carries the SPI loop option.
+  - `bundle3` of the NUCLEO-G474RE moves them to the TIM4, TIM5, TIM8, TIM15 and TIM20 channels, TIM2 CH3/CH4 and the I2C1 and I2C4 pins; W1 and W2 are unplugged, and it carries the I2C and DAC options (with `--with dac` the scopes measure the two DAC outputs).
 - Optional wiring is fitted on top of a bundle and enabled with `--with <tag>` (see [Optional wiring](#optional-wiring)):
-  - `loopback` - an SPI1 MOSI-MISO jumper (both boards, both bundles);
-  - `i2c` - I2C1 to I2C3 with external pull-ups and a 24Cxx EEPROM on a breadboard (NUCLEO-WB55RG `bundle1`, NUCLEO-WBA55CG `bundle2`);
-  - `spiloop` - SPI1 to SPI2 (NUCLEO-WB55RG `bundle1`) or SPI1 to SPI3 (NUCLEO-WBA55CG `bundle2`); not together with `loopback`.
+  - `loopback` - an SPI1 MOSI-MISO jumper (NUCLEO-WB55RG and NUCLEO-WBA55CG, both bundles; NUCLEO-G474RE `bundle1`);
+  - `i2c` - I2C1 to I2C3 with external pull-ups and a 24Cxx EEPROM on a breadboard (NUCLEO-WB55RG `bundle1`, NUCLEO-WBA55CG `bundle2`), I2C4 to I2C1 on the NUCLEO-G474RE (`bundle3`);
+  - `spiloop` - SPI1 to SPI2 (NUCLEO-WB55RG `bundle1`), SPI1 to SPI3 (NUCLEO-WBA55CG `bundle2`) or SPI2 to SPI3 (NUCLEO-G474RE `bundle2`); not together with `loopback` on the first two boards;
+  - `dac` - the scopes on the two DAC outputs (NUCLEO-G474RE `bundle3`).
 - Fit an option only together with its `--with <tag>` and remove it otherwise: its wiring loads pins that other tests drive. Start every new setup with the [bench bring-up](#bench-bring-up), which checks the wiring before the suite runs.
 - Each pin serves several tests: the TIM1 outputs are also SPI and encoder pins, the LPUART1 CTS pin is also the SPI1 MISO, and so on. The firmware frees every pin between tests, so a pin can change role from one test to the next.
 - Tests whose connections are missing from the selected sets are skipped with the reason, and so are tests on pins an enabled option loads ([Which tests skip, and how](#which-tests-skip-and-how)).
-- The terminal is USART1 on the ST-LINK virtual COM port (`/dev/ttyACM0`, `COMx`): PB6/PB7 on the NUCLEO-WB55RG, PB12/PA8 on the NUCLEO-WBA55CG, at 921600 baud.
+- The terminal is USART1 on the ST-LINK virtual COM port (`/dev/ttyACM0`, `COMx`): PB6/PB7 on the NUCLEO-WB55RG, PB12/PA8 on the NUCLEO-WBA55CG, at 921600 baud; on the NUCLEO-G474RE it is USART2 (PA2/PA3, AF7) on the same kind of virtual COM port.
   If the ST-LINK of a board cannot keep up with 921600 baud, change `terminalBaudRate` in `firmware/boards/<mcu>/BoardProfile.hpp` and `terminal.baud` in the board file together.
 - The NUCLEO-WB55RG positions come from its user manual, UM2435 Rev 2 (board MB1355C: Table 10, Table 11, Fig. 8 and Fig. 24), cross-checked with the STM32CubeWB example readmes. A later board revision (MB1355D, user manual UM2819) may differ: check the solder bridges named in the table (SB1, SB5, SB8, SB9, SB11, SB12, SB14, SB15, SB41) before wiring.
 - The NUCLEO-WBA55CG user manual, UM3301, could not be consulted: its positions come from the STM32CubeWBA example readmes, Zephyr's Arduino connector map and modm-data's transcription of UM3301 Table 8, and its 3V3 and GND pins from a single source (the STM32-Sidewalk-SDK README).
   Each position names its source; check the silkscreen and do the pre-power check of the bring-up before fitting the I2C option.
 - NUCLEO-WB55RG: the firmware runs on the Cortex-M4 alone and never starts the wireless coprocessor; the linker script keeps it below the flash and SRAM the wireless stack uses.
+- NUCLEO-G474RE: the HSE is the 24 MHz crystal of the board and the firmware runs at 170 MHz; HSI48 is on for the RNG. The green LD2 on PA5 is the debug LED, so PA5 stays unwired; B1 (PC13) is not used.
+  The user manual, UM2505, could not be consulted: the Arduino labels are the standard Nucleo-64 mapping and the other positions are morpho pins named by port and pin. The firmware and the board file were checked against the pin signals of the STM32G474RE, but **not** against the board: confirm every position against the silkscreen and the connector tables of UM2505, and do the pre-power check of the bring-up, before the first run.
 
 ## Build and flash the firmware
 
@@ -59,6 +65,8 @@ cmake --preset stm32wb55
 cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware
 cmake --preset stm32wba55
 cmake --build --preset stm32wba55-RelWithDebInfo --target hal_st.validation_firmware
+cmake --preset stm32g474
+cmake --build --preset stm32g474-RelWithDebInfo --target hal_st.validation_firmware
 ```
 
 Build it optimized (`RelWithDebInfo`): at `-O0` the interrupt-driven drivers cannot keep up with the 921600 baud terminal.
@@ -68,7 +76,7 @@ The artifacts are `build/<preset>/validation/firmware/RelWithDebInfo/hal_st.vali
 STM32_Programmer_CLI -c port=SWD -w build/stm32wb55/validation/firmware/RelWithDebInfo/hal_st.validation_firmware.hex -v -rst
 ```
 
-After reset the firmware prints `EVT boot board=... family=... sysclk=... reset=...`, and the debug LED blinks: the blue LD1 on the NUCLEO-WB55RG, the green LD2 on the NUCLEO-WBA55CG, which is not connected on a stock board (SB28 open) and stays dark unless SB28 is closed.
+After reset the firmware prints `EVT boot board=... family=... sysclk=... reset=...`, and the debug LED blinks: the blue LD1 on the NUCLEO-WB55RG, the green LD2 on the NUCLEO-WBA55CG, which is not connected on a stock board (SB28 open) and stays dark unless SB28 is closed, and the green LD2 (PA5) on the NUCLEO-G474RE.
 
 ## Install the host package
 
@@ -108,6 +116,8 @@ pytest validation/host/tests/hil/test_qei.py --board nucleo_wb55rg --port /dev/t
 pytest validation/host/tests/hil/test_qei.py validation/host/tests/hil/test_timer_pwm.py --board nucleo_wba55cg --port /dev/ttyACM0 --wiring-set bundle2
 pytest validation/host/tests/hil --board nucleo_wba55cg --port /dev/ttyACM0 --wiring-set bundle1
 pytest validation/host/tests/hil --board nucleo_wb55rg --port /dev/ttyACM0 --no-ad3
+pytest validation/host/tests/hil --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle1 --depth quick
+pytest validation/host/tests/hil --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle3 --with dac --depth quick
 ```
 
 Run with `--depth quick` first; once it passes, run it again with `--depth full`, which takes much longer. Collect the reports with `--junitxml report-<board>-<sets>-<depth>.xml`.
@@ -263,6 +273,7 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
    ```bash
    pytest validation/host/tests/hil/test_wiring.py --board nucleo_wb55rg --port /dev/ttyACM0 --wiring-set bundle1 --with i2c --with spiloop
    pytest validation/host/tests/hil/test_wiring.py --board nucleo_wba55cg --port /dev/ttyACM0 --wiring-set bundle2 --with i2c
+   pytest validation/host/tests/hil/test_wiring.py --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle3 --with i2c --with dac
    ```
 
    With the AD3 outputs and pulls off it uses GPIO commands only: each jumper of an enabled option conducts both ways, its pull-ups sit on a live 3V3 rail, the jumpers of offered options that are not enabled are absent, and the pins of `tests.wiring.undriven` follow both MCU pulls (NUCLEO-WBA55CG: no solder bridge connects an ST-LINK line to PA0, PB9, PA10, PB5 or PB15).
@@ -271,6 +282,9 @@ The tables follow the `wiring_sets` of the board files (keep both in step); the 
    ```bash
    pytest validation/host/tests/hil --board nucleo_wb55rg --port /dev/ttyACM0 --wiring-set bundle1 --with i2c --with spiloop --depth quick
    pytest validation/host/tests/hil --board nucleo_wba55cg --port /dev/ttyACM0 --wiring-set bundle2 --with i2c --with spiloop --depth quick
+   pytest validation/host/tests/hil --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle1 --with loopback --depth quick
+   pytest validation/host/tests/hil --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle2 --with spiloop --depth quick
+   pytest validation/host/tests/hil --board nucleo_g474re --port /dev/ttyACM0 --wiring-set bundle3 --with i2c --with dac --depth quick
    ```
 
 ### NUCLEO-WB55RG wiring
@@ -354,19 +368,92 @@ PA9 is the green LD2, the firmware's debug LED, which stays dark unless SB28 is 
 | `bundle2`  | DIO14           | PA0 (spi3clk)                | CN3-38 (A5)                       | readmes (3)               | SPI3 SCK, encoder LPTIM1 A (LPTIM1 IN1), GPIO                                                                                                                                                     |
 | `bundle2`  | Scope 1+, 2+    | PB2 (i2c1scl), PB1 (i2c1sda) | male pins in the SCL and SDA rows | -                         | only with `--with i2c` (rise time); 1- and 2- on the GND rail                                                                                                                                     |
 
+### NUCLEO-G474RE wiring
+
+UM2505 could not be consulted, so no position has a sourced header number: the Position column gives the Arduino label of the net (the standard Nucleo-64 mapping, which UM2505 repeats) where there is one, and the morpho pin name otherwise. Find a morpho position by its port name on the silkscreen or in the connector tables of UM2505 before wiring, and correct this table if a net sits elsewhere.
+
+- AD3 GND goes to any GND pin of the board. Scope 1-/2- need GND too (and, with `--with i2c`, so does the AD3 GND): feed a breadboard GND rail from one GND pin and put the leads on male pins in that rail.
+- PA5 is the green LD2 (the firmware's debug LED), PA2/PA3 are the terminal, PA13/PA14 are SWD, PC13 is B1: none of them is wired. PB8 is the BOOT0 pin and carries DIO0 in `bundle3`; the option bytes of a stock board boot from flash whatever PB8 does (`nSWBOOT0` = 1).
+- Where a net has no free header position (most morpho-only nets), the lead goes through a breadboard row: one male-female wire from the header pin to the row and the AD3 lead on a male pin in that row.
+
+| Wiring set | AD3      | Pin               | Position                   | Note                                                                                                                  |
+|------------|----------|-------------------|----------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| `bundle1`  | DIO0     | PB3 (spi1clk)     | Arduino D3                 | SPI1 SCK, TIM2 CH2, encoder TIM2 B, GPIO                                                                              |
+| `bundle1`  | DIO1     | PB4 (spi1miso)    | Arduino D5                 | SPI1 MISO, TIM3 CH1, encoder TIM3 A, UART5 RTS, GPIO, EXTI line 4                                                     |
+| `bundle1`  | DIO2     | PB5 (spi1mosi)    | Arduino D4                 | SPI1 MOSI, TIM3 CH2, encoder TIM3 B, TIM16 break, I2C3 SDA, LPTIM1 input 1, GPIO                                      |
+| `bundle1`  | DIO3     | PA15 (spi1cs)     | morpho PA15                | SPI1 NSS and chip select, TIM1 break, TIM2 CH1, encoder TIM2 A, GPIO                                                  |
+| `bundle1`  | DIO4     | PA8 (tim1ch1)     | Arduino D7                 | TIM1 CH1, encoder TIM1 A, MCO, I2C3 SCL, I2C2 SDA, GPIO                                                               |
+| `bundle1`  | DIO5     | PA9 (tim1ch2)     | Arduino D8                 | TIM1 CH2, encoder TIM1 B, USART1 TX, I2C2 SCL, GPIO                                                                   |
+| `bundle1`  | DIO6     | PA10 (tim1ch3)    | Arduino D2                 | TIM1 CH3, encoder TIM1 index, USART1 RX, TIM17 break, GPIO                                                            |
+| `bundle1`  | DIO7     | PA11 (tim1ch4)    | morpho PA11                | TIM1 CH4, USART1 CTS, GPIO                                                                                            |
+| `bundle1`  | DIO8     | PA7 (tim1ch1n)    | Arduino D11                | TIM1 CH1N, TIM17 CH1, GPIO                                                                                            |
+| `bundle1`  | DIO9     | PB0 (tim1ch2n)    | Arduino A3                 | TIM1 CH2N, TIM3 CH3, ADC1 IN15, GPIO                                                                                  |
+| `bundle1`  | DIO10    | PB1 (tim1ch3n)    | morpho PB1                 | TIM1 CH3N, TIM3 CH4, LPUART1 RTS, ADC1 IN12, GPIO                                                                     |
+| `bundle1`  | DIO11    | PA12 (usart1rts)  | morpho PA12                | USART1 RTS, TIM16 CH1, GPIO                                                                                           |
+| `bundle1`  | DIO12    | PC1 (lpuart1tx)   | Arduino A4                 | LPUART1 TX, ADC1 IN7, GPIO                                                                                            |
+| `bundle1`  | DIO13    | PC0 (lpuart1rx)   | Arduino A5                 | LPUART1 RX, ADC1 IN6, GPIO                                                                                            |
+| `bundle1`  | DIO14    | PC4 (gpio0)       | Arduino D1, PC4            | GPIO/EXTI line 4, TIM2 and TIM3 encoder index, timer marker, DMA wave output, watchdog warning toggle, low-power wake |
+| `bundle1`  | DIO15    | PB13 (lpuart1cts) | morpho PB13                | LPUART1 CTS, USART3 CTS, GPIO                                                                                         |
+| `bundle1`  | W1       | PA1 (ain2)        | Arduino A1, PA1            | ADC1 IN2                                                                                                              |
+| `bundle1`  | W2       | PC2 (ain6)        | morpho PC2                 | ADC1 IN8                                                                                                              |
+| `bundle1`  | Scope 1+ | PA1 (ain2)        |                            | same net as W1: male pin in the A1 socket, 1- on the GND rail                                                         |
+| `bundle1`  | Scope 2+ | PC2 (ain6)        |                            | same net as W2: male pin on the PC2 morpho pin, 2- on the GND rail                                                    |
+| `bundle2`  | DIO0     | PB10 (usart3tx)   | morpho PB10, Arduino D6    | USART3 TX, TIM2 CH3, GPIO                                                                                             |
+| `bundle2`  | DIO1     | PB11 (usart3rx)   | morpho PB11                | USART3 RX, TIM2 CH4, GPIO                                                                                             |
+| `bundle2`  | DIO2     | PB14 (usart3rts)  | morpho PB14                | USART3 RTS, SPI2 MISO, GPIO                                                                                           |
+| `bundle2`  | DIO3     | PB13 (usart3cts)  | morpho PB13                | USART3 CTS, SPI2 SCK, GPIO                                                                                            |
+| `bundle2`  | DIO4     | PC10 (uart4tx)    | morpho PC10                | UART4 TX, SPI3 SCK, GPIO                                                                                              |
+| `bundle2`  | DIO5     | PC11 (uart4rx)    | morpho PC11                | UART4 RX, SPI3 MISO, GPIO                                                                                             |
+| `bundle2`  | DIO6     | PA15 (uart4rts)   | morpho PA15                | UART4 RTS, SPI1 NSS, TIM1 break, GPIO                                                                                 |
+| `bundle2`  | DIO7     | PB7 (uart4cts)    | morpho PB7                 | UART4 CTS, LPTIM1 input 2, GPIO                                                                                       |
+| `bundle2`  | DIO8     | PC12 (uart5tx)    | morpho PC12                | UART5 TX, SPI3 MOSI, GPIO                                                                                             |
+| `bundle2`  | DIO9     | PD2 (uart5rx)     | morpho PD2                 | UART5 RX, GPIO                                                                                                        |
+| `bundle2`  | DIO10    | PB4 (uart5rts)    | Arduino D5, PB4            | UART5 RTS, TIM3 CH1, GPIO                                                                                             |
+| `bundle2`  | DIO11    | PB5 (uart5cts)    | Arduino D4, PB5            | UART5 CTS, LPTIM1 input 1, TIM3 CH2, GPIO                                                                             |
+| `bundle2`  | DIO12    | PB15 (spi2mosi)   | morpho PB15                | SPI2 MOSI, TIM15 CH2, GPIO                                                                                            |
+| `bundle2`  | DIO13    | PB12 (spi2cs)     | morpho PB12                | SPI2 NSS and chip select, GPIO                                                                                        |
+| `bundle2`  | DIO14    | PA4 (spi3cs)      | morpho PA4                 | SPI3 NSS and chip select, GPIO                                                                                        |
+| `bundle2`  | DIO15    | PC4 (gpio0)       | Arduino D1, PC4            | GPIO/EXTI line 4, timer marker, DMA wave output, watchdog warning toggle                                              |
+| `bundle2`  | W1       | PA1 (ain2)        | Arduino A1, PA1            | ADC1 IN2                                                                                                              |
+| `bundle2`  | W2       | PC2 (ain6)        | morpho PC2                 | ADC1 IN8                                                                                                              |
+| `bundle2`  | Scope 1+ | PA1 (ain2)        |                            | same net as W1: male pin in the A1 socket, 1- on the GND rail                                                         |
+| `bundle2`  | Scope 2+ | PC2 (ain6)        |                            | same net as W2: male pin on the PC2 morpho pin, 2- on the GND rail                                                    |
+| `bundle3`  | DIO0     | PB8 (i2c1scl)     | BOOT0 pin PB8; Arduino D15 | I2C1 SCL, TIM4 CH3, GPIO                                                                                              |
+| `bundle3`  | DIO1     | PB9 (i2c1sda)     | Arduino D14                | I2C1 SDA, TIM4 CH4, TIM17 CH1, GPIO                                                                                   |
+| `bundle3`  | DIO2     | PC6 (i2c4scl)     | morpho PC6                 | I2C4 SCL, TIM8 CH1, encoder TIM8 A, GPIO                                                                              |
+| `bundle3`  | DIO3     | PC7 (i2c4sda)     | morpho PC7                 | I2C4 SDA, TIM8 CH2, encoder TIM8 B, GPIO                                                                              |
+| `bundle3`  | DIO4     | PC8 (tim8ch3)     | morpho PC8                 | TIM8 CH3, I2C3 SCL, GPIO                                                                                              |
+| `bundle3`  | DIO5     | PC9 (tim8ch4)     | morpho PC9                 | TIM8 CH4, I2C3 SDA, GPIO                                                                                              |
+| `bundle3`  | DIO6     | PB6 (tim4ch1)     | morpho PB6                 | TIM4 CH1, encoder TIM4 A, TIM16 CH1N, GPIO                                                                            |
+| `bundle3`  | DIO7     | PB7 (tim4ch2)     | morpho PB7                 | TIM4 CH2, encoder TIM4 B, TIM8 break, LPTIM1 input 2, GPIO                                                            |
+| `bundle3`  | DIO8     | PB14 (tim15ch1)   | morpho PB14                | TIM15 CH1, SPI2 MISO, GPIO                                                                                            |
+| `bundle3`  | DIO9     | PB15 (tim15ch1n)  | morpho PB15                | TIM15 CH2 and CH1N, SPI2 MOSI, GPIO                                                                                   |
+| `bundle3`  | DIO10    | PB2 (tim20ch1)    | morpho PB2                 | TIM20 CH1, GPIO                                                                                                       |
+| `bundle3`  | DIO11    | PA0 (tim5ch1)     | Arduino A0, PA0            | TIM5 CH1, encoder TIM5 A, GPIO                                                                                        |
+| `bundle3`  | DIO12    | PA1 (tim5ch2)     | Arduino A1, PA1            | TIM5 CH2, encoder TIM5 B, GPIO                                                                                        |
+| `bundle3`  | DIO13    | PB10 (tim2ch3)    | morpho PB10, Arduino D6    | TIM2 CH3, GPIO                                                                                                        |
+| `bundle3`  | DIO14    | PB11 (tim2ch4)    | morpho PB11                | TIM2 CH4, GPIO                                                                                                        |
+| `bundle3`  | DIO15    | PC4 (gpio0)       | Arduino D1, PC4            | GPIO/EXTI line 4, encoder index, timer marker, DMA wave output, watchdog warning toggle                               |
+| `bundle3`  | Scope 1+ | PA4 (dac1out1)    |                            | DAC1 OUT1 (morpho PA4, Arduino A2), 1- on the GND rail; only with `--with dac`                                        |
+| `bundle3`  | Scope 2+ | PA6 (dac2out1)    |                            | DAC2 OUT1 (morpho PA6, Arduino D12), 2- on the GND rail; only with `--with dac`                                       |
+
 ### Optional wiring
 
 The options a set offers are in its `options` (board file); `--with <tag>` enables one, and a tag no selected set offers, or two options that exclude each other, stop the run with a usage error.
 The table lists the pins each option loads (tests on them skip unless they use the option) and pulls up; the tables after it give, per net, the AD3 lead already on it, where the jumper or breadboard wire goes, and the source of each position.
 
-| Board          | Option     | Sets                 | Loads                                    | Pull-ups           | Excludes   |
-|----------------|------------|----------------------|------------------------------------------|--------------------|------------|
-| NUCLEO-WB55RG  | `loopback` | `bundle1`, `bundle2` | PA6, PA7                                 | -                  | `spiloop`  |
-| NUCLEO-WB55RG  | `i2c`      | `bundle1`            | PB8, PB9, PC0, PC1                       | PB8, PB9, PC0, PC1 | -          |
-| NUCLEO-WB55RG  | `spiloop`  | `bundle1`            | PA4-PA7, PB12-PB15                       | -                  | `loopback` |
-| NUCLEO-WBA55CG | `loopback` | `bundle1`, `bundle2` | PA15, PB3                                | -                  | `spiloop`  |
-| NUCLEO-WBA55CG | `i2c`      | `bundle2`            | PB2, PB1, PA6, PA7                       | PB2, PB1, PA6, PA7 | -          |
-| NUCLEO-WBA55CG | `spiloop`  | `bundle2`            | PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5 | -                  | `loopback` |
+| Board          | Option     | Sets                 | Loads                                         | Pull-ups           | Excludes   |
+|----------------|------------|----------------------|-----------------------------------------------|--------------------|------------|
+| NUCLEO-WB55RG  | `loopback` | `bundle1`, `bundle2` | PA6, PA7                                      | -                  | `spiloop`  |
+| NUCLEO-WB55RG  | `i2c`      | `bundle1`            | PB8, PB9, PC0, PC1                            | PB8, PB9, PC0, PC1 | -          |
+| NUCLEO-WB55RG  | `spiloop`  | `bundle1`            | PA4-PA7, PB12-PB15                            | -                  | `loopback` |
+| NUCLEO-WBA55CG | `loopback` | `bundle1`, `bundle2` | PA15, PB3                                     | -                  | `spiloop`  |
+| NUCLEO-WBA55CG | `i2c`      | `bundle2`            | PB2, PB1, PA6, PA7                            | PB2, PB1, PA6, PA7 | -          |
+| NUCLEO-WBA55CG | `spiloop`  | `bundle2`            | PB4, PA0, PB3, PB9, PA15, PB8, PA12, PA5      | -                  | `loopback` |
+| NUCLEO-G474RE  | `loopback` | `bundle1`            | PB5, PB4                                      | -                  | -          |
+| NUCLEO-G474RE  | `spiloop`  | `bundle2`            | PB13, PC10, PB14, PC11, PB15, PC12, PB12, PA4 | -                  | -          |
+| NUCLEO-G474RE  | `i2c`      | `bundle3`            | PC6, PB8, PC7, PB9                            | PC6, PB8, PC7, PB9 | -          |
+| NUCLEO-G474RE  | `dac`      | `bundle3`            | PA4, PA6                                      | -                  | -          |
 
 #### NUCLEO-WB55RG `--with loopback` (`bundle1`, `bundle2`)
 
@@ -443,6 +530,35 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 | MOSI: PA15 to PB8 | DIO2 at CN4-15; DIO11 moved from CN4-38 to a male pin in the row | D11 socket (CN6-4) to a breadboard row; CN4-38 (PB8, its only position) to the same row with a male-female wire | Zephyr label; readmes (14) and (12)                |
 | NSS: PA12 to PA5  | DIO3 at CN4-17; DIO15 at CN3-36                                  | D10 socket (CN6-3) to the A4 socket                                                                             | Zephyr labels; CN6-3 readmes (1); A4 by label only |
 
+#### NUCLEO-G474RE `--with loopback` (`bundle1`)
+
+One male-male wire from the D4 socket to the D5 socket; the SPI tests then leave DIO1 an input and check the read-back.
+
+| Net             | AD3 lead | Jumper end |
+|-----------------|----------|------------|
+| PB5 (SPI1 MOSI) | DIO2     | D4 socket  |
+| PB4 (SPI1 MISO) | DIO1     | D5 socket  |
+
+#### NUCLEO-G474RE `--with spiloop` (`bundle2`)
+
+SPI2 to SPI3, four wires; both ends of every net are observed by a DIO. The pins also serve USART3, UART4 and UART5, so the wires stay out of the other runs. Every net goes through a breadboard row: a male-female wire from each header pin to the row, and the two AD3 leads on male pins in the same row.
+
+| Net                | AD3 leads       |
+|--------------------|-----------------|
+| SCK: PB13 to PC10  | DIO3 and DIO4   |
+| MISO: PB14 to PC11 | DIO2 and DIO5   |
+| MOSI: PB15 to PC12 | DIO12 and DIO8  |
+| NSS: PB12 to PA4   | DIO13 and DIO14 |
+
+#### NUCLEO-G474RE `--with i2c` (`bundle3`)
+
+I2C4 (PC6 SCL, PC7 SDA) as the master against the I2C1 target (PB8 SCL, PB9 SDA) with the EEPROM, on the breadboard of [Parts for the I2C option](#parts-for-the-i2c-option): PC6 and PB8 to the SCL row, PC7 and PB9 to the SDA row, the AD3 leads of DIO0-3 on male pins in the rows, a 3V3 pin and a GND pin of the board to the rails (measure 3.3 V between the rails before inserting the EEPROM), and the AD3 GND lead moved to the GND rail.
+No scope sits on the bus rows (the scopes of `bundle3` serve `--with dac`), so `test_rise_time` skips; the standalone I2C2 and I2C3 tests run in `bundle1` on the MCU pull-ups (I2C2 on PA9/PA8, I2C3 on PA8/PB5).
+
+#### NUCLEO-G474RE `--with dac` (`bundle3`)
+
+Scope 1+ on PA4 (DAC1 OUT1, the A2 socket) and scope 2+ on PA6 (DAC2 OUT1, the D12 socket), 1- and 2- on the GND rail. The DAC outputs drive the scope probes only.
+
 ### Which tests skip, and how
 
 - Load gate: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`, `optional_dio`, `optional_scope`) for a pin an enabled option loads skips with "pin X loaded by --with T", unless it is marked `uses_option("T")` or `requires_option("T")`. Pins an option ties to a channel with a jumper resolve only for such tests.
@@ -451,6 +567,8 @@ SPI1 to SPI3; SPI3 is observed through DIO14, DIO10, DIO11 and DIO15. The PB8 en
 - Without `--with spiloop`: the SPI2 (NUCLEO-WB55RG) instance tests and the SPI1 to SPI2/SPI3 loops skip. With it, tests on its loaded pins skip unless they use the option, and `--with loopback` cannot be enabled as well.
 - With `--with loopback`: tests on PA6/PA7 (NUCLEO-WB55RG) or PA15/PB3 (NUCLEO-WBA55CG) skip unless marked `uses_option("loopback")`: QUADSPI, the SPI slave cases with the AD3 as master, PWM TIM1 CH1N and TIM16 CH1 (NUCLEO-WB55RG), TIM17 break and the encoder index (NUCLEO-WBA55CG).
 - NUCLEO-WBA55CG `bundle2`: the ADC, LPUART1 and TIM1/TIM16 break tests skip (no DIO, wavegen or scope on their pins).
+- NUCLEO-G474RE: no bundle wires all six QUADSPI pins (PA6 only serves `--with dac`), so `tests.qspi` is not configured and the QUADSPI cases skip; the HSEM, AES and PKA cases skip (WB55 and WBA55 only); the `dac` voltage cases need `--with dac` on `bundle3` (its argument checks run anywhere).
+  `bundle2` and `bundle3` have no TIM1, SPI1 or USART1 pins, and `bundle3` has no ADC inputs, so the tests that need them skip there.
 - `--with` a tag that no selected wiring set offers, or without `--wiring-set`: the run stops with a usage error.
 
 ## What is tested
@@ -459,6 +577,7 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
 
 - `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled (`pass --with <tag> or remove the wiring`), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
+- `test_dac.py` (NUCLEO-G474RE) - for `DigitalToAnalogPinImplStm`: the output voltage against the code on the scope (`--with dac`), the rails of the buffer, both outputs at once, the clamping of the code, argument errors and the pin ownership.
 - `test_uid.py` - the 96-bit unique device ID of `info`: twelve bytes, not blank memory, the lot number in printable ASCII, the same after a reset.
 - `test_clock.py` - `clock.info` against the board file: bus clocks, oscillator ready flags, the RNG kernel clock and (NUCLEO-WB55RG) the CLK48 source. On the NUCLEO-WB55RG also the clocks on the MCO pin (PA8, DIO0): SYSCLK/16 and HSI16/16 within 1 %, HSE/16 within 0.1 %, the LSE within 100 ppm (least-squares fit of the edge times), MCO off, and `clock.hsi48` stopping and restarting HSI48.
 - `test_gpio.py` - output levels with every drive (`hal::Speed`), inputs following the AD3 with every pull, pull-only idle levels, open drain, the user LED, eight pins at a time, pins held by other groups, interrupt counts for edge x handler type x pulse count x frequency against exact AD3 pulse trains, one EXTI line per port at a time, `gpio.pulse` timing.
@@ -505,7 +624,7 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
   - Reads: 4-line reads of static AD3 levels, a status poll that matches and one that times out (`variant=dma`; `variant=poll` hangs, a known gap).
   - Also the B.15 fix: writes answer the FIFO level of their completion callback (`flevel=0`) and two writes issued from one completion callback both reach the bus; the clock, the CRC of 256-byte reads, argument errors and the pins held while open.
   - The AD3 never drives a line the QUADSPI drives: it decodes writes and holds only lines the QUADSPI receives on, with its weakest drive. Every case skips while `--with loopback`, `--with spiloop` or `--with i2c` loads a QUADSPI pin.
-- `test_backup_ram.py` - `hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>` (RTC BKP0R-BKP19R on the NUCLEO-WB55RG, TAMP BKP0R-BKP15R on the NUCLEO-WBA55CG): the word count, every word written and read back with four patterns, fill and check, the words kept through a reset, argument errors.
+- `test_backup_ram.py` - `hal::BackupRamStm` as `hal::BackupRam<volatile uint32_t>` (RTC BKP0R-BKP19R on the NUCLEO-WB55RG, TAMP BKP0R-BKP15R on the NUCLEO-WBA55CG and the NUCLEO-G474RE): the word count, every word written and read back with four patterns, fill and check, the words kept through a reset, argument errors.
 - `test_flash.py` - the internal flash drivers (`FlashHomogeneousInternalStm`, `FlashInternalStm`, their synchronous twins and, on the NUCLEO-WB55RG, `FlashCoordinatedWithWirelessStack`) over a scratch region of 80 pages (NUCLEO-WB55RG) or 64 pages (NUCLEO-WBA55CG), with one sector per page and with a sector-size table of 1-, 2- and 4-page sectors:
   - the geometry and the first sector the firmware lets the tests erase (an erase that took the sector index for the absolute page could not reach the running image from there on);
   - every variant and layout erases exactly the pages of the sector it is given (the marker in the next sector stays, the previous sector is unchanged);
@@ -575,6 +694,7 @@ In `hal_st_validation` (hal-st specific):
 - `groups/crypto.py` - `fw.rng`, `fw.aes`, `fw.pka`; `fakes/crypto.py` is their fake firmware model (a deterministic RNG, AES and PKA through `crypto_ref`).
 - `groups/system_ext.py` - `fw.flash`, `fw.hsem`, `fw.bkp`, `fw.lpm` (`flash.stack starting` and `hsem.take` without `hold` register their undo with `close_all`), the sector table of `layout=table`, `flash_words` and `bkp_fill_value`.
 - `fakes/system_ext.py` - their fake firmware model: a flash array with page erase, HSEM state on the fake clock, backup words that survive `reset`, an `lpm.enter` that wakes at once, and the `wdt.start` refusal while the coordinated flash borrows the watchdog.
+- `groups/dac.py` - `fw.dac` (`open`, `set`, `close`) and the output model (`dac_volts`, `dac_code`); `fakes/dac.py` is its fake group.
 - `groups/qspi.py` - `fw.qspi` and the decoding of QUADSPI captures (`qspi_samples`, `qspi_bytes`, `qspi_frame`); `fakes/qspi.py` is its fake firmware model (STM32WB55).
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
@@ -584,7 +704,7 @@ In `hal_st_validation` (hal-st specific):
 
 In the firmware (`firmware/`):
 
-- `Main.cpp` composes the console, the pin pool and every command group; `Console` is the terminal on USART1; `boards/<mcu>/BoardProfile.hpp` holds the aliases, reserved pins, default pins, DMA request lines, clocks and ADC tables of each board.
+- `Main.cpp` composes the console, the pin pool and every command group; `Console` is the terminal on the USART of the board profile (USART1, USART2 on the NUCLEO-G474RE); `boards/<mcu>/BoardProfile.hpp` holds the aliases, reserved pins, default pins, DMA request lines, clocks and ADC tables of each board.
 - `PinFactoryStm` builds `hal::GpioPinStm`s over the generated pinout tables (bonded pins only, analog sharing, one EXTI line per port); `BoardInfoStm` reports the board, clock and reset cause; `TimerAllocation` keeps PWM, encoder and timer-triggered ADC off each other's timer.
 - `ResourceAllocation` keeps the groups that share an I2C, SPI, ADC or LPTIM instance, a DMA channel or an HSEM semaphore off each other, with the owner ids of `Owners.hpp`; `Payload` generates the `len=`/`pattern=` payloads and the `out=crc` CRCs; `ChannelPins`, `Stopwatch` (microseconds from the cycle counter) and `HsemMaster` (the one HSEM master of the STM32WB55) serve the newer groups.
 - One factory per command group (`UartFactory`, `SpiFactory`, `AdcFactory`, `PwmFactory`, `QeiFactory` with the `qei.index` command, `WatchDogFactory`) parses the hal-st options and builds the driver; `UnsupportedGroups` answers the rest.
@@ -594,4 +714,5 @@ In the firmware (`firmware/`):
 - `TimerGroup`, `TimerPwmGroup`, `LpTimerGroup` and `LpTimerPwmGroup` serve `tim.*`, `tpwm.*`, `lptim.*` and `lptpwm.*`, each a factory and a single-instance group; `QeiFactory` also builds the LPTIM encoder with `cap=rise|fall` and holds its LPTIM in `ResourceAllocation`.
 - `SyncGpioGroup` serves `sgpio.*` through `SyncGpioDriver`, the only translation unit that includes `SynchronousGpioStm.hpp`; `ClockGroup` serves `clock.*`; `UartFactory` also builds `SynchronousUartStmSendOnly` (`sendonly=1`).
 - `RngGroup`, `AesGroup` and `PkaGroup` are stateless command groups: `rng` and `aes` build their driver per command; `pka` builds one `PkaStm` on first use and keeps it.
+- `DacGroup` (STM32G4) serves `dac.*` over `hal::DigitalToAnalogPinImplStm`.
 - `FlashGroup`, `HsemGroup` (STM32WB), `BackupRamGroup` and `LowPowerGroup` serve `flash.*`, `hsem.*`, `bkp.*` and `lpm.*`; `WatchDogFactory` lends the WWDG to the coordinated flash driver (`Borrow`/`Return`).

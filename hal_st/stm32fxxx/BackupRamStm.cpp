@@ -5,7 +5,8 @@ namespace hal
 {
     BackupRamStm::BackupRamStm()
     {
-#if defined(STM32WBA)
+#if defined(STM32WBA) || defined(STM32G4)
+        __HAL_RCC_PWR_CLK_ENABLE();
         __HAL_RCC_RTCAPB_CLK_ENABLE();
         HAL_PWR_EnableBkUpAccess();
 #endif

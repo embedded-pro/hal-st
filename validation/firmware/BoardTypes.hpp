@@ -68,6 +68,12 @@ namespace validation
         std::array<HilPinId, 4> io;
     };
 
+    struct DacOutput
+    {
+        uint8_t dac;
+        HilPinId pin;
+    };
+
     struct LowPowerPins
     {
         HilPinId wake;

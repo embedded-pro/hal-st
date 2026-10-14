@@ -210,9 +210,9 @@ def image_below_region(flash_cfg, state):
 
 
 @then("the first accepted sector is the sector of the image, at most the sector count")
-def first_accepted(state):
+def first_accepted(flash_cfg, state):
     info = state["geometry"].info
-    assert info.first == min(info.image, info.sectors), info.raw
+    assert info.first == (min(info.image, info.sectors) if flash_cfg.get("image_limits_erase", True) else 0), info.raw
 
 
 @then("at least one sector is accepted")

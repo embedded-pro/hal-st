@@ -19,7 +19,6 @@ from .base import FakeGroup, _choice, _fail, _number, _shape, _tokens
 
 _IRQS = ("none", "immediate", "dispatched")
 _MODES = ("up", "down")
-_TIMER_INSTANCES = 18
 _LPTIM_INSTANCES = 3
 
 
@@ -27,9 +26,12 @@ class _Group(FakeGroup):
     """One instance at a time (`HilSingleInstanceGroup`): `<prefix>.open` claims, the other commands find it."""
 
     instances: ClassVar[int] = 1
+    # Whether `instances` is the board's timer count (`Instances()` of the timer factories).
+    board_timers: ClassVar[bool] = False
 
     def _index(self, text: str) -> int:
-        return _number(text, 0, self.instances - 1)
+        instances = self.fw.spec.timer_instances if self.board_timers else self.instances
+        return _number(text, 0, instances - 1)
 
     def _find(self, args: list[str], options: dict[str, str], keys: tuple[str, ...] = (), positional: int = 1) -> dict[str, Any]:
         _shape(args, options, positional, positional, keys)
@@ -87,7 +89,7 @@ class _Counter(_Group):
 
 class FakeTimer(_Counter):
     prefix = "tim"
-    instances = _TIMER_INSTANCES
+    board_timers = True
 
     def cmd_open(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, ("prescaler", "period", "irq", "mode", "pin"))
@@ -128,7 +130,7 @@ class FakeLpTimer(_Counter):
             _fail("range")
         pin = self._marker(irq, pin)
         # The STM32WB LPTIM has no repetition counter (LpTimerStm.cpp).
-        if "rep" in options and self.fw.family == "stm32wb55":
+        if "rep" in options and not self.fw.spec.lptim_repetition:
             _fail("unsupported")
         lptimclk = self.fw.kernel_clock
         # ARRM interrupts on every period, whatever `rep`.
@@ -216,7 +218,7 @@ class _ChannelPwm(_Group):
 
 class FakeTimerPwm(_ChannelPwm):
     prefix = "tpwm"
-    instances = _TIMER_INSTANCES
+    board_timers = True
     clock_key = "timclk"
     functions = ("timerChannel1", "timerChannel2", "timerChannel3", "timerChannel4")
 

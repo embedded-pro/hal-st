@@ -101,6 +101,7 @@ jobs:
             "stm32wba65",
             "stm32g070",
             "stm32g431",
+            "stm32g474",
             "stm32f407",
             "stm32f429",
             "stm32f746",

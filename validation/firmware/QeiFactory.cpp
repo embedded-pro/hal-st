@@ -144,7 +144,7 @@ namespace validation
 
     uint8_t QeiFactoryStm::Instances() const
     {
-        return 18;
+        return board::timerInstances;
     }
 
     infra::MemoryRange<const char* const> QeiFactoryStm::OpenKeys() const

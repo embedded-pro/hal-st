@@ -28,7 +28,7 @@ _INDEX_MAX = 0xFFFF
 # `AdcTriggeredByTimerWithDma` paces its conversions with TIM2; TIM2's update request feeds `dma.wave`.
 _PACING_TIMER = 2
 _ADC_DMA = ("dma1", 7)
-_WAVE_DMA = {"stm32wb55": ("dma2", 4), "stm32wba55": ("dma1", 8)}
+_WAVE_DMA = {"stm32wb55": ("dma2", 4), "stm32wba55": ("dma1", 8), "stm32g474": ("dma2", 4)}
 _OUTPUTS = ("list", "stats")
 # What the fake temperature sensor reads: a code and 25 degrees Celsius.
 TEMPERATURE_CODE = 940

@@ -69,12 +69,12 @@
     <pin name="CDir" speed="High"><input name="SDMMC:_CDIR"/></pin>
   </peripheral>
   <peripheral name="QuadSpi">
-    <pin name="Clock" speed="High"><input name="QUADSPI_CLK"/></pin>
-    <pin name="SlaveSelect" speed="High"><input name="QUADSPI_BK1_NCS"/></pin>
-    <pin name="Data0" speed="High"><input name="QUADSPI_BK1_IO0"/></pin>
-    <pin name="Data1" speed="High"><input name="QUADSPI_BK1_IO1"/></pin>
-    <pin name="Data2" speed="High"><input name="QUADSPI_BK1_IO2"/></pin>
-    <pin name="Data3" speed="High"><input name="QUADSPI_BK1_IO3"/></pin>
+    <pin name="Clock" speed="High"><input name="QUADSPI_CLK"/><input name="QUADSPI1_CLK"/></pin>
+    <pin name="SlaveSelect" speed="High"><input name="QUADSPI_BK1_NCS"/><input name="QUADSPI1_BK1_NCS"/></pin>
+    <pin name="Data0" speed="High"><input name="QUADSPI_BK1_IO0"/><input name="QUADSPI1_BK1_IO0"/></pin>
+    <pin name="Data1" speed="High"><input name="QUADSPI_BK1_IO1"/><input name="QUADSPI1_BK1_IO1"/></pin>
+    <pin name="Data2" speed="High"><input name="QUADSPI_BK1_IO2"/><input name="QUADSPI1_BK1_IO2"/></pin>
+    <pin name="Data3" speed="High"><input name="QUADSPI_BK1_IO3"/><input name="QUADSPI1_BK1_IO3"/></pin>
   </peripheral>
   <peripheral name="I2c">
     <pin name="Scl" drive="OpenDrain"><input name="I2C:_SCL"/></pin>

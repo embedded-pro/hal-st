@@ -41,7 +41,7 @@ markers = [
     "board_params(argnames, path=None, values=None): one parameter dimension from tests.<path> of the board YAML or from values",
     "matrix(path): one parameter dimension per key of the tests.<path> mapping of the board YAML",
     "constraint(valid): keep a parameter combination only when valid(argname -> value) is true",
-    "family(name): only run on boards of this family (stm32wb55 or stm32wba55)",
+    "family(name): only run on boards of this family (stm32wb55, stm32wba55 or stm32g474); repeat it for several families",
     "requires_option(tag): only run when enabled with --with <tag> (implies uses_option(tag))",
     "uses_option(tag): the test handles the wiring of --with <tag>: it may resolve the pins that option loads or jumpers",
     "conflicts_option(tag): skip when enabled with --with <tag>",

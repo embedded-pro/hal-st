@@ -32,7 +32,7 @@ namespace hal
         AnalogPinStm analogPin;
         FreeRunningTimerStm timer;
         infra::AutoResetFunction<void(infra::MemoryRange<uint16_t>)> onDone;
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         infra::MemoryRange<uint16_t> measurement;
 #endif
     };

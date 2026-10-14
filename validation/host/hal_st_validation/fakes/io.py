@@ -20,17 +20,17 @@ _PERIPHERAL_SLOTS = 4
 _MULTI_PINS = 4
 _CHANNELS = 4
 _ALTERNATE_FUNCTION_MAX = 15
-# `hal::peripheralTimer` holds TIM1 .. TIM17.
-_TIMER_TABLE_SIZE = 17
-# The timer channel alternate functions of the generated pinout tables (GPIO_AF1_TIM1, GPIO_AF1_TIM2, GPIO_AF2_TIM3,
-# GPIO_AF14_TIM16, GPIO_AF14_TIM17), the same on both boards.
+# The timer channel alternate functions of the generated pinout tables of the STM32WB55 and STM32WBA55 (GPIO_AF1_TIM1,
+# GPIO_AF1_TIM2, GPIO_AF2_TIM3, GPIO_AF14_TIM16, GPIO_AF14_TIM17), the same on both boards; the STM32G474 tables differ
+# per pin and come with the family.
 _TIMER_AF = {1: 1, 2: 1, 3: 2, 16: 14, 17: 14}
 # X 0x0024, Y 0x0051, wafer 7, lot "HALSTFK".
 FAKE_UID = "2400510007" + b"HALSTFK".hex()
 
 _CLOCK_TREES: dict[str, dict[str, Any]] = {
-    "stm32wb55": {"buses": ("sysclk", "hclk", "pclk1", "pclk2"), "flags": {"hse": 1, "lse": 1, "hsi": 1}, "rngsel": "clk48"},
+    "stm32wb55": {"buses": ("sysclk", "hclk", "pclk1", "pclk2"), "flags": {"hse": 1, "lse": 1, "hsi": 1}, "rngsel": "clk48", "hsi48": True},
     "stm32wba55": {"buses": ("sysclk", "hclk", "pclk1", "pclk2", "pclk7"), "flags": {"hse": 1, "lse": 0, "hsi": 1}, "rngsel": "hsi"},
+    "stm32g474": {"buses": ("sysclk", "hclk", "pclk1", "pclk2"), "flags": {"hse": 1, "lse": 0, "hsi": 1}, "rngsel": "clk48", "hsi48": True},
 }
 
 
@@ -79,7 +79,7 @@ class FakeSyncGpio(FakeGroup):
         return f"OK value={output['latch']}"
 
     def _timer(self, options: dict[str, str]) -> int | None:
-        return _number(options["timer"], 1, _TIMER_TABLE_SIZE) if "timer" in options else None
+        return _number(options["timer"], 1, self.fw.spec.timer_table) if "timer" in options else None
 
     def cmd_af(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 1, 1, ("timer", "ch", "af"))
@@ -95,7 +95,7 @@ class FakeSyncGpio(FakeGroup):
         if timer is not None:
             if not self.fw.supports(f"timerChannel{channel}", timer, pin):
                 _fail("pin")
-            af = _TIMER_AF[timer]
+            af = self.fw.timer_af(channel, timer, pin, _TIMER_AF.get(timer, 0))
         owner = (self.prefix, f"af:{pin}")
         self.fw.check_pins(owner, [pin])
         if pin in self.peripherals or len(self.peripherals) >= _PERIPHERAL_SLOTS:
@@ -152,7 +152,7 @@ class FakeSyncGpio(FakeGroup):
 
 
 class FakeClock(FakeGroup):
-    """`clock.mco` and `clock.hsi48` exist on STM32WB55 only; on STM32WBA55 the unsupported names answer first."""
+    """`clock.mco` and `clock.hsi48` exist on STM32WB55 and STM32G474; on STM32WBA55 the unsupported names answer first."""
 
     prefix = "clock"
 
@@ -171,12 +171,12 @@ class FakeClock(FakeGroup):
         tree = _CLOCK_TREES[self.fw.family]
         parts = [f"{bus}={self.fw.kernel_clock}" for bus in tree["buses"]]
         flags = dict(tree["flags"])
-        if self.fw.family == "stm32wb55":
+        if tree.get("hsi48"):
             flags["hsi48"] = self.hsi48
         flags["pll"] = 1
         parts += [f"{flag}={value}" for flag, value in flags.items()]
         parts.append(f"rngsel={tree['rngsel']}")
-        if self.fw.family == "stm32wb55":
+        if tree.get("hsi48"):
             parts.append("clk48=hsi48")
         return "OK " + " ".join(parts)
 
