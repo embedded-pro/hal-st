@@ -76,6 +76,9 @@
   <peripheral name="Opamp" type="OPAMP_TypeDef*">
     <item name="OPAMP"/>
   </peripheral>
+  <peripheral name="Hrtim" type="HRTIM_TypeDef*">
+    <item name="HRTIM"/>
+  </peripheral>
   <peripheral name="Fmac" type="FMAC_TypeDef*">
     <item name="FMAC"/>
     <interrupt/>

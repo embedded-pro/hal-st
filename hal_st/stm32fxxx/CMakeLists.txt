@@ -94,6 +94,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     FmcStm.hpp
     GpioStm.cpp
     GpioStm.hpp
+    HighResolutionTimerStm.cpp
+    HighResolutionTimerStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sInputStm.cpp>
