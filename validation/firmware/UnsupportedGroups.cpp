@@ -33,6 +33,10 @@ namespace validation
             "fmac.fir",
             "fmac.iir",
             "comp.dac",
+            "opamp.open",
+            "opamp.dac",
+            "opamp.read",
+            "opamp.close",
         });
 #elif defined(STM32G4)
         constexpr auto commandNames = std::to_array<const char*>({
@@ -94,6 +98,10 @@ namespace validation
             "fmac.fir",
             "fmac.iir",
             "comp.dac",
+            "opamp.open",
+            "opamp.dac",
+            "opamp.read",
+            "opamp.close",
         });
 #else
 #error "UnsupportedGroups needs the list of commands this MCU answers with ERR unsupported"

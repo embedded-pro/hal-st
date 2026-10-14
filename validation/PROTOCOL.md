@@ -98,7 +98,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
 - Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
-  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, and COMP 1-7 (`comp`).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`) and OPAMP 1-6 (`opamp`).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
 - The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
@@ -588,14 +588,32 @@ EMIL's comparator commands (`services::HilComparatorCommands`, one comparator op
 - `comp.dac <i> <0-4095>` → `OK value=<code>`: the code of the DAC that feeds INM with `inm=dac`; `ERR notopen` when comparator `i` is not open with `inm=dac`
 - The output is on EXTI lines 21, 22, 29-33 behind the shared vectors COMP1_2_3, COMP4_5_6 and COMP7, which `hal::ComparatorInterruptsStm` dispatches
 
+## Operational amplifiers (`hal::OpampStm`, NUCLEO-G474RE only)
+
+One amplifier is open at a time (`ERR busy` for a second one). Instances are OPAMP 1-6.
+
+- `opamp.open <1-6> [mode=follower|pga|standalone] [inp=<pin>|dac] [inm=<pin>] [pga=none|filter|bias] [gain=<2-64>] [out=internal|pin] [speed=normal|high] [cal=0|1] [dac=<0-4095>]` → `OK trimp=<n> trimn=<n>`
+  - `inp` is the amplifier's VINP0 (default), VINP1 or VINP2 pin, or `dac`, its internal DAC channel (OPAMP1/OPAMP6 DAC3 CH1, OPAMP3 DAC3 CH2, OPAMP4 DAC4 CH1, OPAMP5 DAC4 CH2; OPAMP2 has none, `ERR unsupported`) started at `dac` (default 0); `dac` without `inp=dac` is `ERR usage`
+  - the LQFP64 pins: VINP OPAMP1 PA1/PA3/PA7, OPAMP2 PA7/PB14/PB0, OPAMP3 PB0/PB13/PA1, OPAMP4 PB13/-/PB11, OPAMP5 PB14/-/PC3, OPAMP6 PB12/-/PB13; VINM OPAMP1 PA3/PC5, OPAMP2 PA5/PC5, OPAMP3 PB2/PB10, OPAMP4 PB10/PB8, OPAMP5 PB15/PA3, OPAMP6 PA1/PB1;
+    VOUT OPAMP1 PA2 (the terminal TX: `out=pin` answers `ERR busy`), OPAMP2 PA6, OPAMP3 PB1, OPAMP4 PB12, OPAMP5 PA8, OPAMP6 PB11; another pin is `ERR pin`
+  - `mode=pga` is the non-inverting PGA, `gain` 2, 4, 8, 16, 32 or 64 (`ERR range` otherwise); `pga=filter` brings the feedback node out on VINM0 for a filter capacitor, `pga=bias` takes VINM0 as the input of an inverting gain (1 - gain); both need `inm`, the VINM0 pin; `gain` or `pga` in another mode is `ERR usage`
+  - `mode=standalone` needs `inm`, the inverting input (VINM0 or VINM1) for an external feedback network; `inm` where no inverting pin is used is `ERR usage`
+  - `out=internal` (default) routes the output to the ADC only, `out=pin` to VOUT (held as an analog pin, so `ain.read` can also convert it); `speed=high` is the high-speed mode; `cal=1` (default) runs `HAL_OPAMP_SelfCalibrate` before the start, `cal=0` keeps the factory trims; `trimp`/`trimn` are the trims in use (0-31)
+- `opamp.dac <i> <0-4095>` → `OK value=<code>`: the code of the DAC on VINP; `ERR notopen` without `inp=dac`
+- `opamp.read <i> [sampling=<cycles>]` → `OK code=<n>`: one ADC1 conversion of the output (default sampling time 640.5 cycles; the choices of `ain.read`)
+  - the internal VOPAMP1 channel for OPAMP1 with `out=internal`, the VOUT pin where it is an ADC1 input (OPAMP3 PB1, OPAMP6 PB11) with `out=pin`, else `ERR unsupported`
+  - ADC1 is held for the conversion (`ERR busy` while `adc` or `ain` hold it); `ERR timeout` after 1000 ms
+- `opamp.close <i>` → `OK`
+- The pins are held exclusively (VOUT as an analog pin), the DAC channel through the shared resources (a comparator on the same DAC channel answers `ERR busy`)
+
 ## Not available on these boards
 
-hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has OPAMP and HRTIM peripherals that hal-st has no driver for), so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has an HRTIM that hal-st has no driver for), so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
 - STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
 - STM32G474: `lptpwm.*` (not built for STM32G4), `aes.enc`, `aes.dec` (no AES), `pka.mul`, `pka.check`, `pka.cmp` (no PKA), `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `flash.stack` (no wireless coprocessor); `lpm.enter deep` answers `ERR unsupported` as well (above).
 - STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
-- STM32WB55 and STM32WBA55, the groups built for the STM32G474 only: `cordic.calc` (CORDIC), `fmac.load`, `fmac.fir`, `fmac.iir` (FMAC) and `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `comp.dac` (hal-st's comparator driver covers the STM32G4 COMP only).
+- STM32WB55 and STM32WBA55, the groups built for the STM32G474 only: `cordic.calc` (CORDIC), `fmac.load`, `fmac.fir`, `fmac.iir` (FMAC) and `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `comp.dac` (hal-st's comparator driver covers the STM32G4 COMP only) and `opamp.open`, `opamp.dac`, `opamp.read`, `opamp.close` (OPAMP).
 
 The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

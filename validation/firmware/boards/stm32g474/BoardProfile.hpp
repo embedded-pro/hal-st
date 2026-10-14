@@ -66,6 +66,15 @@ namespace validation::board
         { { Pin(Port::B, 11), std::nullopt }, { std::nullopt, Pin(Port::B, 15) }, { 4, 2 } },
         { { Pin(Port::B, 14), std::nullopt }, { std::nullopt, Pin(Port::B, 12) }, { 4, 1 } },
     } };
+    // VINP0-VINP2 and VINM0/VINM1 bonded on the LQFP64, the DAC3/DAC4 channel of VINP `dac`, VOUT and the ADC1 channel of the internal output
+    inline constexpr std::array<OpampPins, 6> opampPins{ {
+        { { Pin(Port::A, 1), Pin(Port::A, 3), Pin(Port::A, 7) }, DacChannel{ 3, 1 }, { Pin(Port::A, 3), Pin(Port::C, 5) }, Pin(Port::A, 2), ADC_CHANNEL_VOPAMP1 },
+        { { Pin(Port::A, 7), Pin(Port::B, 14), Pin(Port::B, 0) }, std::nullopt, { Pin(Port::A, 5), Pin(Port::C, 5) }, Pin(Port::A, 6), std::nullopt },
+        { { Pin(Port::B, 0), Pin(Port::B, 13), Pin(Port::A, 1) }, DacChannel{ 3, 2 }, { Pin(Port::B, 2), Pin(Port::B, 10) }, Pin(Port::B, 1), std::nullopt },
+        { { Pin(Port::B, 13), std::nullopt, Pin(Port::B, 11) }, DacChannel{ 4, 1 }, { Pin(Port::B, 10), Pin(Port::B, 8) }, Pin(Port::B, 12), std::nullopt },
+        { { Pin(Port::B, 14), std::nullopt, Pin(Port::C, 3) }, DacChannel{ 4, 2 }, { Pin(Port::B, 15), Pin(Port::A, 3) }, Pin(Port::A, 8), std::nullopt },
+        { { Pin(Port::B, 12), std::nullopt, Pin(Port::B, 13) }, DacChannel{ 3, 1 }, { Pin(Port::A, 1), Pin(Port::B, 1) }, Pin(Port::B, 11), std::nullopt },
+    } };
     inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 4), Pin(Port::A, 12) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({

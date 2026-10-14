@@ -87,6 +87,15 @@ namespace validation
         uint8_t channel;
     };
 
+    struct OpampPins
+    {
+        std::array<std::optional<HilPinId>, 3> inputPlus;
+        std::optional<DacChannel> dac;
+        std::array<std::optional<HilPinId>, 2> inputMinus;
+        HilPinId output;
+        std::optional<uint32_t> internalAdcChannel;
+    };
+
     struct ComparatorPins
     {
         std::array<std::optional<HilPinId>, 2> inputPlus;

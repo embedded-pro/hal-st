@@ -23,6 +23,10 @@ namespace validation::owners
 
     static_assert(i2c == services::HilOwners::extension && dac == services::HilOwners::last);
 
+    // The pin pool keeps ownership in a 32-bit mask whose ids from extension up are all taken: these use ids EMIL leaves free below it
+    inline constexpr services::HilOwner opamp = 9;
+    static_assert(opamp > services::HilOwners::adc && opamp < services::HilOwners::extension);
+
     // These groups claim DMA channels in ResourceAllocation but no pins, so they need no id of the pin pool
     inline constexpr services::HilOwner cordic = services::HilOwners::last + 1;
     inline constexpr services::HilOwner fmac = cordic + 1;

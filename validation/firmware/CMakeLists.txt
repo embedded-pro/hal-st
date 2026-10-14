@@ -71,6 +71,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     LpTimerPwmGroup.cpp
     LpTimerPwmGroup.hpp
     Main.cpp
+    OpampGroup.cpp
+    OpampGroup.hpp
     Owners.hpp
     Payload.cpp
     Payload.hpp

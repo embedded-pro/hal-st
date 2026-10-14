@@ -1552,6 +1552,47 @@ tests:
       duty: 30
       level_v: 1.5
       edge_s: 2.0e-6
+  opamp:
+    # OPAMP1: VINP0 PA1 on W1 (bundle1, bundle2), internal output to ADC1
+    # (VOPAMP1). The DAC cases use OPAMP1 on DAC3 CH1 and need no wiring.
+    w1:
+      index: 1
+      inp: PA1
+    dac_index: 1
+    # OPAMP3: VINP2 PA1 on W1, VOUT PB1 (ADC1 IN12; DIO10 in bundle1).
+    pin_output:
+      index: 3
+      inp: PA1
+      out: PB1
+    levels_v: [0.2, 0.8, 1.6, 2.4]
+    pin_levels_v: [0.3, 1.6, 2.8]
+    # Input x gain stays below the rail.
+    pga_cases:
+      - {name: x2, gain: 2, level: 0.5}
+      - {name: x4, gain: 4, level: 0.3}
+      - {name: x8, gain: 8, level: 0.15}
+      - {name: x16, gain: 16, level: 0.1}
+    dac_cases:
+      - {name: follower-256, mode: follower, gain: 2, code: 256}
+      - {name: follower-2048, mode: follower, gain: 2, code: 2048}
+      - {name: follower-3584, mode: follower, gain: 2, code: 3584}
+      - {name: pga2-1024, mode: pga, gain: 2, code: 1024}
+      - {name: pga8-256, mode: pga, gain: 8, code: 256}
+    # |measured - expected| <= abs_v + rel * expected.
+    tolerance:
+      abs_v: 0.03
+      rel: 0.03
+    # Gain 64 on input_v saturates the output at min_v or above.
+    rail:
+      input_v: 0.5
+      min_v: 3.1
+    # DIO10 reads the level of PB1 below low_v and above high_v.
+    logic:
+      low_v: 0.8
+      high_v: 2.0
+    trim_max: 31
+    settle_s: 0.01
+    vref: 3.3
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.

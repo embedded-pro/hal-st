@@ -34,6 +34,7 @@
 #include "validation/firmware/LowPowerGroup.hpp"
 #include "validation/firmware/LpTimerGroup.hpp"
 #include "validation/firmware/LpTimerPwmGroup.hpp"
+#include "validation/firmware/OpampGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include "validation/firmware/PkaGroup.hpp"
 #include "validation/firmware/PwmFactory.hpp"
@@ -136,6 +137,9 @@ int main()
     static validation::ComparatorFactoryStm comparatorFactory{ naming, resources };
     static services::HilComparatorCommands comparator{ context, comparatorFactory };
     static validation::ComparatorExtensionCommands comparatorExtension{ context, comparatorFactory };
+#endif
+#if defined(HAS_PERIPHERAL_OPAMP)
+    static validation::OpampCommands opamp{ context, resources };
 #endif
 
     static validation::RngCommands rng{ context, resources };

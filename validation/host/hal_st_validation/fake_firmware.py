@@ -328,6 +328,10 @@ _UNSUPPORTED_G474_ONLY = (
     "comp.count",
     "comp.close",
     "comp.dac",
+    "opamp.open",
+    "opamp.dac",
+    "opamp.read",
+    "opamp.close",
 )
 
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.

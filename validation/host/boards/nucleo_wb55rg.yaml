@@ -1412,3 +1412,7 @@ tests:
       - fmac.fir 0040 taps=2
       - fmac.iir 0040 p=2 q=1
       - comp.dac 1 2048
+      - opamp.open 1
+      - opamp.dac 1 2048
+      - opamp.read 1
+      - opamp.close 1
