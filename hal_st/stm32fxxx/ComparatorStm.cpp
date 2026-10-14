@@ -194,7 +194,9 @@ namespace hal
 
     bool ComparatorBaseStm::Output() const
     {
-        return LL_COMP_ReadOutputLevel(handle.Instance) == LL_COMP_OUTPUT_LEVEL_HIGH;
+        // VALUE holds the comparator state before the polarity is applied, unlike the output pin and the EXTI line
+        const bool level = LL_COMP_ReadOutputLevel(handle.Instance) == LL_COMP_OUTPUT_LEVEL_HIGH;
+        return level != (handle.Init.OutputPol == COMP_OUTPUTPOL_INVERTED);
     }
 
     uint8_t ComparatorBaseStm::Index() const
