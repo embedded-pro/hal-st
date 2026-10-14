@@ -95,6 +95,7 @@ def test_ownership():
         ("opamp.open 1 mode=pga pga=filter inm=PC5", "pin"),
         ("opamp.open 2 inp=dac", "unsupported"),
         ("opamp.open 1 out=pin", "busy"),
+        ("opamp.open 1 cal=1", "unsupported"),
         ("opamp.read 1", "notopen"),
         ("opamp.dac 1 100", "notopen"),
         ("opamp.close 1", "notopen"),
@@ -198,13 +199,16 @@ def at_rail(fw, opamp_cfg, amp):
     assert read_volts(fw, opamp_cfg, amp["index"]) >= opamp_cfg["rail"]["min_v"]
 
 
-@then("OPAMP1 opened with and without self-calibration answers trims within range")
-def trims(fw, opamp_cfg):
-    index = opamp_cfg["dac_index"]
+@then("OPAMP3 self-calibrates with its output on PB1 and OPAMP1 keeps the factory trims, all within range")
+def trims(fw, need, opamp_cfg):
+    case = opamp_cfg["pin_output"]
+    need.unloaded(case["out"])
     for calibrate in (True, False):
-        trim = fw.opamp.open(index, inp="dac", cal=calibrate)
-        assert 0 <= trim.p <= opamp_cfg["trim_max"] and 0 <= trim.n <= opamp_cfg["trim_max"], trim
-        fw.opamp.close(index)
+        trim = fw.opamp.open(case["index"], inp=case["inp"], out="pin", cal=calibrate)
+        fw.opamp.close(case["index"])
+        assert 0 < trim.p < opamp_cfg["trim_max"] and 0 < trim.n < opamp_cfg["trim_max"], (calibrate, trim)
+    trim = fw.opamp.open(opamp_cfg["dac_index"], inp="dac")
+    assert 0 < trim.p < opamp_cfg["trim_max"] and 0 < trim.n < opamp_cfg["trim_max"], trim
 
 
 @when("OPAMP1 is open on the internal DAC")

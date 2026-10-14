@@ -598,7 +598,8 @@ One amplifier is open at a time (`ERR busy` for a second one). Instances are OPA
     VOUT OPAMP1 PA2 (the terminal TX: `out=pin` answers `ERR busy`), OPAMP2 PA6, OPAMP3 PB1, OPAMP4 PB12, OPAMP5 PA8, OPAMP6 PB11; another pin is `ERR pin`
   - `mode=pga` is the non-inverting PGA, `gain` 2, 4, 8, 16, 32 or 64 (`ERR range` otherwise); `pga=filter` brings the feedback node out on VINM0 for a filter capacitor, `pga=bias` takes VINM0 as the input of an inverting gain (1 - gain); both need `inm`, the VINM0 pin; `gain` or `pga` in another mode is `ERR usage`
   - `mode=standalone` needs `inm`, the inverting input (VINM0 or VINM1) for an external feedback network; `inm` where no inverting pin is used is `ERR usage`
-  - `out=internal` (default) routes the output to the ADC only, `out=pin` to VOUT (held as an analog pin, so `ain.read` can also convert it); `speed=high` is the high-speed mode; `cal=1` (default) runs `HAL_OPAMP_SelfCalibrate` before the start, `cal=0` keeps the factory trims; `trimp`/`trimn` are the trims in use (0-31)
+  - `out=internal` (default) routes the output to the ADC only, `out=pin` to VOUT (held as an analog pin, so `ain.read` can also convert it); `speed=high` is the high-speed mode
+  - `cal=0` (default) keeps the factory trims, `cal=1` runs `HAL_OPAMP_SelfCalibrate` before the start and needs `out=pin` (`ERR unsupported` with the internal output, where the calibration ends at trims 0/0); `trimp`/`trimn` are the trims in use (0-31)
 - `opamp.dac <i> <0-4095>` → `OK value=<code>`: the code of the DAC on VINP; `ERR notopen` without `inp=dac`
 - `opamp.read <i> [sampling=<cycles>]` → `OK code=<n>`: one ADC1 conversion of the output (default sampling time 640.5 cycles; the choices of `ain.read`)
   - the internal VOPAMP1 channel for OPAMP1 with `out=internal`, the VOUT pin where it is an ADC1 input (OPAMP3 PB1, OPAMP6 PB11) with `out=pin`, else `ERR unsupported`

@@ -53,7 +53,9 @@ namespace hal
             uint8_t gain{ 2 };
             bool internalOutput{ false };
             bool highSpeed{ false };
-            bool calibrate{ true };
+            // Self-calibration needs the output on the VOUT pin: with the internal output OUTCAL reads high at every
+            // step and HAL_OPAMP_SelfCalibrate ends at trims 0/0. Without it the factory trims stay in use.
+            bool calibrate{ false };
         };
 
         static bool ValidGain(uint8_t gain);

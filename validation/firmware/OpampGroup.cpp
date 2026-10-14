@@ -247,6 +247,9 @@ namespace validation
         if (pga && !hal::OpampStm::ValidGain(config.gain))
             return HilStatus::range;
 
+        if (config.calibrate && config.internalOutput)
+            return HilStatus::unsupported;
+
         return Check(index, request);
     }
 

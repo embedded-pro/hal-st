@@ -46,7 +46,7 @@ class FakeOpamp(FakeGroup):
         gain = _number(options.get("gain", "2"), 0, 64)
         pin_output = _choice(options, "out", ("internal", "pin"), "internal") == "pin"
         _choice(options, "speed", ("normal", "high"), "normal")
-        _flag(options, "cal", True)
+        calibrate = _flag(options, "cal")
         dac_code = _number(options.get("dac", "0"), 0, _FULL_SCALE)
         if ("gain" in options or "pga" in options) and mode != "pga":
             _fail("usage")
@@ -57,6 +57,8 @@ class FakeOpamp(FakeGroup):
             _fail("usage")
         if mode == "pga" and (gain < 2 or gain & (gain - 1)):
             _fail("range")
+        if calibrate and not pin_output:
+            _fail("unsupported")
 
         plus, dac, minus, output, _ = _PINS[index]
         if inp is not None and inp not in plus:

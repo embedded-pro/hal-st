@@ -60,6 +60,7 @@ namespace hal
     {
         really_assert(oneBasedIndex >= 1 && oneBasedIndex <= peripheralOpamp.size());
         really_assert(config.mode != Config::Mode::pga || ValidGain(config.gain));
+        really_assert(!config.calibrate || !config.internalOutput);
 
         if (config.input != Config::Input::dac)
             this->nonInverting.emplace(nonInverting);

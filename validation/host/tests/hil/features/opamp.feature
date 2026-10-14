@@ -37,7 +37,9 @@ Feature: Operational amplifiers
     Then the ADC reads at least the rail level of the board file
 
   Scenario: Self-calibration and factory trims are in range
-    Then OPAMP1 opened with and without self-calibration answers trims within range
+    Self-calibration needs the output on the VOUT pin (with the internal output it ends at trims 0/0, so `cal=1`
+    answers `ERR unsupported` there); a trim at either end of 0-31 means the binary search ran off its range.
+    Then OPAMP3 self-calibrates with its output on PB1 and OPAMP1 keeps the factory trims, all within range
 
   Scenario: The pins and the DAC of an amplifier are held while it is open
     When OPAMP1 is open on the internal DAC

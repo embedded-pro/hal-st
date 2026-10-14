@@ -44,6 +44,9 @@ def test_output_model():
         ("opamp.open 2 inp=dac inm=PA5", "usage"),
         ("opamp.open 2 inp=dac", "unsupported"),
         ("opamp.open 2 inp=PB5 dac=1", "usage"),
+        ("opamp.open 1 cal=1", "unsupported"),
+        ("opamp.open 1 mode=pga gain=3 cal=1", "range"),
+        ("opamp.open 3 inp=PA1 out=pin cal=1", "ok"),
     ],
 )
 def test_open_argument_order(line, expected):
