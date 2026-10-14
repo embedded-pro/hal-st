@@ -15,6 +15,12 @@ target_link_libraries(hal_st.synchronous_stm32fxxx PUBLIC
 target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     SynchronousAesStm.cpp
     SynchronousAesStm.hpp
+    SynchronousComparatorStm.cpp
+    SynchronousComparatorStm.hpp
+    SynchronousCordicStm.cpp
+    SynchronousCordicStm.hpp
+    SynchronousFmacStm.cpp
+    SynchronousFmacStm.hpp
     SynchronousGpioStm.cpp
     SynchronousGpioStm.hpp
     $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32h7xx>>>:SynchronousFlashInternalStm.cpp>

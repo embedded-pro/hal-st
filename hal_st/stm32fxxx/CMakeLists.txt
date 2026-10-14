@@ -30,6 +30,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    ComparatorStm.cpp
+    ComparatorStm.hpp
+    CordicStm.cpp
+    CordicStm.hpp
+    CordicStmDma.cpp
+    CordicStmDma.hpp
     DataCacheStm.hpp
     DcmiStm.cpp
     DcmiStm.hpp
@@ -80,10 +86,16 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
+    FmacStm.cpp
+    FmacStm.hpp
+    FmacStmDma.cpp
+    FmacStmDma.hpp
     FmcStm.cpp
     FmcStm.hpp
     GpioStm.cpp
     GpioStm.hpp
+    HighResolutionTimerStm.cpp
+    HighResolutionTimerStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sInputStm.cpp>
@@ -102,6 +114,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LowPowerModeStm.hpp
     LtdcStm.cpp
     LtdcStm.hpp
+    OpampStm.cpp
+    OpampStm.hpp
     LpTimerStm.cpp
     LpTimerStm.hpp
     PwmStm.cpp

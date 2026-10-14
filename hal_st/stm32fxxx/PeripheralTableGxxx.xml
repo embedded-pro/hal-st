@@ -66,5 +66,22 @@
     <interrupt/>
   </peripheral>
   <peripheral name="Rng" type="RNG_TypeDef*"><item name="RNG"/></peripheral>
+  <peripheral name="Cordic" type="CORDIC_TypeDef*">
+    <item name="CORDIC"/>
+    <interrupt/>
+  </peripheral>
+  <peripheral name="Comp" type="COMP_TypeDef*">
+    <item name="COMP"/>
+  </peripheral>
+  <peripheral name="Opamp" type="OPAMP_TypeDef*">
+    <item name="OPAMP"/>
+  </peripheral>
+  <peripheral name="Hrtim" type="HRTIM_TypeDef*">
+    <item name="HRTIM"/>
+  </peripheral>
+  <peripheral name="Fmac" type="FMAC_TypeDef*">
+    <item name="FMAC"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="Rtc" type="RTC_TypeDef*"><item name="RTC"/></peripheral>
 </peripherals>

@@ -149,6 +149,29 @@
     <pin name="Input1"><input name="LPTIM:_IN1"/></pin>
     <pin name="Input2"><input name="LPTIM:_IN2"/></pin>
   </peripheral>
+  <peripheral name="Comp">
+    <pin name="Output"><input name="COMP:_OUT"/></pin>
+  </peripheral>
+  <peripheral name="Hrtim">
+    <pin name="ChA1"><input name="HRTIM:_CHA1"/></pin>
+    <pin name="ChA2"><input name="HRTIM:_CHA2"/></pin>
+    <pin name="ChB1"><input name="HRTIM:_CHB1"/></pin>
+    <pin name="ChB2"><input name="HRTIM:_CHB2"/></pin>
+    <pin name="ChC1"><input name="HRTIM:_CHC1"/></pin>
+    <pin name="ChC2"><input name="HRTIM:_CHC2"/></pin>
+    <pin name="ChD1"><input name="HRTIM:_CHD1"/></pin>
+    <pin name="ChD2"><input name="HRTIM:_CHD2"/></pin>
+    <pin name="ChE1"><input name="HRTIM:_CHE1"/></pin>
+    <pin name="ChE2"><input name="HRTIM:_CHE2"/></pin>
+    <pin name="ChF1"><input name="HRTIM:_CHF1"/></pin>
+    <pin name="ChF2"><input name="HRTIM:_CHF2"/></pin>
+    <pin name="Flt1"><input name="HRTIM:_FLT1"/></pin>
+    <pin name="Flt2"><input name="HRTIM:_FLT2"/></pin>
+    <pin name="Flt3"><input name="HRTIM:_FLT3"/></pin>
+    <pin name="Flt4"><input name="HRTIM:_FLT4"/></pin>
+    <pin name="Flt5"><input name="HRTIM:_FLT5"/></pin>
+    <pin name="Flt6"><input name="HRTIM:_FLT6"/></pin>
+  </peripheral>
   <peripheral name="Fmc">
     <pin name="" speed="High">
       <input name="FMC_SDCLK"/>   <input name="FMC_SDNWE"/>   <input name="FMC_SDCKE0"/>   <input name="FMC_SDCKE1"/>

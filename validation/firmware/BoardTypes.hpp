@@ -4,6 +4,7 @@
 #include "services/hil/HilPinId.hpp"
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace validation
 {
@@ -78,5 +79,27 @@ namespace validation
     {
         HilPinId wake;
         HilPinId marker;
+    };
+
+    struct DacChannel
+    {
+        uint8_t dac;
+        uint8_t channel;
+    };
+
+    struct OpampPins
+    {
+        std::array<std::optional<HilPinId>, 3> inputPlus;
+        std::optional<DacChannel> dac;
+        std::array<std::optional<HilPinId>, 2> inputMinus;
+        HilPinId output;
+        std::optional<uint32_t> internalAdcChannel;
+    };
+
+    struct ComparatorPins
+    {
+        std::array<std::optional<HilPinId>, 2> inputPlus;
+        std::array<std::optional<HilPinId>, 2> inputMinus;
+        DacChannel internalDac;
     };
 }

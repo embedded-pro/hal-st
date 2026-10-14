@@ -20,6 +20,7 @@ def test_g4_timer_features():
     assert [timer for timer in (1, 8, 15, 16, 17, 20) if expect.timer_has_break(timer)] == [1, 8, 15, 16, 17, 20]
     assert [channel for channel in (1, 2, 3, 4) if expect.timer_has_channel(15, channel)] == [1, 2]
     assert [timer for timer in (1, 3, 4, 8, 15, 16, 20) if expect.timer_has_center_mode(timer)] == [1, 3, 4, 8, 20]
+    assert [timer for timer in (1, 3, 4, 8, 15, 16, 20) if expect.timer_has_master_mode(timer)] == [1, 3, 4, 8, 15, 20]
     assert expect.timer_has_complementary(8, 3) and expect.timer_has_complementary(15, 1)
     assert not expect.timer_has_complementary(15, 2) and not expect.timer_has_complementary(3, 1)
     assert expect.timer_has_break_filter("stm32g474", 15) and not expect.timer_has_break_filter("stm32wb55", 16)

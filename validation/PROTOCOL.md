@@ -98,7 +98,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
 - Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
-  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`), OPAMP 1-6 (`opamp`) and the HRTIM timing units A-F as 1-6 (`hrtim`).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
 - The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
@@ -546,13 +546,101 @@ The pins and the DMA channel come from the board profile. NUCLEO-WB55RG: `qspicl
 - `dac.close <pin>` → `OK`: the pin returns to the pool; `ERR notopen` when it is not open
 - Both outputs can be open at once; PA4 and PA6 are also ADC inputs and SPI pins, which the pin pool keeps apart
 
+## CORDIC (`hal::SynchronousCordicStm`, `hal::CordicStm`, `hal::CordicStmDma`, NUCLEO-G474RE only)
+
+- `cordic.calc <cos|sin|phase|mod|atan|cosh|sinh|atanh|ln|sqrt> <hex|-> [len=] [pattern=] [seed=] [precision=1-15] [scale=0-7] [insize=32|16] [outsize=32|16] [nargs=1|2] [nres=1|2] [variant=poll|zo|it|dma] [out=hex|crc]` → `OK data=<hex> us=<n>`, or with `out=crc` `OK len=<n> crc=<crc32> us=<n>`
+  - one batch of calculations of the function; the payload is the argument words, little-endian, 4-2048 bytes (hex, or `-` with `len`, see "Line length" in General); the reply is the result words, little-endian
+  - `insize`/`outsize` 32 is q1.31, one word per argument or result: a calculation takes `nargs` words (ARG1, ARG2) and gives `nres` words (RES1, RES2); 16 is q1.15, one word per calculation with ARG1 or RES1 in the low half and ARG2 or RES2 in the high half (`nargs`/`nres` then make no difference)
+  - with q1.31 and `nargs=1`, ARG2 is +1 (0x7FFFFFFF): the driver resets the CORDIC when the command builds it
+  - the RM0440 conventions: angles in units of pi, `atan`/`ln`/`sqrt` take `x * 2^-scale`, the hyperbolic functions `x * 2^-1` (`scale=1`); `precision` is the number of cycles of 4 iterations (default 6, `scale` 0)
+  - `variant=poll` is `HAL_CORDIC_Calculate` and `zo` `HAL_CORDIC_CalculateZO` (`hal::SynchronousCordicStm`), `it` is `hal::CordicStm` (the result interrupt, dispatched), `dma` is `hal::CordicStmDma` on DMA2 channel 5 (arguments) and 6 (results); `us` is the duration of the batch measured with the DWT cycle counter, without building the driver
+  - `ERR usage` for a payload that is empty or not a whole number of calculations; `ERR range` for more than 128 result bytes with `out=hex`; `ERR busy` while an `it` or `dma` batch is in flight (it answers within 1000 ms or `ERR timeout`) or when another group holds a DMA channel
+- The group is stateless: the driver is built for each command and destroyed after the reply
+
+## FMAC (`hal::SynchronousFmacStm`, `hal::FmacStm`, `hal::FmacStmDma`, NUCLEO-G474RE only)
+
+The group keeps four stores of q1.15 samples (int16, little-endian on the wire), zero after reset: `b` (127 feed-forward coefficients b0, b1, ...), `a` (63 feedback coefficients a1, a2, ...), `x` (126 input history samples) and `y` (63 output history samples), the histories oldest first.
+
+- `fmac.load <b|a|x|y> <offset> <hex> [clear=0|1]` → `OK size=<offset + count>`: writes the samples from `offset` on (`clear=1` zeroes the whole store first); at most 127 samples per line (the line length limits it to about 50, see "Line length" in General); `ERR usage` for an empty or odd payload, `ERR range` for samples past the end of the store
+- `fmac.fir <hex|-> taps=<2-127> [gain=0-7] [clip=0|1] [hist=<0-126>] [len=] [pattern=] [seed=] [variant=poll|it|dma] [out=hex|crc]` → `OK data=<hex> sat=<0|1> us=<n>`, or with `out=crc` `OK len=<n> crc=<crc32> sat=<0|1> us=<n>`
+  - filters the input samples (2-2048 bytes, hex or `-` with `len`) with the first `taps` coefficients of `b`: `y[n] = 2^gain * sum(b[k] * x[n - k])`; one output sample per input sample
+  - the FMAC starts with P - 1 = `taps` - 1 history samples: the newest of the first `hist` samples of `x`, the older ones zero (`hist=0`, the default, starts from zeros)
+  - `clip=1` saturates the output to q1.15, `clip=0` (default) wraps it; `sat` is the FMAC saturation flag after the block, set when an accumulation wrapped in the 26-bit accumulator (an output that is only clipped or wrapped to q1.15 leaves it clear)
+- `fmac.iir <hex|-> p=<2-64> q=<1-63> [yhist=<0-63>] [gain=0-7] [clip=0|1] [hist=<0-126>] [...]` → as `fmac.fir`, a direct-form-1 IIR with the first `p` coefficients of `b` and the first `q` of `a`
+  - `y[n] = 2^gain * (sum b[k] * x[n - k] + sum a[k] * y[n - k])`: the FMAC adds the feedback, so a filter designed as `y = ... - a1 y[n - 1]` takes `-a1`
+  - `yhist` selects the output history from `y` as `hist` does the input history from `x`
+- `variant=poll` is `hal::SynchronousFmacStm`, `it` `hal::FmacStm` (write and read interrupts, dispatched), `dma` `hal::FmacStmDma` on DMA2 channel 7 (input) and 8 (output); `us` is the duration of the block measured with the DWT cycle counter, without the configuration and the preload
+- `ERR range` for more than 128 output bytes with `out=hex`; `ERR busy` while an `it` or `dma` block is in flight (it answers within 1000 ms or `ERR timeout`) or when another group holds a DMA channel; `ERR failed` when the polled FMAC stalls for 100 ms
+
+## Comparators (`hal::ComparatorStm`, `hal::SynchronousComparatorStm`, NUCLEO-G474RE only)
+
+EMIL's comparator commands (`services::HilComparatorCommands`, one comparator open at a time) with the open keys of `validation::ComparatorFactoryStm`, and hal-st's `comp.dac`. Instances are COMP 1-7.
+
+- `comp.open <1-7> [inp=<pin>] [inm=<pin>|vref/4|vref/2|vref3/4|vref|dac] [dac=<0-4095>] [hyst=<0-70>] [pol=normal|inverted] [out=<pin>] [blank=<source>] [sync=0|1] [irq=dispatched|immediate]` → `OK`
+  - `inp` is the comparator's INP IO1 (default) or IO2 pin, `inm` its INM IO1 or IO2 pin, a VREFINT fraction (default `vref/2`) or `dac`, the internal DAC3/DAC4 channel of the comparator (COMP1/COMP3 DAC3 CH1, COMP2/COMP4 DAC3 CH2, COMP5/COMP7 DAC4 CH1, COMP6 DAC4 CH2) started at `dac` (default 2048); `dac` without `inm=dac` is `ERR usage`
+  - the LQFP64 pins: COMP1 INP PA1/PB1, INM PA4/PA0; COMP2 INP PA7/PA3, INM PA5/PA2; COMP3 INP PA0/PC1, INM PF1/PC0; COMP4 INP PB0, INM PB2; COMP5 INP PB13, INM PB10; COMP6 INP PB11, INM PB15; COMP7 INP PB14, INM PB12; another pin is `ERR pin`, so is an `out` pin without the COMPx_OUT function
+  - `hyst` in mV, a multiple of 10 (`ERR range` otherwise); `pol=inverted` inverts the output, `comp.read` included
+  - `blank` is a timer compare output that forces the output low while it is high, `none` (default) or one of: `tim1oc5`, `tim8oc5`, `tim15oc1`, `tim20oc5`, `tim4oc3` (every comparator), `tim2oc3` (COMP1, COMP2, COMP5), `tim2oc4` (COMP3, COMP6),
+    `tim3oc3` (COMP1, COMP2, COMP3, COMP5, COMP7), `tim3oc4` (COMP4), `tim15oc2` (COMP6, COMP7); one the comparator lacks is `ERR unsupported`; the timer is not claimed (run it with `pwm`)
+  - `sync=1` builds `hal::SynchronousComparatorStm`, for which `comp.irq` answers `ERR unsupported`; `irq` selects how `hal::ComparatorStm` runs its callback: on the event dispatcher (default; edges coalesce while a callback is queued, so above about 1 kHz `comp.count` counts fewer than the edges) or in the interrupt
+  - the pins are held exclusively, the DAC channel through the shared resources
+- `comp.read <i>` → `OK out=<0|1>`; `comp.irq <i> <rising|falling|both|off>` → `OK`; `comp.count <i> [clear=0|1]` → `OK count=<n>`; `comp.close <i>` → `OK`: as EMIL defines them
+- `comp.dac <i> <0-4095>` → `OK value=<code>`: the code of the DAC that feeds INM with `inm=dac`; `ERR notopen` when comparator `i` is not open with `inm=dac`
+- The output is on EXTI lines 21, 22, 29-33 behind the shared vectors COMP1_2_3, COMP4_5_6 and COMP7, which `hal::ComparatorInterruptsStm` dispatches
+
+## Operational amplifiers (`hal::OpampStm`, NUCLEO-G474RE only)
+
+One amplifier is open at a time (`ERR busy` for a second one). Instances are OPAMP 1-6.
+
+- `opamp.open <1-6> [mode=follower|pga|standalone] [inp=<pin>|dac] [inm=<pin>] [pga=none|filter|bias] [gain=<2-64>] [out=internal|pin] [speed=normal|high] [cal=0|1] [dac=<0-4095>]` → `OK trimp=<n> trimn=<n>`
+  - `inp` is the amplifier's VINP0 (default), VINP1 or VINP2 pin, or `dac`, its internal DAC channel (OPAMP1/OPAMP6 DAC3 CH1, OPAMP3 DAC3 CH2, OPAMP4 DAC4 CH1, OPAMP5 DAC4 CH2; OPAMP2 has none, `ERR unsupported`) started at `dac` (default 0); `dac` without `inp=dac` is `ERR usage`
+  - the LQFP64 pins: VINP OPAMP1 PA1/PA3/PA7, OPAMP2 PA7/PB14/PB0, OPAMP3 PB0/PB13/PA1, OPAMP4 PB13/-/PB11, OPAMP5 PB14/-/PC3, OPAMP6 PB12/-/PB13; VINM OPAMP1 PA3/PC5, OPAMP2 PA5/PC5, OPAMP3 PB2/PB10, OPAMP4 PB10/PB8, OPAMP5 PB15/PA3, OPAMP6 PA1/PB1;
+    VOUT OPAMP1 PA2 (the terminal TX: `out=pin` answers `ERR busy`), OPAMP2 PA6, OPAMP3 PB1, OPAMP4 PB12, OPAMP5 PA8, OPAMP6 PB11; another pin is `ERR pin`
+  - `mode=pga` is the non-inverting PGA, `gain` 2, 4, 8, 16, 32 or 64 (`ERR range` otherwise); `pga=filter` brings the feedback node out on VINM0 for a filter capacitor, `pga=bias` takes VINM0 as the input of an inverting gain (1 - gain); both need `inm`, the VINM0 pin; `gain` or `pga` in another mode is `ERR usage`
+  - `mode=standalone` needs `inm`, the inverting input (VINM0 or VINM1) for an external feedback network; `inm` where no inverting pin is used is `ERR usage`
+  - `out=internal` (default) routes the output to the ADC only, `out=pin` to VOUT (held as an analog pin, so `ain.read` can also convert it); `speed=high` is the high-speed mode
+  - `cal=0` (default) keeps the factory trims, `cal=1` runs `HAL_OPAMP_SelfCalibrate` before the start and needs `out=pin` (`ERR unsupported` with the internal output, where the calibration ends at trims 0/0); `trimp`/`trimn` are the trims in use (0-31)
+- `opamp.dac <i> <0-4095>` → `OK value=<code>`: the code of the DAC on VINP; `ERR notopen` without `inp=dac`
+- `opamp.read <i> [sampling=<cycles>]` → `OK code=<n>`: one ADC1 conversion of the output (default sampling time 640.5 cycles; the choices of `ain.read`)
+  - the internal VOPAMP1 channel for OPAMP1 with `out=internal`, the VOUT pin where it is an ADC1 input (OPAMP3 PB1, OPAMP6 PB11) with `out=pin`, else `ERR unsupported`
+  - ADC1 is held for the conversion (`ERR busy` while `adc` or `ain` hold it); `ERR timeout` after 1000 ms
+- `opamp.close <i>` → `OK`
+- The pins are held exclusively (VOUT as an analog pin), the DAC channel through the shared resources (a comparator on the same DAC channel answers `ERR busy`)
+
+## High-resolution timer (`hal::HighResolutionPwmStm`, NUCLEO-G474RE only)
+
+One timing unit of HRTIM1 is open at a time (`ERR busy` for a second one). Units A-F are 1-6; output 1 and output 2 of a unit are its CHx1 and CHx2 pins of the pinout table (LQFP64: A PA8/PA9, B PA10/PA11, C PB12/PB13, D PB14/PB15, E PC8/PC9, F PC6/PC7).
+The driver is a `hal::SingleChannelPwm` and a `hal::TwoChannelsPwm`, and `hrtim.duty`, `hrtim.freq` and `hrtim.stop` work as `pwm.duty`, `pwm.freq` and `pwm.stop`.
+The HRTIM runs on the APB2 timer clock fHRTIM (170 MHz); the DLL multiplies it by 32 and the prescaler ratio 0-7 (MUL32 to DIV4) divides that into fHRCK = fHRTIM x 32 / 2^ratio, the tick of the period and compares.
+
+- `hrtim.open <1-6> [out=both|1|2] [mode=inphase|comp|shift] [freq=<hz>] [dead=<ns>] [deadfall=<ns>] [flt=<pin>] [fltpol=low|high] [adc=<1-10>]` → `OK clock=<fHRTIM> ratio=<0-7> period=<ticks> dead=<ticks> dtprsc=<0-7>`
+  - `out` the outputs whose pins the unit takes (default both); `freq` (default 10000) picks the finest ratio whose rounded period fHRCK/freq is at most 0xFFDF and whose exact period holds two minimum distances of three fHRTIM periods (96 ticks at MUL32, 3 from DIV1); a frequency no ratio fits (below 649 Hz, above 28333333 Hz) is `ERR range`
+  - `mode=inphase` (default): both outputs start at the period event, output 1 ends at its duty and output 2 at its own (`hrtim.duty` with two values) or the same one
+  - `mode=comp`: output 2 is the complement of output 1 with dead time (`dead` before the rising edge of output 1, `deadfall`, default `dead`, before the rising edge of output 2, 0-10000 ns); the dead-time generator takes the finest prescaler `dtprsc` (fHRTIM x 8 / 2^dtprsc) whose 9-bit counter holds the longer one; the reply gives the ticks of `dead`
+  - `mode=shift`: output 2 is the reference pulse (period event to the duty), output 1 the same pulse shifted by `hrtim.phase` (wrapping across the period end); `dead`/`deadfall` outside `mode=comp` are `ERR usage`
+  - `flt` is a fault input pin FLT1-FLT6 of the pinout table (LQFP64 FLT1 PA12, FLT2 PA15, FLT3 PB10, FLT4 PB11, FLT5 PB0 or PC7, FLT6 PC10; another pin is `ERR pin`), active low by default (`fltpol`, which without `flt` is `ERR usage`): a fault forces both outputs inactive (low) until `hrtim.duty` starts the unit again, as the break input of `pwm` without `brkauto`
+  - `adc` routes HRTIM ADC trigger n to the unit's period event; unit E has no period event on triggers 2, 4, 6, 8 and 10 (`ERR unsupported`)
+  - The unit opens stopped. Errors come in this order: the keys in the order above, the key combinations (`ERR usage`), the fault pin (`ERR pin`), the frequency (`ERR range`), the ADC trigger (`ERR unsupported`), another open unit (`ERR busy`), then the pins
+- `hrtim.duty <u> <duty%> [<duty%>]` → `OK compare=<ticks>[,<ticks>]`: starts the unit, or changes its duty from the next period, with one duty for both outputs or, with `mode=inphase` and both outputs, one per output (another count is `ERR usage`); duties are parsed as `pwm.duty` (0-100 with up to 4 decimals, else `ERR usage`)
+  - `compare` is the end of each output's pulse in fHRCK ticks (`DutyCycle::ToCounts` of the period), kept three fHRTIM periods away from 0 and the period, so 0 and 100 % give the shortest and longest pulse
+- `hrtim.phase <u> <phase%>` → `OK`: the shift of output 1 in percent of the period (`ERR usage` outside `mode=shift` or unparsable, `ERR range` for 100 %)
+- `hrtim.freq <u> <hz>` → the reply of `hrtim.open` (`ERR range` as there); the duties stay the same fraction of the period
+- `hrtim.stop <u>` → `OK`: the counter and the outputs
+- `hrtim.fault <u>` → `OK active=<0|1>`: whether the outputs are in the fault state; `ERR usage` without `flt`
+- `hrtim.adc <u> <2-1000>` → `OK samples=<n> us=<n>`: ADC1 converts on the HRTIM trigger of the unit and the firmware counts `n` conversions, `us` from the first to the last (so the trigger rate is (n - 1) / us)
+  - ADC1 takes HRTIM triggers 1, 3, 5, 6, 7, 8, 9 and 10 (`ERR unsupported` for 2 and 4); `ERR usage` without `adc`; ADC1 is held for the count (`ERR busy` while `adc`, `ain` or `opamp` hold it); `ERR timeout` when no conversion comes within 10 ms (the unit is not running); the command blocks the terminal while it counts
+- `hrtim.close <u>` → `OK`
+- The output and fault pins are held exclusively while the unit is open
+
 ## Not available on these boards
 
-hal-st has no comparator, CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474 (the STM32G474 also has COMP, OPAMP, CORDIC, HRTIM and FMAC peripherals that hal-st has no driver for), so `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474, so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
 - STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
 - STM32G474: `lptpwm.*` (not built for STM32G4), `aes.enc`, `aes.dec` (no AES), `pka.mul`, `pka.check`, `pka.cmp` (no PKA), `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `flash.stack` (no wireless coprocessor); `lpm.enter deep` answers `ERR unsupported` as well (above).
 - STM32WBA55: `hsem.take`, `hsem.release`, `hsem.status`, `hsem.lock`, `hsem.mine` (no hardware semaphore), `qspi.open`, `qspi.cmd`, `qspi.poll`, `qspi.xfer`, `qspi.close` (no QUADSPI), `flash.stack` (no wireless coprocessor to coordinate the flash with), `clock.mco` (the only MCO pin is the terminal RX) and `clock.hsi48` (no HSI48), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).
+- STM32WB55 and STM32WBA55, the groups built for the STM32G474 only: `cordic.calc` (CORDIC), `fmac.load`, `fmac.fir`, `fmac.iir` (FMAC) and `comp.open`, `comp.read`, `comp.irq`, `comp.count`, `comp.close`, `comp.dac` (hal-st's comparator driver covers the STM32G4 COMP only),
+  `opamp.open`, `opamp.dac`, `opamp.read`, `opamp.close` (OPAMP) and `hrtim.open`, `hrtim.duty`, `hrtim.phase`, `hrtim.freq`, `hrtim.stop`, `hrtim.fault`, `hrtim.adc`, `hrtim.close` (HRTIM).
 
 The `eeprom` commands are served by an external 24Cxx EEPROM on the I2C bus (see the EEPROM section).

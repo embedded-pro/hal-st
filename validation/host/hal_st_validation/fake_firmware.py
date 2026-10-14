@@ -306,11 +306,6 @@ G474_PINS: dict[str, str] = {
 }
 
 _UNSUPPORTED_EVERYWHERE = (
-    "comp.open",
-    "comp.read",
-    "comp.irq",
-    "comp.count",
-    "comp.close",
     "can.open",
     "can.send",
     "can.close",
@@ -320,6 +315,32 @@ _UNSUPPORTED_EVERYWHERE = (
 )
 
 _UNSUPPORTED_DAC = ("dac.open", "dac.set", "dac.close")
+
+# Peripherals of the STM32G474 that the STM32WB55 and STM32WBA55 lack.
+_UNSUPPORTED_G474_ONLY = (
+    "cordic.calc",
+    "fmac.load",
+    "fmac.fir",
+    "fmac.iir",
+    "comp.open",
+    "comp.read",
+    "comp.irq",
+    "comp.count",
+    "comp.close",
+    "comp.dac",
+    "opamp.open",
+    "opamp.dac",
+    "opamp.read",
+    "opamp.close",
+    "hrtim.open",
+    "hrtim.duty",
+    "hrtim.phase",
+    "hrtim.freq",
+    "hrtim.stop",
+    "hrtim.fault",
+    "hrtim.adc",
+    "hrtim.close",
+)
 
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.
 UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
@@ -332,6 +353,7 @@ UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
         "lptpwm.stop",
         "lptpwm.close",
         *_UNSUPPORTED_DAC,
+        *_UNSUPPORTED_G474_ONLY,
     ),
     "stm32g474": (
         *_UNSUPPORTED_EVERYWHERE,
@@ -369,11 +391,12 @@ UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
         "clock.mco",
         "clock.hsi48",
         *_UNSUPPORTED_DAC,
+        *_UNSUPPORTED_G474_ONLY,
     ),
 }
 
 # `ResourceAllocation`: one owner per peripheral or shared DMA channel across groups.
-RESOURCES = ("lpTimer", "spi", "i2c", "adc", "dma1", "dma2", "hsem")
+RESOURCES = ("lpTimer", "spi", "i2c", "adc", "dma1", "dma2", "hsem", "dac")
 _RESOURCE_INDEX_LIMIT = 16
 
 Table = dict[int, tuple[str, ...]]
@@ -521,6 +544,27 @@ _G474_FUNCTIONS: dict[str, Table] = {
     "quadSpiData1": _table(i0="PB0 PE13 PF9"),
     "quadSpiData2": _table(i0="PA7 PE14 PF7"),
     "quadSpiData3": _table(i0="PA6 PE15 PF6"),
+    "compOutput": _table(
+        i1="PA0 PA6 PA11 PB8 PF4", i2="PA2 PA7 PA12 PB9", i3="PB7 PB15 PC2", i4="PB1 PB6 PB14", i5="PA9 PC7", i6="PA10 PC6", i7="PA8 PC8"
+    ),
+    "hrtimChA1": _table(i1="PA8"),
+    "hrtimChA2": _table(i1="PA9"),
+    "hrtimChB1": _table(i1="PA10"),
+    "hrtimChB2": _table(i1="PA11"),
+    "hrtimChC1": _table(i1="PB12"),
+    "hrtimChC2": _table(i1="PB13"),
+    "hrtimChD1": _table(i1="PB14"),
+    "hrtimChD2": _table(i1="PB15"),
+    "hrtimChE1": _table(i1="PC8"),
+    "hrtimChE2": _table(i1="PC9"),
+    "hrtimChF1": _table(i1="PC6"),
+    "hrtimChF2": _table(i1="PC7"),
+    "hrtimFlt1": _table(i1="PA12"),
+    "hrtimFlt2": _table(i1="PA15"),
+    "hrtimFlt3": _table(i1="PB10"),
+    "hrtimFlt4": _table(i1="PB11"),
+    "hrtimFlt5": _table(i1="PB0 PC7"),
+    "hrtimFlt6": _table(i1="PC10"),
 }
 
 
@@ -1280,8 +1324,8 @@ class FakeFirmware(FakeTerminalDevice):
         # PwmStm asserts a counter mode select instance for every alignment but edgeAligned (PwmStm.cpp:224).
         if mode != "edge" and not expect.timer_has_center_mode(timer):
             _fail("unsupported")
-        # `IS_TIM_MASTER_INSTANCE`: the timers with a counter mode select, on both MCUs.
-        if trgo is not None and not expect.timer_has_center_mode(timer):
+        # `IS_TIM_MASTER_INSTANCE`: the timers with a counter mode select and, on the STM32G474, TIM15.
+        if trgo is not None and not expect.timer_has_master_mode(timer):
             _fail("unsupported")
         complementary = any(output.npin is not None for output in outputs)
         needs_break = complementary or dead is not None or flags["idle"] or flags["idlen"] or brk is not None

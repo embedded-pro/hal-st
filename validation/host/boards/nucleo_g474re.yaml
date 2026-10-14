@@ -565,6 +565,8 @@ tests:
       - wdt.start 1 timeout=100
       - spis.open 0
       - spis.open 4
+      - comp.open 0
+      - comp.open 8
     # Features the MCU lacks: ERR unsupported (no encoder interface).
     unsupported_instances:
       - qei.open 6
@@ -1429,6 +1431,223 @@ tests:
     settle_s: 0.02
     # A bonded pin without a DAC output.
     foreign_pin: gpio0
+  cordic:
+    # One case per function and scale of cordic_ref.DOMAINS (atan at three of
+    # its eight scales).
+    functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: sin, function: sin, scale: 0}
+      - {name: phase, function: phase, scale: 0}
+      - {name: mod, function: mod, scale: 0}
+      - {name: atan-s0, function: atan, scale: 0}
+      - {name: atan-s3, function: atan, scale: 3}
+      - {name: atan-s7, function: atan, scale: 7}
+      - {name: cosh, function: cosh, scale: 1}
+      - {name: sinh, function: sinh, scale: 1}
+      - {name: atanh, function: atanh, scale: 1}
+      - {name: ln-s1, function: ln, scale: 1}
+      - {name: ln-s2, function: ln, scale: 2}
+      - {name: ln-s3, function: ln, scale: 3}
+      - {name: ln-s4, function: ln, scale: 4}
+      - {name: sqrt-s0, function: sqrt, scale: 0}
+      - {name: sqrt-s1, function: sqrt, scale: 1}
+      - {name: sqrt-s2, function: sqrt, scale: 2}
+    precisions: [3, 6, 15]
+    # Two-argument, two-result functions for the q1.15 packing.
+    q15_functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: phase, function: phase, scale: 0}
+    q15_precision: 6
+    sweep_functions:
+      - {name: cos, function: cos, scale: 0}
+      - {name: sqrt-s1, function: sqrt, scale: 1}
+    sweep_precisions: [1, 2, 3, 4, 6, 15]
+    # Calculations per command: a 255-character line holds 8 two-argument
+    # calculations in hex.
+    samples: 8
+    # Bound max(2^-(4P - slack_bits - extra_bits), floor LSB). The floor is
+    # the bench run's: the q1.31 error stops shrinking at about 6 cycles
+    # (7e-7) and reaches 6.2e-6 (2^-17.3) at 15, under 16384 LSB (2^-17).
+    tolerance:
+      slack_bits: 2
+      floor_q31: 16384
+      floor_q15: 2
+      extra_bits: {cosh: 2, sinh: 2, atanh: 2, ln: 2, sqrt: 2}
+    variants: [poll, zo, it, dma]
+    # 512 calculations of generated arguments, 1024 result words.
+    bulk:
+      function: cos
+      len: 2048
+      seed: 1
+      nargs: 1
+      nres: 2
+    max_us: 200000
+  fmac:
+    # FIR taps x gain over every variant: generated coefficients (fmac_ref
+    # generate_samples, seed 7 + taps) and `len` bytes of prbs input.
+    fir:
+      taps: [2, 8, 31, 127]
+      gains: [0, 1, 3]
+    # Direct-form-1 IIRs: generated b and small, stable a.
+    iir:
+      - {name: p2q1, p: 2, q: 1}
+      - {name: p3q2, p: 3, q: 2}
+      - {name: p7q6, p: 7, q: 6}
+    coefficient_limit: 0x1000
+    feedback_limit: 0x0800
+    variants: [poll, it, dma]
+    len: 2048
+    seed: 5
+    max_us: 200000
+  comp:
+    # COMP1: INP PA1 on W1 (bundle1, bundle2), output PA11 on DIO7 (bundle1).
+    follow:
+      index: 1
+      inp: PA1
+      out: PA11
+    thresholds: [vref/4, vref/2, vref3/4, vref]
+    # W1 is set this far below and above the threshold (VREFINT is
+    # 1.212 V typical, the scaler taps 1/4, 1/2 and 3/4 of it).
+    margin_v: 0.05
+    settle_s: 0.01
+    vref: 3.3
+    # DAC3 CH1 on INM: the trip code within tolerance_codes of
+    # level_v / vref * 4095.
+    dac:
+      level_v: 1.65
+      tolerance_codes: 40
+    # DC ramps of W1 across the half VREFINT threshold; the window is at least
+    # min_fraction of the setting and at most twice it plus extra_v.
+    hysteresis:
+      settings: [0, 20, 50, 70]
+      span_v: 0.12
+      step_v: 0.004
+      min_fraction: 0.4
+      extra_v: 0.02
+    # COMP2: INP PA7 on DIO8 pulsed by the pattern generator, output PA12
+    # (DIO11) unused. Dispatched callbacks coalesce above about 1 kHz.
+    edges:
+      index: 2
+      inp: PA7
+      hyst: 10
+      kinds: [rising, falling, both]
+      cases:
+        - {name: dispatched-100hz, irq: dispatched, frequency: 100, pulses: 20}
+        - {name: dispatched-1khz, irq: dispatched, frequency: 1000, pulses: 100}
+        - {name: immediate-20khz, irq: immediate, frequency: 20000, pulses: 1000}
+    # COMP4: INP PB0 on DIO9, output PB1 on DIO10.
+    delay:
+      index: 4
+      inp: PB0
+      out: PB1
+      pulses: 5
+      frequency: 20000
+      max_s: 1.0e-6
+    # COMP1 blanked by TIM2 OC3 (PWM on PA9, DIO5) with W1 above the threshold.
+    blanking:
+      timer: 2
+      channel: 3
+      pin: PA9
+      source: tim2oc3
+      frequency: 10000
+      duty: 30
+      level_v: 1.5
+      edge_s: 2.0e-6
+  opamp:
+    # OPAMP1: VINP0 PA1 on W1 (bundle1, bundle2), internal output to ADC1
+    # (VOPAMP1). The DAC cases use OPAMP1 on DAC3 CH1 and need no wiring.
+    w1:
+      index: 1
+      inp: PA1
+    dac_index: 1
+    # OPAMP3: VINP2 PA1 on W1, VOUT PB1 (ADC1 IN12; DIO10 in bundle1).
+    pin_output:
+      index: 3
+      inp: PA1
+      out: PB1
+    levels_v: [0.2, 0.8, 1.6, 2.4]
+    pin_levels_v: [0.3, 1.6, 2.8]
+    # Input x gain stays below the rail.
+    pga_cases:
+      - {name: x2, gain: 2, level: 0.5}
+      - {name: x4, gain: 4, level: 0.3}
+      - {name: x8, gain: 8, level: 0.15}
+      - {name: x16, gain: 16, level: 0.1}
+    dac_cases:
+      - {name: follower-256, mode: follower, gain: 2, code: 256}
+      - {name: follower-2048, mode: follower, gain: 2, code: 2048}
+      - {name: follower-3584, mode: follower, gain: 2, code: 3584}
+      - {name: pga2-1024, mode: pga, gain: 2, code: 1024}
+      - {name: pga8-256, mode: pga, gain: 8, code: 256}
+    # |measured - expected| <= abs_v + rel * expected.
+    tolerance:
+      abs_v: 0.03
+      rel: 0.03
+    # Gain 64 on input_v saturates the output at min_v or above.
+    rail:
+      input_v: 0.5
+      min_v: 3.1
+    # DIO10 reads the level of PB1 below low_v and above high_v.
+    logic:
+      low_v: 0.8
+      high_v: 2.0
+    trim_max: 31
+    settle_s: 0.01
+    vref: 3.3
+  hrtim:
+    # Unit A: CHA1 PA8 (DIO4) and CHA2 PA9 (DIO5) in bundle1; FLT1 PA12
+    # (DIO11). Unit B is opened only to check that one unit runs at a time.
+    # Duties and phases are percent, as pwm.duty takes them.
+    unit: 1
+    out1: PA8
+    out2: PA9
+    other_unit: 2
+    fault_pin: PA12
+    # Replies only: the prescaler ratio and period of the driver's arithmetic.
+    timings: [649, 700, 10000, 50000, 100000, 1000000, 10000000, 28333333]
+    dead_ns: [0, 50, 100, 250, 500, 1000, 5000, 10000]
+    frequency_changes: [100000, 20000, 1000000, 5000]
+    duty_changes: ["0", "0.01", "10", "12.3456", "50", "90", "99.99", "100"]
+    # Scope cases (bundle1).
+    waveforms:
+      - {name: 10k-10, freq: 10000, duty: 10}
+      - {name: 10k-50, freq: 10000, duty: 50}
+      - {name: 10k-90, freq: 10000, duty: 90}
+      - {name: 100k-10, freq: 100000, duty: 10}
+      - {name: 100k-50, freq: 100000, duty: 50}
+      - {name: 100k-90, freq: 100000, duty: 90}
+      - {name: 1m-10, freq: 1000000, duty: 10}
+      - {name: 1m-50, freq: 1000000, duty: 50}
+      - {name: 1m-90, freq: 1000000, duty: 90}
+    # Both outputs in phase with their own duty (TwoChannelsPwm).
+    two_duties:
+      frequency: 100000
+      cases:
+        - {name: 25-75, duty1: 25, duty2: 75}
+        - {name: 90-10, duty1: 90, duty2: 10}
+    complementary:
+      frequency: 200000
+      duty: 40
+      dead_ns: [50, 100, 250]
+    shifted:
+      frequency: 200000
+      duty: 30
+      phases: [10, 25, 50]
+    # Unit A with output 1 only (PA8); ADC1 converts on HRTIM trigger 1.
+    adc:
+      trigger: 1
+      samples: 200
+      frequencies: [1000, 10000, 50000]
+    capture_periods: 20
+    # Dead-time and phase captures: periods at the highest logic rate.
+    fine_capture_periods: 4
+    tolerance:
+      frequency: 0.01
+      duty: 1.0
+      dead_s: 2.0e-8
+      phase_s: 3.0e-8
+      adc_rate: 0.02
+    fault_settle_s: 0.01
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.
@@ -1588,11 +1807,6 @@ tests:
     unbonded_pin: PD0
   unsupported:
     commands:
-      - comp.open 1
-      - comp.read 1
-      - comp.irq 1 rising
-      - comp.count 1
-      - comp.close 1
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1

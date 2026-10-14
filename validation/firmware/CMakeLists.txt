@@ -36,8 +36,12 @@ target_sources(hal_st.validation_firmware PRIVATE
     ChannelPins.hpp
     ClockGroup.cpp
     ClockGroup.hpp
+    ComparatorFactory.cpp
+    ComparatorFactory.hpp
     Console.cpp
     Console.hpp
+    CordicGroup.cpp
+    CordicGroup.hpp
     DacGroup.cpp
     DacGroup.hpp
     DmaGroup.cpp
@@ -46,6 +50,10 @@ target_sources(hal_st.validation_firmware PRIVATE
     EepromGroup.hpp
     FlashGroup.cpp
     FlashGroup.hpp
+    FmacGroup.cpp
+    FmacGroup.hpp
+    HrtimGroup.cpp
+    HrtimGroup.hpp
     HsemGroup.cpp
     HsemGroup.hpp
     HsemMaster.cpp
@@ -65,6 +73,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     LpTimerPwmGroup.cpp
     LpTimerPwmGroup.hpp
     Main.cpp
+    OpampGroup.cpp
+    OpampGroup.hpp
     Owners.hpp
     Payload.cpp
     Payload.hpp

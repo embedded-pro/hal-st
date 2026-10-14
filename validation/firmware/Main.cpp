@@ -20,17 +20,22 @@
 #include "validation/firmware/BackupRamGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
+#include "validation/firmware/ComparatorFactory.hpp"
 #include "validation/firmware/Console.hpp"
+#include "validation/firmware/CordicGroup.hpp"
 #include "validation/firmware/DacGroup.hpp"
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/FlashGroup.hpp"
+#include "validation/firmware/FmacGroup.hpp"
+#include "validation/firmware/HrtimGroup.hpp"
 #include "validation/firmware/HsemGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
 #include "validation/firmware/LowPowerGroup.hpp"
 #include "validation/firmware/LpTimerGroup.hpp"
 #include "validation/firmware/LpTimerPwmGroup.hpp"
+#include "validation/firmware/OpampGroup.hpp"
 #include "validation/firmware/PinFactoryStm.hpp"
 #include "validation/firmware/PkaGroup.hpp"
 #include "validation/firmware/PwmFactory.hpp"
@@ -122,6 +127,24 @@ int main()
     static validation::DacCommands dac{ context };
 #endif
     static validation::ClockCommands clocks{ context };
+#if defined(HAS_PERIPHERAL_CORDIC)
+    static validation::CordicCommands cordic{ context, console.dma, resources };
+#endif
+#if defined(HAS_PERIPHERAL_FMAC)
+    static validation::FmacCommands fmac{ context, console.dma, resources };
+#endif
+#if defined(HAS_PERIPHERAL_COMP)
+    static hal::ComparatorInterruptsStm comparatorInterrupts;
+    static validation::ComparatorFactoryStm comparatorFactory{ naming, resources };
+    static services::HilComparatorCommands comparator{ context, comparatorFactory };
+    static validation::ComparatorExtensionCommands comparatorExtension{ context, comparatorFactory };
+#endif
+#if defined(HAS_PERIPHERAL_OPAMP)
+    static validation::OpampCommands opamp{ context, resources };
+#endif
+#if defined(HAS_PERIPHERAL_HRTIM)
+    static validation::HrtimCommands hrtim{ context, resources };
+#endif
 
     static validation::RngCommands rng{ context, resources };
 #if defined(STM32WB) || defined(STM32WBA)

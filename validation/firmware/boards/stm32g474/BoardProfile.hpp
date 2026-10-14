@@ -56,6 +56,25 @@ namespace validation::board
         { 1, Pin(Port::A, 4) },
         { 2, Pin(Port::A, 6) },
     } };
+    // INP IO1/IO2 and INM IO1/IO2 bonded on the LQFP64, and the DAC3/DAC4 channel INM reaches with `dacInternal`
+    inline constexpr std::array<ComparatorPins, 7> comparatorPins{ {
+        { { Pin(Port::A, 1), Pin(Port::B, 1) }, { Pin(Port::A, 4), Pin(Port::A, 0) }, { 3, 1 } },
+        { { Pin(Port::A, 7), Pin(Port::A, 3) }, { Pin(Port::A, 5), Pin(Port::A, 2) }, { 3, 2 } },
+        { { Pin(Port::A, 0), Pin(Port::C, 1) }, { Pin(Port::F, 1), Pin(Port::C, 0) }, { 3, 1 } },
+        { { Pin(Port::B, 0), std::nullopt }, { std::nullopt, Pin(Port::B, 2) }, { 3, 2 } },
+        { { Pin(Port::B, 13), std::nullopt }, { Pin(Port::B, 10), std::nullopt }, { 4, 1 } },
+        { { Pin(Port::B, 11), std::nullopt }, { std::nullopt, Pin(Port::B, 15) }, { 4, 2 } },
+        { { Pin(Port::B, 14), std::nullopt }, { std::nullopt, Pin(Port::B, 12) }, { 4, 1 } },
+    } };
+    // VINP0-VINP2 and VINM0/VINM1 bonded on the LQFP64, the DAC3/DAC4 channel of VINP `dac`, VOUT and the ADC1 channel of the internal output
+    inline constexpr std::array<OpampPins, 6> opampPins{ {
+        { { Pin(Port::A, 1), Pin(Port::A, 3), Pin(Port::A, 7) }, DacChannel{ 3, 1 }, { Pin(Port::A, 3), Pin(Port::C, 5) }, Pin(Port::A, 2), ADC_CHANNEL_VOPAMP1 },
+        { { Pin(Port::A, 7), Pin(Port::B, 14), Pin(Port::B, 0) }, std::nullopt, { Pin(Port::A, 5), Pin(Port::C, 5) }, Pin(Port::A, 6), std::nullopt },
+        { { Pin(Port::B, 0), Pin(Port::B, 13), Pin(Port::A, 1) }, DacChannel{ 3, 2 }, { Pin(Port::B, 2), Pin(Port::B, 10) }, Pin(Port::B, 1), std::nullopt },
+        { { Pin(Port::B, 13), std::nullopt, Pin(Port::B, 11) }, DacChannel{ 4, 1 }, { Pin(Port::B, 10), Pin(Port::B, 8) }, Pin(Port::B, 12), std::nullopt },
+        { { Pin(Port::B, 14), std::nullopt, Pin(Port::C, 3) }, DacChannel{ 4, 2 }, { Pin(Port::B, 15), Pin(Port::A, 3) }, Pin(Port::A, 8), std::nullopt },
+        { { Pin(Port::B, 12), std::nullopt, Pin(Port::B, 13) }, DacChannel{ 3, 1 }, { Pin(Port::A, 1), Pin(Port::B, 1) }, Pin(Port::B, 11), std::nullopt },
+    } };
     inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 4), Pin(Port::A, 12) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({
@@ -193,6 +212,8 @@ namespace validation::board
     inline constexpr uint8_t qspiDmaRequest = DMA_REQUEST_QUADSPI;
     inline constexpr DmaChannel dmaGroupDma{ 2, 4 };
     inline constexpr uint8_t dmaGroupDmaRequest = DMA_REQUEST_TIM2_UP;
+    inline constexpr DmaPair cordicDma{ { 2, 5 }, { 2, 6 } };
+    inline constexpr DmaPair fmacDma{ { 2, 7 }, { 2, 8 } };
 
     inline constexpr uint8_t scaffoldTimer = 17;
     inline constexpr uint32_t flashScratchFirstPage = 176;
@@ -240,6 +261,20 @@ namespace validation::board
     inline constexpr uint8_t adc = 1;
     inline constexpr uint8_t adcDmaRequest = DMA_REQUEST_ADC1;
     inline constexpr std::array<uint8_t, 2> adcTriggerTimers{ { 1, 2 } };
+
+    // ADC1 and ADC2 take only the odd HRTIM ADC triggers and 6, 8 and 10 on their regular group
+    inline constexpr std::array<std::optional<uint32_t>, 10> hrtimAdcTriggers{ {
+        ADC_EXTERNALTRIG_HRTIM_TRG1,
+        std::nullopt,
+        ADC_EXTERNALTRIG_HRTIM_TRG3,
+        std::nullopt,
+        ADC_EXTERNALTRIG_HRTIM_TRG5,
+        ADC_EXTERNALTRIG_HRTIM_TRG6,
+        ADC_EXTERNALTRIG_HRTIM_TRG7,
+        ADC_EXTERNALTRIG_HRTIM_TRG8,
+        ADC_EXTERNALTRIG_HRTIM_TRG9,
+        ADC_EXTERNALTRIG_HRTIM_TRG10,
+    } };
     inline constexpr std::array<uint8_t, 6> breakFilterTimers{ { 1, 8, 15, 16, 17, 20 } };
     inline constexpr uint32_t adcDefaultSamplingTime = ADC_SAMPLETIME_2CYCLES_5;
     inline constexpr std::array<services::HilChoice<uint32_t>, 8> adcSamplingTimes{ {

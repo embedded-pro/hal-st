@@ -1407,3 +1407,20 @@ tests:
       - lptpwm.start 1
       - lptpwm.stop 1
       - lptpwm.close 1
+      - cordic.calc cos 00000000
+      - fmac.load b 0 0040
+      - fmac.fir 0040 taps=2
+      - fmac.iir 0040 p=2 q=1
+      - comp.dac 1 2048
+      - opamp.open 1
+      - opamp.dac 1 2048
+      - opamp.read 1
+      - opamp.close 1
+      - hrtim.open 1
+      - hrtim.duty 1 50
+      - hrtim.phase 1 0
+      - hrtim.freq 1 100000
+      - hrtim.stop 1
+      - hrtim.fault 1
+      - hrtim.adc 1 2
+      - hrtim.close 1

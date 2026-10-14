@@ -13,12 +13,14 @@ firmware's groups use one owner id each.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
+
+from ..patterns import PATTERNS, SEED_MAX, Pattern, generate
 
 if TYPE_CHECKING:
     from ..fake_firmware import FakeFirmware
 
-__all__ = ["Command", "FakeError", "FakeGroup", "_Error", "_choice", "_fail", "_flag", "_hex", "_number", "_shape", "_tokens"]
+__all__ = ["Command", "FakeError", "FakeGroup", "_Error", "_choice", "_fail", "_flag", "_hex", "_number", "_payload", "_shape", "_tokens"]
 
 UINT32_MAX = 0xFFFFFFFF
 
@@ -100,6 +102,26 @@ def _hex(text: str, capacity: int) -> bytes:
         return bytes.fromhex(text)
     except ValueError:
         raise FakeError("usage") from None
+
+
+def _payload(args: list[str], options: Mapping[str, str], position: int, capacity: int) -> bytes:
+    """`ParsePayload` of validation/firmware/Payload.cpp: hex, or `-` with `len`/`pattern`/`seed`; `-` alone is
+    empty."""
+    text = args[position]
+    generated = "len" in options
+    patterned = "pattern" in options or "seed" in options
+    if text != "-":
+        if generated or patterned:
+            _fail("usage")
+        return _hex(text, capacity)
+    if not generated:
+        if patterned:
+            _fail("usage")
+        return b""
+    pattern = _choice(options, "pattern", PATTERNS, "inc")
+    seed = _number(options.get("seed", "0"), 0, SEED_MAX)
+    length = _number(options["len"], 1, capacity)
+    return generate(length, cast(Pattern, pattern), seed)
 
 
 class FakeGroup:

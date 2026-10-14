@@ -122,7 +122,26 @@ namespace hal
         lpTimerChannel1,
         lpTimerChannel2,
         lpTimerInput1,
-        lpTimerInput2
+        lpTimerInput2,
+        compOutput,
+        hrtimChA1,
+        hrtimChA2,
+        hrtimChB1,
+        hrtimChB2,
+        hrtimChC1,
+        hrtimChC2,
+        hrtimChD1,
+        hrtimChD2,
+        hrtimChE1,
+        hrtimChE2,
+        hrtimChF1,
+        hrtimChF2,
+        hrtimFlt1,
+        hrtimFlt2,
+        hrtimFlt3,
+        hrtimFlt4,
+        hrtimFlt5,
+        hrtimFlt6
     };
 
     enum class Type : uint8_t

@@ -18,6 +18,7 @@ namespace validation
         dma1,
         dma2,
         hsem,
+        dac,
     };
 
     // Several command groups reach the same peripheral instance or DMA channel; this keeps them from sharing one
@@ -33,6 +34,6 @@ namespace validation
         std::optional<services::HilOwner>& Slot(Resource resource, uint8_t index);
 
     private:
-        std::array<std::array<std::optional<services::HilOwner>, indices>, static_cast<std::size_t>(Resource::hsem) + 1> owners;
+        std::array<std::array<std::optional<services::HilOwner>, indices>, static_cast<std::size_t>(Resource::dac) + 1> owners;
     };
 }
