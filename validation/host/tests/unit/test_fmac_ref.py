@@ -16,10 +16,11 @@ EXPECTED = {
     "order": ([0, 16383, 0, 4096], False),
     "truncation": ([0, -1, 2, -3], False),
     "products": ([0], False),
-    "width": ([32767], True),
+    "width": ([32767], False),
     "wrap": ([-32768], True),
-    "gain": ([1024, 1028, -1028, -4], True),
-    "overflow": ([32766, -4, -1, 2], True),
+    "gain": ([1024, 1028, -1028, -4], False),
+    "overflow": ([32766, -4, -1, 2], False),
+    "product": ([32767], False),
     "input history": ([12287, 2048, 0], False),
     "feedback": ([8192, 4096, 2048, 1024], False),
     "output history": ([20479, 18431, 14335], False),
@@ -51,6 +52,11 @@ def test_every_vector_has_an_expectation():
 @pytest.mark.parametrize("name", list(EXPECTED))
 def test_calibration_vectors(name):
     assert VECTORS[name].evaluate() == EXPECTED[name]
+
+
+def test_sat_on_output_overflow_is_the_alternative_the_bench_ruled_out():
+    output_sat = fmac_ref.Arithmetic(sat="output")
+    assert [VECTORS[name].evaluate(output_sat)[1] for name in ("width", "gain", "overflow", "product")] == [True] * 4
 
 
 @pytest.mark.parametrize("alternative", list(ALTERNATIVES))

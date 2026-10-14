@@ -565,7 +565,7 @@ The group keeps four stores of q1.15 samples (int16, little-endian on the wire),
 - `fmac.fir <hex|-> taps=<2-127> [gain=0-7] [clip=0|1] [hist=<0-126>] [len=] [pattern=] [seed=] [variant=poll|it|dma] [out=hex|crc]` → `OK data=<hex> sat=<0|1> us=<n>`, or with `out=crc` `OK len=<n> crc=<crc32> sat=<0|1> us=<n>`
   - filters the input samples (2-2048 bytes, hex or `-` with `len`) with the first `taps` coefficients of `b`: `y[n] = 2^gain * sum(b[k] * x[n - k])`; one output sample per input sample
   - the FMAC starts with P - 1 = `taps` - 1 history samples: the newest of the first `hist` samples of `x`, the older ones zero (`hist=0`, the default, starts from zeros)
-  - `clip=1` saturates the output to q1.15, `clip=0` (default) wraps it; `sat` is the FMAC saturation flag after the block
+  - `clip=1` saturates the output to q1.15, `clip=0` (default) wraps it; `sat` is the FMAC saturation flag after the block, set when an accumulation wrapped in the 26-bit accumulator (an output that is only clipped or wrapped to q1.15 leaves it clear)
 - `fmac.iir <hex|-> p=<2-64> q=<1-63> [yhist=<0-63>] [gain=0-7] [clip=0|1] [hist=<0-126>] [...]` → as `fmac.fir`, a direct-form-1 IIR with the first `p` coefficients of `b` and the first `q` of `a`
   - `y[n] = 2^gain * (sum b[k] * x[n - k] + sum a[k] * y[n - k])`: the FMAC adds the feedback, so a filter designed as `y = ... - a1 y[n - 1]` takes `-a1`
   - `yhist` selects the output history from `y` as `hist` does the input history from `x`

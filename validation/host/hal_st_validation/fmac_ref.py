@@ -8,9 +8,10 @@ Q output samples (`yhist`), so every input sample gives one output sample.
 
 The arithmetic: each q2.30 product is truncated to the accumulator's `ACC_FRAC` fractional bits, the sum wraps in
 `ACC_BITS` bits, the gain shifts it left by R, and the output takes the q1.15 bits by an arithmetic right shift
-(truncation), saturated with `clip=1` or wrapped to 16 bits without. `sat` is set when an output did not fit q1.15.
-RM0440 was not at hand when this was written: `Arithmetic` holds these choices as parameters, the calibration
-vectors of tests/unit/test_fmac_ref.py tell the alternatives apart, and the first bench run decides them.
+(truncation), saturated with `clip=1` or wrapped to 16 bits without. `sat` is set when the accumulator wraps; an output
+that is only clipped or wrapped to q1.15 leaves it clear. `Arithmetic` holds these choices as parameters and the
+calibration vectors of tests/unit/test_fmac_ref.py tell the alternatives apart; a NUCLEO-G474RE run confirmed the
+defaults.
 """
 
 from __future__ import annotations
@@ -36,6 +37,8 @@ class Arithmetic:
     product: str = "floor"
     # Sign of the IIR feedback term.
     feedback: int = 1
+    # What sets SAT: "accumulator" when a sum wraps, "output" when an output does not fit q1.15.
+    sat: str = "accumulator"
 
     def product_of(self, coefficient: int, sample: int) -> int:
         full = coefficient * sample
@@ -95,7 +98,7 @@ def fir(
     history: Sequence[int] = (),
     arithmetic: Arithmetic = DEFAULT,
 ) -> tuple[list[int], bool]:
-    """Outputs of a FIR of len(b) taps for the inputs `x`, and whether any output saturated or wrapped."""
+    """Outputs of a FIR of len(b) taps for the inputs `x`, and the SAT flag after them."""
     return iir(b, (), x, gain, clip, history, (), arithmetic)
 
 
@@ -109,20 +112,21 @@ def iir(
     y_history: Sequence[int] = (),
     arithmetic: Arithmetic = DEFAULT,
 ) -> tuple[list[int], bool]:
-    """Outputs of a direct-form-1 IIR (`a` = a1..aQ; empty for a FIR) and whether any output did not fit q1.15."""
+    """Outputs of a direct-form-1 IIR (`a` = a1..aQ; empty for a FIR) and the SAT flag after them."""
     inputs = _history(history, len(b) - 1) + list(x)
     outputs = _history(y_history, len(a))
     results: list[int] = []
     saturated = False
     for n in range(len(b) - 1, len(inputs)):
         accumulator = 0
-        for k, coefficient in enumerate(b):
-            accumulator = arithmetic.wrap_accumulator(accumulator + arithmetic.product_of(coefficient, inputs[n - k]))
-        for k, coefficient in enumerate(a, start=1):
-            term = arithmetic.product_of(coefficient, outputs[-k])
-            accumulator = arithmetic.wrap_accumulator(accumulator + arithmetic.feedback * term)
+        terms = [arithmetic.product_of(coefficient, inputs[n - k]) for k, coefficient in enumerate(b)]
+        terms += [arithmetic.feedback * arithmetic.product_of(coefficient, outputs[-k]) for k, coefficient in enumerate(a, start=1)]
+        for term in terms:
+            wrapped = arithmetic.wrap_accumulator(accumulator + term)
+            saturated |= arithmetic.sat == "accumulator" and wrapped != accumulator + term
+            accumulator = wrapped
         value, overflow = arithmetic.output(accumulator, gain, clip)
-        saturated |= overflow
+        saturated |= arithmetic.sat == "output" and overflow
         results.append(value)
         outputs.append(value)
     return results, saturated
@@ -166,6 +170,8 @@ CALIBRATION: tuple[Vector, ...] = (
     Vector("gain", b=(0x4000, 0), x=(0x0100, 0x0101, -0x0101, 0x7FFF), gain=3),
     # Outside q1.15: wrapped without clip.
     Vector("overflow", b=(0x7FFF, 0x7FFF), x=(0x7FFF, 0x7FFF, -0x8000, -0x8000)),
+    # -1 * -1 is +1 in the accumulator, clipped at the output: SAT stays clear.
+    Vector("product", b=(-0x8000, 0), x=(-0x8000,), clip=True),
     # The input history is oldest first: y[0] = 0.5 * xh[-1] + 0.25 * xh[-2].
     Vector("input history", b=(0, 0x4000, 0x2000), x=(0, 0, 0), xh=(0x7FFF, 0x2000)),
     # Feedback is added: 0.25, 0.125, ... (subtracted it would alternate in sign).
