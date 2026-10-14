@@ -20,6 +20,7 @@
 #include "validation/firmware/BackupRamGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
 #include "validation/firmware/ClockGroup.hpp"
+#include "validation/firmware/ComparatorFactory.hpp"
 #include "validation/firmware/Console.hpp"
 #include "validation/firmware/CordicGroup.hpp"
 #include "validation/firmware/DacGroup.hpp"
@@ -129,6 +130,12 @@ int main()
 #endif
 #if defined(HAS_PERIPHERAL_FMAC)
     static validation::FmacCommands fmac{ context, console.dma, resources };
+#endif
+#if defined(HAS_PERIPHERAL_COMP)
+    static hal::ComparatorInterruptsStm comparatorInterrupts;
+    static validation::ComparatorFactoryStm comparatorFactory{ naming, resources };
+    static services::HilComparatorCommands comparator{ context, comparatorFactory };
+    static validation::ComparatorExtensionCommands comparatorExtension{ context, comparatorFactory };
 #endif
 
     static validation::RngCommands rng{ context, resources };

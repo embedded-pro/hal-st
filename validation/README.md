@@ -7,7 +7,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
 - `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
-- hal-st has no comparator, CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards"). The `dac`, `cordic` and `fmac` groups exist on the NUCLEO-G474RE only.
+- hal-st has no CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards"). The `dac`, `cordic`, `fmac` and `comp` groups exist on the NUCLEO-G474RE only.
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
 
 ## Why C++ and Python
@@ -578,6 +578,8 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
 - `test_wiring.py` - the bench wiring, with GPIO commands only and the AD3 outputs and pulls off: continuity of the jumpers of every enabled option, its external pull-ups, the jumpers of offered options that are not enabled (`pass --with <tag> or remove the wiring`), and that the pins of `tests.wiring.undriven` follow both MCU pulls. Run it first after wiring the board; it skips with `--fake`.
 - `test_system.py` - `ping`, `info`, and the `board.pins` alias table against the board file in both directions, every alias accepted as a pin, reserved terminal/SWD/LSE/BOOT0 pins and the debug LED, unbonded pins, pin syntax, the terminal UART, error reasons (`usage`, `busy`, `notopen`, `range`, `unsupported`), missing instances (including 0), `delay`, `reset` and the `EVT boot` cause.
 - `test_dac.py` (NUCLEO-G474RE) - for `DigitalToAnalogPinImplStm`: the output voltage against the code on the scope (`--with dac`), the rails of the buffer, both outputs at once, the clamping of the code, argument errors and the pin ownership.
+- `test_comp.py` (NUCLEO-G474RE) - for `ComparatorStm` and `SynchronousComparatorStm` through EMIL's `comp` commands, in bundle1: COMP1 (INP PA1 on W1, output PA11 on DIO7) against every VREFINT fraction and inverted, the DAC3 threshold found by a code search, hysteresis windows from DC ramps of W1,
+  edge counts of COMP2 (INP PA7 pulsed on DIO8) per edge and handler type, the propagation delay of COMP4 (PB0 on DIO9 to PB1 on DIO10), blanking of COMP1 by TIM2 OC3 (PWM on PA9, DIO5), the synchronous comparator, `comp.dac`, pins held by other groups and argument errors.
 - `test_cordic.py` (NUCLEO-G474RE) - for `SynchronousCordicStm`, `CordicStm` and `CordicStmDma`: every function at its scales over its input domain against `cordic_ref` within the bound of the precision, q1.15 packing, an error that shrinks with the precision,
   the same result words from the four variants (`poll`, `zo`, `it`, `dma`) on 512 generated calculations, DMA faster than interrupts, argument errors. No wiring.
 - `test_fmac.py` (NUCLEO-G474RE) - for `SynchronousFmacStm`, `FmacStm` and `FmacStmDma`: the calibration vectors of `fmac_ref` (coefficient and history order, truncation, accumulator width and wrap, gain, clipping, feedback sign) output for output,
@@ -642,7 +644,7 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
 - `test_low_power.py` - `hal::LowPowerModeStm` in `sleep` and `deep` (Sleep on these MCUs: the clock-restore callback is never called):
   - with only the wake line and TIM17 enabled, the marker pin stays low until the AD3 edge on the wake pin (both edges) and rises within 50 us of it, and `us` covers the time asleep;
   - without an edge the TIM17 timeout ends the window and the tick runs again; pins released; argument errors.
-- `test_unsupported.py` - every comparator, CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
+- `test_unsupported.py` - every CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 
 ## Customising
 
@@ -700,6 +702,7 @@ In `hal_st_validation` (hal-st specific):
 - `fakes/system_ext.py` - their fake firmware model: a flash array with page erase, HSEM state on the fake clock, backup words that survive `reset`, an `lpm.enter` that wakes at once, and the `wdt.start` refusal while the coordinated flash borrows the watchdog.
 - `groups/dac.py` - `fw.dac` (`open`, `set`, `close`) and the output model (`dac_volts`, `dac_code`); `fakes/dac.py` is its fake group.
 - `cordic_ref.py` - the CORDIC model: q1.31/q1.15 coding and packing, the function conventions of RM0440, the input domains and the error bound per precision; `groups/cordic.py` - `fw.cordic`; `fakes/cordic.py` - its fake group (reference plus an error that shrinks with the precision).
+- `groups/comp.py` - `fw.comp` and the threshold model (`threshold_volts`, VREFINT fractions, DAC codes); `fakes/comp.py` - its fake group (the output compares the `adc_codes` level of INP with the threshold).
 - `fmac_ref.py` - the bit-exact FMAC model (FIR and direct-form-1 IIR with the accumulator, gain and clipping as parameters) and its calibration vectors; `groups/fmac.py` - `fw.fmac` (`load`, `load_all`, `fir`, `iir`); `fakes/fmac.py` - its fake group with the four stores.
 - `groups/qspi.py` - `fw.qspi` and the decoding of QUADSPI captures (`qspi_samples`, `qspi_bytes`, `qspi_frame`); `fakes/qspi.py` is its fake firmware model (STM32WB55).
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
@@ -721,5 +724,5 @@ In the firmware (`firmware/`):
 - `SyncGpioGroup` serves `sgpio.*` through `SyncGpioDriver`, the only translation unit that includes `SynchronousGpioStm.hpp`; `ClockGroup` serves `clock.*`; `UartFactory` also builds `SynchronousUartStmSendOnly` (`sendonly=1`).
 - `RngGroup`, `AesGroup` and `PkaGroup` are stateless command groups: `rng` and `aes` build their driver per command; `pka` builds one `PkaStm` on first use and keeps it.
 - `DacGroup` (STM32G4) serves `dac.*` over `hal::DigitalToAnalogPinImplStm`; `CordicGroup` (STM32G4) serves `cordic.calc`, building `SynchronousCordicStm`, `CordicStm` or `CordicStmDma` per command;
-  `FmacGroup` (STM32G4) serves `fmac.*`, keeping the coefficient and history stores and building `SynchronousFmacStm`, `FmacStm` or `FmacStmDma` per block.
+  `ComparatorFactory` (STM32G4) is the factory of EMIL's `comp` group and serves `comp.dac`; `FmacGroup` (STM32G4) serves `fmac.*`, keeping the coefficient and history stores and building `SynchronousFmacStm`, `FmacStm` or `FmacStmDma` per block.
 - `FlashGroup`, `HsemGroup` (STM32WB), `BackupRamGroup` and `LowPowerGroup` serve `flash.*`, `hsem.*`, `bkp.*` and `lpm.*`; `WatchDogFactory` lends the WWDG to the coordinated flash driver (`Borrow`/`Return`).

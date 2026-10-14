@@ -32,14 +32,10 @@ namespace validation
             "fmac.load",
             "fmac.fir",
             "fmac.iir",
+            "comp.dac",
         });
 #elif defined(STM32G4)
         constexpr auto commandNames = std::to_array<const char*>({
-            "comp.open",
-            "comp.read",
-            "comp.irq",
-            "comp.count",
-            "comp.close",
             "can.open",
             "can.send",
             "can.close",
@@ -97,6 +93,7 @@ namespace validation
             "fmac.load",
             "fmac.fir",
             "fmac.iir",
+            "comp.dac",
         });
 #else
 #error "UnsupportedGroups needs the list of commands this MCU answers with ERR unsupported"

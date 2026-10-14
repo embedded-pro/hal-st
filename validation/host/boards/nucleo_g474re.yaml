@@ -565,6 +565,8 @@ tests:
       - wdt.start 1 timeout=100
       - spis.open 0
       - spis.open 4
+      - comp.open 0
+      - comp.open 8
     # Features the MCU lacks: ERR unsupported (no encoder interface).
     unsupported_instances:
       - qei.open 6
@@ -1496,6 +1498,60 @@ tests:
     len: 2048
     seed: 5
     max_us: 200000
+  comp:
+    # COMP1: INP PA1 on W1 (bundle1, bundle2), output PA11 on DIO7 (bundle1).
+    follow:
+      index: 1
+      inp: PA1
+      out: PA11
+    thresholds: [vref/4, vref/2, vref3/4, vref]
+    # W1 is set this far below and above the threshold (VREFINT is
+    # 1.212 V typical, the scaler taps 1/4, 1/2 and 3/4 of it).
+    margin_v: 0.05
+    settle_s: 0.01
+    vref: 3.3
+    # DAC3 CH1 on INM: the trip code within tolerance_codes of
+    # level_v / vref * 4095.
+    dac:
+      level_v: 1.65
+      tolerance_codes: 40
+    # DC ramps of W1 across the half VREFINT threshold; the window is at least
+    # min_fraction of the setting and at most twice it plus extra_v.
+    hysteresis:
+      settings: [0, 20, 50, 70]
+      span_v: 0.12
+      step_v: 0.004
+      min_fraction: 0.4
+      extra_v: 0.02
+    # COMP2: INP PA7 on DIO8 pulsed by the pattern generator, output PA12
+    # (DIO11) unused. Dispatched callbacks coalesce above about 1 kHz.
+    edges:
+      index: 2
+      inp: PA7
+      hyst: 10
+      kinds: [rising, falling, both]
+      cases:
+        - {name: dispatched-100hz, irq: dispatched, frequency: 100, pulses: 20}
+        - {name: dispatched-1khz, irq: dispatched, frequency: 1000, pulses: 100}
+        - {name: immediate-20khz, irq: immediate, frequency: 20000, pulses: 1000}
+    # COMP4: INP PB0 on DIO9, output PB1 on DIO10.
+    delay:
+      index: 4
+      inp: PB0
+      out: PB1
+      pulses: 5
+      frequency: 20000
+      max_s: 1.0e-6
+    # COMP1 blanked by TIM2 OC3 (PWM on PA9, DIO5) with W1 above the threshold.
+    blanking:
+      timer: 2
+      channel: 3
+      pin: PA9
+      source: tim2oc3
+      frequency: 10000
+      duty: 30
+      level_v: 1.5
+      edge_s: 2.0e-6
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.
@@ -1655,11 +1711,6 @@ tests:
     unbonded_pin: PD0
   unsupported:
     commands:
-      - comp.open 1
-      - comp.read 1
-      - comp.irq 1 rising
-      - comp.count 1
-      - comp.close 1
       - can.open 1
       - can.send 1 0x123 01
       - can.close 1

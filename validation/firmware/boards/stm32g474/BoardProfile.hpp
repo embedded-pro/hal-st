@@ -56,6 +56,16 @@ namespace validation::board
         { 1, Pin(Port::A, 4) },
         { 2, Pin(Port::A, 6) },
     } };
+    // INP IO1/IO2 and INM IO1/IO2 bonded on the LQFP64, and the DAC3/DAC4 channel INM reaches with `dacInternal`
+    inline constexpr std::array<ComparatorPins, 7> comparatorPins{ {
+        { { Pin(Port::A, 1), Pin(Port::B, 1) }, { Pin(Port::A, 4), Pin(Port::A, 0) }, { 3, 1 } },
+        { { Pin(Port::A, 7), Pin(Port::A, 3) }, { Pin(Port::A, 5), Pin(Port::A, 2) }, { 3, 2 } },
+        { { Pin(Port::A, 0), Pin(Port::C, 1) }, { Pin(Port::F, 1), Pin(Port::C, 0) }, { 3, 1 } },
+        { { Pin(Port::B, 0), std::nullopt }, { std::nullopt, Pin(Port::B, 2) }, { 3, 2 } },
+        { { Pin(Port::B, 13), std::nullopt }, { Pin(Port::B, 10), std::nullopt }, { 4, 1 } },
+        { { Pin(Port::B, 11), std::nullopt }, { std::nullopt, Pin(Port::B, 15) }, { 4, 2 } },
+        { { Pin(Port::B, 14), std::nullopt }, { std::nullopt, Pin(Port::B, 12) }, { 4, 1 } },
+    } };
     inline constexpr LowPowerPins lowPowerDefaults{ Pin(Port::C, 4), Pin(Port::A, 12) };
 
     inline constexpr auto aliases = std::to_array<HilPinAlias>({

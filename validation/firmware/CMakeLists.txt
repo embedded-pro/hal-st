@@ -36,6 +36,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     ChannelPins.hpp
     ClockGroup.cpp
     ClockGroup.hpp
+    ComparatorFactory.cpp
+    ComparatorFactory.hpp
     Console.cpp
     Console.hpp
     CordicGroup.cpp
