@@ -29,6 +29,9 @@ namespace validation
             "dac.set",
             "dac.close",
             "cordic.calc",
+            "fmac.load",
+            "fmac.fir",
+            "fmac.iir",
         });
 #elif defined(STM32G4)
         constexpr auto commandNames = std::to_array<const char*>({
@@ -91,6 +94,9 @@ namespace validation
             "dac.set",
             "dac.close",
             "cordic.calc",
+            "fmac.load",
+            "fmac.fir",
+            "fmac.iir",
         });
 #else
 #error "UnsupportedGroups needs the list of commands this MCU answers with ERR unsupported"

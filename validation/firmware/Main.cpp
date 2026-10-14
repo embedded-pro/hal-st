@@ -26,6 +26,7 @@
 #include "validation/firmware/DmaGroup.hpp"
 #include "validation/firmware/EepromGroup.hpp"
 #include "validation/firmware/FlashGroup.hpp"
+#include "validation/firmware/FmacGroup.hpp"
 #include "validation/firmware/HsemGroup.hpp"
 #include "validation/firmware/I2cGroup.hpp"
 #include "validation/firmware/I2cTarget.hpp"
@@ -125,6 +126,9 @@ int main()
     static validation::ClockCommands clocks{ context };
 #if defined(HAS_PERIPHERAL_CORDIC)
     static validation::CordicCommands cordic{ context, console.dma, resources };
+#endif
+#if defined(HAS_PERIPHERAL_FMAC)
+    static validation::FmacCommands fmac{ context, console.dma, resources };
 #endif
 
     static validation::RngCommands rng{ context, resources };

@@ -1408,3 +1408,6 @@ tests:
       - lptpwm.stop 1
       - lptpwm.close 1
       - cordic.calc cos 00000000
+      - fmac.load b 0 0040
+      - fmac.fir 0040 taps=2
+      - fmac.iir 0040 p=2 q=1

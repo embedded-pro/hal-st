@@ -25,4 +25,5 @@ namespace validation::owners
 
     // These groups claim DMA channels in ResourceAllocation but no pins, so they need no id of the pin pool
     inline constexpr services::HilOwner cordic = services::HilOwners::last + 1;
+    inline constexpr services::HilOwner fmac = cordic + 1;
 }

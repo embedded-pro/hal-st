@@ -322,7 +322,7 @@ _UNSUPPORTED_EVERYWHERE = (
 _UNSUPPORTED_DAC = ("dac.open", "dac.set", "dac.close")
 
 # Peripherals of the STM32G474 that the STM32WB55 and STM32WBA55 lack.
-_UNSUPPORTED_G474_ONLY = ("cordic.calc",)
+_UNSUPPORTED_G474_ONLY = ("cordic.calc", "fmac.load", "fmac.fir", "fmac.iir")
 
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.
 UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {

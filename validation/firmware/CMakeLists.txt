@@ -48,6 +48,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     EepromGroup.hpp
     FlashGroup.cpp
     FlashGroup.hpp
+    FmacGroup.cpp
+    FmacGroup.hpp
     HsemGroup.cpp
     HsemGroup.hpp
     HsemMaster.cpp
