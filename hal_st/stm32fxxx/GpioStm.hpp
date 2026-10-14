@@ -122,7 +122,8 @@ namespace hal
         lpTimerChannel1,
         lpTimerChannel2,
         lpTimerInput1,
-        lpTimerInput2
+        lpTimerInput2,
+        compOutput
     };
 
     enum class Type : uint8_t

@@ -30,6 +30,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    ComparatorStm.cpp
+    ComparatorStm.hpp
     CordicStm.cpp
     CordicStm.hpp
     CordicStmDma.cpp

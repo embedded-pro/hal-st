@@ -149,6 +149,9 @@
     <pin name="Input1"><input name="LPTIM:_IN1"/></pin>
     <pin name="Input2"><input name="LPTIM:_IN2"/></pin>
   </peripheral>
+  <peripheral name="Comp">
+    <pin name="Output"><input name="COMP:_OUT"/></pin>
+  </peripheral>
   <peripheral name="Fmc">
     <pin name="" speed="High">
       <input name="FMC_SDCLK"/>   <input name="FMC_SDNWE"/>   <input name="FMC_SDCKE0"/>   <input name="FMC_SDCKE1"/>

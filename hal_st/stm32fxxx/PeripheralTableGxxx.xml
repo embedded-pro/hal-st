@@ -70,6 +70,9 @@
     <item name="CORDIC"/>
     <interrupt/>
   </peripheral>
+  <peripheral name="Comp" type="COMP_TypeDef*">
+    <item name="COMP"/>
+  </peripheral>
   <peripheral name="Fmac" type="FMAC_TypeDef*">
     <item name="FMAC"/>
     <interrupt/>
