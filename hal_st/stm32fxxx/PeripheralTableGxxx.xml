@@ -66,5 +66,9 @@
     <interrupt/>
   </peripheral>
   <peripheral name="Rng" type="RNG_TypeDef*"><item name="RNG"/></peripheral>
+  <peripheral name="Cordic" type="CORDIC_TypeDef*">
+    <item name="CORDIC"/>
+    <interrupt/>
+  </peripheral>
   <peripheral name="Rtc" type="RTC_TypeDef*"><item name="RTC"/></peripheral>
 </peripherals>

@@ -30,6 +30,10 @@ target_sources(hal_st.stm32fxxx PRIVATE
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    CordicStm.cpp
+    CordicStm.hpp
+    CordicStmDma.cpp
+    CordicStmDma.hpp
     DataCacheStm.hpp
     DcmiStm.cpp
     DcmiStm.hpp
