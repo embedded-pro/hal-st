@@ -38,6 +38,7 @@ namespace hal
 #else
         DigitalToAnalogPinImplStm(hal::GpioPinStm& pin, hal::DacStm& dac);
 #endif
+        ~DigitalToAnalogPinImplStm();
 
         void Set(uint16_t value) override;
 

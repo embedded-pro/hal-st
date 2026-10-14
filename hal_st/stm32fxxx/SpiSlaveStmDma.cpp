@@ -6,6 +6,8 @@
 #include "stm32wbxx_ll_spi.h"
 #elif defined(STM32WBA)
 #include "stm32wbaxx_ll_spi.h"
+#elif defined(STM32G4)
+#include "stm32g4xx_ll_spi.h"
 #endif
 
 namespace hal
@@ -74,10 +76,10 @@ namespace hal
         receiveDone = false;
         sendDone = false;
 
-#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         DisableSpi();
 #endif
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         // SPI v2 keeps RXFIFO data while SPE=0, so frames clocked after the previous transfer would lead this one
         while (LL_SPI_GetRxFIFOLevel(peripheralSpi[spiInstance]) != LL_SPI_RX_FIFO_EMPTY)
             LL_SPI_ReceiveData8(peripheralSpi[spiInstance]);
@@ -103,7 +105,7 @@ namespace hal
         else
             std::abort();
 
-#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         EnableSpi();
 #endif
     }
@@ -126,7 +128,7 @@ namespace hal
 
     void SpiSlaveStmDma::TransferDone()
     {
-#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32H5) || defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         DisableSpi();
 #endif
         onDone();
@@ -177,7 +179,7 @@ namespace hal
 
     void SpiSlaveStmDma::DisableSpi()
     {
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         LL_SPI_Disable(peripheralSpi[spiInstance]);
 #else
         peripheralSpi[spiInstance]->CR1 |= SPI_CR1_SPE;

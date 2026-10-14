@@ -51,6 +51,11 @@ namespace hal
     }
 #endif
 
+    DigitalToAnalogPinImplStm::~DigitalToAnalogPinImplStm()
+    {
+        HAL_DAC_Stop(&dac.handle, channel);
+    }
+
     void DigitalToAnalogPinImplStm::Set(uint16_t value)
     {
         dac.Set(channel, DAC_ALIGN_12B_R, std::min(static_cast<uint32_t>(value), (infra::Bit<uint32_t>(12) - 1)));

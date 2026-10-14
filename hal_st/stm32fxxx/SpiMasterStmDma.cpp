@@ -63,6 +63,10 @@ namespace hal
         HAL_SPI_Init(&hspi);
 
         EnableDma();
+#if defined(STM32G4)
+        // SCK only idles at CPOL while SPE is set
+        peripheralSpi[spiInstance]->CR1 |= SPI_CR1_SPE;
+#endif
     }
 
     SpiMasterStmDma::~SpiMasterStmDma()
