@@ -552,7 +552,7 @@ The pins and the DMA channel come from the board profile. NUCLEO-WB55RG: `qspicl
   - one batch of calculations of the function; the payload is the argument words, little-endian, 4-2048 bytes (hex, or `-` with `len`, see "Line length" in General); the reply is the result words, little-endian
   - `insize`/`outsize` 32 is q1.31, one word per argument or result: a calculation takes `nargs` words (ARG1, ARG2) and gives `nres` words (RES1, RES2); 16 is q1.15, one word per calculation with ARG1 or RES1 in the low half and ARG2 or RES2 in the high half (`nargs`/`nres` then make no difference)
   - with q1.31 and `nargs=1`, ARG2 is +1 (0x7FFFFFFF): the driver resets the CORDIC when the command builds it
-  - the RM0440 conventions: angles in units of pi, `atan`/`ln`/`sqrt` take x * 2^-`scale`, the hyperbolic functions x * 2^-1 (`scale=1`); `precision` is the number of cycles of 4 iterations (default 6, `scale` 0)
+  - the RM0440 conventions: angles in units of pi, `atan`/`ln`/`sqrt` take `x * 2^-scale`, the hyperbolic functions `x * 2^-1` (`scale=1`); `precision` is the number of cycles of 4 iterations (default 6, `scale` 0)
   - `variant=poll` is `HAL_CORDIC_Calculate` and `zo` `HAL_CORDIC_CalculateZO` (`hal::SynchronousCordicStm`), `it` is `hal::CordicStm` (the result interrupt, dispatched), `dma` is `hal::CordicStmDma` on DMA2 channel 5 (arguments) and 6 (results); `us` is the duration of the batch measured with the DWT cycle counter, without building the driver
   - `ERR usage` for a payload that is empty or not a whole number of calculations; `ERR range` for more than 128 result bytes with `out=hex`; `ERR busy` while an `it` or `dma` batch is in flight (it answers within 1000 ms or `ERR timeout`) or when another group holds a DMA channel
 - The group is stateless: the driver is built for each command and destroyed after the reply
@@ -563,11 +563,11 @@ The group keeps four stores of q1.15 samples (int16, little-endian on the wire),
 
 - `fmac.load <b|a|x|y> <offset> <hex> [clear=0|1]` → `OK size=<offset + count>`: writes the samples from `offset` on (`clear=1` zeroes the whole store first); at most 127 samples per line (the line length limits it to about 50, see "Line length" in General); `ERR usage` for an empty or odd payload, `ERR range` for samples past the end of the store
 - `fmac.fir <hex|-> taps=<2-127> [gain=0-7] [clip=0|1] [hist=<0-126>] [len=] [pattern=] [seed=] [variant=poll|it|dma] [out=hex|crc]` → `OK data=<hex> sat=<0|1> us=<n>`, or with `out=crc` `OK len=<n> crc=<crc32> sat=<0|1> us=<n>`
-  - filters the input samples (2-2048 bytes, hex or `-` with `len`) with the first `taps` coefficients of `b`: y[n] = 2^gain * sum(b[k] * x[n - k]); one output sample per input sample
+  - filters the input samples (2-2048 bytes, hex or `-` with `len`) with the first `taps` coefficients of `b`: `y[n] = 2^gain * sum(b[k] * x[n - k])`; one output sample per input sample
   - the FMAC starts with P - 1 = `taps` - 1 history samples: the newest of the first `hist` samples of `x`, the older ones zero (`hist=0`, the default, starts from zeros)
   - `clip=1` saturates the output to q1.15, `clip=0` (default) wraps it; `sat` is the FMAC saturation flag after the block
 - `fmac.iir <hex|-> p=<2-64> q=<1-63> [yhist=<0-63>] [gain=0-7] [clip=0|1] [hist=<0-126>] [...]` → as `fmac.fir`, a direct-form-1 IIR with the first `p` coefficients of `b` and the first `q` of `a`
-  - y[n] = 2^gain * (sum b[k] * x[n - k] + sum a[k] * y[n - k]): the FMAC adds the feedback, so a filter designed as y = ... - a1 y[n - 1] takes -a1
+  - `y[n] = 2^gain * (sum b[k] * x[n - k] + sum a[k] * y[n - k])`: the FMAC adds the feedback, so a filter designed as `y = ... - a1 y[n - 1]` takes `-a1`
   - `yhist` selects the output history from `y` as `hist` does the input history from `x`
 - `variant=poll` is `hal::SynchronousFmacStm`, `it` `hal::FmacStm` (write and read interrupts, dispatched), `dma` `hal::FmacStmDma` on DMA2 channel 7 (input) and 8 (output); `us` is the duration of the block measured with the DWT cycle counter, without the configuration and the preload
 - `ERR range` for more than 128 output bytes with `out=hex`; `ERR busy` while an `it` or `dma` block is in flight (it answers within 1000 ms or `ERR timeout`) or when another group holds a DMA channel; `ERR failed` when the polled FMAC stalls for 100 ms
