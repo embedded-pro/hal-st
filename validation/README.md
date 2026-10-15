@@ -52,7 +52,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 - The NUCLEO-WB55RG positions come from its user manual, UM2435 Rev 2 (board MB1355C: Table 10, Table 11, Fig. 8 and Fig. 24), cross-checked with the STM32CubeWB example readmes. A later board revision (MB1355D, user manual UM2819) may differ: check the solder bridges named in the table (SB1, SB5, SB8, SB9, SB11, SB12, SB14, SB15, SB41) before wiring.
 - The NUCLEO-WBA55CG user manual, UM3301, could not be consulted: its positions come from the STM32CubeWBA example readmes, Zephyr's Arduino connector map and modm-data's transcription of UM3301 Table 8, and its 3V3 and GND pins from a single source (the STM32-Sidewalk-SDK README).
   Each position names its source; check the silkscreen and do the pre-power check of the bring-up before fitting the I2C option.
-- NUCLEO-WB55RG: the firmware runs on the Cortex-M4 alone and never starts the wireless coprocessor; the linker script keeps it below the flash and SRAM the wireless stack uses.
+- NUCLEO-WB55RG: the firmware runs on the Cortex-M4 alone and never starts the wireless coprocessor (the BLE image does, on `ble.open`); the linker script keeps it below the flash and SRAM the wireless stack uses.
 - NUCLEO-G474RE: the HSE is the 24 MHz crystal of the board and the firmware runs at 170 MHz; HSI48 is on for the RNG. The green LD2 on PA5 is the debug LED, so PA5 stays unwired; B1 (PC13) is not used.
   The user manual, UM2505, could not be consulted: the Arduino labels are the standard Nucleo-64 mapping and the other positions are morpho pins named by port and pin. The firmware and the board file were checked against the pin signals of the STM32G474RE, but **not** against the board: confirm every position against the silkscreen and the connector tables of UM2505, and do the pre-power check of the bring-up, before the first run.
 
@@ -99,6 +99,19 @@ pip install -e validation/host --no-deps
 
 The `ad3` extra adds no Python dependency: the SDK is reached through `ctypes`, so only the WaveForms runtime must be installed. Without it, everything except the AD3 still works and AD3 tests are skipped.
 
+### BLE image
+
+BLE needs two boards linked over the air, so it has an image of its own, `hal_st.validation_ble_firmware` (`validation/ble_firmware`, NUCLEO-WB55RG and NUCLEO-WBA55CG): the same console, `ping`, `info` and `reset`, and only the `ble` group (PROTOCOL.md, "BLE"). One image serves both roles; the test chooses the role of each board after a reset.
+
+```bash
+cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_ble_firmware
+cmake --build --preset stm32wba55-RelWithDebInfo --target hal_st.validation_ble_firmware
+STM32_Programmer_CLI -c port=SWD sn=<ST-LINK serial> -w build/stm32wb55/validation/ble_firmware/RelWithDebInfo/hal_st.validation_ble_firmware.hex -v -rst
+```
+
+Flash it on both boards (`sn=` picks the ST-LINK when two are connected). On a NUCLEO-WB55RG the wireless coprocessor must already run the BLE stack the middleware matches: FUS 2.x, then `stm32wb5x_BLE_Stack_full_fw.bin` from STM32CubeWB 1.24.0 (`hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt`), both flashed once with STM32CubeProgrammer.
+The firmware starts the stack on `ble.open`, not at boot, so a board without it still answers `ping`; `ble.info` reports the stack version. The BLE image replaces `hal_st.validation_firmware` on that board: reflash the regular image for the other tests.
+
 ## Run the tests
 
 Unit tests run without hardware:
@@ -133,6 +146,20 @@ Options from `tests/conftest.py`:
 - `--depth quick|full` - `quick` (default, or `HAL_ST_DEPTH`) runs a pairwise subset of every parameter matrix: every pair of values of any two parameters appears in at least one test. `full` runs the complete cartesian products.
 - `--set path=value` - override a test parameter, value parsed as YAML: `--set pwm.waveform.freq=[20000] --set uart.transfer.baud=[921600]`.
 - `--run-known-gaps` - also run the tests of known driver gaps that abort or hang the firmware (see [Known driver gaps](#known-driver-gaps)); they are skipped by default.
+
+BLE pair tests (`test_ble.py`, tagged `@pair`) need a second board: `--port` is the first board and `--peer-port` the second, each with the BLE image and a board file (`--board`, `--peer-board`; the peer defaults to `--board`). No AD3 and no wiring; the boards only have to be in radio range, a few centimetres to a metre apart.
+Any pair works (WB55 + WB55, WBA55 + WBA55, WB55 + WBA55); the module runs once with the `--port` board as the central (`a-central`) and once with the `--peer-port` board (`b-central`), resetting both boards between the two.
+
+```bash
+pytest validation/host/tests/hil/test_ble.py --no-ad3 --board nucleo_wb55rg --port /dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_<A>-if02 --peer-board nucleo_wba55cg --peer-port /dev/serial/by-id/usb-STMicroelectronics_STLINK-V3_<B>-if02
+pytest validation/host/tests/hil/test_ble.py --no-ad3 --fake --board nucleo_wb55rg --peer-board nucleo_wba55cg
+```
+
+Two ST-LINK virtual COM ports enumerate as `ttyACM0` and `ttyACM1` in no fixed order, so name them by `/dev/serial/by-id/...` (or `HAL_ST_PORT` and `HAL_ST_PEER_PORT`). With `--fake` both boards are fakes sharing one radio (`fakes/ble.py`); the tests skip without `--peer-port` or `--fake`. A known gap in either board file applies to a pair test, and `tests.ble` of both board files sets the timeouts (the larger wins), the RSSI floor and the PHYs both support.
+
+Options from `tests/conftest.py` for the second board:
+
+- `--peer-port` (or `HAL_ST_PEER_PORT`), `--peer-baud`, `--peer-board` (or `HAL_ST_PEER_BOARD`, default `--board`). `--board-extra` does not apply to it; `--set` does.
 
 Options from the `ad3_waveforms_bench` pytest plugin (loaded automatically once the package is installed); `tests/conftest.py` feeds it the `ad3` section of the board file:
 
@@ -648,6 +675,13 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
 - `test_low_power.py` - `hal::LowPowerModeStm` in `sleep` and `deep` (Sleep on these MCUs: the clock-restore callback is never called):
   - with only the wake line and TIM17 enabled, the marker pin stays low until the AD3 edge on the wake pin (both edges) and rises within 50 us of it, and `us` covers the time asleep;
   - without an edge the TIM17 timeout ends the window and the tick runs again; pins released; argument errors.
+- `test_ble.py` - two boards with `hal_st.validation_ble_firmware`, one central and one peripheral, linked over the air (`--port` and `--peer-port`, any mix of NUCLEO-WB55RG and NUCLEO-WBA55CG, both role assignments, no wiring):
+  - advertising seen by a scan (name, public address, `ADV_IND`, RSSI above the floor of the board files), not seen after `ble.standby`, a name given to `ble.advertise`;
+  - connecting: both boards report the link with the other's address and the same parameters, the central or the peripheral ending it (reasons 0x16 and 0x13), repeated connect/disconnect cycles, a connection attempt to an absent address timing out or cancelled;
+  - the MTU agreed on both boards, the Nordic UART service opening on both, payloads of 1-244 bytes in both directions checked by length and CRC against the host's pattern, oversize and unopened sends refused;
+  - connection parameters set by the central (and kept by it when the peripheral asks for others), 1M and 2M PHY, the largest data length with a maximum-size payload after it;
+  - pairing at security level 2 (Just Works): the same strength on both boards, one bond each, a bond surviving a reconnection, bonds removed, a peripheral that refuses pairing;
+  - commands of the other role, a second `ble.open` and malformed command lines refused with their reasons.
 - `test_unsupported.py` - every CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 
 ## Customising
@@ -711,6 +745,7 @@ In `hal_st_validation` (hal-st specific):
 - `groups/hrtim.py` - `fw.hrtim` and the driver's arithmetic (`timing_for`, `compare_ticks`, `dead_time`, `frequency_range`, and `duty_cycle` as EMIL parses a duty); `fakes/hrtim.py` - its fake group (replies from that arithmetic, no fault input, conversions at the PWM frequency while running).
 - `fmac_ref.py` - the bit-exact FMAC model (FIR and direct-form-1 IIR with the accumulator, gain and clipping as parameters) and its calibration vectors; `groups/fmac.py` - `fw.fmac` (`load`, `load_all`, `fir`, `iir`); `fakes/fmac.py` - its fake group with the four stores.
 - `groups/qspi.py` - `fw.qspi` and the decoding of QUADSPI captures (`qspi_samples`, `qspi_bytes`, `qspi_frame`); `fakes/qspi.py` is its fake firmware model (STM32WB55).
+- `groups/ble.py` - `fw.ble` (the `ble` group of `hal_st.validation_ble_firmware`, with `wait` for its `EVT ble` events and `wait_link`); `ble_pair.py` - `BleSettings` (`tests.ble` of both board files merged), `BlePair` (the central and the peripheral, with connect, Nordic UART and verified transfer flows and the cleanup between tests); `fakes/ble.py` - the fake `ble` group and `FakeAir`, the radio two fake boards share.
 - `protocol.py` - the hal-st part of the protocol: error reasons, `P<port><index>` pins (ports A-K, index 0-15) and the generic alias names (`normalize_pin`, `parse_pin_map`).
 - `config.py` - board file loading, wiring-set merging, parameter matrices, overrides and known gaps; `expect.py` - expected STM32 values (PWM quantisation and range, SPI prescaler, UART baud-rate register limits, WWDG prescaler and period, ADC codes, encoder counts).
 - `pairwise.py` - the full product and the deterministic pairwise generator behind `--depth`.
@@ -732,4 +767,5 @@ In the firmware (`firmware/`):
 - `DacGroup` (STM32G4) serves `dac.*` over `hal::DigitalToAnalogPinImplStm`; `CordicGroup` (STM32G4) serves `cordic.calc`, building `SynchronousCordicStm`, `CordicStm` or `CordicStmDma` per command;
   `ComparatorFactory` (STM32G4) is the factory of EMIL's `comp` group and serves `comp.dac`; `FmacGroup` (STM32G4) serves `fmac.*`, keeping the coefficient and history stores and building `SynchronousFmacStm`, `FmacStm` or `FmacStmDma` per block;
   `OpampGroup` (STM32G4) serves `opamp.*`, one `OpampStm` at a time, and reads its output with ADC1; `HrtimGroup` (STM32G4) serves `hrtim.*`, one `HighResolutionPwmStm` at a time, and counts ADC1 conversions on its trigger.
+- `ble_firmware/` is the BLE image (`hal_st.validation_ble_firmware`), built from its own `Main.cpp` with the console, board profiles, pin factory and payload helpers of `firmware/`: `BleGroup` parses the `ble.*` commands, `BleController` starts the stack of the board (the transport to the wireless coprocessor on the STM32WB55, the host stack and link layer on the STM32WBA55), `BleRoles` holds the peripheral (GAP, GATT server, Nordic UART) and the central (GAP, GATT client, Nordic UART), and `BleReporter` prints every `EVT ble` line and keeps the link state `ble.link` reports.
 - `FlashGroup`, `HsemGroup` (STM32WB), `BackupRamGroup` and `LowPowerGroup` serve `flash.*`, `hsem.*`, `bkp.*` and `lpm.*`; `WatchDogFactory` lends the WWDG to the coordinated flash driver (`Borrow`/`Return`).
