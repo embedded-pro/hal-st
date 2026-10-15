@@ -18,7 +18,6 @@ hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4,
 - `hal_st_lwip/` — lwIP network stack instantiations
 - `st/` — CMSIS headers, STM32 HAL driver sources (per family), `hal_conf/`, `ldscripts/`
 - `services/st_util/` — ST bootloader communicator services
-- `integration_test/` — hardware-in-the-loop cucumber test rig (`pcb/`, `flasher/`, `tester/`, `tested/`, `runner/`, `logic/`)
 - `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
 - `examples/` — `blink`, `helloworld`, `sesame`, `freertos` (generic, `examples_st.*` targets, `HALST_BUILD_EXAMPLES`)
 - `demo/` — board demos (`demo_st.*` targets, `HALST_BUILD_DEMOS`): `display_demo` (shared, interface-only), `audio_demo` (shared tone generator), `sd_card_demo` (shared SD card test) and `common` (helpers of the H7 demos: I2C address scanner, counting I2C driver, memory tests, QSPI flash check, canvas, touch cursor layer, touch monitor, dashboard colours) as support libraries, `stm32f746g_disco` (SAI2 + WM8994, microSD on SDMMC1, USART1 trace), `stm32f407g_disco` (LIS3DSH, CS43L22, MP45DT02, RTT), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`, gyroscope sharing SPI5, STMPE811 touch, DAC-to-ADC loopback, USART1 terminal), `stm32h757i_eval` (CM7: DSI panel dashboard in SDRAM, FT6x06 touch, MFX joystick, FMC SDRAM/SRAM/NOR, QSPI flash, ADC potentiometer, DAC, SAI1 + WM8994, microSD on SDMMC1, USART1 terminal), `stm32h745i_disco` (CM7: LTDC dashboard on the 480 x 272 RGB panel in SDRAM, FT5336 touch, QSPI check, I2C4 scan, SAI2 + WM8994, USART3 terminal), and `stm32wb_stm32wba_nucleo/` (`ble_peripheral`, `ble_central` for NUCLEO-WB55RG and NUCLEO-WBA55CG)
@@ -108,7 +107,7 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 ## Testing
 
 No unit tests in this repo. hal-st is validated on real hardware — the `validation/` app (firmware + pytest-bdd/AD3 host suite: Gherkin scenarios in `validation/host/tests/hil/features/`, steps in `validation/host/tests/hil/test_*.py`; see `validation/README.md`), manual testing on Nucleo/Discovery boards,
-logic-analyser/scope verification and the `integration_test/` rig — not by GoogleTest suites. A driver change on STM32WB55/WBA55 should keep `validation/PROTOCOL.md`, the firmware factory and the host
+logic-analyser/scope verification — not by GoogleTest suites. A driver change on STM32WB55/WBA55 should keep `validation/PROTOCOL.md`, the firmware factory and the host
 tests in step. `validation/host/tests/unit` tests the host harness itself (`pytest validation/host/tests/unit`), not the drivers. Don't add unit tests for new or changed drivers.
 (`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
 
