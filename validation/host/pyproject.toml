@@ -46,6 +46,7 @@ markers = [
     "uses_option(tag): the test handles the wiring of --with <tag>: it may resolve the pins that option loads or jumpers",
     "conflicts_option(tag): skip when enabled with --with <tag>",
     "wiring_options(argname, enabled=True): one case per wiring option of the selected sets (enabled, or left out with enabled=False)",
+    "pair: needs two boards linked over the air (--port and --peer-port); skipped without --peer-port",
     "resets_board: the test resets the board on purpose",
     "slow: takes more than a few seconds",
 ]

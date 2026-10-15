@@ -16,6 +16,10 @@ The board file's `known_gaps` mark the HIL tests that run into a driver gap: a g
 firmware skips its tests (run them with `--run-known-gaps`), any other is an expected failure (xfail, not strict).
 They describe the firmware, so `--fake` ignores them.
 
+Tests marked `pair` (Gherkin tag `@pair`) need a second board: `--peer-port` and `--peer-board` (default `--board`) give
+the `peer_fw` fixture, `_hil_isolation` then watches both boards, and a known gap of either board's file applies. With
+`--fake` both boards are fakes sharing one `FakeAir`.
+
 The HIL tests are pytest-bdd scenarios: `tests/hil/features/<peripheral>.feature` holds the Gherkin and
 `tests/hil/test_<peripheral>.py` binds each scenario to a test function (which carries the parametrisation
 markers above and takes their argnames) and defines its steps. Feature tags become markers, see
@@ -41,6 +45,7 @@ from hal_st_validation.pairwise import DEPTHS, combinations
 
 HIL_DIR = Path(__file__).parent / "hil"
 _BOARD_KEY = pytest.StashKey[BoardConfig]()
+_PEER_BOARD_KEY = pytest.StashKey[BoardConfig]()
 _WIRING_KEY = pytest.StashKey[Wiring]()
 _OPTION_MARKERS = ("uses_option", "requires_option")
 
@@ -57,6 +62,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
     group.addoption("--port", default=os.environ.get("HAL_ST_PORT"), help="firmware terminal serial port; HIL tests skip without it")
     group.addoption("--baud", type=int, default=None, help="terminal baud rate (default from the board YAML)")
+    group.addoption(
+        "--peer-port",
+        default=os.environ.get("HAL_ST_PEER_PORT"),
+        help="terminal serial port of the second board; tests marked `pair` (two boards linked over the air) skip without it",
+    )
+    group.addoption(
+        "--peer-board",
+        default=os.environ.get("HAL_ST_PEER_BOARD"),
+        help="board YAML name or path of the second board (default: --board)",
+    )
+    group.addoption("--peer-baud", type=int, default=None, help="terminal baud rate of the second board (default from its board YAML)")
     group.addoption(
         "--command-timeout",
         type=float,
@@ -109,6 +125,16 @@ def board_config(config: pytest.Config) -> BoardConfig:
         board.apply_overrides(config.getoption("overrides"))
         config.stash[_BOARD_KEY] = board
     return config.stash[_BOARD_KEY]
+
+
+def peer_board_config(config: pytest.Config) -> BoardConfig:
+    """The second board of a pair test: `--peer-board` (default `--board`) without the `--board-extra` files, which
+    describe the bench wiring of the first board; `--set` overrides apply to both boards."""
+    if _PEER_BOARD_KEY not in config.stash:
+        board = load_board(config.getoption("--peer-board") or config.getoption("--board"))
+        board.apply_overrides(config.getoption("overrides"))
+        config.stash[_PEER_BOARD_KEY] = board
+    return config.stash[_PEER_BOARD_KEY]
 
 
 def wiring_config(config: pytest.Config) -> Wiring:
@@ -266,10 +292,12 @@ def hil_test_id(item: pytest.Item) -> str:
     return f"{relative}::{item.nodeid.partition('::')[2]}"
 
 
-def _apply_known_gaps(config: pytest.Config, item: pytest.Item, board: BoardConfig | None) -> None:
-    if board is None or config.getoption("--fake"):
+def _apply_known_gaps(config: pytest.Config, item: pytest.Item, boards: Iterable[BoardConfig]) -> None:
+    """A gap of any board taking part applies; a pair test (`pair` marker) has two."""
+    gaps = tuple(gap for board in boards for gap in board.known_gaps)
+    if not gaps or config.getoption("--fake"):
         return
-    outcome = known_gap_outcome(board.known_gaps, hil_test_id(item), config.getoption("--run-known-gaps"))
+    outcome = known_gap_outcome(gaps, hil_test_id(item), config.getoption("--run-known-gaps"))
     if outcome is None:
         return
     kind, reason = outcome
@@ -278,6 +306,7 @@ def _apply_known_gaps(config: pytest.Config, item: pytest.Item, board: BoardConf
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     port = config.getoption("--port")
+    peer_port = config.getoption("--peer-port")
     tags = set(config.getoption("with_tags"))
     try:
         board: BoardConfig | None = board_config(config)
@@ -290,11 +319,20 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             raise pytest.UsageError(str(error)) from error
     family = None if board is None else board.family
     for item in items:
+        pair = item.get_closest_marker("pair") is not None
         if HIL_DIR in Path(str(item.path)).parents:
             item.add_marker(pytest.mark.hil)
-            _apply_known_gaps(config, item, board)
+            boards = [] if board is None else [board]
+            if pair:
+                try:
+                    boards.append(peer_board_config(config))
+                except ConfigError as error:
+                    raise pytest.UsageError(str(error)) from error
+            _apply_known_gaps(config, item, boards)
         if item.get_closest_marker("hil") and not (port or config.getoption("--fake")):
             item.add_marker(pytest.mark.skip(reason="HIL test: pass --port"))
+        elif pair and not (peer_port or config.getoption("--fake")):
+            item.add_marker(pytest.mark.skip(reason="pair test: pass --peer-port (a second board)"))
         families = [marker.args[0] for marker in item.iter_markers("family")]
         if families and family and family not in families:
             item.add_marker(pytest.mark.skip(reason=f"only for {' and '.join(families)}"))
@@ -393,9 +431,17 @@ def depth(pytestconfig: pytest.Config) -> str:
     return pytestconfig.getoption("--depth")
 
 
-@pytest.fixture(scope="session")
-def terminal(pytestconfig: pytest.Config, board_cfg: BoardConfig) -> Iterator[FirmwareTerminal]:
-    port = pytestconfig.getoption("--port")
+@contextlib.contextmanager
+def open_terminal(
+    pytestconfig: pytest.Config,
+    board_cfg: BoardConfig,
+    port: str | None,
+    baud: int | None,
+    option: str,
+    air: Any = None,
+) -> Iterator[FirmwareTerminal]:
+    """The terminal of one board: its serial `port`, or with `--fake` a fake firmware (sharing `air` with the other
+    board of a pair). `option` names the port option in the skip message."""
     serial = None
     if pytestconfig.getoption("--fake"):
         from hal_st_validation.fake_firmware import FakeFirmware, FakeSerial
@@ -408,11 +454,12 @@ def terminal(pytestconfig: pytest.Config, board_cfg: BoardConfig) -> Iterator[Fi
             sysclk=board_cfg.sysclk or 0,
             pins=dict(board_cfg.pins),
             style="line",
+            air=air,
         )
         serial = FakeSerial(fake)
     elif not port:
-        pytest.skip("pass --port")
-    baud = pytestconfig.getoption("--baud") or board_cfg.terminal.baud
+        pytest.skip(f"pass {option}")
+    baud = baud or board_cfg.terminal.baud
     timeout = pytestconfig.getoption("--command-timeout") or board_cfg.terminal.command_timeout
     with FirmwareTerminal(
         port,
@@ -432,13 +479,55 @@ def terminal(pytestconfig: pytest.Config, board_cfg: BoardConfig) -> Iterator[Fi
         yield term
 
 
-@pytest.fixture(scope="session")
-def fw(terminal: FirmwareTerminal, board_cfg: BoardConfig) -> Firmware:
+def checked_firmware(terminal: FirmwareTerminal, board_cfg: BoardConfig, option: str) -> Firmware:
     firmware = Firmware(terminal, board_cfg.pins)
     info = firmware.system.info()
     if not board_cfg.matches_firmware_name(info.board):
-        pytest.exit(f"--board {board_cfg.name} but the firmware reports {info.board}", returncode=3)
+        pytest.exit(f"{option} {board_cfg.name} but the firmware reports {info.board}", returncode=3)
     return firmware
+
+
+@pytest.fixture(scope="session")
+def fake_air(pytestconfig: pytest.Config) -> Any:
+    """With `--fake`, the radio the fake boards of a BLE pair share; None on hardware."""
+    if not pytestconfig.getoption("--fake"):
+        return None
+    from hal_st_validation.fakes.ble import FakeAir
+
+    return FakeAir()
+
+
+@pytest.fixture(scope="session")
+def terminal(pytestconfig: pytest.Config, board_cfg: BoardConfig, fake_air: Any) -> Iterator[FirmwareTerminal]:
+    with open_terminal(
+        pytestconfig, board_cfg, pytestconfig.getoption("--port"), pytestconfig.getoption("--baud"), "--port", fake_air
+    ) as term:
+        yield term
+
+
+@pytest.fixture(scope="session")
+def fw(terminal: FirmwareTerminal, board_cfg: BoardConfig) -> Firmware:
+    return checked_firmware(terminal, board_cfg, "--board")
+
+
+@pytest.fixture(scope="session")
+def peer_board_cfg(pytestconfig: pytest.Config) -> BoardConfig:
+    """The second board of a pair test (`--peer-board`, default `--board`)."""
+    return peer_board_config(pytestconfig)
+
+
+@pytest.fixture(scope="session")
+def peer_terminal(pytestconfig: pytest.Config, peer_board_cfg: BoardConfig, fake_air: Any) -> Iterator[FirmwareTerminal]:
+    port = pytestconfig.getoption("--peer-port")
+    if port and port == pytestconfig.getoption("--port"):
+        pytest.exit(f"--port and --peer-port are both {port}: a pair needs two boards", returncode=3)
+    with open_terminal(pytestconfig, peer_board_cfg, port, pytestconfig.getoption("--peer-baud"), "--peer-port", fake_air) as term:
+        yield term
+
+
+@pytest.fixture(scope="session")
+def peer_fw(peer_terminal: FirmwareTerminal, peer_board_cfg: BoardConfig) -> Firmware:
+    return checked_firmware(peer_terminal, peer_board_cfg, "--peer-board")
 
 
 @pytest.fixture(scope="session")
@@ -475,12 +564,15 @@ def _hil_isolation(request: pytest.FixtureRequest) -> Iterator[None]:
     if request.node.get_closest_marker("hil") is None:
         yield
         return
-    firmware: Firmware = request.getfixturevalue("fw")
-    quiesce(firmware.terminal)
-    firmware.terminal.drain_events()
+    boards: list[Firmware] = [request.getfixturevalue("fw")]
+    if "peer_fw" in request.fixturenames:
+        boards.append(request.getfixturevalue("peer_fw"))
+    for firmware in boards:
+        quiesce(firmware.terminal)
+        firmware.terminal.drain_events()
     yield
-    boots = firmware.terminal.drain_events("boot")
-    failures = firmware.close_all()
+    boots = [event for firmware in boards for event in firmware.terminal.drain_events("boot")]
+    failures = [failure for firmware in boards for failure in firmware.close_all()]
     if "ad3" in request.fixturenames:
         release_ad3(request.getfixturevalue("ad3"))
     if boots and request.node.get_closest_marker("resets_board") is None:

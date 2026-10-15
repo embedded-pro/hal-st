@@ -1330,6 +1330,22 @@ tests:
   bkp:
     # RTC BKP0R-BKP19R.
     words: 20
+  ble:
+    # BLE pair tests (test_ble.py): two boards linked over the air, each in both roles; no wiring. A pair takes
+    # the larger timeout and the lower RSSI floor of its two board files, and only the PHYs both list.
+    # Timeouts in seconds.
+    connect_timeout: 5.0
+    scan_timeout: 5.0
+    event_timeout: 3.0
+    # How long "nothing is reported" is watched.
+    quiet_window: 0.5
+    # Lowest RSSI (dBm) of an advertising report with the boards a few centimetres to a metre apart.
+    rssi_min: -90
+    # Connect/disconnect cycles of the reconnect scenario: --depth quick and --depth full.
+    reconnect_cycles: 3
+    reconnect_cycles_full: 20
+    # PHYs the radio takes: LE 1M and 2M (the WB55 radio has no LE Coded).
+    phys: [1m, 2m]
   lowpower:
     # Defaults of the firmware (BoardProfile lowPowerDefaults).
     wake: gpio0
