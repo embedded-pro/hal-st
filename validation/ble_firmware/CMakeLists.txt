@@ -13,6 +13,7 @@ target_include_directories(hal_st.validation_ble_firmware PRIVATE
 target_link_libraries(hal_st.validation_ble_firmware PRIVATE
     services.hil
     services.ble
+    services.ble_profile
     services.util
     services.peripheral
     services.tracer

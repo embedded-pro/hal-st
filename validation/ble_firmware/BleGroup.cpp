@@ -234,8 +234,7 @@ namespace validation
             return HilStatus::done;
         }
 
-        return Accepted(peripheral->Gap().Standby([](services::GapPeripheral::Result)
-            {}));
+        return Accepted(peripheral->Gap().Standby([](services::GapPeripheral::Result) {}));
     }
 
     HilStatus BleCommands::AllowPairing(const services::HilArguments& arguments)
@@ -255,8 +254,7 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
-        return Accepted(peripheral->Gap().AllowPairing(allow != 0, [](services::GapPairingResult)
-            {}));
+        return Accepted(peripheral->Gap().AllowPairing(allow != 0, [](services::GapPairingResult) {}));
     }
 
     HilStatus BleCommands::Scan(const services::HilArguments& arguments)
@@ -378,8 +376,7 @@ namespace validation
         }
 
         cancelRequested = true;
-        status = Accepted(central->Gap().CancelConnect([](services::GapCentral::Result)
-            {}));
+        status = Accepted(central->Gap().CancelConnect([](services::GapCentral::Result) {}));
 
         if (status != HilStatus::done)
             cancelRequested = false;
@@ -404,11 +401,9 @@ namespace validation
         }
 
         if (central)
-            return Accepted(central->Gap().Disconnect([](services::GapCentral::Result)
-                {}));
+            return Accepted(central->Gap().Disconnect([](services::GapCentral::Result) {}));
 
-        return Accepted(peripheral->Gap().Standby([](services::GapPeripheral::Result)
-            {}));
+        return Accepted(peripheral->Gap().Standby([](services::GapPeripheral::Result) {}));
     }
 
     HilStatus BleCommands::Phy(const services::HilArguments& arguments)
@@ -503,11 +498,9 @@ namespace validation
             return status;
 
         if (central)
-            return Accepted(central->Gap().UpdateConnectionParameters(parameters, [](services::GapCentral::Result)
-                {}));
+            return Accepted(central->Gap().UpdateConnectionParameters(parameters, [](services::GapCentral::Result) {}));
 
-        return Accepted(peripheral->Gap().RequestConnectionParameterUpdate(parameters, [](services::GapPeripheral::Result)
-            {}));
+        return Accepted(peripheral->Gap().RequestConnectionParameterUpdate(parameters, [](services::GapPeripheral::Result) {}));
     }
 
     HilStatus BleCommands::Link(const services::HilArguments& arguments)
@@ -612,8 +605,7 @@ namespace validation
         if (status != HilStatus::done)
             return status;
 
-        return Accepted(Pairing().PairAndBond([](services::GapPairingResult)
-            {}));
+        return Accepted(Pairing().PairAndBond([](services::GapPairingResult) {}));
     }
 
     HilStatus BleCommands::Bonds(const services::HilArguments& arguments)
@@ -712,7 +704,8 @@ namespace validation
         if (result == Result::success)
             return;
 
-        reporter.ConnectFailed(cancelled ? "cancelled" : result == Result::timeout ? "timeout" : "failed");
+        reporter.ConnectFailed(cancelled ? "cancelled" : result == Result::timeout ? "timeout"
+                                                                                   : "failed");
     }
 
     services::GapPairing& BleCommands::Pairing()

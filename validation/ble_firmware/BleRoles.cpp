@@ -276,8 +276,7 @@ namespace validation
 
         scannedCount = 0;
 
-        auto status = gap.StartDeviceDiscovery([](services::GapCentral::Result)
-            {});
+        auto status = gap.StartDeviceDiscovery([](services::GapCentral::Result) {});
 
         if (status == services::GapRequestStatus::accepted && timeoutMs)
             scanTimer.Start(std::chrono::milliseconds(*timeoutMs), [this]()
@@ -292,8 +291,7 @@ namespace validation
     {
         scanTimer.Cancel();
 
-        return gap.StopDeviceDiscovery([](services::GapCentral::Result)
-            {});
+        return gap.StopDeviceDiscovery([](services::GapCentral::Result) {});
     }
 
     services::GattRequestStatus CentralRole::ExchangeMtu()
