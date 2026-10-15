@@ -1,3 +1,7 @@
+if (NOT EMIL_INCLUDE_ECHO)
+    return()
+endif()
+
 macro(add_sesame_example target_name)
 
     add_executable(${target_name})

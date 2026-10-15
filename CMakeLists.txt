@@ -27,7 +27,7 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        6364c1a12112098a009074dfa3b89bd6180b7be6 # Unreleased
+        GIT_TAG        d35e4c260a7f95d54f94f5528519614a8defe433 # Unreleased
     )
 
     add_definitions(-DEMIL_ENABLE_TRACING=1)
@@ -39,7 +39,14 @@ if (HALST_STANDALONE)
     # unset there).
     if (TARGET_MCU_VENDOR STREQUAL st)
         set(EMIL_BUILD_CORTEX_M On CACHE BOOL "" FORCE)
-        set(CMAKE_PROJECT_emil_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/cmake/NativeEchoPlugins.cmake")
+
+        # Only examples/sesame generates Echo code, and a cross build can only run the Echo plugins
+        # when they are built for the host.
+        if (TARGET_MCU STREQUAL stm32f767)
+            set(CMAKE_PROJECT_emil_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/cmake/NativeEchoPlugins.cmake")
+        else()
+            set(EMIL_INCLUDE_ECHO Off)
+        endif()
     endif()
 
     FetchContent_MakeAvailable(emil)

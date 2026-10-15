@@ -118,7 +118,7 @@ cmake --preset host && cmake --build --preset host-Debug   # host tooling/build 
 cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
 ```
 
-Embedded presets configure from a clean checkout: `cmake/NativeEchoPlugins.cmake` builds EMIL's Echo plugins for the host under `<build>/_native_echo_plugins` (first build of each preset only), so no installed EMIL package or host build is needed.
+Embedded presets configure and build from a clean checkout, with no installed EMIL package or host build. They set `EMIL_INCLUDE_ECHO=Off`, because nothing in hal-st but `examples/sesame` needs Echo code. `stm32f767` keeps it on, and `cmake/NativeEchoPlugins.cmake` builds EMIL's Echo plugins for the host under `<build>/_native_echo_plugins` (first build only).
 
 Other target presets: `stm32f746g-disco` (STM32F746G-DISCO, TFBGA216 pin data), `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h745-cm7`, `stm32h745-cm4`, `stm32h757-cm7`, `stm32h757-cm4`.
 
