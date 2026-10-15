@@ -89,10 +89,10 @@ namespace hal
     {
         HAL_FLASH_Unlock();
 
-#if defined(STM32WB) || defined(STM32WBA)
+#if defined(STM32WB) || defined(STM32WBA) || defined(STM32G4)
         const auto regionOffset = reinterpret_cast<uint32_t>(flashMemory.begin()) - FLASH_BASE;
         detail::ErasePages((regionOffset + AddressOfSector(beginIndex)) / FLASH_PAGE_SIZE, (regionOffset + AddressOfSector(endIndex)) / FLASH_PAGE_SIZE);
-#elif defined(STM32G4) || defined(STM32G0)
+#elif defined(STM32G0)
         uint32_t pageError = 0;
 
         FLASH_EraseInitTypeDef eraseInitStruct;

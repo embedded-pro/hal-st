@@ -300,6 +300,15 @@ def test_lpm_errors_wb55(line, expected):
     assert reason(terminal, line) == expected
 
 
+def test_lpm_deep_unsupported_on_stm32g474():
+    """`LowPowerModeStm` enters Stop on the STM32G4, which stops the scaffold timer: `deep` is refused after its arguments."""
+    terminal, _, fw = make("stm32g474")
+    assert reason(terminal, "lpm.enter deep") == "unsupported"
+    assert reason(terminal, "lpm.enter deep timeout=0") == "range"
+    assert reason(terminal, "lpm.enter deep wake=gpio0 marker=gpio0") == "usage"
+    assert fw.lpm.enter("sleep").woke == "exti"
+
+
 def test_lpm_wakes_and_checks_resources():
     terminal, fake, fw = make("stm32wba55")
     wake = fw.lpm.enter("sleep")

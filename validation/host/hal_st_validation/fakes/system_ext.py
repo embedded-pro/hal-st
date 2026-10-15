@@ -27,10 +27,11 @@ __all__ = ["FakeBackupRam", "FakeFlash", "FakeHsem", "FakeLowPower", "FakeWatchd
 
 _PAYLOAD = 512
 _HEX_OUTPUT_MAX = 128
-_FIRST_PAGE = 64
+_FIRST_PAGE = {"stm32wb55": 64, "stm32wba55": 64, "stm32g474": 176}
 _FLASH_BASE = 0x08000000
-_GEOMETRY = {"stm32wb55": (4096, 8, 60, 144), "stm32wba55": (8192, 16, 24, 128)}
-_ERASE_US_PER_PAGE = {"stm32wb55": 22000, "stm32wba55": 3000}
+# (page size, flash word, end page of the firmware image, end page of the scratch region)
+_GEOMETRY = {"stm32wb55": (4096, 8, 60, 144), "stm32wba55": (8192, 16, 24, 128), "stm32g474": (2048, 8, 116, 252)}
+_ERASE_US_PER_PAGE = {"stm32wb55": 22000, "stm32wba55": 3000, "stm32g474": 22000}
 _WRITE_US_PER_WORD = 90
 _ERASE_TIMEOUT = 10.0
 _TRANSFER_TIMEOUT = 2.0
@@ -48,9 +49,9 @@ _CORE_CPU1 = 4
 _HSEM_OWNER = ("hsem", "lock")
 _SCAFFOLD_TIMER = 17
 
-_BKP_WORDS = {"stm32wb55": 20, "stm32wba55": 16}
+_BKP_WORDS = {"stm32wb55": 20, "stm32wba55": 16, "stm32g474": 16}
 
-_LPM_DEFAULTS = {"stm32wb55": ("PC6", "PB0"), "stm32wba55": ("PB14", "PA2")}
+_LPM_DEFAULTS = {"stm32wb55": ("PC6", "PB0"), "stm32wba55": ("PB14", "PA2"), "stm32g474": ("PC4", "PA12")}
 _LPM_TIMEOUT_MAX_MS = 10000
 _LPM_OWNER = ("lpm", "enter")
 _LPM_WAKE_US = 100
@@ -92,7 +93,8 @@ class FakeFlash(FakeGroup):
         super().__init__(fw)
         page, self.word, self.image, end_page = _GEOMETRY.get(fw.family, _GEOMETRY["stm32wb55"])
         self.page = page
-        self.pages = end_page - _FIRST_PAGE
+        self.first_page = _FIRST_PAGE.get(fw.family, _FIRST_PAGE["stm32wb55"])
+        self.pages = end_page - self.first_page
         self.memory = bytearray(b"\xff" * (self.pages * page))
         self.table = table_sectors(self.pages)
         self.boot()
@@ -104,7 +106,7 @@ class FakeFlash(FakeGroup):
 
     @property
     def base(self) -> int:
-        return _FLASH_BASE + _FIRST_PAGE * self.page
+        return _FLASH_BASE + self.first_page * self.page
 
     def borrowing(self) -> bool:
         """The coordinated driver exists (it holds the watchdog and HSEM 0)."""
@@ -117,6 +119,8 @@ class FakeFlash(FakeGroup):
         return sum(self._sizes(layout)[:sector]) * self.page
 
     def _first(self, layout: str) -> int:
+        if not self.fw.spec.image_limits_erase:
+            return 0
         return min(self.image, len(self._sizes(layout)))
 
     def _driver(self, options: dict[str, str]) -> tuple[str, str]:
@@ -410,6 +414,8 @@ class FakeLowPower(FakeGroup):
         marker = self.fw.pin(options.get("marker")) or default_marker
         if wake == marker:
             _fail("usage")
+        if args[0] == "deep" and not self.fw.spec.lpm_deep:
+            _fail("unsupported")
         if not self.fw.bonded(wake) or not self.fw.bonded(marker):
             _fail("pin")
         if not self.fw.supports_interrupt(wake):

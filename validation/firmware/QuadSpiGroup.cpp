@@ -11,6 +11,9 @@
 #include <cstddef>
 #include <limits>
 #include DEVICE_HEADER
+#if defined(STM32G4)
+#include "stm32g4xx_ll_dma.h"
+#endif
 
 namespace validation
 {
@@ -49,7 +52,43 @@ namespace validation
             hal::PinConfigTypeStm::quadSpiData3,
         } };
 
+#if defined(STM32G4)
+        static_assert(board::qspiDma.dma == 2 && LL_DMA_CHANNEL_1 == 0 && LL_DMA_CHANNEL_7 == 6);
+
+        constexpr uint32_t LlDmaChannel(uint8_t channel)
+        {
+            return channel - 1;
+        }
+
+        uint32_t QuadSpiKernelClock()
+        {
+            return HAL_RCC_GetHCLKFreq();
+        }
+
+        void ResetQuadSpi()
+        {
+            __HAL_RCC_QSPI_FORCE_RESET();
+            __HAL_RCC_QSPI_RELEASE_RESET();
+        }
+#else
         static_assert(board::qspiDma.dma == 2 && LL_DMA_CHANNEL_1 == 1 && LL_DMA_CHANNEL_7 == 7);
+
+        constexpr uint32_t LlDmaChannel(uint8_t channel)
+        {
+            return channel;
+        }
+
+        uint32_t QuadSpiKernelClock()
+        {
+            return HAL_RCC_GetHCLK4Freq();
+        }
+
+        void ResetQuadSpi()
+        {
+            __HAL_RCC_QUADSPI_FORCE_RESET();
+            __HAL_RCC_QUADSPI_RELEASE_RESET();
+        }
+#endif
 
         bool Fits(uint32_t value, uint32_t bytes)
         {
@@ -217,7 +256,7 @@ namespace validation
 
     void QuadSpiFactoryStm::Construct(const Request& request, const ClaimedPins& claimed)
     {
-        clock = HAL_RCC_GetHCLK4Freq() / (request.prescaler + 1);
+        clock = QuadSpiKernelClock() / (request.prescaler + 1);
 
         if (request.variant == QuadSpiVariant::poll)
         {
@@ -244,11 +283,10 @@ namespace validation
 
         // A command that timed out leaves its channel running, and HAL_DMA_Init keeps CCR.EN for the next open
         if (stream)
-            LL_DMA_DisableChannel(DMA2, board::qspiDma.channel);
+            LL_DMA_DisableChannel(DMA2, LlDmaChannel(board::qspiDma.channel));
 
         // A data-only indirect read hangs the QUADSPI with BUSY set (erratum): only an abort or a reset clears it
-        __HAL_RCC_QUADSPI_FORCE_RESET();
-        __HAL_RCC_QUADSPI_RELEASE_RESET();
+        ResetQuadSpi();
 
         driver.emplace<std::monostate>();
         stream.reset();

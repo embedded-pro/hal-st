@@ -82,7 +82,10 @@
             <xsl:attribute name="position"><xsl:value-of select="substring(@InstanceName, string-length($prefix) + 1)"/></xsl:attribute>
           </xsl:otherwise>
         </xsl:choose>
-        <xsl:if test="@ClockEnableMode">
+        <xsl:if test="@ClockEnableMode = 'none'">
+          <xsl:attribute name="clock">none</xsl:attribute>
+        </xsl:if>
+        <xsl:if test="@ClockEnableMode and @ClockEnableMode != 'none'">
           <xsl:attribute name="clock-enable">
             <xsl:call-template name="string-replace-all">
               <xsl:with-param name="text" select="@ClockEnableMode"/>

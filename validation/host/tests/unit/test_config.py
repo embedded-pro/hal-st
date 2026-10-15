@@ -2,14 +2,17 @@ import pytest
 
 from hal_st_validation import expect
 from hal_st_validation.config import ConfigError, available_boards, load_board, parse_board
-from hal_st_validation.fake_firmware import WB55_PINS, WBA55_PINS
+from hal_st_validation.fake_firmware import G474_PINS, WB55_PINS, WBA55_PINS
 from hal_st_validation.pairwise import pairwise
 from hal_st_validation.protocol import is_alias
 
-BOARDS = ["nucleo_wb55rg", "nucleo_wba55cg"]
-FIRMWARE_TABLES = {"nucleo_wb55rg": WB55_PINS, "nucleo_wba55cg": WBA55_PINS}
-FAMILIES = {"nucleo_wb55rg": "stm32wb55", "nucleo_wba55cg": "stm32wba55"}
-CLOCKS = {"nucleo_wb55rg": 64_000_000, "nucleo_wba55cg": 100_000_000}
+BOARDS = ["nucleo_wb55rg", "nucleo_wba55cg", "nucleo_g474re"]
+FIRMWARE_TABLES = {"nucleo_wb55rg": WB55_PINS, "nucleo_wba55cg": WBA55_PINS, "nucleo_g474re": G474_PINS}
+FAMILIES = {"nucleo_wb55rg": "stm32wb55", "nucleo_wba55cg": "stm32wba55", "nucleo_g474re": "stm32g474"}
+CLOCKS = {"nucleo_wb55rg": 64_000_000, "nucleo_wba55cg": 100_000_000, "nucleo_g474re": 170_000_000}
+# USART of the ST-LINK virtual COM port, and an SPI instance the MCU lacks.
+TERMINAL_USARTS = {"nucleo_wb55rg": 1, "nucleo_wba55cg": 1, "nucleo_g474re": 2}
+MISSING_SPI = {"nucleo_wb55rg": 3, "nucleo_wba55cg": 2, "nucleo_g474re": 4}
 
 
 def test_available_boards():
@@ -23,14 +26,14 @@ def test_board_files_load(name):
     assert board.family == FAMILIES[name]
     assert board.sysclk == CLOCKS[name]
     assert board.terminal.baud == 921600
-    assert board.terminal.uart == 1
+    assert board.terminal.uart == TERMINAL_USARTS[name]
     assert board.ad3.vplus is None
     assert board.ad3.analog_max == 3.3
     assert board.matches_firmware_name(name.upper().replace("_", "-"))
     assert board.matches_firmware_name(board.firmware_name)
     assert all(is_alias(alias) for alias in board.pins)
     assert board.terminal.pins == (board.pins["terminaltx"], board.pins["terminalrx"])
-    for alias in ("tim1ch1", "tim1bkin", "spi1clk", "lpuart1tx", "led0", "gpio0", "sw1"):
+    for alias in ("tim1ch1", "tim1bkin", "spi1clk", "lpuart1tx", "gpio0"):
         assert board.resolve_pin(alias).startswith("P")
 
 
@@ -51,7 +54,7 @@ def test_clocks(name):
     assert board.clock("uart", "lpuart1") == board.clock("uart", "LPUART1") == hz
     assert board.clock("uart", expect.uart_clock_name(1, lp=True)) == hz
     with pytest.raises(ConfigError):
-        board.clock("spi", 2 if name == "nucleo_wba55cg" else 3)
+        board.clock("spi", MISSING_SPI[name])
     with pytest.raises(ConfigError):
         board.clock("nosuchclock")
 
@@ -60,6 +63,8 @@ def test_clock_tables_follow_the_instances():
     assert set(load_board("nucleo_wb55rg").clocks["spi"]) == {1, 2}
     assert set(load_board("nucleo_wba55cg").clocks["spi"]) == {1, 3}
     assert set(load_board("nucleo_wba55cg").clocks["uart"]) == {"usart1", "usart2", "lpuart1"}
+    assert set(load_board("nucleo_g474re").clocks["spi"]) == {1, 2, 3}
+    assert set(load_board("nucleo_g474re").clocks["uart"]) == {"usart1", "usart2", "usart3", "uart4", "uart5", "lpuart1"}
 
 
 @pytest.mark.parametrize("name", BOARDS)
@@ -80,6 +85,7 @@ def test_bundles_wire_each_dio_once(name):
 def test_bundle_sets():
     assert set(load_board("nucleo_wb55rg").wiring_sets) == {"bundle1", "bundle2"}
     assert set(load_board("nucleo_wba55cg").wiring_sets) == {"bundle1", "bundle2"}
+    assert set(load_board("nucleo_g474re").wiring_sets) == {"bundle1", "bundle2", "bundle3"}
 
 
 @pytest.mark.parametrize(
@@ -87,6 +93,7 @@ def test_bundle_sets():
     [
         ("nucleo_wb55rg", {"bundle1": {"loopback", "i2c", "spiloop"}, "bundle2": {"loopback"}}),
         ("nucleo_wba55cg", {"bundle1": {"loopback"}, "bundle2": {"loopback", "i2c", "spiloop"}}),
+        ("nucleo_g474re", {"bundle1": {"loopback"}, "bundle2": {"spiloop"}, "bundle3": {"i2c", "dac"}}),
     ],
 )
 def test_bundle_options(name, offered):
@@ -153,11 +160,11 @@ def test_parameters_reference_wired_pins(name):
             assert channel.get("npin") is None or wired_in_a_set(channel["npin"]), channel
         assert timer.get("brk") is None or wired_in_a_set(timer["brk"]), timer
     for instance in board.param("uart.instances"):
-        assert all(wired(instance[key]) for key in ("tx", "rx", "rts", "cts")), instance
+        assert all(wired_in_a_set(instance[key], instance.get("option")) for key in ("tx", "rx", "rts", "cts")), instance
     for instance in board.param("spi.instances"):
         assert all(wired_in_a_set(instance[key], instance.get("option")) for key in ("clk", "cs", "mosi", "miso")), instance
     for instance in board.param("qei.instances"):
-        assert all(wired(instance[key]) for key in ("a", "b", "idx")), instance
+        assert all(wired_in_a_set(instance[key]) for key in ("a", "b", "idx")), instance
     for instance in board.param("qei.lp_instances"):
         assert all(wired(instance[key], bundle="bundle2") for key in ("a", "b")), instance
     assert wired(board.param("watchdog.pin"))

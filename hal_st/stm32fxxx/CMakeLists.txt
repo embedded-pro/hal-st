@@ -30,6 +30,12 @@ target_sources(hal_st.stm32fxxx PRIVATE
     BackupRamStm.hpp
     CanStm.cpp
     CanStm.hpp
+    ComparatorStm.cpp
+    ComparatorStm.hpp
+    CordicStm.cpp
+    CordicStm.hpp
+    CordicStmDma.cpp
+    CordicStmDma.hpp
     DataCacheStm.hpp
     DcmiStm.cpp
     DcmiStm.hpp
@@ -80,10 +86,16 @@ target_sources(hal_st.stm32fxxx PRIVATE
     $<$<STREQUAL:${TARGET_MCU_FAMILY},stm32h5xx>:FlashInternalHighCycleAreaStm.hpp>
     FlashInternalStm.cpp
     FlashInternalStm.hpp
+    FmacStm.cpp
+    FmacStm.hpp
+    FmacStmDma.cpp
+    FmacStmDma.hpp
     FmcStm.cpp
     FmcStm.hpp
     GpioStm.cpp
     GpioStm.hpp
+    HighResolutionTimerStm.cpp
+    HighResolutionTimerStm.hpp
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.cpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2cStm.hpp>
     $<$<NOT:$<STREQUAL:${TARGET_MCU_FAMILY},stm32g0xx>>:I2sInputStm.cpp>
@@ -102,12 +114,14 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LowPowerModeStm.hpp
     LtdcStm.cpp
     LtdcStm.hpp
+    OpampStm.cpp
+    OpampStm.hpp
     LpTimerStm.cpp
     LpTimerStm.hpp
     PwmStm.cpp
     PwmStm.hpp
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.cpp>
-    $<$<NOT:$<STREQUAL:${TARGET_MCU},stm32wb55>>:LpTimerPwmStm.hpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.cpp>
+    $<$<NOT:$<OR:$<STREQUAL:${TARGET_MCU},stm32wb55>,$<STREQUAL:${TARGET_MCU_FAMILY},stm32g4xx>>>:LpTimerPwmStm.hpp>
     NorFlashStm.cpp
     NorFlashStm.hpp
     RandomDataGeneratorStm.cpp
@@ -177,7 +191,7 @@ if (TARGET_MCU IN_LIST UartMcus OR TARGET_MCU_FAMILY IN_LIST UartMcuFamilies)
 endif()
 
 list(APPEND AdcDmaMcus stm32wb55)
-list(APPEND AdcDmaMcuFamilies stm32wbaxx stm32h5xx)
+list(APPEND AdcDmaMcuFamilies stm32g4xx stm32wbaxx stm32h5xx)
 
 if (TARGET_MCU IN_LIST AdcDmaMcus OR TARGET_MCU_FAMILY IN_LIST AdcDmaMcuFamilies)
     target_sources(hal_st.stm32fxxx PRIVATE AdcDmaStm.cpp
@@ -300,4 +314,8 @@ if (TARGET_MCU_VENDOR STREQUAL st)
         "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PeripheralTable.cpp"
         "${CMAKE_CURRENT_BINARY_DIR}/generated/stm32fxxx/PeripheralTable.hpp"
     )
+
+    if (TARGET_MCU STREQUAL stm32g474 AND TARGET_MCU_VARIANT STREQUAL stm32g474vxt)
+        target_compile_definitions(hal_st.stm32fxxx PRIVATE QUADSPI1_IRQn=QUADSPI_IRQn)
+    endif()
 endif()

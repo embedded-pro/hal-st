@@ -33,7 +33,7 @@ namespace validation
         constexpr std::size_t nvicWords = sizeof(NVIC_Type::ISER) / sizeof(uint32_t);
 
         static_assert(board::scaffoldTimer == 17);
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
         constexpr IRQn_Type scaffoldIrq = TIM1_TRG_COM_TIM17_IRQn;
 #else
         constexpr IRQn_Type scaffoldIrq = TIM17_IRQn;
@@ -41,7 +41,7 @@ namespace validation
 
         IRQn_Type ExtiIrq(uint8_t line)
         {
-#if defined(STM32WB)
+#if defined(STM32WB) || defined(STM32G4)
             if (line >= 10)
                 return EXTI15_10_IRQn;
             if (line >= 5)
@@ -124,6 +124,12 @@ namespace validation
         request.marker = marker.value_or(board::lowPowerDefaults.marker);
         if (request.wake == request.marker)
             return HilStatus::usage;
+
+#if defined(STM32G4)
+        // LowPowerModeStm enters Stop here, which stops the scaffold timer and drops the PLL: nothing would end the window
+        if (request.mode == hal::PowerMode::deepSleep)
+            return HilStatus::unsupported;
+#endif
 
         if (!IsBonded(request.wake) || !IsBonded(request.marker))
             return HilStatus::pin;

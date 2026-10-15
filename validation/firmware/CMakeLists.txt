@@ -1,5 +1,6 @@
 add_executable(hal_st.validation_firmware)
 emil_build_for(hal_st.validation_firmware
+    TARGET_MCU stm32g474
     TARGET_MCU stm32wb55
     TARGET_MCU stm32wba55
     PREREQUISITE_BOOL HALST_BUILD_EXAMPLES
@@ -35,14 +36,24 @@ target_sources(hal_st.validation_firmware PRIVATE
     ChannelPins.hpp
     ClockGroup.cpp
     ClockGroup.hpp
+    ComparatorFactory.cpp
+    ComparatorFactory.hpp
     Console.cpp
     Console.hpp
+    CordicGroup.cpp
+    CordicGroup.hpp
+    DacGroup.cpp
+    DacGroup.hpp
     DmaGroup.cpp
     DmaGroup.hpp
     EepromGroup.cpp
     EepromGroup.hpp
     FlashGroup.cpp
     FlashGroup.hpp
+    FmacGroup.cpp
+    FmacGroup.hpp
+    HrtimGroup.cpp
+    HrtimGroup.hpp
     HsemGroup.cpp
     HsemGroup.hpp
     HsemMaster.cpp
@@ -62,6 +73,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     LpTimerPwmGroup.cpp
     LpTimerPwmGroup.hpp
     Main.cpp
+    OpampGroup.cpp
+    OpampGroup.hpp
     Owners.hpp
     Payload.cpp
     Payload.hpp
@@ -102,6 +115,7 @@ target_sources(hal_st.validation_firmware PRIVATE
     UnsupportedGroups.hpp
     WatchDogFactory.cpp
     WatchDogFactory.hpp
+    $<$<STREQUAL:${TARGET_MCU},stm32g474>:boards/stm32g474/BoardProfile.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32wb55>:boards/stm32wb55/BoardProfile.hpp>
     $<$<STREQUAL:${TARGET_MCU},stm32wba55>:boards/stm32wba55/BoardProfile.hpp>
 )

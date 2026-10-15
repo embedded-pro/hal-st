@@ -188,7 +188,7 @@ namespace validation
 
     uint8_t PwmFactoryStm::Instances() const
     {
-        return 18;
+        return board::timerInstances;
     }
 
     infra::MemoryRange<const char* const> PwmFactoryStm::OpenKeys() const

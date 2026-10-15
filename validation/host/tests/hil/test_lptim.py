@@ -134,8 +134,10 @@ def first_lptim(lptim_cfg):
 
 @given("the first two LPTIMs under test", target_fixture="pair")
 def first_two_lptims(lptim_cfg):
-    first, second = (instance["index"] for instance in lptim_cfg["instances"][:2])
-    return first, second
+    indices = [instance["index"] for instance in lptim_cfg["instances"][:2]]
+    if len(indices) < 2:
+        pytest.skip("the board has one LPTIM under test")
+    return indices[0], indices[1]
 
 
 @given("the LPTIM PWM on the LPTIM of the encoder in the board file, if any", target_fixture="lptpwm")
@@ -235,7 +237,8 @@ def first_of_pair_opens(fw, pair):
 
 @when("the first LPTIM opens with immediate interrupts and the marker pin")
 def first_opens_with_marker(fw, lptim_cfg, first):
-    fw.lptim.open(first, irq="immediate", pin=lptim_cfg["marker"])
+    update = lptim_cfg["interrupt"]["update"][0]
+    fw.lptim.open(first, prescaler=update["prescaler"], period=update["period"], irq="immediate", pin=lptim_cfg["marker"])
 
 
 @when("the first LPTIM closes")
