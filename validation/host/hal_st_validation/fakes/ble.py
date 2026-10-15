@@ -76,6 +76,7 @@ class _Link:
     rx_phy: str = "1m"
     tx_octets: int = 27
     rx_octets: int = 27
+    central_rx_known: bool = True
     mtu: int = _MTU_DEFAULT
     uart: bool = False
 
@@ -308,9 +309,10 @@ class FakeBle(FakeGroup):
         self._need_role("central")
         link = self._need_link()
         link.tx_octets = link.rx_octets = _MTU_MAX
+        link.central_rx_known = False
         time_us = _DATA_LENGTH_TIME_US[link.tx_phy]
-        for end in (link.central, link.peripheral):
-            self._tell(end, "datalength", txoctets=_MTU_MAX, rxoctets=_MTU_MAX, txtime=time_us, rxtime=time_us)
+        self._tell(link.central, "datalength", txoctets=_MTU_MAX, txtime=time_us)
+        self._tell(link.peripheral, "datalength", txoctets=_MTU_MAX, rxoctets=_MTU_MAX, txtime=time_us, rxtime=time_us)
         return "OK"
 
     def cmd_mtu(self, args: list[str], options: dict[str, str]) -> str:
@@ -361,9 +363,10 @@ class FakeBle(FakeGroup):
             return f"OK state={self.state} connected=0"
         peer = link.other(self)
         tx, rx = (link.tx_phy, link.rx_phy) if self.role == "central" else (link.rx_phy, link.tx_phy)
+        rx_octets = "-" if self.role == "central" and not link.central_rx_known else link.rx_octets
         return (
             f"OK state={self.state} connected=1 peer={peer.address} interval={link.interval} latency={link.latency} timeout={link.timeout} "
-            f"txphy={tx} rxphy={rx} txoctets={link.tx_octets} rxoctets={link.rx_octets} mtu={link.mtu}"
+            f"txphy={tx} rxphy={rx} txoctets={link.tx_octets} rxoctets={rx_octets} mtu={link.mtu}"
         )
 
     def cmd_send(self, args: list[str], options: dict[str, str]) -> str:

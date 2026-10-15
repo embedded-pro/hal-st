@@ -194,8 +194,13 @@ def test_mtu_phy_and_data_length_reach_both_boards(linked):
     event = peripheral.ble.wait("phy", 0.5)
     assert (event["tx"], event["rx"]) == ("1m", "2m")
     central.ble.datalength()
-    for firmware in linked:
-        assert firmware.ble.wait("datalength", 0.5).as_int("txoctets") == 251
+    central_event = central.ble.wait("datalength", 0.5)
+    peripheral_event = peripheral.ble.wait("datalength", 0.5)
+    assert central_event.as_int("txoctets") == peripheral_event.as_int("txoctets") == 251
+    assert "rxoctets" not in central_event
+    assert peripheral_event.as_int("rxoctets") == 251
+    assert central.ble.link().rx_octets is None
+    assert peripheral.ble.link().rx_octets == 251
     assert peripheral.ble.link().mtu == 251
 
 

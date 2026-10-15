@@ -50,7 +50,8 @@ class BleInfo:
 @dataclass(frozen=True)
 class BleLink:
     """`ble.link`: the GAP state (`standby`, `advertising`, `scanning`, `connecting` or `connected`) and, on a link, what
-    the firmware has learnt about it from the controller's events."""
+    the firmware has learnt about it from the controller's events. `rx_octets` is None on the central after a data length
+    change: hal-st's observer reports the transmit side only."""
 
     state: str
     connected: bool
@@ -61,7 +62,7 @@ class BleLink:
     tx_phy: str = "1m"
     rx_phy: str = "1m"
     tx_octets: int = 27
-    rx_octets: int = 27
+    rx_octets: int | None = 27
     mtu: int = 23
 
 
@@ -147,7 +148,7 @@ class Ble(Group):
             tx_phy=response["txphy"],
             rx_phy=response["rxphy"],
             tx_octets=response.as_int("txoctets"),
-            rx_octets=response.as_int("rxoctets"),
+            rx_octets=None if response["rxoctets"] == "-" else response.as_int("rxoctets"),
             mtu=response.as_int("mtu"),
         )
 

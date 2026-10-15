@@ -31,9 +31,10 @@ namespace validation
     {
     public:
         ReportingGap(hal::HciEventSource& hciEventSource, services::BondStorageSynchronizer& bondStorageSynchronizer,
-            const hal::GapSt::Configuration& configuration, BleReporter& reporter)
+            const hal::GapSt::Configuration& configuration, BleReporter& reporter, bool reportRadio)
             : Gap(hciEventSource, bondStorageSynchronizer, configuration)
             , reporter(reporter)
+            , reportRadio(reportRadio)
         {}
 
     protected:
@@ -72,14 +73,16 @@ namespace validation
         void HandleHciLeDataLengthChangeEvent(const hci_le_data_length_change_event_rp0& event) override
         {
             Gap::HandleHciLeDataLengthChangeEvent(event);
-            reporter.DataLength(event.MaxTxOctets, event.MaxTxTime, event.MaxRxOctets, event.MaxRxTime);
+
+            if (reportRadio)
+                reporter.DataLength(event.MaxTxOctets, event.MaxTxTime, event.MaxRxOctets, event.MaxRxTime);
         }
 
         void HandleHciLePhyUpdateCompleteEvent(const hci_le_phy_update_complete_event_rp0& event) override
         {
             Gap::HandleHciLePhyUpdateCompleteEvent(event);
 
-            if (event.Status == BLE_STATUS_SUCCESS)
+            if (reportRadio && event.Status == BLE_STATUS_SUCCESS)
                 reporter.Phy(event.TX_PHY, event.RX_PHY);
         }
 
@@ -93,6 +96,7 @@ namespace validation
 
     private:
         BleReporter& reporter;
+        bool reportRadio;
     };
 
     class NordicUartGattServer

@@ -14,6 +14,11 @@ namespace validation
             { { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 } }
         };
 
+        uint8_t HciPhy(services::GapPhy phy)
+        {
+            return static_cast<uint8_t>(phy) + 1;
+        }
+
         const char* StateName(services::GapPeripheralState state)
         {
             switch (state)
@@ -137,7 +142,7 @@ namespace validation
         : reporter(reporter)
         , address(address)
         , gapConfiguration{ this->address, gapService, rootKeys, hal::GapSt::justWorks, txPowerLevel, false }
-        , gap(hciEventSource, bondStorageSynchronizer, gapConfiguration, reporter)
+        , gap(hciEventSource, bondStorageSynchronizer, gapConfiguration, reporter, true)
         , gattServer(hciEventSource, reporter)
         , confirmIndication(hciEventSource)
         , genericAttributeService(gattServer)
@@ -232,7 +237,7 @@ namespace validation
         : reporter(reporter)
         , address(address)
         , gapConfiguration{ this->address, gapService, rootKeys, hal::GapSt::justWorks, txPowerLevel, false }
-        , gap(hciEventSource, bondStorageSynchronizer, gapConfiguration, reporter)
+        , gap(hciEventSource, bondStorageSynchronizer, gapConfiguration, reporter, false)
         , gattClient(hciEventSource)
         , pairingReporter(gap, reporter)
         , uartReporter(reporter)
@@ -346,10 +351,14 @@ namespace validation
     }
 
     void CentralRole::PhyUpdated(services::GapPhy txPhy, services::GapPhy rxPhy)
-    {}
+    {
+        reporter.Phy(HciPhy(txPhy), HciPhy(rxPhy));
+    }
 
     void CentralRole::DataLengthChanged(const services::GapDataLength& dataLength)
-    {}
+    {
+        reporter.DataLength(dataLength.maxTxOctets, dataLength.maxTxTime);
+    }
 
     void CentralRole::ConnectionEstablished(infra::SharedPtr<services::GattClientConnection> establishedConnection)
     {

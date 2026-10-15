@@ -138,6 +138,13 @@ namespace validation
                               << " txtime=" << static_cast<uint32_t>(txTime) << " rxtime=" << static_cast<uint32_t>(rxTime);
     }
 
+    void BleReporter::DataLength(uint16_t txOctets, uint16_t txTime)
+    {
+        link.txOctets = txOctets;
+        link.rxOctets = std::nullopt;
+        response.Event("ble") << " datalength txoctets=" << static_cast<uint32_t>(txOctets) << " txtime=" << static_cast<uint32_t>(txTime);
+    }
+
     void BleReporter::Mtu(uint16_t size)
     {
         link.mtu = size;

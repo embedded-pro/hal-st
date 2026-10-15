@@ -592,8 +592,8 @@ def central_requests_data_length(ble):
 def same_data_length(ble):
     central, peripheral = ble.wait_both("datalength", ble.settings.event_timeout * 2)
     assert central.as_int("txoctets") == peripheral.as_int("rxoctets")
-    assert central.as_int("rxoctets") == peripheral.as_int("txoctets")
     assert 27 <= central.as_int("txoctets") <= MTU_MAX
+    assert 27 <= peripheral.as_int("txoctets") <= MTU_MAX
     return central
 
 

@@ -7,6 +7,7 @@
 #include "services/hil/HilResponse.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace validation
 {
@@ -21,7 +22,7 @@ namespace validation
         uint8_t txPhy = 1;
         uint8_t rxPhy = 1;
         uint16_t txOctets = 27;
-        uint16_t rxOctets = 27;
+        std::optional<uint16_t> rxOctets = 27;
         uint16_t mtu = 23;
     };
 
@@ -43,6 +44,7 @@ namespace validation
         void ConnectionParameters(uint16_t interval, uint16_t latency, uint16_t timeout);
         void Phy(uint8_t tx, uint8_t rx);
         void DataLength(uint16_t txOctets, uint16_t txTime, uint16_t rxOctets, uint16_t rxTime);
+        void DataLength(uint16_t txOctets, uint16_t txTime);
         void Mtu(uint16_t size);
         void Uart(bool open, std::size_t maxSend);
         void UartFailed(uint32_t result);

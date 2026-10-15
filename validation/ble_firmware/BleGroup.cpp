@@ -523,7 +523,14 @@ namespace validation
         BleReporter::PrintAddress(line, link.peer);
         line << " interval=" << static_cast<uint32_t>(link.interval) << " latency=" << static_cast<uint32_t>(link.latency) << " timeout=" << static_cast<uint32_t>(link.timeout)
              << " txphy=" << BleReporter::PhyName(link.txPhy) << " rxphy=" << BleReporter::PhyName(link.rxPhy)
-             << " txoctets=" << static_cast<uint32_t>(link.txOctets) << " rxoctets=" << static_cast<uint32_t>(link.rxOctets) << " mtu=" << static_cast<uint32_t>(link.mtu);
+             << " txoctets=" << static_cast<uint32_t>(link.txOctets) << " rxoctets=";
+
+        if (link.rxOctets)
+            line << static_cast<uint32_t>(*link.rxOctets);
+        else
+            line << "-";
+
+        line << " mtu=" << static_cast<uint32_t>(link.mtu);
         return HilStatus::done;
     }
 
