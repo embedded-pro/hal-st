@@ -14,8 +14,6 @@
 
 unsigned int hse_value = validation::board::hseValue;
 
-// The BLE counterpart of validation/firmware/Main.cpp: the same console and system commands, so `ping`, `info` and
-// `reset` work as everywhere, but only the `ble` group. One image serves both roles of a BLE pair test (`ble.open`).
 int main()
 {
     static validation::BoardInfoStm boardInfo{ validation::ReadAndClearResetCause() };

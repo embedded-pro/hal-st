@@ -34,7 +34,6 @@ namespace validation
             }
         }
 
-        // The name travels as one token: anything a terminal line cannot carry becomes an underscore.
         std::size_t NameText(infra::ConstByteRange name, std::array<char, nameTextSize>& text)
         {
             auto size = std::min(name.size(), text.size());

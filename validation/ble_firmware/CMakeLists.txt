@@ -5,7 +5,6 @@ emil_build_for(hal_st.validation_ble_firmware
     PREREQUISITE_BOOL HALST_BUILD_EXAMPLES
 )
 
-# The board profiles, the console and the payload helpers are those of hal_st.validation_firmware.
 target_include_directories(hal_st.validation_ble_firmware PRIVATE
     ../firmware/boards/${TARGET_MCU}
 )

@@ -47,14 +47,10 @@ _ATT_HEADER = 3
 _PAYLOAD_MAX = _MTU_MAX - _ATT_HEADER
 _BONDS_MAX = 10
 _STACK = "fake"
-# GapCentral::defaultConnectionParameters (min, max, latency, timeout): what `ble.connect` asks for, and what the central
-# answers a peripheral's update request with until it is given others. The fake's link takes the largest interval.
 _DEFAULT_PARAMETERS = (24, 40, 0, 500)
 _INTERVAL_RANGE = (6, 3200)
 _LATENCY_MAX = 499
 _TIMEOUT_RANGE = (10, 3200)
-# HCI error codes, printed in decimal: 0x16 connection terminated by the local host, 0x13 remote user terminated the
-# connection, 0x08 connection timeout.
 _LOCAL_TERMINATED = "22"
 _REMOTE_TERMINATED = "19"
 _SUPERVISION_TIMEOUT = "8"
@@ -141,8 +137,6 @@ class FakeBle(FakeGroup):
             self.fw.air = FakeAir()
         return self.fw.air
 
-    # events
-
     def _line(self, kind: str, /, **fields: object) -> str:
         return " ".join(["EVT ble", kind, *[f"{key}={value}" for key, value in fields.items()]])
 
@@ -163,8 +157,6 @@ class FakeBle(FakeGroup):
             return None
         return super().handler(verb)
 
-    # firmware lifecycle
-
     def boot(self) -> None:
         if self.link is not None:
             self._drop_link(self.link, local=None, remote_reason=_SUPERVISION_TIMEOUT)
@@ -180,8 +172,6 @@ class FakeBle(FakeGroup):
         if self.connect_deadline is not None and now >= self.connect_deadline:
             self._connect_failed("timeout")
 
-    # argument and state checks, in the order of BleGroup.cpp: usage, range, notopen, unsupported, then busy/failed
-
     def _need_role(self, role: str | None = None) -> None:
         if self.role is None:
             _fail("notopen")
@@ -193,8 +183,6 @@ class FakeBle(FakeGroup):
             _fail("failed")
         assert self.link is not None
         return self.link
-
-    # commands
 
     def cmd_info(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 0, 0)
@@ -431,8 +419,6 @@ class FakeBle(FakeGroup):
         self.bonds.clear()
         self._event("bonds", count=0)
         return "OK"
-
-    # the air
 
     def _announce(self) -> None:
         """This peripheral started advertising: scanners report it, initiators connect to it."""

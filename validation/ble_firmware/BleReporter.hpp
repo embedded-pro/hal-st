@@ -10,7 +10,6 @@
 
 namespace validation
 {
-    // What the firmware has learnt about the link from the controller's events; `ble.link` prints it.
     struct BleLinkState
     {
         const char* state = "standby";
@@ -19,7 +18,6 @@ namespace validation
         uint16_t interval = 0;
         uint16_t latency = 0;
         uint16_t timeout = 0;
-        // HCI values: 1 LE 1M, 2 LE 2M, 3 LE Coded
         uint8_t txPhy = 1;
         uint8_t rxPhy = 1;
         uint16_t txOctets = 27;
@@ -27,7 +25,6 @@ namespace validation
         uint16_t mtu = 23;
     };
 
-    // Every `EVT ble <name> key=value...` line of PROTOCOL.md, and the link state they imply.
     class BleReporter
     {
     public:
@@ -35,7 +32,6 @@ namespace validation
 
         const BleLinkState& Link() const;
 
-        // Links established since boot; a send that was in flight on an earlier one will never complete.
         uint32_t Connections() const;
 
         void Ready();

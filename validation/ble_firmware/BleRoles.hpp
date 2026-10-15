@@ -25,8 +25,6 @@ namespace validation
     inline constexpr std::size_t bleMaxBonds = 10;
     inline constexpr std::size_t bleNameCapacity = 16;
 
-    // The controller's own events say what happened to the link, whichever side asked for it, so both roles report
-    // from the same handlers; the base class runs first because it keeps the connection context.
     template<class Gap>
     class ReportingGap
         : public Gap
@@ -97,8 +95,6 @@ namespace validation
         BleReporter& reporter;
     };
 
-    // GattServerSt reports characteristic writes only; the Nordic UART profile also needs the CCCD write and the MTU,
-    // and the MTU is reported as well.
     class NordicUartGattServer
         : public hal::GattServerSt
     {
@@ -107,7 +103,6 @@ namespace validation
 
         void AttachNordicUart(services::NordicUartPeripheral& nordicUart);
 
-        // Implementation of hal::GattServerSt
         void HciEvent(hci_event_pckt& event) override;
 
     protected:
@@ -125,7 +120,6 @@ namespace validation
         PairingReporter(services::GapPairing& pairing, BleReporter& reporter);
 
     private:
-        // Implementation of services::GapPairingObserver
         void DisplayPasskey(uint32_t passkey) override;
         void ConfirmNumericComparison(uint32_t value) override;
         void PairingSuccessfullyCompleted(const services::GapBondStrength& strength) override;
@@ -142,7 +136,6 @@ namespace validation
     public:
         explicit UartReporter(BleReporter& reporter);
 
-        // Implementation of services::NordicUartObserver
         void Opened() override;
         void Closed() override;
 
@@ -150,7 +143,6 @@ namespace validation
         BleReporter& reporter;
     };
 
-    // The roles are built once per boot and never destroyed: the observers they attach stay attached.
     class PeripheralRole
         : private services::GapPeripheralObserver
     {
@@ -163,14 +155,12 @@ namespace validation
         services::NordicUart& Uart();
         services::GapPeripheralState State() const;
 
-        // Replaces the advertised name and interval (ms) and advertises; a live advertisement is stopped first.
         services::GapRequestStatus Advertise(uint32_t intervalMs, infra::BoundedConstString name);
 
     private:
         services::GapRequestStatus SetAdvertisementData();
         void StartAdvertising(services::GapPeripheral::Result result);
 
-        // Implementation of services::GapPeripheralObserver
         void StateChanged(services::GapPeripheralState newState) override;
 
     private:
@@ -203,7 +193,6 @@ namespace validation
         hal::GapCentralSt& Gap();
         services::GapCentralState State() const;
 
-        // The Nordic UART service of the connected peer, or null without a link.
         services::NordicUart* Uart();
 
         services::GapRequestStatus StartScan(const std::optional<hal::MacAddress>& addressFilter, const std::optional<infra::BoundedConstString>& nameFilter, std::optional<uint32_t> timeoutMs);
@@ -214,13 +203,11 @@ namespace validation
     private:
         bool Wanted(const services::GapAdvertisingReport& report) const;
 
-        // Implementation of services::GapCentralObserver
         void DeviceDiscovered(const services::GapAdvertisingReport& deviceDiscovered) override;
         void StateChanged(services::GapCentralState newState) override;
         void PhyUpdated(services::GapPhy txPhy, services::GapPhy rxPhy) override;
         void DataLengthChanged(const services::GapDataLength& dataLength) override;
 
-        // Implementation of services::GattClientObserver
         void ConnectionEstablished(infra::SharedPtr<services::GattClientConnection> establishedConnection) override;
         void ConnectionReleased(services::GattClientConnection& releasedConnection) override;
 

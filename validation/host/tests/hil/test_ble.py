@@ -18,15 +18,12 @@ from pytest_bdd import given, parsers, scenario, then, when
 
 from hal_st_validation.ble_pair import BleEnd, BlePair, BleSettings
 
-# pytest-bdd requests the step fixtures while the scenario runs, too late for the `params` of `ble_pair` to multiply the
-# tests, so the module requests it up front.
 pytestmark = pytest.mark.usefixtures("ble_pair")
 
 DEVICE_NAME = "hal-st-periph"
 ABSENT_ADDRESS = "0c:00:00:e1:80:02"
 LOCAL_TERMINATED = 0x16
 REMOTE_TERMINATED = 0x13
-# What a board without the BLE group answers to `ble.info`, which takes no argument to get wrong.
 UNKNOWN_COMMAND = ("usage", "unrecognized")
 MTU_MAX = 251
 MTU_DEFAULT = 23
@@ -44,7 +41,6 @@ CENTRAL_ONLY = (
 )
 PERIPHERAL_ONLY = ("ble.advertise", "ble.standby", "ble.allowpairing 1")
 
-# Argument errors come before the role and state checks, so every board answers them alike.
 MALFORMED = (
     ("ble.nonsense", "usage"),
     ("ble.info extra", "usage"),
@@ -122,9 +118,6 @@ def pair_boards(ble: BlePair) -> None:
     ble.changed.add("security")
     ble.connect()
     ble.central.ble.pair()
-
-
-# scenarios
 
 
 @scenario("ble.feature", "Both boards open their role and report the controller ready")
@@ -262,9 +255,6 @@ def test_errors():
     pass
 
 
-# roles and discovery
-
-
 @then("both boards report their role and address")
 def roles(ble):
     for end in ble.ends:
@@ -324,9 +314,6 @@ def central_reports_name(ble, name):
 @then("the central reports nothing within the quiet window")
 def central_reports_nothing(ble):
     assert ble.central.ble.absent("found", ble.settings.quiet_window)
-
-
-# connecting
 
 
 @given("the boards are connected", target_fixture="connected")
@@ -458,9 +445,6 @@ def central_idle(ble):
     ble.idle(ble.central)
 
 
-# MTU and the Nordic UART service
-
-
 @when("the central exchanges the MTU")
 def exchange_mtu(ble):
     ble.central.ble.mtu()
@@ -535,8 +519,6 @@ def send_refused(ble):
             end.ble.send(b"\x01")
         assert error.value.reason == "notopen"
 
-
-# connection parameters, PHY and data length
 
 LATENCY = 0
 SUPERVISION_TIMEOUT = 400
@@ -621,9 +603,6 @@ def large_payload(ble, maxsend):
     ble.transfer(ble.peripheral, maxsend, "prbs", seed=12)
 
 
-# pairing and bonding
-
-
 @given("the boards are connected with security level 2 on both")
 def connected_with_security(ble):
     for end in ble.ends:
@@ -701,9 +680,6 @@ def remove_bonds(ble):
 @then("the central reports the pairing failed")
 def pairing_failed(ble):
     ble.central.ble.wait("pairfailed", ble.settings.connect_timeout + ble.settings.event_timeout)
-
-
-# refused commands
 
 
 def refused(end: BleEnd, lines, reason: str) -> None:

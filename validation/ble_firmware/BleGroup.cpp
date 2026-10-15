@@ -75,7 +75,6 @@ namespace validation
             return !stream.Failed();
         }
 
-        // Reads an optional `key=<mac>`; false when it is there and malformed.
         bool ParseAddressKey(const services::HilArguments& arguments, const char* key, std::optional<hal::MacAddress>& address)
         {
             auto text = arguments.Key(key);
@@ -550,7 +549,6 @@ namespace validation
         if (payload.size() > uart->MaxSendSize())
             return HilStatus::range;
 
-        // A send in flight when the link dropped never completes.
         if (sending && sendingOnConnection != reporter.Connections())
             sending = false;
 
@@ -638,7 +636,6 @@ namespace validation
             }));
     }
 
-    // notopen before `ble.open`, busy while the stack starts, unsupported for the other role's commands.
     HilStatus BleCommands::NeedRole() const
     {
         if (phase == Phase::closed)

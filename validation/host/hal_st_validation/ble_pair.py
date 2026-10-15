@@ -97,14 +97,10 @@ class BlePair:
     def other(self, end: BleEnd) -> BleEnd:
         return self.peripheral if end is self.central else self.central
 
-    # waiting
-
     def wait_both(self, name: str, timeout: float | None = None, **fields: object) -> tuple[Event, Event]:
         """`EVT ble <name>` on the central, then on the peripheral."""
         limit = self.settings.event_timeout if timeout is None else timeout
         return self.central.ble.wait(name, limit, **fields), self.peripheral.ble.wait(name, limit, **fields)
-
-    # flows
 
     def connect(self, interval: int | None = None) -> tuple[Event, Event]:
         """The peripheral advertises and the central connects to its address; returns the `connected` events of the
@@ -163,8 +159,6 @@ class BlePair:
 
     def wait_link(self, end: BleEnd, predicate: Callable[[BleLink], bool], timeout: float | None = None) -> BleLink:
         return end.ble.wait_link(predicate, self.settings.event_timeout if timeout is None else timeout)
-
-    # between tests
 
     def cleanup(self) -> list[str]:
         """Idle on both boards: scanning, connecting, advertising and the link end, bonds and the security level go

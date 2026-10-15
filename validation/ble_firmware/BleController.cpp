@@ -30,8 +30,6 @@ namespace validation
 #endif
     }
 
-    // Mirrors the setup of the ble_peripheral and ble_central demos. The objects are function statics, as there, so
-    // they are built when the first `Start` runs and live for the rest of the boot.
     void BleController::Start(const OnReady& onReadyCallback)
     {
         onReady = onReadyCallback;

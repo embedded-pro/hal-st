@@ -7,10 +7,8 @@ namespace validation
 {
     namespace
     {
-        // ST power table index, not dBm; 0x18 is the 0 dBm entry (as in the demos).
         constexpr uint8_t txPowerLevel = 0x18;
 
-        // A bench, not a product: both boards use the same fixed keys, as the demos do.
         const hal::GapSt::RootKeys rootKeys{
             { { 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0 } },
             { { 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10 } }
@@ -181,7 +179,6 @@ namespace validation
         if (state == services::GapPeripheralState::connected)
             return services::GapRequestStatus::invalidState;
 
-        // The controller counts in units of 0.625 ms.
         advertisementInterval = static_cast<services::GapPeripheral::AdvertisementIntervalMultiplier>(intervalMs * 8 / 5);
 
         advertisementData.clear();
@@ -201,7 +198,6 @@ namespace validation
         return SetAdvertisementData();
     }
 
-    // SetAdvertisementData only caches the data; Advertise programs the controller, so it follows from the completion.
     services::GapRequestStatus PeripheralRole::SetAdvertisementData()
     {
         return gap.SetAdvertisementData(infra::MakeRange(advertisementData), [this](services::GapPeripheral::Result result)
@@ -221,7 +217,6 @@ namespace validation
                     reporter.AdvertiseFailed(static_cast<uint32_t>(advertiseResult));
             });
 
-        // 100 and up: the request itself was refused, not the controller.
         if (status != services::GapRequestStatus::accepted)
             reporter.AdvertiseFailed(100 + static_cast<uint32_t>(status));
     }
@@ -350,7 +345,6 @@ namespace validation
         reporter.State(StateName(newState));
     }
 
-    // The controller's events report PHY and data length changes for both roles.
     void CentralRole::PhyUpdated(services::GapPhy txPhy, services::GapPhy rxPhy)
     {}
 

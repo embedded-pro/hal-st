@@ -18,10 +18,6 @@ namespace validation
         peripheral,
     };
 
-    // The `ble` group of PROTOCOL.md. A command answers `OK` once the request is accepted; what the radio does
-    // afterwards arrives as `EVT ble ...` lines (BleReporter). The board takes one role per boot: `ble.open` builds
-    // the BLE stack and then the GAP and GATT objects of that role. Argument errors (`usage`, `range`) are reported
-    // before the role and state errors (`notopen`, `unsupported`, `busy`, `failed`).
     class BleCommands
         : public services::TerminalCommands
     {

@@ -35,7 +35,6 @@ Role = Literal["central", "peripheral"]
 Phy = Literal["1m", "2m", "coded"]
 AddressType = Literal["public", "random"]
 
-# Connection parameters in the units of the Bluetooth specification: intervals 1.25 ms, supervision timeout 10 ms.
 INTERVAL_UNIT_MS = 1.25
 TIMEOUT_UNIT_MS = 10
 
@@ -88,8 +87,6 @@ class Ble(Group):
         """Builds the controller and the role; the role stays until the board resets. Returns the address in use."""
         return self._cmd("open", role=role, address=address).get("address", "") or ""
 
-    # peripheral
-
     def advertise(self, interval: int | None = None, name: str | None = None) -> None:
         """Connectable undirected advertising; `interval` in ms, `name` the complete local name."""
         self._cmd("advertise", interval=interval, name_=name)
@@ -100,8 +97,6 @@ class Ble(Group):
 
     def allow_pairing(self, allow: bool) -> None:
         self._cmd("allowpairing", int(allow))
-
-    # central
 
     def scan(self, addr: str | None = None, name: str | None = None, timeout: int | None = None) -> None:
         """Active scan; each address is reported once (`EVT ble found`). `timeout` in ms stops it by itself."""
@@ -130,8 +125,6 @@ class Ble(Group):
     def discover(self) -> None:
         """Discovers the Nordic UART service of the peer and subscribes to its notifications."""
         self._cmd("discover")
-
-    # both roles
 
     def disconnect(self) -> None:
         self._cmd("disconnect")
@@ -184,8 +177,6 @@ class Ble(Group):
 
     def removebonds(self) -> None:
         self._cmd("removebonds")
-
-    # events
 
     def wait(self, name: str, timeout: float, **fields: object) -> Event:
         """The oldest queued or next `EVT ble <name>` whose fields equal `fields` (compared as text)."""
