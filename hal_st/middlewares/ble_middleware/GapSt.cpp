@@ -153,9 +153,11 @@ namespace hal
 
         // Level 2 is unauthenticated pairing with encryption, level 3 adds authentication and level 4
         // additionally requires LE Secure Connections. The controller reports the level only, so a
-        // level below 4 is reported as legacy pairing.
+        // level below 4 is reported as legacy pairing unless this side refuses any other pairing.
         // Bluetooth Core Specification, Volume 3, Part C, section 10.2.1
-        return services::GapBondStrength{ securityLevel >= 4, securityLevel >= 3, static_cast<uint8_t>(securityLevel >= 2 ? encryptionKeySize : 0) };
+        bool secureConnections = securityLevel >= 4 || (securityLevel >= 2 && RequiredSecureConnection() == SecureConnection::mandatory);
+
+        return services::GapBondStrength{ secureConnections, securityLevel >= 3, static_cast<uint8_t>(securityLevel >= 2 ? encryptionKeySize : 0) };
     }
 
     services::GapRequestStatus GapSt::RemoveAllBonds(const infra::Function<void()>& onDone)
@@ -441,11 +443,14 @@ namespace hal
         return aci_hal_write_config_data(offset, length, address.data());
     }
 
+    GapSt::SecureConnection GapSt::RequiredSecureConnection() const
+    {
+        return secureConnectionsOnly ? SecureConnection::mandatory : SecurityModeAndLevelToSecureConnection(modeAndLevel);
+    }
+
     tBleStatus GapSt::ApplyAuthenticationRequirement() const
     {
-        auto secureConnection = secureConnectionsOnly ? SecureConnection::mandatory : SecurityModeAndLevelToSecureConnection(modeAndLevel);
-
-        return aci_gap_set_authentication_requirement(bondingMode, SecurityModeAndLevelToMitm(modeAndLevel), static_cast<uint8_t>(secureConnection), keypressNotificationSupport, encryptionKeySize, encryptionKeySize, 0, 111111, GAP_PUBLIC_ADDR);
+        return aci_gap_set_authentication_requirement(bondingMode, SecurityModeAndLevelToMitm(modeAndLevel), static_cast<uint8_t>(RequiredSecureConnection()), keypressNotificationSupport, encryptionKeySize, encryptionKeySize, 0, 111111, GAP_PUBLIC_ADDR);
     }
 
     void GapSt::HciEvent(hci_event_pckt& event)
