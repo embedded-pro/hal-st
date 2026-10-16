@@ -139,6 +139,9 @@ namespace examples
             case Step::restoreOriginal:
                 Write(original, firstBlock);
                 break;
+            case Step::flushRestored:
+                Flush();
+                break;
             case Step::readRestored:
                 Read(readBack, firstBlock);
                 break;
@@ -233,6 +236,10 @@ namespace examples
                 break;
             case Step::restoreOriginal:
                 Report("restore original", ok);
+                GoTo(Step::flushRestored);
+                break;
+            case Step::flushRestored:
+                Report("flush", ok);
                 GoTo(Step::readRestored);
                 break;
             case Step::readRestored:
@@ -353,6 +360,16 @@ namespace examples
     {
         inCall = true;
         device.EraseBlocks(begin, end, [this](Result result)
+            {
+                Completed(result);
+            });
+        inCall = false;
+    }
+
+    void SdCardDemo::Flush()
+    {
+        inCall = true;
+        device.Flush([this](Result result)
             {
                 Completed(result);
             });

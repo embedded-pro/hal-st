@@ -5,6 +5,7 @@
 #include "demo/common/QuadSpiMemory.hpp"
 #include "demo/common/TouchMonitor.hpp"
 #include "demo/common/TraceI2cScan.hpp"
+#include "demo/sd_card_demo/SdCardDemo.hpp"
 #include "demo/stm32h745i_disco/DefaultClockDiscoveryH745I.hpp"
 #include "demo/stm32h745i_disco/DiscoveryDashboard.hpp"
 #include "demo/stm32h745i_disco/DiscoveryH745Ui.hpp"
@@ -17,6 +18,7 @@
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/DualCoreHandshakeStm.hpp"
 #include "hal_st/stm32fxxx/LtdcStm.hpp"
+#include "hal_st/stm32fxxx/MmcStm.hpp"
 #include "hal_st/stm32fxxx/QuadSpiStm.hpp"
 #include "hal_st/stm32fxxx/SaiOutputStm.hpp"
 #include "hal_st/stm32fxxx/SaiStm.hpp"
@@ -24,6 +26,7 @@
 #include "hal_st/stm32fxxx/UartStm.hpp"
 #include "infra/stream/StringOutputStream.hpp"
 #include "infra/timer/Timer.hpp"
+#include "infra/util/BoundedString.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include "services/peripheral/DebouncedButton.hpp"
 #include "services/peripheral/DebugLed.hpp"
@@ -46,6 +49,7 @@ namespace
     constexpr std::size_t sdramPatternBytes = 2 * 1024 * 1024;
     constexpr std::size_t sdramRetestBytes = 4 * 1024 * 1024;
     constexpr std::size_t audioBufferSamples = 2048;
+    constexpr std::size_t emmcBlockSize = 512;
     constexpr uint8_t codecInitialVolumePercent = 70;
     constexpr infra::Duration qspiResponseTimeout = std::chrono::seconds(3);
     constexpr infra::Duration touchResetDuration = std::chrono::milliseconds(20);
@@ -257,6 +261,35 @@ int main()
             }
         } };
 
+    // The eMMC is wired for 8 bits on SDMMC1, the driver uses D0 to D3; four blocks per transfer make the test split its larger requests
+    static hal::GpioPinStm emmcClockPin{ hal::Port::C, 12 };
+    static hal::GpioPinStm emmcCommandPin{ hal::Port::D, 2 };
+    static hal::GpioPinStm emmcData0Pin{ hal::Port::C, 8 };
+    static hal::GpioPinStm emmcData1Pin{ hal::Port::C, 9 };
+    static hal::GpioPinStm emmcData2Pin{ hal::Port::C, 10 };
+    static hal::GpioPinStm emmcData3Pin{ hal::Port::C, 11 };
+    static hal::MmcStm::Config emmcConfig = []
+    {
+        hal::MmcStm::Config config;
+        config.maxBlocksPerTransfer = 4;
+        config.cache = true;
+        return config;
+    }();
+    static hal::MmcStm emmc{ 1, emmcClockPin, emmcCommandPin, emmcData0Pin, emmcData1Pin, emmcData2Pin, emmcData3Pin, emmcConfig };
+
+    if (emmc.NumberOfBlocks() == 0)
+        services::GlobalTracer().Trace() << "eMMC: no device";
+    else
+    {
+        const auto& device = emmc.DeviceIdentification();
+        services::GlobalTracer().Trace() << "eMMC: " << emmc.NumberOfBlocks() << " blocks of " << emmc.BlockSize() << " bytes, erase group of " << emmc.EraseGroupBlocks() << " blocks, cache " << (emmc.CacheEnabled() ? "on" : "off");
+        services::GlobalTracer().Trace() << "eMMC: product " << infra::BoundedConstString(device.product.data(), device.product.size()) << ", manufacturer 0x" << infra::hex << static_cast<uint32_t>(device.manufacturer) << ", serial number 0x" << device.serialNumber;
+    }
+
+    alignas(32) static std::array<uint8_t, 3 * examples::SdCardDemo::scratchBlocks * emmcBlockSize> emmcBuffers;
+    static examples::SdCardDemo emmcDemo{ emmc, infra::MakeRange(emmcBuffers) };
+    static bool emmcTestRunning = false;
+
     static auto toggleMute = []()
     {
         muted = !muted;
@@ -312,6 +345,21 @@ int main()
                     dashboard.SetStatus(main_::DiscoveryDashboard::Item::qspi, ok ? main_::DiscoveryDashboard::State::ok : main_::DiscoveryDashboard::State::failed, ok ? "WRITE TEST OK" : "WRITE TEST FAILED");
                     services::GlobalTracer().Trace() << "QSPI write test " << (ok ? "ok" : "failed");
                 });
+        } });
+
+    terminal.AddCommand({ { "emmc", "e", "write, read back, erase, flush and restore the last 16 blocks of the eMMC" }, [](const auto& params)
+        {
+            if (emmcTestRunning)
+                services::GlobalTracer().Trace() << "emmc: test already running";
+            else
+            {
+                emmcTestRunning = true;
+                emmcDemo.Start([](bool passed)
+                    {
+                        emmcTestRunning = false;
+                        services::GlobalTracer().Trace() << "emmc: " << (passed ? "passed" : "failed");
+                    });
+            }
         } });
 
     terminal.AddCommand({ { "i2cscan", "i2c", "list the addresses on I2C4 that acknowledge" }, [](const auto& params)

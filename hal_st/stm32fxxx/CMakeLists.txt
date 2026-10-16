@@ -114,6 +114,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     LowPowerModeStm.hpp
     LtdcStm.cpp
     LtdcStm.hpp
+    MmcStm.cpp
+    MmcStm.hpp
     OpampStm.cpp
     OpampStm.hpp
     LpTimerStm.cpp
@@ -134,6 +136,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     SaiStm.hpp
     SdCardStm.cpp
     SdCardStm.hpp
+    SdmmcBlockDeviceStm.cpp
+    SdmmcBlockDeviceStm.hpp
     SdRamStm.cpp
     SdRamStm.hpp
     SpiDataSizeConfiguratorStm.cpp
