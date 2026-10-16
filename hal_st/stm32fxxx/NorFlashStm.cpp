@@ -22,7 +22,6 @@ namespace hal
         , writeBufferBytes(config.writeBufferBytes)
         , programTimeout(config.programTimeout)
         , eraseTimeout(config.eraseTimeout)
-        , pollInterval(config.pollInterval)
     {
         really_assert(config.bus.widthBits == 16);
         really_assert(sizeOfSector != 0 && numberOfSectors != 0);
@@ -40,16 +39,9 @@ namespace hal
         really_assert(result == HAL_OK);
     }
 
-    NorFlashStm::NorFlashStm(FmcStm& fmc, GpioPin& readyBusy, const Config& config)
-        : NorFlashStm(fmc, config)
-    {
-        this->readyBusy = &readyBusy;
-    }
-
     NorFlashStm::~NorFlashStm()
     {
-        if (readyBusy != nullptr)
-            readyBusy->DisableInterrupt();
+        really_assert(!onDone);
 
         HAL_NOR_DeInit(&handle);
 #if defined(FMC_BCR1_FMCEN)
@@ -176,15 +168,12 @@ namespace hal
         statusAddress = windowBase + offset;
         deadline = infra::Now() + timeout;
         this->onReady = onReady;
+        ScheduleCheck();
+    }
 
-        if (readyBusy != nullptr)
-            readyBusy->EnableInterrupt([this]
-                {
-                    CheckReady();
-                },
-                InterruptTrigger::risingEdge);
-
-        pollTimer.Start(pollInterval, [this]
+    void NorFlashStm::ScheduleCheck()
+    {
+        infra::EventDispatcher::Instance().Schedule([this]
             {
                 CheckReady();
             });
@@ -198,12 +187,9 @@ namespace hal
         if (status != HAL_NOR_STATUS_SUCCESS)
         {
             really_assert(infra::Now() <= deadline);
+            ScheduleCheck();
             return;
         }
-
-        pollTimer.Cancel();
-        if (readyBusy != nullptr)
-            readyBusy->DisableInterrupt();
 
         auto continuation = onReady;
         continuation();

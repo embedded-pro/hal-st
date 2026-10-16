@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hal/interfaces/Flash.hpp"
-#include "hal/interfaces/Gpio.hpp"
 #include "hal_st/stm32fxxx/FmcStm.hpp"
 #include "infra/timer/Timer.hpp"
 #include "infra/util/AutoResetFunction.hpp"
@@ -42,11 +41,9 @@ namespace hal
             FmcStm::NorSramBus bus;
             std::chrono::milliseconds programTimeout{ 1000 };
             std::chrono::milliseconds eraseTimeout{ 10000 };
-            std::chrono::milliseconds pollInterval{ 1 };
         };
 
         NorFlashStm(FmcStm& fmc, const Config& config);
-        NorFlashStm(FmcStm& fmc, GpioPin& readyBusy, const Config& config);
         ~NorFlashStm();
         NorFlashStm(const NorFlashStm& other) = delete;
         NorFlashStm& operator=(const NorFlashStm& other) = delete;
@@ -67,19 +64,18 @@ namespace hal
         void ProgramNextPage();
         void EraseNextSector();
         void WaitUntilReady(uint32_t offset, std::chrono::milliseconds timeout, const infra::Function<void()>& onReady);
+        void ScheduleCheck();
         void CheckReady();
         void Finish();
 
     private:
         NOR_HandleTypeDef handle{};
-        GpioPin* readyBusy = nullptr;
         uint32_t windowBase;
         uint32_t numberOfSectors;
         uint32_t sizeOfSector;
         uint32_t writeBufferBytes;
         std::chrono::milliseconds programTimeout;
         std::chrono::milliseconds eraseTimeout;
-        std::chrono::milliseconds pollInterval;
 
         infra::ConstByteRange data;
         uint32_t address = 0;
@@ -90,7 +86,6 @@ namespace hal
         uint32_t statusAddress = 0;
         infra::TimePoint deadline;
         infra::Function<void()> onReady;
-        infra::TimerRepeating pollTimer;
         infra::AutoResetFunction<void()> onDone;
     };
 }
