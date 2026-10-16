@@ -2,6 +2,7 @@
 #define HAL_QUAD_SPI_STM_HPP
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
+#include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/interfaces/QuadSpi.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/AutoResetFunction.hpp"
@@ -14,10 +15,12 @@ namespace hal
     {
         uint32_t prescaler = 2;
         uint32_t flashSizeLog2 = 24;
+        cortex::InterruptPriority priority{ cortex::InterruptPriority::normal };
     };
 
     class QuadSpiStm
         : public QuadSpi
+        , private cortex::InterruptHandler
     {
     public:
         using Config = QuadSpiStmConfig;
@@ -30,7 +33,19 @@ namespace hal
         void PollStatus(const Header& header, uint8_t nofBytes, uint32_t match, uint32_t mask, Lines lines, const infra::Function<void()>& actionOnCompletion) override;
 
     private:
-        void Complete(HAL_StatusTypeDef status);
+        void Invoke() override;
+
+        struct Handle
+            : QSPI_HandleTypeDef
+        {
+            QuadSpiStm* owner = nullptr;
+        };
+
+        static void OnCompleted(QSPI_HandleTypeDef* handle);
+        void RegisterCallbacks();
+        void Begin(const infra::Function<void()>& actionOnCompletion);
+        void Started(HAL_StatusTypeDef status);
+        void PostCompletion();
         QSPI_CommandTypeDef CreateConfig(const Header& header, uint32_t dataSize, Lines lines);
 
     private:
@@ -41,7 +56,7 @@ namespace hal
         PeripheralPinStm data2;
         PeripheralPinStm data3;
         infra::AutoResetFunction<void()> onDone;
-        QSPI_HandleTypeDef handle;
+        Handle handle;
     };
 }
 

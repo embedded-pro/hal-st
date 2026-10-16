@@ -1,5 +1,6 @@
 #include "hal_st/stm32fxxx/QuadSpiStm.hpp"
 #include "infra/event/EventDispatcher.hpp"
+#include "infra/util/ReallyAssert.hpp"
 
 #if defined(HAS_PERIPHERAL_QUADSPI)
 
@@ -16,6 +17,7 @@ namespace hal
     {
         __QSPI_CLK_ENABLE();
 
+        handle.owner = this;
         handle.Instance = QUADSPI;
 
         handle.Init.ClockPrescaler = config.prescaler;
@@ -30,6 +32,8 @@ namespace hal
 #endif
 
         HAL_QSPI_Init(&handle);
+        RegisterCallbacks();
+        Register(QUADSPI_IRQn, config.priority);
     }
 
     QuadSpiStm::~QuadSpiStm()
@@ -40,33 +44,33 @@ namespace hal
 
     void QuadSpiStm::SendData(const Header& header, infra::ConstByteRange data, Lines lines, const infra::Function<void()>& actionOnCompletion)
     {
-        assert(!onDone);
-        onDone = actionOnCompletion;
+        Begin(actionOnCompletion);
 
         QSPI_CommandTypeDef command = CreateConfig(header, data.size(), lines);
-        HAL_StatusTypeDef status = HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-        if (status == HAL_OK && !data.empty())
-            status = HAL_QSPI_Transmit(&handle, const_cast<uint8_t*>(data.begin()), HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-
-        Complete(status);
+        if (data.empty())
+            Started(HAL_QSPI_Command_IT(&handle, &command));
+        else if (HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+            Started(HAL_ERROR);
+        else
+            Started(HAL_QSPI_Transmit_IT(&handle, const_cast<uint8_t*>(data.begin())));
     }
 
     void QuadSpiStm::ReceiveData(const Header& header, infra::ByteRange data, Lines lines, const infra::Function<void()>& actionOnCompletion)
     {
-        assert(!onDone);
-        onDone = actionOnCompletion;
+        Begin(actionOnCompletion);
 
         QSPI_CommandTypeDef command = CreateConfig(header, data.size(), lines);
-        HAL_StatusTypeDef status = HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-        if (status == HAL_OK && !data.empty())
-            status = HAL_QSPI_Receive(&handle, data.begin(), HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
-
-        Complete(status);
+        if (data.empty())
+            Started(HAL_QSPI_Command_IT(&handle, &command));
+        else if (HAL_QSPI_Command(&handle, &command, HAL_QSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK)
+            Started(HAL_ERROR);
+        else
+            Started(HAL_QSPI_Receive_IT(&handle, data.begin()));
     }
 
     void QuadSpiStm::PollStatus(const Header& header, uint8_t nofBytes, uint32_t match, uint32_t mask, Lines lines, const infra::Function<void()>& actionOnCompletion)
     {
-        onDone = actionOnCompletion;
+        Begin(actionOnCompletion);
 
         QSPI_CommandTypeDef command = CreateConfig(header, nofBytes, lines);
 
@@ -78,26 +82,43 @@ namespace hal
         config.MatchMode = QSPI_MATCH_MODE_AND;
         config.AutomaticStop = QSPI_AUTOMATIC_STOP_ENABLE;
 
-        HAL_StatusTypeDef status = HAL_QSPI_AutoPolling(&handle, &command, &config, HAL_MAX_DELAY);
-        assert(status == HAL_OK);
-
-        infra::EventDispatcher::Instance().Schedule([this]()
-            {
-                onDone();
-            });
+        Started(HAL_QSPI_AutoPolling_IT(&handle, &command, &config));
     }
 
-    void QuadSpiStm::Complete(HAL_StatusTypeDef status)
+    void QuadSpiStm::Invoke()
     {
-        if (status != HAL_OK)
-        {
-            handle.State = HAL_QSPI_STATE_BUSY;
-            HAL_QSPI_Abort(&handle);
-            onDone = nullptr;
-            return;
-        }
+        HAL_QSPI_IRQHandler(&handle);
+    }
 
-        infra::EventDispatcher::Instance().Schedule([this]()
+    void QuadSpiStm::OnCompleted(QSPI_HandleTypeDef* handle)
+    {
+        static_cast<Handle*>(handle)->owner->PostCompletion();
+    }
+
+    void QuadSpiStm::RegisterCallbacks()
+    {
+        for (auto id : { HAL_QSPI_CMD_CPLT_CB_ID, HAL_QSPI_TX_CPLT_CB_ID, HAL_QSPI_RX_CPLT_CB_ID, HAL_QSPI_STATUS_MATCH_CB_ID, HAL_QSPI_ERROR_CB_ID })
+            really_assert(HAL_QSPI_RegisterCallback(&handle, id, &QuadSpiStm::OnCompleted) == HAL_OK);
+    }
+
+    void QuadSpiStm::Begin(const infra::Function<void()>& actionOnCompletion)
+    {
+        really_assert(!onDone);
+        onDone = actionOnCompletion;
+    }
+
+    void QuadSpiStm::Started(HAL_StatusTypeDef status)
+    {
+        if (status == HAL_OK)
+            return;
+
+        HAL_QSPI_Abort(&handle);
+        PostCompletion();
+    }
+
+    void QuadSpiStm::PostCompletion()
+    {
+        infra::EventDispatcher::Instance().Schedule([this]
             {
                 onDone();
             });
