@@ -128,8 +128,6 @@ def board_config(config: pytest.Config) -> BoardConfig:
 
 
 def peer_board_config(config: pytest.Config) -> BoardConfig:
-    """The second board of a pair test: `--peer-board` (default `--board`) without the `--board-extra` files, which
-    describe the bench wiring of the first board; `--set` overrides apply to both boards."""
     if _PEER_BOARD_KEY not in config.stash:
         board = load_board(config.getoption("--peer-board") or config.getoption("--board"))
         board.apply_overrides(config.getoption("overrides"))
@@ -293,7 +291,6 @@ def hil_test_id(item: pytest.Item) -> str:
 
 
 def _apply_known_gaps(config: pytest.Config, item: pytest.Item, boards: Iterable[BoardConfig]) -> None:
-    """A gap of any board taking part applies; a pair test (`pair` marker) has two."""
     gaps = tuple(gap for board in boards for gap in board.known_gaps)
     if not gaps or config.getoption("--fake"):
         return
@@ -440,8 +437,6 @@ def open_terminal(
     option: str,
     air: Any = None,
 ) -> Iterator[FirmwareTerminal]:
-    """The terminal of one board: its serial `port`, or with `--fake` a fake firmware (sharing `air` with the other
-    board of a pair). `option` names the port option in the skip message."""
     serial = None
     if pytestconfig.getoption("--fake"):
         from hal_st_validation.fake_firmware import FakeFirmware, FakeSerial
@@ -489,7 +484,6 @@ def checked_firmware(terminal: FirmwareTerminal, board_cfg: BoardConfig, option:
 
 @pytest.fixture(scope="session")
 def fake_air(pytestconfig: pytest.Config) -> Any:
-    """With `--fake`, the radio the fake boards of a BLE pair share; None on hardware."""
     if not pytestconfig.getoption("--fake"):
         return None
     from hal_st_validation.fakes.ble import FakeAir
@@ -512,7 +506,6 @@ def fw(terminal: FirmwareTerminal, board_cfg: BoardConfig) -> Firmware:
 
 @pytest.fixture(scope="session")
 def peer_board_cfg(pytestconfig: pytest.Config) -> BoardConfig:
-    """The second board of a pair test (`--peer-board`, default `--board`)."""
     return peer_board_config(pytestconfig)
 
 

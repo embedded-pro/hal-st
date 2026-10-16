@@ -1,7 +1,3 @@
-"""The fake `ble` group (validation/ble_firmware/BleGroup.cpp, PROTOCOL.md "BLE") with two fake boards on one `FakeAir`:
-roles, scanning, connecting, link events on both boards, the Nordic UART payload checks, pairing, and what a reset
-does to the other board; plus `BleSettings` and the `pair` skip of tests/conftest.py."""
-
 import subprocess
 import sys
 from pathlib import Path
@@ -51,7 +47,6 @@ def boards(clock):
 
 @pytest.fixture
 def pair(boards):
-    """Board 0 is the central and board 1 the peripheral, roles open."""
     central, peripheral = boards
     central.ble.open("central")
     peripheral.ble.open("peripheral")

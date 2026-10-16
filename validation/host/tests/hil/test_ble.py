@@ -1,13 +1,3 @@
-"""BLE central and peripheral over the air through the `ble` group of `hal_st.validation_ble_firmware`: advertising,
-scanning, connecting, the Nordic UART service, MTU, link parameters, PHY, data length and pairing. Two boards,
-`--port` and `--peer-port`, any mix of NUCLEO-WB55RG and NUCLEO-WBA55CG; no wiring (run with `--no-ad3`).
-
-The `ble_pair` fixture resets both boards and opens the roles once per role assignment (`a-central`: the `--port` board
-is the central), so the module runs twice, each board in each role. Timeouts come from `tests.ble` of both board files.
-
-Scenarios: features/ble.feature.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -74,8 +64,6 @@ MALFORMED = (
 
 @pytest.fixture(scope="module", params=("a-central", "b-central"))
 def ble_pair(request, fw, peer_fw, board_cfg, peer_board_cfg) -> BlePair:
-    """Both boards reset and running their roles: the `--port` board as central for `a-central`, else the
-    `--peer-port` board."""
     for firmware, option in ((fw, "--port"), (peer_fw, "--peer-port")):
         try:
             firmware.ble.info()
@@ -97,7 +85,6 @@ def ble_pair(request, fw, peer_fw, board_cfg, peer_board_cfg) -> BlePair:
 
 @pytest.fixture
 def ble(ble_pair: BlePair) -> Iterator[BlePair]:
-    """The pair for one scenario; afterwards both boards go back to idle."""
     yield ble_pair
     failures = ble_pair.cleanup()
     if failures:

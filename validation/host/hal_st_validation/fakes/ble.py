@@ -1,17 +1,3 @@
-"""Fake `ble` group: the commands and events of validation/ble_firmware/BleGroup.cpp (PROTOCOL.md, "BLE") behind a
-`FakeAir` that two `FakeFirmware` instances share, so a central and a peripheral meet without a radio.
-
-Everything a real controller does over time is instant here: advertising reaches every scanning central at once, a
-connection is up as soon as the central asks for a peripheral that advertises, and each procedure ends with its events
-on both boards. Only the initiating timeout, the scan timeout and a connect to an absent address take (fake clock)
-time. Two details come from the firmware's middleware rather than from the specification: the central answers a
-peripheral's connection parameter update request with the parameters it used last (`GapCentralSt.cpp`), and a
-disconnect is reported with reason 0x16 (22) on the side that asked and 0x13 (19) on the other.
-
-A board without a shared air (`FakeFirmware.air` unset) gets a private one, so `ble.open` works but nothing is ever
-found or connected.
-"""
-
 from __future__ import annotations
 
 import re
@@ -84,8 +70,6 @@ class _Link:
 
 
 class FakeAir:
-    """The radio medium of the fake BLE boards: who is advertising, and which links exist."""
-
     def __init__(self) -> None:
         self.ends: list[FakeBle] = []
 
@@ -153,7 +137,6 @@ class FakeBle(FakeGroup):
             self._event("state", value=state)
 
     def handler(self, verb: str) -> Command | None:
-        """Only the WB55 and WBA55 have a BLE image; elsewhere `ble.*` is an unknown command."""
         if self.fw.family not in _BLE_FAMILIES:
             return None
         return super().handler(verb)
@@ -423,7 +406,6 @@ class FakeBle(FakeGroup):
         return "OK"
 
     def _announce(self) -> None:
-        """This peripheral started advertising: scanners report it, initiators connect to it."""
         for scanner in self.air.centrals("scanning"):
             scanner._report(self)
         for initiator in self.air.centrals("connecting"):
@@ -469,8 +451,6 @@ class FakeBle(FakeGroup):
             self._tell(end, "conparams", interval=high, latency=latency, timeout=timeout)
 
     def _drop_link(self, link: _Link, local: FakeBle | None, remote_reason: str) -> None:
-        """Ends `link`; `local` asked for it (reason 0x16 there, `remote_reason` on the other side), or no side did
-        (the board reset: the survivor's supervision timeout expires)."""
         for end in (link.central, link.peripheral):
             end.link = None
             end.state = "standby"

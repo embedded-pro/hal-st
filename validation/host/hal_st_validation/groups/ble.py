@@ -1,12 +1,3 @@
-"""`ble` group of validation/PROTOCOL.md: the BLE commands of `hal_st.validation_ble_firmware` (NUCLEO-WB55RG and
-NUCLEO-WBA55CG). One board runs as `central`, the other as `peripheral`; the role is chosen once per boot with `open`.
-
-A command only reports that the request was accepted; what the radio does arrives as `EVT ble <name> key=value...`
-lines (`ready`, `state`, `found`, `connected`, `connectfailed`, `disconnected`, `conparams`, `phy`, `datalength`,
-`mtu`, `uart`, `sent`, `rx`, `security`, `paired`, `pairfailed`, `bonds`). `wait` returns the oldest queued or next
-event of a name whose fields match.
-"""
-
 from __future__ import annotations
 
 import time
@@ -49,10 +40,6 @@ class BleInfo:
 
 @dataclass(frozen=True)
 class BleLink:
-    """`ble.link`: the GAP state (`standby`, `advertising`, `scanning`, `connecting` or `connected`) and, on a link, what
-    the firmware has learnt about it from the controller's events. `rx_octets` is None on the central after a data length
-    change: hal-st's observer reports the transmit side only."""
-
     state: str
     connected: bool
     peer: str | None = None
@@ -85,29 +72,24 @@ class Ble(Group):
         )
 
     def open(self, role: Role, address: str | None = None) -> str:
-        """Builds the controller and the role; the role stays until the board resets. Returns the address in use."""
         return self._cmd("open", role=role, address=address).get("address", "") or ""
 
     def advertise(self, interval: int | None = None, name: str | None = None) -> None:
-        """Connectable undirected advertising; `interval` in ms, `name` the complete local name."""
         self._cmd("advertise", interval=interval, name_=name)
 
     def standby(self) -> None:
-        """Stops advertising; on a live link the peripheral disconnects instead."""
         self._cmd("standby")
 
     def allow_pairing(self, allow: bool) -> None:
         self._cmd("allowpairing", int(allow))
 
     def scan(self, addr: str | None = None, name: str | None = None, timeout: int | None = None) -> None:
-        """Active scan; each address is reported once (`EVT ble found`). `timeout` in ms stops it by itself."""
         self._cmd("scan", addr=addr, name_=name, timeout=timeout)
 
     def stopscan(self) -> None:
         self._cmd("stopscan")
 
     def connect(self, address: str, address_type: AddressType | None = None, timeout: int | None = None) -> None:
-        """`timeout` (ms) bounds the initiating procedure; failure arrives as `EVT ble connectfailed`."""
         self._cmd("connect", address, type=address_type, timeout=timeout)
 
     def cancel(self) -> None:
@@ -117,21 +99,18 @@ class Ble(Group):
         self._cmd("phy", tx=tx, rx=rx)
 
     def datalength(self) -> None:
-        """Requests the largest data length of LE 2M."""
         self._cmd("datalength")
 
     def mtu(self) -> None:
         self._cmd("mtu")
 
     def discover(self) -> None:
-        """Discovers the Nordic UART service of the peer and subscribes to its notifications."""
         self._cmd("discover")
 
     def disconnect(self) -> None:
         self._cmd("disconnect")
 
     def conparams(self, interval_min: int, interval_max: int, latency: int, timeout: int) -> None:
-        """The central updates the link; the peripheral asks for it. Raw units: 1.25 ms and 10 ms."""
         self._cmd("conparams", min=interval_min, max=interval_max, latency=latency, timeout=timeout)
 
     def link(self) -> BleLink:
@@ -159,8 +138,6 @@ class Ble(Group):
         pattern: Pattern | None = None,
         seed: int | None = None,
     ) -> BleSent:
-        """Sends over the Nordic UART service (the central writes, the peripheral notifies); `data`, or `length`
-        bytes the firmware generates. Returns the length and CRC-32 of what it sent."""
         payload = data if data is not None else b""
         response = self._cmd("send", payload, len=length, pattern=pattern, seed=seed)
         return BleSent(length=response.as_int("len"), crc=int(response["crc"], 16))
@@ -172,7 +149,6 @@ class Ble(Group):
         self._cmd("security", level=level)
 
     def bonds(self) -> tuple[int, int]:
-        """The number of stored bonds and the capacity."""
         response = self._cmd("bonds")
         return response.as_int("count"), response.as_int("max")
 
@@ -180,7 +156,6 @@ class Ble(Group):
         self._cmd("removebonds")
 
     def wait(self, name: str, timeout: float, **fields: object) -> Event:
-        """The oldest queued or next `EVT ble <name>` whose fields equal `fields` (compared as text)."""
         wanted = {key: str(value) for key, value in fields.items()}
 
         def accepted(event: Event) -> bool:
@@ -189,7 +164,6 @@ class Ble(Group):
         return self._fw.terminal.wait_event("ble", accepted, timeout)
 
     def absent(self, name: str, window: float, **fields: object) -> bool:
-        """True when no such event arrives within `window` seconds."""
         try:
             self.wait(name, window, **fields)
         except TerminalTimeout:
@@ -201,7 +175,6 @@ class Ble(Group):
         return [event for event in events if name is None or event.args[:1] == (name,)]
 
     def wait_link(self, predicate: Callable[[BleLink], bool], timeout: float, interval: float = 0.1) -> BleLink:
-        """Polls `link` until `predicate` holds (the controller applies a change some connection events later)."""
         deadline = time.monotonic() + timeout
         while True:
             link = self.link()
