@@ -34,7 +34,7 @@ _ATT_HEADER = 3
 _PAYLOAD_MAX = _MTU_MAX - _ATT_HEADER
 _BONDS_MAX = 10
 _UNSPECIFIED_REASON = 8
-_STACK = "fake"
+_STACKS = {"stm32wb55": "1.24.0", "stm32wba55": "build0"}
 _DEFAULT_PARAMETERS = (24, 40, 0, 500)
 _INTERVAL_RANGE = (6, 3200)
 _LATENCY_MAX = 499
@@ -103,6 +103,7 @@ class FakeBle(FakeGroup):
 
     def __init__(self, fw: FakeFirmware) -> None:
         super().__init__(fw)
+        self.stack = _STACKS.get(fw.family, "-")
         self._reset_state()
 
     def _reset_state(self) -> None:
@@ -178,7 +179,7 @@ class FakeBle(FakeGroup):
     def cmd_info(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 0, 0)
         ready = int(self.role is not None)
-        return f"OK ready={ready} role={self.role or 'none'} address={self.address or '-'} stack={_STACK}"
+        return f"OK ready={ready} role={self.role or 'none'} address={self.address or '-'} stack={self.stack}"
 
     def cmd_open(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 0, 0, ("role", "address"))

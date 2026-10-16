@@ -6,7 +6,7 @@ import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
 from pytest_bdd import given, parsers, scenario, then, when
 
-from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair, BleSettings
+from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair, BleSettings, BleStackTooOld
 
 pytestmark = pytest.mark.usefixtures("ble_pair")
 
@@ -93,12 +93,17 @@ def ble_pair(request, fw, peer_fw, board_cfg, peer_board_cfg) -> BlePair:
     for firmware, board in ((fw, board_cfg), (peer_fw, peer_board_cfg)):
         firmware.system.reset(timeout=board.param("system.boot_timeout", 5.0))
     central, peripheral = ((fw, board_cfg), (peer_fw, peer_board_cfg))[:: 1 if a_central else -1]
-    return BlePair.open(
-        BleEnd(central[0], central[1], "central"),
-        BleEnd(peripheral[0], peripheral[1], "peripheral"),
-        BleSettings.from_boards((board_cfg, peer_board_cfg)),
-        request.param,
-    )
+    try:
+        return BlePair.open(
+            BleEnd(central[0], central[1], "central"),
+            BleEnd(peripheral[0], peripheral[1], "peripheral"),
+            BleSettings.from_boards((board_cfg, peer_board_cfg)),
+            request.param,
+        )
+    except BleStackTooOld as error:
+        pytest.exit(
+            f"{error} (update the wireless coprocessor, hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt)", returncode=3
+        )
 
 
 @pytest.fixture
