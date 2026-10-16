@@ -183,7 +183,30 @@ namespace hal
     void GattServerSt::HandleGattAttributeModified(aci_gatt_attribute_modified_event_rp0& event)
     {
         constexpr uint16_t valueAttributeOffset = 1;
-        infra::ByteRange data{ event.Attr_Data, event.Attr_Data + event.Attr_Data_Length };
+        constexpr uint16_t moreDataFlag = 0x8000;
+        infra::ConstByteRange data{ event.Attr_Data, event.Attr_Data + event.Attr_Data_Length };
+
+        const auto offset = static_cast<uint16_t>(event.Offset & ~moreDataFlag);
+        const auto moreData = (event.Offset & moreDataFlag) != 0;
+
+        if (moreData || !fragmentedValue.empty())
+        {
+            if (offset == 0)
+                fragmentedValue.clear();
+
+            if (offset != fragmentedValue.size() || offset + data.size() > fragmentedValue.max_size())
+            {
+                fragmentedValue.clear();
+                return;
+            }
+
+            fragmentedValue.insert(fragmentedValue.end(), data.begin(), data.end());
+
+            if (moreData)
+                return;
+
+            data = infra::MakeRange(fragmentedValue);
+        }
 
         for (auto& service : services)
             for (auto& characteristic : service.Characteristics())
@@ -192,6 +215,8 @@ namespace hal
                         {
                             observer.DataReceived(data);
                         });
+
+        fragmentedValue.clear();
     }
 
     void GattServerSt::ReportError(tBleStatus status) const
