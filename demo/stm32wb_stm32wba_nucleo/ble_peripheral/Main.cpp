@@ -144,7 +144,11 @@ namespace application
                 return;
 
             if (event.evt == HCI_DISCONNECTION_COMPLETE_EVT_CODE)
-                return nordicUart->NotificationsEnabled(false);
+            {
+                nordicUart->NotificationsEnabled(false);
+                nordicUart->MaxAttMtuSizeChanged(services::attDefaultMaxMtuSize);
+                return;
+            }
 
             if (event.evt != HCI_VENDOR_SPECIFIC_DEBUG_EVT_CODE)
                 return;
