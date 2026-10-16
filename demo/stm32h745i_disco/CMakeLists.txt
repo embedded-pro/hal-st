@@ -27,6 +27,7 @@ target_link_libraries(demo_st.stm32h745i_disco_cm7 PRIVATE
     boards.rk043fn48h
     demo_st.audio_demo
     demo_st.common
+    demo_st.sd_card_demo
     drivers.audio.wm8994
     services.flash
     services.util

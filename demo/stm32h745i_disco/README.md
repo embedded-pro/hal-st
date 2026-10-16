@@ -20,6 +20,7 @@ cmake --build --preset stm32h745-cm4-RelWithDebInfo --target demo_st.stm32h745i_
 | User button B1           | PC13, active high                                                                                    | `services::DebouncedButton`                                                                | toggles the audio mute                                                                                                                                                 |
 | 128 Mbit SDRAM           | FMC bank 2 (SDNE1, SDCKE1), 16-bit, 8 MB of the 16 MB at 0xD0000000                                  | `hal::SdRamStm`                                                                            | frame buffer in the first 255 KB; boot test: data bus, address bus and 2 MB patterns at both ends                                                                      |
 | Twin quad-SPI flash      | QUADSPI bank 1: CLK PF10, NCS PG6, IO0 PD11, IO1 PF9, IO2 PF7, IO3 PF6                               | `hal::QuadSpiStm`, EMIL `services::FlashGeometryQuadSfdp`, `services::FlashQuadSpiGeneric` | boot check: JEDEC id, SFDP geometry, dummy cycles, first and last 4 KB on one line and on four; `qspitest` saves, erases, programs, verifies, restores the last sector |
+| eMMC                     | SDMMC1: CK PC12, CMD PD2, D0-D3 PC8-PC11 (D4-D7 on PB8, PB9, PC6, PC7 are not used)                  | `hal::MmcStm`, EMIL `hal::BlockDevice`, `examples::SdCardDemo`                             | boot: capacity, erase group, cache and CID traced, nothing is written; `emmc` runs the block device test on the last 16 blocks                                         |
 | WM8994 codec             | I2C4 address 0x1A, SAI2 block A: MCLK PI4, SCK PI5, SD PI6, FS PI7                                   | `hal::SaiOutputStm` (DMA2 stream 1), EMIL `drivers::Wm8994`                                | a 440 Hz tone on the headphone jack (CN9), 48 kHz stereo, started with the first frame                                                                                 |
 | I2C4 bus                 | PD12 SCL, PD13 SDA                                                                                   | `hal::I2cStm`, `services::I2cMultipleAccess`, EMIL `services::I2cScanner`                  | shared by the codec, the touch controller and the scan; 0.5 s after boot the addresses that acknowledge are traced                                                     |
 | LEDs                     | LD6 red PI13 and LD7 green PJ2 (active low), LD8 PD3 (active high)                                   | `hal::GpioPinStm`, `services::DebugLed`                                                    | LD7 heartbeat of the Cortex-M7, LD8 heartbeat of the Cortex-M4, LD6 while B1 or the screen is pressed                                                                  |
@@ -42,6 +43,7 @@ The `info` command and the boot report print `supply: direct SMPS` together with
 | `sdram`    | `sd`  | Repeat the SDRAM test on its last 4 MB (the first half holds the frame buffer); blocks for about a second                      |
 | `qspi`     | `q`   | Read the QSPI flash identification, then the first and the last block of the array on one and on four lines                    |
 | `qspitest` | `qt`  | Save, erase, program on four lines, verify and restore the last sector of the first QSPI flash; blocks while the flash is busy |
+| `emmc`     | `e`   | Run the block device test of `demo/sd_card_demo` on the last 16 blocks of the eMMC: write, read back, erase, flush, restore    |
 | `i2cscan`  | `i2c` | List the addresses on I2C4 that acknowledge, expect 0x1A and 0x38                                                              |
 | `display`  | `d`   | Print the LTDC registers, the PLL3 settings and the frame and underrun counters                                                |
 | `mute`     | `m`   | Toggle the audio mute and trace the new state                                                                                  |
@@ -68,9 +70,17 @@ If the power fails in the middle, that one sector can stay erased.
 `hal::QuadSpiStm::PollStatus` waits without a time limit and blocks the event loop while it does, so a flash that does not answer the status read hangs the core.
 The two chips share the clock and BK1_NCS and `hal::QuadSpiStm` drives bank 1 only, so the chip on the bank 2 data lines sees the clock and the chip select without data and is never addressed. Reaching the 128 MB array needs the dual-flash mode in `hal::QuadSpiStm` and a twin-chip geometry in EMIL.
 
+## eMMC
+
+The 4 GB eMMC is wired for 8 bits on SDMMC1; `hal::MmcStm` drives it on four, at 25 MHz from the 200 MHz PLL1Q ("SD card and eMMC" in `AGENTS.md`).
+The demo enables the cache of the eMMC, so `Flush` sends FLUSH_CACHE; the boot trace says whether the device took it. Four blocks per transfer make the test split its larger requests.
+`emmc` writes the last 16 blocks of the device and restores them at the end; if the power fails in the middle, those blocks can keep the test pattern. The test logs as `SD card:` since it is the test of `hal::SdCardStm`.
+The trim and the cache flush may block the event loop for the busy time of the eMMC, which can cost the audio an underrun.
+The pin table leaves the SDMMC pins without internal pull-ups, so the eMMC relies on the pull-ups of the board on CMD and D0 to D3; the MB1381 schematic was not read. If the boot trace says `eMMC: no device`, check those first.
+
 ## Not included
 
-- Ethernet (LAN8740A on MII), FDCAN1 and FDCAN2 (MCP2562FD), the eMMC (SDMMC1, 8-bit), USB OTG, the PDM microphone (SAI4), the Arduino connectors and the audio input path of the codec: out of scope for this demo.
+- Ethernet (LAN8740A on MII), FDCAN1 and FDCAN2 (MCP2562FD), the upper four data lines of the eMMC, USB OTG, the PDM microphone (SAI4), the Arduino connectors and the audio input path of the codec: out of scope for this demo.
 - Later revisions of the board (B03 and newer) carry a GT911 touch controller instead of the FT5336; EMIL has no driver for it.
 
 ## Checked on hardware
@@ -86,6 +96,6 @@ Run on an STM32H745I-DISCO (DEV_ID 0x450, revision 0x2003), both images flashed 
 - The first `qspitest` hung the Cortex-M7: the flash class then in use sent the status read on four lines to a flash in single-line mode, with a truncated address, and the boot-time array read returned a constant 0x88.
   The flash classes in EMIL have been reworked since (see QSPI flash) and the new access has not been run on the board yet; the QSPI dashboard row also stayed yellow until the start-up drawing race was fixed.
 
-Not yet verified: the QSPI check and `qspitest` after the rework, the QSPI row turning green at boot, B1 and LD6, and the BCM4-cleared start path.
+Not yet verified: the eMMC (boot trace and `emmc`), the QSPI check and `qspitest` after the rework, the QSPI row turning green at boot, B1 and LD6, and the BCM4-cleared start path.
 The panel timing is `boards::rk043fn48hTiming` from EMIL, ST's RK043FN48H timing (HSYNC 41, HFP 32, VSYNC 10, VBP 2, VFP 2) with the back porch cut from 13 to 2 clocks, so that the data starts 43 clocks after the start of HSYNC as it does in ST's board support package for this board;
 the board support package also keeps the data enable high for 11 more clocks after the last pixel, which the demo does not.

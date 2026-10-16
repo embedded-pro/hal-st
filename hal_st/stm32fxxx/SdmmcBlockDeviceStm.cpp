@@ -10,6 +10,10 @@
 namespace
 {
     constexpr uint32_t wordSize = 4;
+#if !defined(SD_EXTERNAL_DMA)
+    constexpr uint32_t switchErrorStatus = 1u << 7;
+    constexpr uint8_t trimSupported = 1u << 4;
+#endif
 
     hal::BlockDevice::Result MapError(uint32_t errorCode)
     {
@@ -89,6 +93,88 @@ namespace hal
             return transmitStatus == HAL_OK && receiveStatus == HAL_OK && errorStatus == HAL_OK && abortStatus == HAL_OK;
         }
 
+#if !defined(SD_EXTERNAL_DMA)
+        HAL_StatusTypeDef MmcHal::ReadBlocks(Handle& handle, uint8_t* data, uint32_t firstBlock, uint32_t blockCount)
+        {
+            return HAL_MMC_ReadBlocks_DMA(&handle, data, firstBlock, blockCount);
+        }
+
+        HAL_StatusTypeDef MmcHal::WriteBlocks(Handle& handle, uint8_t* data, uint32_t firstBlock, uint32_t blockCount)
+        {
+            return HAL_MMC_WriteBlocks_DMA(&handle, data, firstBlock, blockCount);
+        }
+
+        HAL_StatusTypeDef MmcHal::Erase(Handle& handle, uint32_t firstBlock, uint32_t lastBlock)
+        {
+            // HAL_MMC_Erase erases whole erase groups, beyond the range, and a device without trim could take a trim for such an erase,
+            // so the blocks keep their contents on such a device, which hal::BlockDevice allows
+            if ((ExtCsdByte(handle, secureFeatureSupportIndex) & trimSupported) == 0)
+                return HAL_OK;
+
+            handle.ErrorCode = HAL_MMC_ERROR_NONE;
+            return HAL_MMC_EraseSequence(&handle, HAL_MMC_TRIM, firstBlock, lastBlock);
+        }
+
+        HAL_StatusTypeDef MmcHal::StartFlush(Handle& handle)
+        {
+            if ((ExtCsdByte(handle, cacheControlIndex) & 1) == 0)
+                return HAL_OK;
+
+            return Switch(handle, flushCacheIndex, 1);
+        }
+
+        SdmmcCardState MmcHal::CardState(Handle& handle)
+        {
+            auto state = HAL_MMC_GetCardState(&handle);
+
+            // A rejected CMD6 is reported only in the SWITCH_ERROR bit of the next status, which HAL_MMC_GetCardState drops
+            if ((SDMMC_GetResponse(handle.Instance, SDMMC_RESP1) & switchErrorStatus) != 0)
+                return SdmmcCardState::error;
+            else if (state == HAL_MMC_CARD_TRANSFER)
+                return SdmmcCardState::transfer;
+            else
+                return SdmmcCardState::busy;
+        }
+
+        uint32_t MmcHal::Error(Handle& handle)
+        {
+            return HAL_MMC_GetError(&handle);
+        }
+
+        void MmcHal::Abort(Handle& handle)
+        {
+            HAL_MMC_Abort(&handle);
+        }
+
+        void MmcHal::HandleInterrupt(Handle& handle)
+        {
+            HAL_MMC_IRQHandler(&handle);
+        }
+
+        bool MmcHal::RegisterCallbacks(Handle& handle, Callback transferred, Callback failed)
+        {
+            auto transmitStatus = HAL_MMC_RegisterCallback(&handle, HAL_MMC_TX_CPLT_CB_ID, transferred);
+            auto receiveStatus = HAL_MMC_RegisterCallback(&handle, HAL_MMC_RX_CPLT_CB_ID, transferred);
+            auto errorStatus = HAL_MMC_RegisterCallback(&handle, HAL_MMC_ERROR_CB_ID, failed);
+            auto abortStatus = HAL_MMC_RegisterCallback(&handle, HAL_MMC_ABORT_CB_ID, failed);
+            return transmitStatus == HAL_OK && receiveStatus == HAL_OK && errorStatus == HAL_OK && abortStatus == HAL_OK;
+        }
+
+        uint8_t MmcHal::ExtCsdByte(const Handle& handle, uint32_t index)
+        {
+            return static_cast<uint8_t>(handle.Ext_CSD[index / 4] >> (8 * (index % 4)));
+        }
+
+        HAL_StatusTypeDef MmcHal::Switch(Handle& handle, uint32_t index, uint8_t value)
+        {
+            constexpr uint32_t writeByte = 3;
+
+            auto error = SDMMC_CmdSwitch(handle.Instance, (writeByte << 24) | (index << 16) | (uint32_t{ value } << 8));
+            handle.ErrorCode = error;
+
+            return error == HAL_MMC_ERROR_NONE ? HAL_OK : HAL_ERROR;
+        }
+#endif
     }
 
     template<class CardHal>
@@ -422,6 +508,9 @@ namespace hal
     }
 
     template class SdmmcBlockDeviceStm<detail::SdCardHal>;
+#if !defined(SD_EXTERNAL_DMA)
+    template class SdmmcBlockDeviceStm<detail::MmcHal>;
+#endif
 }
 
 #endif

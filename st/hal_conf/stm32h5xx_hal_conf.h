@@ -231,7 +231,7 @@ extern unsigned int hse_value;
 #define  USE_HAL_IRDA_REGISTER_CALLBACKS      0U    /* IRDA register callback disabled      */
 #define  USE_HAL_IWDG_REGISTER_CALLBACKS      0U    /* IWDG register callback disabled      */
 #define  USE_HAL_LPTIM_REGISTER_CALLBACKS     0U    /* LPTIM register callback disabled     */
-#define  USE_HAL_MMC_REGISTER_CALLBACKS       0U    /* MMC register callback disabled       */
+#define  USE_HAL_MMC_REGISTER_CALLBACKS       1U    /* MMC register callback enabled        */
 #define  USE_HAL_NAND_REGISTER_CALLBACKS      0U    /* NAND register callback disabled      */
 
 #define  USE_HAL_OPAMP_REGISTER_CALLBACKS     0U    /* OTFDEC register callback disabled    */

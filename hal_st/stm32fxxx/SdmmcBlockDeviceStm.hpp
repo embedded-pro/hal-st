@@ -44,6 +44,32 @@ namespace hal
             static bool RegisterCallbacks(Handle& handle, Callback transferred, Callback failed);
         };
 
+#if !defined(SD_EXTERNAL_DMA)
+        struct MmcHal
+        {
+            using Handle = MMC_HandleTypeDef;
+            using Callback = void (*)(Handle* handle);
+
+            static constexpr uint32_t flushCacheIndex = 32;
+            static constexpr uint32_t cacheControlIndex = 33;
+            static constexpr uint32_t highCapacityEraseGroupSizeIndex = 224;
+            static constexpr uint32_t secureFeatureSupportIndex = 231;
+            static constexpr uint32_t cacheSizeIndex = 249;
+
+            static HAL_StatusTypeDef ReadBlocks(Handle& handle, uint8_t* data, uint32_t firstBlock, uint32_t blockCount);
+            static HAL_StatusTypeDef WriteBlocks(Handle& handle, uint8_t* data, uint32_t firstBlock, uint32_t blockCount);
+            static HAL_StatusTypeDef Erase(Handle& handle, uint32_t firstBlock, uint32_t lastBlock);
+            static HAL_StatusTypeDef StartFlush(Handle& handle);
+            static SdmmcCardState CardState(Handle& handle);
+            static uint32_t Error(Handle& handle);
+            static void Abort(Handle& handle);
+            static void HandleInterrupt(Handle& handle);
+            static bool RegisterCallbacks(Handle& handle, Callback transferred, Callback failed);
+
+            static uint8_t ExtCsdByte(const Handle& handle, uint32_t index);
+            static HAL_StatusTypeDef Switch(Handle& handle, uint32_t index, uint8_t value);
+        };
+#endif
     }
 
     template<class CardHal>
@@ -174,6 +200,9 @@ namespace hal
     };
 
     extern template class SdmmcBlockDeviceStm<detail::SdCardHal>;
+#if !defined(SD_EXTERNAL_DMA)
+    extern template class SdmmcBlockDeviceStm<detail::MmcHal>;
+#endif
 }
 
 #endif

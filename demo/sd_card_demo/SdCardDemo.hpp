@@ -47,6 +47,7 @@ namespace examples
             readPartial,
             edgeCase,
             restoreOriginal,
+            flushRestored,
             readRestored,
             done
         };
@@ -68,6 +69,7 @@ namespace examples
         void Read(infra::ByteRange range, uint32_t block);
         void Write(infra::ConstByteRange range, uint32_t block);
         void Erase(uint32_t begin, uint32_t end);
+        void Flush();
 
         infra::ByteRange Blocks(infra::ByteRange range, uint32_t count) const;
         infra::ByteRange Block(infra::ByteRange range, uint32_t blockIndex) const;

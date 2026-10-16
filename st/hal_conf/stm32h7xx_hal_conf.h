@@ -205,7 +205,7 @@ extern unsigned int hse_value;
 #define  USE_HAL_LPTIM_REGISTER_CALLBACKS   0U /* LPTIM register callback disabled   */
 #define  USE_HAL_LTDC_REGISTER_CALLBACKS    1U /* LTDC register callback enabled    */
 #define  USE_HAL_MDIOS_REGISTER_CALLBACKS   0U /* MDIO register callback disabled    */
-#define  USE_HAL_MMC_REGISTER_CALLBACKS     0U /* MMC register callback disabled     */
+#define  USE_HAL_MMC_REGISTER_CALLBACKS     1U /* MMC register callback enabled      */
 #define  USE_HAL_OPAMP_REGISTER_CALLBACKS   0U /* MDIO register callback disabled    */
 #define  USE_HAL_OSPI_REGISTER_CALLBACKS    0U /* OSPI register callback disabled    */
 #define  USE_HAL_OTFDEC_REGISTER_CALLBACKS  0U /* OTFDEC register callback disabled  */
