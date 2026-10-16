@@ -11,12 +11,18 @@ from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair
 pytestmark = pytest.mark.usefixtures("ble_pair")
 
 DEVICE_NAME = "hal-st-periph"
-ABSENT_ADDRESS = "0c:00:00:e1:80:02"
+ABSENT_ADDRESS = "0c:00:00:e1:80:00"
 LOCAL_TERMINATED = 0x16
 REMOTE_TERMINATED = 0x13
 UNKNOWN_COMMAND = ("usage", "unrecognized")
-MTU_MAX = 251
-MTU_DEFAULT = 23
+ATT_HEADER = 3
+DEFAULT_ATT_MTU = 23
+DATA_LENGTH_MIN = 27
+DATA_LENGTH_MAX = 251
+DATA_TIME_MIN = 328
+DATA_TIME_MAX = 17040
+ADVERTISING_FLAGS = "06"
+UNIVERSAL_UNICAST_MASK = 0x03
 SECURITY_LEVEL = 2
 
 CENTRAL_ONLY = (
@@ -38,6 +44,8 @@ MALFORMED = (
     ("ble.open role=sniffer", "usage"),
     ("ble.open role=central address=zz", "usage"),
     ("ble.advertise interval=5", "range"),
+    ("ble.advertise interval=19", "range"),
+    ("ble.advertise interval=10241", "range"),
     ("ble.advertise interval=20000", "range"),
     ("ble.advertise name=this-name-is-far-too-long", "range"),
     ("ble.allowpairing", "usage"),
@@ -52,7 +60,16 @@ MALFORMED = (
     ("ble.phy tx=9m rx=1m", "usage"),
     ("ble.conparams min=6 max=6", "usage"),
     ("ble.conparams min=1 max=1 latency=0 timeout=400", "range"),
+    ("ble.conparams min=5 max=6 latency=0 timeout=400", "range"),
+    ("ble.conparams min=6 max=3201 latency=0 timeout=400", "range"),
     ("ble.conparams min=40 max=20 latency=0 timeout=400", "range"),
+    ("ble.conparams min=40 max=40 latency=500 timeout=3200", "range"),
+    ("ble.conparams min=40 max=40 latency=0 timeout=9", "range"),
+    ("ble.conparams min=40 max=40 latency=0 timeout=3201", "range"),
+    ("ble.conparams min=40 max=40 latency=0 timeout=10", "range"),
+    ("ble.conparams min=40 max=40 latency=0 timeout=11", "failed"),
+    ("ble.conparams min=40 max=40 latency=4 timeout=50", "range"),
+    ("ble.conparams min=40 max=40 latency=4 timeout=51", "failed"),
     ("ble.send", "usage"),
     ("ble.send 0g", "usage"),
     ("ble.send - len=0", "range"),
@@ -167,6 +184,11 @@ def test_uart_opens():
     pass
 
 
+@scenario("ble.feature", "The default ATT_MTU carries 20 bytes")
+def test_default_mtu():
+    pass
+
+
 @pytest.mark.parametrize(
     ("size", "pattern"),
     [(1, "inc"), (20, "const"), (100, "prbs"), (244, "prbs")],
@@ -207,6 +229,11 @@ def test_data_length():
     pass
 
 
+@scenario("ble.feature", "Requesting the same data length again changes nothing")
+def test_data_length_repeat():
+    pass
+
+
 @scenario("ble.feature", "Pairing bonds both boards")
 def test_pairing():
     pass
@@ -242,13 +269,14 @@ def test_errors():
     pass
 
 
-@then("both boards report their role and address")
+@then("both boards report their role and a public address that is a universal unicast address")
 def roles(ble):
     for end in ble.ends:
         info = end.ble.info()
         assert info.ready, f"{end.role} is not ready: {info}"
         assert info.role == end.role
         assert info.address == end.address
+        assert int(info.address.split(":")[-1], 16) & UNIVERSAL_UNICAST_MASK == 0, f"{end.role} {info.address} is not universal unicast"
     assert ble.central.address != ble.peripheral.address
 
 
@@ -285,6 +313,11 @@ def central_reports(ble):
     assert report["type"] == "public"
     assert report["event"] == "advInd"
     return report
+
+
+@then("the report carries the flags of an LE-only general discoverable device")
+def report_flags(report):
+    assert report["flags"] == ADVERTISING_FLAGS
 
 
 @then("the report carries a signal strength above the board files' minimum")
@@ -437,12 +470,12 @@ def exchange_mtu(ble):
     ble.central.ble.mtu()
 
 
-@then("both boards report the same MTU of at most 251 bytes", target_fixture="mtu")
+@then("both boards report the smaller of their receive MTUs", target_fixture="mtu")
 def same_mtu(ble):
     central, peripheral = ble.wait_both("mtu")
     size = central.as_int("size")
     assert size == peripheral.as_int("size")
-    assert MTU_DEFAULT <= size <= MTU_MAX
+    assert size == ble.settings.mtu
     return size
 
 
@@ -452,15 +485,28 @@ def link_mtu(ble, mtu):
         assert ble.wait_link(end, lambda link: link.mtu == mtu).mtu == mtu
 
 
-@when("the central discovers the Nordic UART service")
-def discover(ble):
-    ble.central.ble.discover()
+@when("the central exchanges the MTU and discovers the Nordic UART service", target_fixture="limits")
+def exchange_and_discover(ble):
+    return ble.enable_uart_limits(exchange_mtu=True)
 
 
-@then("both boards report the service open")
-def service_open(ble):
-    for end in ble.ends:
-        assert end.ble.wait("uart", ble.settings.event_timeout * 2, state="open").as_int("maxsend") > 0
+@when("the central discovers the Nordic UART service without exchanging the MTU", target_fixture="limits")
+def discover_with_default_mtu(ble):
+    return ble.enable_uart_limits(exchange_mtu=False)
+
+
+@then("the service carries the MTU minus 3 bytes on both boards", target_fixture="maxsend")
+def service_limit_of_mtu(ble, limits):
+    expected = ble.settings.mtu - ATT_HEADER
+    assert limits == (expected, expected), f"central and peripheral limits {limits}, expected {expected}"
+    return expected
+
+
+@then(parsers.parse("the service carries {size:d} bytes on both boards"), target_fixture="maxsend")
+def service_limit(limits, size):
+    assert size == DEFAULT_ATT_MTU - ATT_HEADER
+    assert limits == (size, size), f"central and peripheral limits {limits}, expected {size}"
+    return size
 
 
 @given("the boards are connected with the Nordic UART service open", target_fixture="maxsend")
@@ -524,6 +570,11 @@ def central_has_requested_interval(ble, interval):
     return interval
 
 
+@given("the connection pause of the peripheral has passed")
+def connection_pause_passed(ble):
+    ble.peripheral.fw.terminal.pump(ble.settings.conn_pause_peripheral)
+
+
 @when(parsers.parse("the peripheral requests a connection interval of {interval:d} units"))
 def peripheral_requests_interval(ble, interval):
     ble.peripheral.ble.conparams(interval, interval, LATENCY, SUPERVISION_TIMEOUT)
@@ -572,6 +623,12 @@ def link_holds_phy(ble, phy):
         assert link.connected
 
 
+@given("the central has requested the largest data length")
+def central_has_requested_data_length(ble):
+    ble.central.ble.datalength()
+    ble.settled("datalength", ble.settings.event_timeout * 2)
+
+
 @when("the central requests the largest data length")
 def central_requests_data_length(ble):
     ble.central.ble.datalength()
@@ -579,11 +636,20 @@ def central_requests_data_length(ble):
 
 @then("both boards report the same data length", target_fixture="data_length")
 def same_data_length(ble):
-    central, peripheral = ble.wait_both("datalength", ble.settings.event_timeout * 2)
+    central, peripheral = ble.settled("datalength", ble.settings.event_timeout * 2)
     assert central.as_int("txoctets") == peripheral.as_int("rxoctets")
-    assert 27 <= central.as_int("txoctets") <= MTU_MAX
-    assert 27 <= peripheral.as_int("txoctets") <= MTU_MAX
+    assert central.as_int("txtime") == peripheral.as_int("rxtime")
+    for octets in (central.as_int("txoctets"), peripheral.as_int("txoctets"), peripheral.as_int("rxoctets")):
+        assert DATA_LENGTH_MIN <= octets <= DATA_LENGTH_MAX
+    for time in (central.as_int("txtime"), peripheral.as_int("txtime"), peripheral.as_int("rxtime")):
+        assert DATA_TIME_MIN <= time <= DATA_TIME_MAX
     return central
+
+
+@then("neither board reports a data length change within the quiet window")
+def no_data_length_change(ble):
+    for end in ble.ends:
+        assert end.ble.absent("datalength", ble.settings.quiet_window), f"{end.role} reported a data length change"
 
 
 @then("a payload as large as the link carries still arrives intact")

@@ -13,8 +13,8 @@ from hal_st_validation.firmware import Firmware
 from hal_st_validation.patterns import crc_text, generate
 
 HOST = Path(__file__).parents[2]
-PERIPHERAL = "0a:00:00:e1:80:02"
-CENTRAL = "0b:00:00:e1:80:02"
+PERIPHERAL = "0a:00:00:e1:80:00"
+CENTRAL = "0b:00:00:e1:80:00"
 
 
 class Clock:
@@ -82,7 +82,7 @@ def test_open_chooses_the_role_once_and_reports_ready(boards):
     assert central.ble.info().role == "none"
     assert central.ble.open("central") == CENTRAL
     central.ble.wait("ready", 0.5)
-    assert peripheral.ble.open("peripheral", address="0a:00:00:e1:80:09") == "0a:00:00:e1:80:09"
+    assert peripheral.ble.open("peripheral", address="0a:00:01:e1:80:00") == "0a:00:01:e1:80:00"
     info = central.ble.info()
     assert (info.ready, info.role, info.address) == (True, "central", CENTRAL)
     assert reason(central, "ble.open role=central") == "busy"
@@ -106,10 +106,11 @@ def test_scan_reports_each_advertiser_once_and_honours_the_filters(pair):
     found = central.ble.wait("found", 0.5)
     assert (found["addr"], found["type"], found["event"], found["name"]) == (PERIPHERAL, "public", "advInd", "hal-st-renamed")
     assert -100 < found.as_int("rssi") < 0
+    assert found["flags"] == "06"
     peripheral.ble.advertise(name="hal-st-renamed")
     assert central.ble.absent("found", 0.05)
     central.ble.stopscan()
-    central.ble.scan(addr="0c:00:00:e1:80:02")
+    central.ble.scan(addr="0c:00:00:e1:80:00")
     assert central.ble.absent("found", 0.05)
     central.ble.stopscan()
     central.ble.scan(name="other")
@@ -138,12 +139,12 @@ def test_connect_reports_the_link_on_both_boards(linked):
 
 def test_connect_to_an_address_nobody_advertises_times_out_or_is_cancelled(pair, clock):
     central, _ = pair
-    central.ble.connect("0c:00:00:e1:80:02", timeout=1000)
+    central.ble.connect("0c:00:00:e1:80:00", timeout=1000)
     central.ble.wait("state", 0.5, value="connecting")
     clock.advance(1.5)
     central.ble.wait("connectfailed", 0.5, reason="timeout")
     assert central.ble.link().state == "standby"
-    central.ble.connect("0c:00:00:e1:80:02")
+    central.ble.connect("0c:00:00:e1:80:00")
     central.ble.cancel()
     central.ble.wait("connectfailed", 0.5, reason="cancelled")
     central.ble.cancel()
@@ -201,6 +202,10 @@ def test_mtu_phy_and_data_length_reach_both_boards(linked):
     assert central_event.as_int("txoctets") == peripheral_event.as_int("txoctets") == 251
     assert "rxoctets" not in central_event
     assert peripheral_event.as_int("rxoctets") == 251
+    assert central_event.as_int("txtime") == peripheral_event.as_int("rxtime") == 1064
+    central.ble.datalength()
+    assert central.ble.absent("datalength", 0.2)
+    assert peripheral.ble.absent("datalength", 0.2)
     assert central.ble.link().rx_octets is None
     assert peripheral.ble.link().rx_octets == 251
     assert peripheral.ble.link().mtu == 251
@@ -324,6 +329,35 @@ def test_connect_gives_up_after_the_attempts_of_the_settings(air, boards):
     assert air.drop_connects == 0
 
 
+def test_the_service_carries_the_mtu_minus_three_bytes(boards):
+    pair = open_pair(boards)
+    pair.connect()
+    assert pair.enable_uart_limits(exchange_mtu=False) == (20, 20)
+    pair.cleanup()
+    pair.connect()
+    assert pair.enable_uart_limits(exchange_mtu=True) == (248, 248)
+    assert pair.cleanup() == []
+
+
+def test_a_controller_that_updates_the_data_length_by_itself_settles_before_the_request_counts(air, boards):
+    air.autonomous_data_length = True
+    pair = open_pair(boards)
+    pair.connect()
+    pair.central.ble.datalength()
+    central, peripheral = pair.settled("datalength")
+    assert (central.as_int("txoctets"), central.as_int("txtime")) == (251, 1064)
+    assert (peripheral.as_int("rxoctets"), peripheral.as_int("rxtime")) == (251, 1064)
+    pair.central.ble.datalength()
+    for end in pair.ends:
+        assert end.ble.absent("datalength", 0.2)
+    assert pair.cleanup() == []
+
+
+def test_the_default_addresses_are_universal_unicast_addresses(pair):
+    for firmware in pair:
+        assert int(firmware.ble.info().address.split(":")[-1], 16) & 0x03 == 0
+
+
 def test_cleanup_reports_a_board_that_stopped_answering(boards):
     central, peripheral = boards
     pair = BlePair.open(
@@ -349,6 +383,11 @@ def test_settings_merge_the_board_files():
     merged = BleSettings.from_boards((wb, wba))
     assert merged.connect_timeout == 8.0
     assert merged.connect_attempts == 2
+    wb.set_param("ble.mtu", 247)
+    wb.set_param("ble.link_down_timeout", 7.5)
+    wba.set_param("ble.conn_pause_peripheral", 6.0)
+    merged = BleSettings.from_boards((wb, wba))
+    assert (merged.mtu, merged.conn_pause_peripheral, merged.link_down_timeout) == (247, 6.0, 7.5)
     assert merged.rssi_min == -90
     assert merged.phys == ("1m",)
     wb.tests.pop("ble")

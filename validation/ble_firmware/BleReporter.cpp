@@ -1,5 +1,6 @@
 #include "validation/ble_firmware/BleReporter.hpp"
 #include "infra/util/Endian.hpp"
+#include "infra/util/EnumCast.hpp"
 #include "services/ble/GapAdvertisingData.hpp"
 #include "validation/firmware/Payload.hpp"
 #include <algorithm>
@@ -73,7 +74,8 @@ namespace validation
     void BleReporter::Found(const services::GapAdvertisingReport& report)
     {
         std::array<char, nameTextSize> text{};
-        auto size = NameText(services::GapAdvertisingDataParser(report.data).LocalName(), text);
+        services::GapAdvertisingDataParser parser(report.data);
+        auto size = NameText(parser.LocalName(), text);
 
         auto line = response.Event("ble");
         line << " found addr=";
@@ -91,6 +93,16 @@ namespace validation
             line << "-";
         else
             line << infra::BoundedConstString(text.data(), size);
+
+        line << " flags=";
+
+        if (auto flags = parser.Flags())
+        {
+            uint8_t value = infra::enum_cast(*flags);
+            line.Hex(infra::MakeByteRange(value));
+        }
+        else
+            line << "-";
     }
 
     void BleReporter::Connected(const hal::MacAddress& peer, uint16_t interval, uint16_t latency, uint16_t timeout)
