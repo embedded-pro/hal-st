@@ -40,6 +40,7 @@ _TIMEOUT_RANGE = (10, 3200)
 _LOCAL_TERMINATED = "22"
 _REMOTE_TERMINATED = "19"
 _SUPERVISION_TIMEOUT = "8"
+_FAILED_TO_BE_ESTABLISHED = "62"
 _DATA_LENGTH_TIME_US = {"1m": 2120, "2m": 1064, "coded": 17040}
 
 
@@ -72,6 +73,7 @@ class _Link:
 class FakeAir:
     def __init__(self) -> None:
         self.ends: list[FakeBle] = []
+        self.drop_connects = 0
 
     def join(self, end: FakeBle) -> None:
         if end not in self.ends:
@@ -257,8 +259,8 @@ class FakeBle(FakeGroup):
         self.connect_deadline = self.fw.clock() + timeout / 1000
         self._set_state("connecting")
         advertiser = self.air.advertiser(address) if address_type == "public" else None
-        if advertiser is not None and advertiser.accepts(self):
-            self._connect_to(advertiser)
+        if advertiser is not None:
+            self._initiate(advertiser)
         return "OK"
 
     def cmd_cancel(self, args: list[str], options: dict[str, str]) -> str:
@@ -409,8 +411,8 @@ class FakeBle(FakeGroup):
         for scanner in self.air.centrals("scanning"):
             scanner._report(self)
         for initiator in self.air.centrals("connecting"):
-            if initiator.connect_target == self.address and self.accepts(initiator):
-                initiator._connect_to(self)
+            if initiator.connect_target == self.address:
+                initiator._initiate(self)
                 break
 
     def accepts(self, initiator: FakeBle) -> bool:
@@ -426,6 +428,23 @@ class FakeBle(FakeGroup):
             return
         self.scan_seen.add(advertiser.address)
         self._event("found", addr=advertiser.address, type="public", event="advInd", rssi=_RSSI, name=advertiser.name)
+
+    def _initiate(self, peripheral: FakeBle) -> None:
+        if self.air.drop_connects > 0:
+            self.air.drop_connects -= 1
+            self._not_established(peripheral)
+        elif peripheral.accepts(self):
+            self._connect_to(peripheral)
+        else:
+            self._not_established(peripheral)
+
+    def _not_established(self, peripheral: FakeBle) -> None:
+        _, interval, latency, timeout = self.parameters
+        self.connect_target = self.connect_deadline = None
+        self._set_state("connected")
+        self._event("connected", peer=peripheral.address, interval=interval, latency=latency, timeout=timeout)
+        self._set_state("standby")
+        self._event("disconnected", reason=_FAILED_TO_BE_ESTABLISHED)
 
     def _connect_to(self, peripheral: FakeBle) -> None:
         interval = self.parameters[1]

@@ -40,8 +40,12 @@ def clock():
 
 
 @pytest.fixture
-def boards(clock):
-    air = FakeAir()
+def air():
+    return FakeAir()
+
+
+@pytest.fixture
+def boards(clock, air):
     return make_board("stm32wb55", air, clock), make_board("stm32wba55", air, clock)
 
 
@@ -234,14 +238,16 @@ def test_send_needs_the_service_and_fits_the_mtu(linked):
     assert reason(peripheral, "ble.send 01") == "notopen"
 
 
-def test_a_peripheral_that_refuses_pairing_advertises_to_bonded_centrals_only(pair, clock):
+def test_a_peripheral_that_refuses_pairing_advertises_to_bonded_centrals_only(pair):
     central, peripheral = pair
     peripheral.ble.allow_pairing(False)
     peripheral.ble.advertise()
     central.ble.connect(PERIPHERAL, timeout=1000)
-    clock.advance(1.5)
-    central.ble.wait("connectfailed", 0.5, reason="timeout")
+    central.ble.wait("connected", 0.5, peer=PERIPHERAL)
+    assert central.ble.wait("disconnected", 0.5).as_int("reason") == 0x3E
+    assert central.ble.link().state == "standby"
     assert peripheral.ble.absent("connected", 0.2)
+    assert peripheral.ble.link().state == "advertising"
     peripheral.ble.allow_pairing(True)
     peripheral.ble.advertise()
     central.ble.connect(PERIPHERAL)
@@ -288,6 +294,36 @@ def test_a_pair_flows_through_blepair(boards):
         assert end.ble.link().state == "standby"
 
 
+def open_pair(boards, **settings):
+    central, peripheral = boards
+    return BlePair.open(
+        BleEnd(central, load_board("nucleo_wb55rg"), "central"),
+        BleEnd(peripheral, load_board("nucleo_wba55cg"), "peripheral"),
+        BleSettings(event_timeout=0.5, connect_timeout=0.5, quiet_window=0.05, **settings),
+    )
+
+
+def test_connect_retries_a_link_that_failed_to_be_established(air, boards):
+    pair = open_pair(boards)
+    air.drop_connects = 2
+    with pytest.warns(UserWarning, match="ended with reason 62") as warned:
+        central, peripheral = pair.connect()
+    assert len(warned) == 2
+    assert pair.retries == 2
+    assert (central["peer"], peripheral["peer"]) == (PERIPHERAL, CENTRAL)
+    assert pair.central.ble.link().connected
+    assert pair.cleanup() == []
+
+
+def test_connect_gives_up_after_the_attempts_of_the_settings(air, boards):
+    pair = open_pair(boards, connect_attempts=2)
+    air.drop_connects = 2
+    with pytest.warns(UserWarning), pytest.raises(TerminalTimeout):
+        pair.connect()
+    assert pair.retries == 1
+    assert air.drop_connects == 0
+
+
 def test_cleanup_reports_a_board_that_stopped_answering(boards):
     central, peripheral = boards
     pair = BlePair.open(
@@ -307,10 +343,12 @@ def test_settings_merge_the_board_files():
     wb, wba = load_board("nucleo_wb55rg"), load_board("nucleo_wba55cg")
     assert BleSettings.from_boards((wb, wba)).phys == ("1m", "2m")
     wb.set_param("ble.connect_timeout", 8.0)
+    wba.set_param("ble.connect_attempts", 2)
     wba.set_param("ble.rssi_min", -80)
     wba.set_param("ble.phys", ["1m"])
     merged = BleSettings.from_boards((wb, wba))
     assert merged.connect_timeout == 8.0
+    assert merged.connect_attempts == 2
     assert merged.rssi_min == -90
     assert merged.phys == ("1m",)
     wb.tests.pop("ble")

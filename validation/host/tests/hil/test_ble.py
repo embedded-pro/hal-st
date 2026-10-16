@@ -6,7 +6,7 @@ import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
 from pytest_bdd import given, parsers, scenario, then, when
 
-from hal_st_validation.ble_pair import BleEnd, BlePair, BleSettings
+from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair, BleSettings
 
 pytestmark = pytest.mark.usefixtures("ble_pair")
 
@@ -666,9 +666,20 @@ def remove_bonds(ble):
         end.ble.wait("bonds", ble.settings.event_timeout, count=0)
 
 
-@then("the central reports that its connection attempt timed out")
-def attempt_timed_out(ble):
-    ble.central.ble.wait("connectfailed", ble.settings.connect_timeout + ble.settings.event_timeout, reason="timeout")
+@then("the central reports that the link failed to be established")
+def link_not_established(ble):
+    limit = ble.settings.connect_timeout + ble.settings.event_timeout
+    ble.central.ble.wait("connected", limit, peer=ble.peripheral.address)
+    disconnected = ble.central.ble.wait("disconnected", limit)
+    assert disconnected.as_int("reason") == FAILED_TO_BE_ESTABLISHED
+
+
+@then("the boards connect once the peripheral allows pairing again")
+def connect_after_allowing(ble):
+    ble.peripheral.ble.allow_pairing(True)
+    ble.peripheral.ble.standby()
+    ble.peripheral.ble.wait("state", ble.settings.event_timeout, value="standby")
+    ble.connect()
 
 
 @then("the peripheral reports no connection")
