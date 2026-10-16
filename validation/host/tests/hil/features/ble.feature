@@ -7,12 +7,13 @@ Feature: BLE central and peripheral
   be in radio range. Timeouts and the RSSI floor are tests.ble of the board files.
 
   Scenario: Both boards open their role and report the controller ready
-    Then both boards report their role and address
+    Then both boards report their role and a public address that is a universal unicast address
 
   Scenario: The central finds an advertising peripheral
     Given the peripheral advertises
     When the central scans for the peripheral
     Then the central reports the peripheral with its name, public address and connectable advertising
+    And the report carries the flags of an LE-only general discoverable device
     And the report carries a signal strength above the board files' minimum
 
   Scenario: A peripheral that stopped advertising is not reported
@@ -66,13 +67,20 @@ Feature: BLE central and peripheral
   Scenario: Both boards agree on the MTU
     Given the boards are connected
     When the central exchanges the MTU
-    Then both boards report the same MTU of at most 251 bytes
+    Then both boards report the smaller of their receive MTUs
     And both link states hold that MTU
 
   Scenario: The Nordic UART service opens on both boards
     Given the boards are connected
-    When the central discovers the Nordic UART service
-    Then both boards report the service open
+    When the central exchanges the MTU and discovers the Nordic UART service
+    Then the service carries the MTU minus 3 bytes on both boards
+
+  Scenario: The default ATT_MTU carries 20 bytes
+    Given the boards are connected
+    When the central discovers the Nordic UART service without exchanging the MTU
+    Then the service carries 20 bytes on both boards
+    And a payload as large as the link carries still arrives intact
+    And a payload one byte larger than the service allows is refused with range on both boards
 
   Scenario: Data crosses the link in both directions
     Given the boards are connected with the Nordic UART service open
@@ -97,9 +105,11 @@ Feature: BLE central and peripheral
     And both link states hold them
 
   Scenario: The central keeps its own parameters when the peripheral asks for others
-    A peripheral's L2CAP update request is answered with the parameters the central used last.
+    A peripheral's L2CAP update request is answered with the parameters the central used last. The specification lets
+    a central accept or reject the request, so this is the behaviour of hal-st, not a rule.
     Given the boards are connected
     And the central has requested a connection interval of 24 units
+    And the connection pause of the peripheral has passed
     When the peripheral requests a connection interval of 80 units
     Then both link states still hold the central's interval after the quiet window
 
@@ -114,6 +124,12 @@ Feature: BLE central and peripheral
     When the central requests the largest data length
     Then both boards report the same data length
     And a payload as large as the link carries still arrives intact
+
+  Scenario: Requesting the same data length again changes nothing
+    Given the boards are connected
+    And the central has requested the largest data length
+    When the central requests the largest data length
+    Then neither board reports a data length change within the quiet window
 
   Scenario: Pairing bonds both boards
     Given the boards are connected with security level 2 on both

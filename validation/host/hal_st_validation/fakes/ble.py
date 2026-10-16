@@ -13,7 +13,8 @@ if TYPE_CHECKING:
 __all__ = ["FakeAir", "FakeBle"]
 
 _ADDRESS_RE = re.compile(r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$")
-_DEFAULT_ADDRESS = {"peripheral": "0a:00:00:e1:80:02", "central": "0b:00:00:e1:80:02"}
+_DEFAULT_ADDRESS = {"peripheral": "0a:00:00:e1:80:00", "central": "0b:00:00:e1:80:00"}
+_ADVERTISING_FLAGS = "06"
 _DEFAULT_NAME = "hal-st-periph"
 _NAME_MAX = 16
 _BLE_FAMILIES = ("stm32wb55", "stm32wba55")
@@ -62,6 +63,7 @@ class _Link:
     rx_phy: str = "1m"
     tx_octets: int = 27
     rx_octets: int = 27
+    tx_time: int = 0
     central_rx_known: bool = True
     mtu: int = _MTU_DEFAULT
     uart: bool = False
@@ -296,9 +298,12 @@ class FakeBle(FakeGroup):
         _shape(args, options, 0, 0)
         self._need_role("central")
         link = self._need_link()
-        link.tx_octets = link.rx_octets = _MTU_MAX
-        link.central_rx_known = False
         time_us = _DATA_LENGTH_TIME_US[link.tx_phy]
+        if (link.tx_octets, link.tx_time) == (_MTU_MAX, time_us):
+            return "OK"
+        link.tx_octets = link.rx_octets = _MTU_MAX
+        link.tx_time = time_us
+        link.central_rx_known = False
         self._tell(link.central, "datalength", txoctets=_MTU_MAX, txtime=time_us)
         self._tell(link.peripheral, "datalength", txoctets=_MTU_MAX, rxoctets=_MTU_MAX, txtime=time_us, rxtime=time_us)
         return "OK"
@@ -427,7 +432,15 @@ class FakeBle(FakeGroup):
         if len(self.scan_seen) >= _SCAN_TABLE:
             return
         self.scan_seen.add(advertiser.address)
-        self._event("found", addr=advertiser.address, type="public", event="advInd", rssi=_RSSI, name=advertiser.name)
+        self._event(
+            "found",
+            addr=advertiser.address,
+            type="public",
+            event="advInd",
+            rssi=_RSSI,
+            name=advertiser.name,
+            flags=_ADVERTISING_FLAGS,
+        )
 
     def _initiate(self, peripheral: FakeBle) -> None:
         if self.air.drop_connects > 0:

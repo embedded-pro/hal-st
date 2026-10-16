@@ -9,8 +9,8 @@ namespace validation
     {
         using services::HilStatus;
 
-        const hal::MacAddress centralAddress{ 0x0b, 0x00, 0x00, 0xe1, 0x80, 0x02 };
-        const hal::MacAddress peripheralAddress{ 0x0a, 0x00, 0x00, 0xe1, 0x80, 0x02 };
+        const hal::MacAddress centralAddress{ 0x0b, 0x00, 0x00, 0xe1, 0x80, 0x00 };
+        const hal::MacAddress peripheralAddress{ 0x0a, 0x00, 0x00, 0xe1, 0x80, 0x00 };
         constexpr const char* defaultName = "hal-st-periph";
 
         constexpr uint32_t defaultAdvertiseIntervalMs = 100;

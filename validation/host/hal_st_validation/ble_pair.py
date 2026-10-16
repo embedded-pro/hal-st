@@ -21,6 +21,8 @@ FAILED_TO_BE_ESTABLISHED = 0x3E
 class BleSettings:
     connect_timeout: float = 5.0
     connect_attempts: int = 3
+    mtu: int = 251
+    conn_pause_peripheral: float = 5.0
     scan_timeout: float = 5.0
     event_timeout: float = 3.0
     quiet_window: float = 0.5
@@ -42,6 +44,8 @@ class BleSettings:
         return cls(
             connect_timeout=max(values("connect_timeout", defaults.connect_timeout)),
             connect_attempts=min(values("connect_attempts", defaults.connect_attempts)),
+            mtu=min(values("mtu", defaults.mtu)),
+            conn_pause_peripheral=max(values("conn_pause_peripheral", defaults.conn_pause_peripheral)),
             scan_timeout=max(values("scan_timeout", defaults.scan_timeout)),
             event_timeout=max(values("event_timeout", defaults.event_timeout)),
             quiet_window=max(values("quiet_window", defaults.quiet_window)),
@@ -129,14 +133,17 @@ class BlePair:
     def idle(self, end: BleEnd) -> BleLink:
         return self.wait_link(end, lambda link: link.state == "standby" and not link.connected)
 
-    def enable_uart(self, exchange_mtu: bool = True) -> int:
+    def enable_uart_limits(self, exchange_mtu: bool = True) -> tuple[int, int]:
         if exchange_mtu:
             self.central.ble.mtu()
             self.wait_both("mtu")
         self.central.ble.discover()
         central_uart = self.central.ble.wait("uart", self.settings.event_timeout, state="open")
-        self.peripheral.ble.wait("uart", self.settings.event_timeout, state="open")
-        return central_uart.as_int("maxsend")
+        peripheral_uart = self.peripheral.ble.wait("uart", self.settings.event_timeout, state="open")
+        return central_uart.as_int("maxsend"), peripheral_uart.as_int("maxsend")
+
+    def enable_uart(self, exchange_mtu: bool = True) -> int:
+        return self.enable_uart_limits(exchange_mtu)[0]
 
     def send(self, sender: BleEnd, length: int, pattern: Pattern = "inc", seed: int = 0) -> BleSent:
         sent = sender.ble.send(length=length, pattern=pattern, seed=seed)

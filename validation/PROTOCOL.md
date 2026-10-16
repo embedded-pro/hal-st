@@ -641,13 +641,13 @@ BLE needs two boards linked over the air, a central and a peripheral, so it has 
   - STM32WB55: the stack runs on the wireless coprocessor, which must already hold `stm32wb5x_BLE_Stack_full_fw.bin` (STM32CubeWB 1.24.0, behind FUS 2.x; `hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt`). `ble.open` answers at once and `EVT ble ready` follows after the coprocessor boots, a second or so; a command before that returns `ERR busy`.
   - STM32WBA55: host stack and link layer run on the application core (`RADIO` and `HASH` interrupts, the AES, PKA and RNG for the stack); `EVT ble ready` follows `ble.open` at once.
 - A command answers `OK` once the request is accepted; what the radio does arrives as `EVT ble <name> key=value...` (below). `ERR usage` and `ERR range` come first, then `notopen` (no `ble.open` yet), `unsupported` (a command of the other role) and `busy`/`failed` (a state the request does not fit, such as `ble.connect` while connected). `ble.stopscan`, `ble.standby`, `ble.cancel` and `ble.disconnect` do nothing and answer `OK` when there is nothing to stop.
-- Addresses are `aa:bb:cc:dd:ee:ff`, lower case, in the order the middleware keeps them (the order `hal::MacAddress` prints in, and the demos); the default is `0a:00:00:e1:80:02` for the peripheral and `0b:00:00:e1:80:02` for the central, public addresses. Connection intervals are in 1.25 ms units, supervision timeouts in 10 ms units, as the Bluetooth specification has them; durations in options are milliseconds.
+- Addresses are `aa:bb:cc:dd:ee:ff`, lower case, in the order the middleware keeps them (the order `hal::MacAddress` prints in, and the demos); the default is `0a:00:00:e1:80:00` for the peripheral and `0b:00:00:e1:80:00` for the central, public addresses (the usual notation, most significant octet first, is 00:80:E1:00:00:0A and 00:80:E1:00:00:0B: ST's registered block, so they are universal unicast addresses as Vol 6 Part B 1.3.1 requires). Connection intervals are in 1.25 ms units, supervision timeouts in 10 ms units, as the Bluetooth specification has them; durations in options are milliseconds.
 - `ble.info` → `OK ready=0|1 role=none|central|peripheral address=<mac>|- stack=<version>|-`: `ready` is 1 once the GAP and GATT objects exist; `stack` is the wireless firmware version (`1.24.0`) on the WB55 and `build<n>` on the WBA55.
 - `ble.open role=central|peripheral [address=<mac>]` → `OK address=<mac>`; a second `ble.open` returns `ERR busy`. Then `EVT ble ready`.
 - Peripheral commands (`ERR unsupported` on the central):
   - `ble.advertise [interval=<20..10240>] [name=<1..16 chars>]` → `OK`: connectable undirected advertising (`ADV_IND`, all three channels) with the flags and the complete local name (default `hal-st-periph`, `interval` 100 ms); advertising again restarts it with the new values; `ERR failed` while connected. A refused step reports `EVT ble advertisefailed status=<n>` (`status` 100 and up: the request, below that the controller's result)
   - `ble.standby` → `OK`: stops advertising; on a link it disconnects (the middleware's `Standby`)
-  - `ble.allowpairing <0|1>` → `OK`: with 0 the next `ble.advertise` is for bonded centrals only (hal-st's `AllowPairing(false)`: the peripheral's white list ignores connection requests of unbonded devices, so such a central sees `connected` (its link layer reports the connection when it sends the request) and then `disconnected reason=62`, connection failed to be established, while the peripheral sees nothing; a live link and `ble.pair` are not affected); default 1
+  - `ble.allowpairing <0|1>` → `OK`: with 0 the next `ble.advertise` is for bonded centrals only (hal-st's `AllowPairing(false)`: the peripheral's Filter Accept List (the white list before Core 5.3; `WHITE_LIST_FOR_ALL` in the ST stack) ignores connection requests of unbonded devices, so such a central sees `connected` (its link layer reports the connection when it sends the request) and then `disconnected reason=62`, connection failed to be established, while the peripheral sees nothing; a live link and `ble.pair` are not affected); default 1
 - Central commands (`ERR unsupported` on the peripheral):
   - `ble.scan [addr=<mac>] [name=<1..16 chars>] [timeout=<1..600000>]` → `OK`: active scan. Each address is reported once, up to 8 per scan (`EVT ble found`), with the optional filters on the address and on the complete local name; `timeout` ends the scan by itself. `ERR busy` unless the central is in `standby`
   - `ble.stopscan` → `OK`
@@ -669,7 +669,7 @@ BLE needs two boards linked over the air, a central and a peripheral, so it has 
 - Events (`EVT ble <name>`, on both boards unless said otherwise). Most come through hal-st's own interfaces: `state` (the GAP observers), `found` (the central's discovery observer), `phy` and `datalength` on the central (`GapCentralObserver::PhyUpdated` and `DataLengthChanged`), `paired`/`pairfailed`/`bonds`/`security` (pairing and bonding), `connectfailed` (the result of `Connect`), `mtu` on the central, and the Nordic UART events. Others have no hal-st interface and print what the controller reported, after hal-st's handler for it ran: `connected`, `disconnected`, `conparams`, and `phy`, `datalength` and `mtu` on the peripheral:
   - `ready`
   - `state value=<state>`: the GAP state changed, as `ble.link` names them
-  - `found addr=<mac> type=public|random event=advInd|advDirectInd|advScanInd|advNonconnInd|scanResponse rssi=<dBm> name=<name>|-` (central; the name's spaces and non-printable characters become `_`; `rssi=0` when the controller gave none)
+  - `found addr=<mac> type=public|random event=advInd|advDirectInd|advScanInd|advNonconnInd|scanResponse rssi=<dBm> name=<name>|- flags=<2 hex digits>|-` (central; `flags` is the Flags AD structure, `06` for an LE-only general discoverable peripheral; the name's spaces and non-printable characters become `_`; `rssi=0` when the controller gave none)
   - `connected peer=<mac> interval=<n> latency=<n> timeout=<n>`; `connectfailed reason=timeout|cancelled|failed` (central)
   - `disconnected reason=<n>`: the HCI error code in decimal, 22 (0x16, connection terminated by the local host) on the side that asked, 19 (0x13, remote user terminated) on the other, 8 (0x08, connection timeout) when the peer reset
   - `conparams interval=<n> latency=<n> timeout=<n>`, `phy tx=<phy> rx=<phy>` (each side's own point of view; the peripheral gets none when the request changes nothing), `datalength txoctets=<n> txtime=<us>` on the central and `datalength txoctets=<n> rxoctets=<n> txtime=<us> rxtime=<us>` on the peripheral, `mtu size=<n>`
@@ -677,6 +677,27 @@ BLE needs two boards linked over the air, a central and a peripheral, so it has 
   - `sent` (a `ble.send` completed), `rx len=<n> crc=<8 hex digits>` (one per write or notification)
   - `security result=<n>`, `paired secure=0|1 auth=0|1 keysize=<n>`, `pairfailed result=<n>` (`services::GapPairingResult`), `bonds count=<n>`
 - Limits: one link, one role; the Nordic UART service is the only GATT service besides the generic attribute service.
+
+### Specification rules the tests check
+
+References are to the Bluetooth Core Specification 5.4 (Vol 1 Part C 12.4: Master, Slave and White List became Central, Peripheral and Filter Accept List in 5.3).
+
+| Rule | Where | Test |
+| ---- | ----- | ---- |
+| A public device address is a universal EUI-48 of an IEEE-assigned block | Vol 6 Part B 1.3.1, Vol 2 Part B 1.2 | roles |
+| An LE-only general discoverable advertiser carries Flags `0x06` | Vol 3 Part C 9.2.4.2, CSS Part A 1.3.1 | scan |
+| Advertising interval 20 ms to 10.24 s | Vol 4 Part E 7.8.5 | malformed commands |
+| Connection interval 7.5 ms to 4 s, latency up to 499, supervision timeout 100 ms to 32 s and larger than (1 + latency) x interval_max x 2 | Vol 4 Part E 7.8.12, Vol 6 Part B 4.5.2 | malformed commands |
+| A connection is created at the CONNECT_IND and lost after 6 connection events without an answer, reported with 0x3E | Vol 6 Part B 4.4.4.1, 4.5, 4.5.2, Vol 1 Part F 2.59 | pairing refused, `BlePair.connect` |
+| A peripheral should not start a connection parameter update within 5 s of connecting | Vol 3 Part C 9.3.12.2 | the central keeps its parameters |
+| ATT_MTU is 23 until the Exchange MTU, then the smaller of the two receive MTUs; the exchange is sent once per connection | Vol 3 Part G 5.2.1, 4.3.1, Part F 3.4.2 | MTU, service, default ATT_MTU |
+| A notification or write command carries at most ATT_MTU - 3 bytes; an attribute value at most 512 | Vol 3 Part F 3.4.7.1, 3.4.5.3, 3.2.9 | service, default ATT_MTU, data |
+| Data length 27 to 251 octets and 328 to 17040 us; on an uncoded PHY one side's effective transmit values equal the other's receive values; no event when nothing changed | Vol 4 Part E 7.7.65.7, 7.8.33, Vol 6 Part B 4.5.10 | data length |
+| The initiator of a PHY update always gets the event, the peer only when a PHY changed | Vol 4 Part E 7.7.65.12, Vol 6 Part B 5.1.10 | PHY |
+| Pairing without MITM is Just Works: unauthenticated (security mode 1 level 2), key size 7 to 16 octets | Vol 3 Part H 2.3.5.1, 3.5.1, Part C 10.2.1 | pairing |
+| Disconnect reasons 0x16 (local host), 0x13 (remote user), 0x08 (timeout), 0x3E (failed to be established) | Vol 1 Part F | disconnect, pairing refused |
+
+Behaviour of hal-st and the ST stack that the specification leaves open, and that the tests therefore only document: a central may accept or reject an L2CAP connection parameter update request (hal-st answers with the parameters it used last), and the specification allows the L2CAP request only when the Link Layer procedure is unavailable; pairing is refused by advertising to bonded devices only; `paired secure=` is derived from the security level, not from the pairing method; `rssi=0` stands for a report without a usable RSSI (the HCI range is -127 to +20 dBm, 127 meaning not available); hal-st asks the ST stack for the same minimum and maximum advertising interval, which Vol 4 Part E 7.8.5 says it should not; a repeated Exchange MTU has no defined answer and is not tested.
 
 ## Not available on these boards
 

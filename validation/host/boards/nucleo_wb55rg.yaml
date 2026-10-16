@@ -1333,6 +1333,8 @@ tests:
   ble:
     connect_timeout: 5.0
     connect_attempts: 3
+    mtu: 251
+    conn_pause_peripheral: 5.0
     scan_timeout: 5.0
     event_timeout: 3.0
     quiet_window: 0.5
