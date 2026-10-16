@@ -449,7 +449,6 @@ namespace hal
 
     void GapCentralSt::HandleGapDirectConnectionProcedureCompleteEvent()
     {
-        // The STM32WBA stack completes the procedure after a successful connection as well.
         if (initiatingStateTimer.Armed() || connectionContext.connectionHandle != GapSt::invalidConnection)
             return;
 

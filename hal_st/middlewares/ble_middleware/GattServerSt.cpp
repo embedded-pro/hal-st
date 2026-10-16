@@ -186,7 +186,6 @@ namespace hal
         constexpr uint16_t moreDataFlag = 0x8000;
         infra::ConstByteRange data{ event.Attr_Data, event.Attr_Data + event.Attr_Data_Length };
 
-        // The stack splits a value longer than one event carries; every fragment but the last has the flag set.
         const auto offset = static_cast<uint16_t>(event.Offset & ~moreDataFlag);
         const auto moreData = (event.Offset & moreDataFlag) != 0;
 
