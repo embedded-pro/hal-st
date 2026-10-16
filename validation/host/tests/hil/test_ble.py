@@ -626,7 +626,7 @@ def link_holds_phy(ble, phy):
 @given("the central has requested the largest data length")
 def central_has_requested_data_length(ble):
     ble.central.ble.datalength()
-    ble.wait_both("datalength", ble.settings.event_timeout * 2)
+    ble.settled("datalength", ble.settings.event_timeout * 2)
 
 
 @when("the central requests the largest data length")
@@ -636,7 +636,7 @@ def central_requests_data_length(ble):
 
 @then("both boards report the same data length", target_fixture="data_length")
 def same_data_length(ble):
-    central, peripheral = ble.wait_both("datalength", ble.settings.event_timeout * 2)
+    central, peripheral = ble.settled("datalength", ble.settings.event_timeout * 2)
     assert central.as_int("txoctets") == peripheral.as_int("rxoctets")
     assert central.as_int("txtime") == peripheral.as_int("rxtime")
     for octets in (central.as_int("txoctets"), peripheral.as_int("txoctets"), peripheral.as_int("rxoctets")):

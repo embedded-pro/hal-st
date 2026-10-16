@@ -1412,6 +1412,7 @@ tests:
   ble:
     connect_timeout: 5.0
     connect_attempts: 3
+    link_down_timeout: 6.0
     mtu: 251
     conn_pause_peripheral: 5.0
     scan_timeout: 5.0

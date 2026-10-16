@@ -42,7 +42,8 @@ _LOCAL_TERMINATED = "22"
 _REMOTE_TERMINATED = "19"
 _SUPERVISION_TIMEOUT = "8"
 _FAILED_TO_BE_ESTABLISHED = "62"
-_DATA_LENGTH_TIME_US = {"1m": 2120, "2m": 1064, "coded": 17040}
+_REQUESTED_TIME_US = 1064
+_OWN_MAX_TIME_US = 2120
 
 
 def _address(text: str | None) -> str:
@@ -76,6 +77,7 @@ class FakeAir:
     def __init__(self) -> None:
         self.ends: list[FakeBle] = []
         self.drop_connects = 0
+        self.autonomous_data_length = False
 
     def join(self, end: FakeBle) -> None:
         if end not in self.ends:
@@ -298,14 +300,20 @@ class FakeBle(FakeGroup):
         _shape(args, options, 0, 0)
         self._need_role("central")
         link = self._need_link()
-        time_us = _DATA_LENGTH_TIME_US[link.tx_phy]
-        if (link.tx_octets, link.tx_time) == (_MTU_MAX, time_us):
+        if (link.tx_octets, link.tx_time) == (_MTU_MAX, _REQUESTED_TIME_US):
             return "OK"
         link.tx_octets = link.rx_octets = _MTU_MAX
-        link.tx_time = time_us
+        link.tx_time = _REQUESTED_TIME_US
         link.central_rx_known = False
-        self._tell(link.central, "datalength", txoctets=_MTU_MAX, txtime=time_us)
-        self._tell(link.peripheral, "datalength", txoctets=_MTU_MAX, rxoctets=_MTU_MAX, txtime=time_us, rxtime=time_us)
+        self._tell(link.central, "datalength", txoctets=_MTU_MAX, txtime=_REQUESTED_TIME_US)
+        self._tell(
+            link.peripheral,
+            "datalength",
+            txoctets=_MTU_MAX,
+            rxoctets=_MTU_MAX,
+            txtime=_OWN_MAX_TIME_US,
+            rxtime=_REQUESTED_TIME_US,
+        )
         return "OK"
 
     def cmd_mtu(self, args: list[str], options: dict[str, str]) -> str:
@@ -468,6 +476,19 @@ class FakeBle(FakeGroup):
         peripheral._set_state("connected")
         self._event("connected", peer=peripheral.address, interval=link.interval, latency=link.latency, timeout=link.timeout)
         self._tell(peripheral, "connected", peer=self.address, interval=link.interval, latency=link.latency, timeout=link.timeout)
+        if self.air.autonomous_data_length:
+            link.tx_octets = link.rx_octets = _MTU_MAX
+            link.tx_time = _OWN_MAX_TIME_US
+            link.central_rx_known = False
+            self._event("datalength", txoctets=_MTU_MAX, txtime=_OWN_MAX_TIME_US)
+            self._tell(
+                peripheral,
+                "datalength",
+                txoctets=_MTU_MAX,
+                rxoctets=_MTU_MAX,
+                txtime=_OWN_MAX_TIME_US,
+                rxtime=_OWN_MAX_TIME_US,
+            )
 
     def _connect_failed(self, reason: str) -> None:
         self.connect_target = self.connect_deadline = None

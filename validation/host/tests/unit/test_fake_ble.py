@@ -202,14 +202,10 @@ def test_mtu_phy_and_data_length_reach_both_boards(linked):
     assert central_event.as_int("txoctets") == peripheral_event.as_int("txoctets") == 251
     assert "rxoctets" not in central_event
     assert peripheral_event.as_int("rxoctets") == 251
+    assert central_event.as_int("txtime") == peripheral_event.as_int("rxtime") == 1064
     central.ble.datalength()
     assert central.ble.absent("datalength", 0.2)
     assert peripheral.ble.absent("datalength", 0.2)
-    central.ble.phy("1m", "1m")
-    central.ble.wait("phy", 0.5)
-    central.ble.datalength()
-    assert central.ble.wait("datalength", 0.5).as_int("txtime") == 2120
-    assert peripheral.ble.wait("datalength", 0.5).as_int("rxtime") == 2120
     assert central.ble.link().rx_octets is None
     assert peripheral.ble.link().rx_octets == 251
     assert peripheral.ble.link().mtu == 251
@@ -343,6 +339,20 @@ def test_the_service_carries_the_mtu_minus_three_bytes(boards):
     assert pair.cleanup() == []
 
 
+def test_a_controller_that_updates_the_data_length_by_itself_settles_before_the_request_counts(air, boards):
+    air.autonomous_data_length = True
+    pair = open_pair(boards)
+    pair.connect()
+    pair.central.ble.datalength()
+    central, peripheral = pair.settled("datalength")
+    assert (central.as_int("txoctets"), central.as_int("txtime")) == (251, 1064)
+    assert (peripheral.as_int("rxoctets"), peripheral.as_int("rxtime")) == (251, 1064)
+    pair.central.ble.datalength()
+    for end in pair.ends:
+        assert end.ble.absent("datalength", 0.2)
+    assert pair.cleanup() == []
+
+
 def test_the_default_addresses_are_universal_unicast_addresses(pair):
     for firmware in pair:
         assert int(firmware.ble.info().address.split(":")[-1], 16) & 0x03 == 0
@@ -374,9 +384,10 @@ def test_settings_merge_the_board_files():
     assert merged.connect_timeout == 8.0
     assert merged.connect_attempts == 2
     wb.set_param("ble.mtu", 247)
+    wb.set_param("ble.link_down_timeout", 7.5)
     wba.set_param("ble.conn_pause_peripheral", 6.0)
     merged = BleSettings.from_boards((wb, wba))
-    assert (merged.mtu, merged.conn_pause_peripheral) == (247, 6.0)
+    assert (merged.mtu, merged.conn_pause_peripheral, merged.link_down_timeout) == (247, 6.0, 7.5)
     assert merged.rssi_min == -90
     assert merged.phys == ("1m",)
     wb.tests.pop("ble")

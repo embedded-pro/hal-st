@@ -21,6 +21,7 @@ FAILED_TO_BE_ESTABLISHED = 0x3E
 class BleSettings:
     connect_timeout: float = 5.0
     connect_attempts: int = 3
+    link_down_timeout: float = 6.0
     mtu: int = 251
     conn_pause_peripheral: float = 5.0
     scan_timeout: float = 5.0
@@ -44,6 +45,7 @@ class BleSettings:
         return cls(
             connect_timeout=max(values("connect_timeout", defaults.connect_timeout)),
             connect_attempts=min(values("connect_attempts", defaults.connect_attempts)),
+            link_down_timeout=max(values("link_down_timeout", defaults.link_down_timeout)),
             mtu=min(values("mtu", defaults.mtu)),
             conn_pause_peripheral=max(values("conn_pause_peripheral", defaults.conn_pause_peripheral)),
             scan_timeout=max(values("scan_timeout", defaults.scan_timeout)),
@@ -96,6 +98,19 @@ class BlePair:
     def wait_both(self, name: str, timeout: float | None = None, **fields: object) -> tuple[Event, Event]:
         limit = self.settings.event_timeout if timeout is None else timeout
         return self.central.ble.wait(name, limit, **fields), self.peripheral.ble.wait(name, limit, **fields)
+
+    def settled(self, name: str, timeout: float | None = None) -> tuple[Event, Event]:
+        limit = self.settings.event_timeout if timeout is None else timeout
+        last: list[Event] = []
+        for end in self.ends:
+            event = end.ble.wait(name, limit)
+            while True:
+                try:
+                    event = end.ble.wait(name, self.settings.quiet_window)
+                except TerminalTimeout:
+                    break
+            last.append(event)
+        return last[0], last[1]
 
     def connect(self, interval: int | None = None) -> tuple[Event, Event]:
         settings = self.settings
@@ -180,7 +195,10 @@ class BlePair:
         attempt("central disconnect", central.disconnect)
         attempt("peripheral allowpairing", lambda: peripheral.allow_pairing(True))
         for end in self.ends:
-            attempt(f"{end.role} link down", lambda end=end: self.wait_link(end, lambda link: not link.connected))
+            attempt(
+                f"{end.role} link down",
+                lambda end=end: self.wait_link(end, lambda link: not link.connected, self.settings.link_down_timeout),
+            )
             attempt(f"{end.role} removebonds", end.ble.removebonds)
             if "security" in self.changed:
                 attempt(f"{end.role} security", lambda end=end: end.ble.security(1))
