@@ -1409,6 +1409,15 @@ tests:
   bkp:
     # TAMP BKP0R-BKP15R.
     words: 16
+  ble:
+    connect_timeout: 5.0
+    scan_timeout: 5.0
+    event_timeout: 3.0
+    quiet_window: 0.5
+    rssi_min: -90
+    reconnect_cycles: 3
+    reconnect_cycles_full: 20
+    phys: [1m, 2m]
   lowpower:
     # Defaults of the firmware (BoardProfile lowPowerDefaults).
     wake: gpio0

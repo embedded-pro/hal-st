@@ -886,6 +886,7 @@ class FakeFirmware(FakeTerminalDevice):
     uart_rx: dict[int, bytearray] = field(default_factory=dict)
     spi_miso: int = 0x00
     opened: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    air: Any = None
     reset_cause: str = "pin"
     # The terminal's line rate: what the reset leaves of a watchdog warning, the time an `adc.measure` reply takes.
     terminal_baud: int = 921600

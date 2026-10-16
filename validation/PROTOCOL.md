@@ -2,6 +2,7 @@
 
 The validation firmware (`validation/firmware`) exposes the hal-st peripherals of a Nucleo board through EMIL's hardware-in-the-loop terminal (`services::HilTerminal` and the command groups of `services.hil.commands`); hal-st supplies the board profiles, the STM32 pin factory and one factory per peripheral.
 The host package (`validation/host`) drives this terminal and a Digilent Analog Discovery 3 to validate the peripherals.
+BLE needs two boards linked over the air and has its own image, `validation/ble_firmware`; its `ble` group is the [BLE section](#ble-hal_stvalidation_ble_firmware-halgapcentralst-halgapperipheralst-halgattclientst-halgattserverst-the-nordic-uart-service-stm32wb55-and-stm32wba55).
 
 ## Board profiles
 
@@ -632,8 +633,54 @@ The HRTIM runs on the APB2 timer clock fHRTIM (170 MHz); the DLL multiplies it b
 - `hrtim.close <u>` → `OK`
 - The output and fault pins are held exclusively while the unit is open
 
+## BLE (`hal_st.validation_ble_firmware`: `hal::GapCentralSt`, `hal::GapPeripheralSt`, `hal::GattClientSt`, `hal::GattServerSt`, the Nordic UART service; STM32WB55 and STM32WBA55)
+
+BLE needs two boards linked over the air, a central and a peripheral, so it has an image of its own, `validation/ble_firmware`. It carries the console, `ping`, `info` and `reset` of everything above and only the `ble` group; `hal_st.validation_firmware` has no `ble.*` (they answer `ERR usage`, an unknown command), which is how the host tells the two images apart. The same BLE image runs on both boards.
+
+- The role is chosen once per boot: `ble.open` builds the BLE stack and then the GAP and GATT objects of that role (`hal::GapSt` resets the controller, so a second role would wipe the first); another role needs a `reset`. Nothing starts before `ble.open`, so a board without the wireless stack still answers `ping`.
+  - STM32WB55: the stack runs on the wireless coprocessor, which must already hold `stm32wb5x_BLE_Stack_full_fw.bin` (STM32CubeWB 1.24.0, behind FUS 2.x; `hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt`). `ble.open` answers at once and `EVT ble ready` follows after the coprocessor boots, a second or so; a command before that returns `ERR busy`.
+  - STM32WBA55: host stack and link layer run on the application core (`RADIO` and `HASH` interrupts, the AES, PKA and RNG for the stack); `EVT ble ready` follows `ble.open` at once.
+- A command answers `OK` once the request is accepted; what the radio does arrives as `EVT ble <name> key=value...` (below). `ERR usage` and `ERR range` come first, then `notopen` (no `ble.open` yet), `unsupported` (a command of the other role) and `busy`/`failed` (a state the request does not fit, such as `ble.connect` while connected). `ble.stopscan`, `ble.standby`, `ble.cancel` and `ble.disconnect` do nothing and answer `OK` when there is nothing to stop.
+- Addresses are `aa:bb:cc:dd:ee:ff`, lower case, in the order the middleware keeps them (the order `hal::MacAddress` prints in, and the demos); the default is `0a:00:00:e1:80:02` for the peripheral and `0b:00:00:e1:80:02` for the central, public addresses. Connection intervals are in 1.25 ms units, supervision timeouts in 10 ms units, as the Bluetooth specification has them; durations in options are milliseconds.
+- `ble.info` → `OK ready=0|1 role=none|central|peripheral address=<mac>|- stack=<version>|-`: `ready` is 1 once the GAP and GATT objects exist; `stack` is the wireless firmware version (`1.24.0`) on the WB55 and `build<n>` on the WBA55.
+- `ble.open role=central|peripheral [address=<mac>]` → `OK address=<mac>`; a second `ble.open` returns `ERR busy`. Then `EVT ble ready`.
+- Peripheral commands (`ERR unsupported` on the central):
+  - `ble.advertise [interval=<20..10240>] [name=<1..16 chars>]` → `OK`: connectable undirected advertising (`ADV_IND`, all three channels) with the flags and the complete local name (default `hal-st-periph`, `interval` 100 ms); advertising again restarts it with the new values; `ERR failed` while connected. A refused step reports `EVT ble advertisefailed status=<n>` (`status` 100 and up: the request, below that the controller's result)
+  - `ble.standby` → `OK`: stops advertising; on a link it disconnects (the middleware's `Standby`)
+  - `ble.allowpairing <0|1>` → `OK`: with 0 the next `ble.advertise` is for bonded centrals only (hal-st's `AllowPairing(false)`: connection requests of unbonded devices are ignored; a live link and `ble.pair` are not affected); default 1
+- Central commands (`ERR unsupported` on the peripheral):
+  - `ble.scan [addr=<mac>] [name=<1..16 chars>] [timeout=<1..600000>]` → `OK`: active scan. Each address is reported once, up to 8 per scan (`EVT ble found`), with the optional filters on the address and on the complete local name; `timeout` ends the scan by itself. `ERR busy` unless the central is in `standby`
+  - `ble.stopscan` → `OK`
+  - `ble.connect <mac> [type=public|random] [timeout=<100..60000>]` → `OK`: initiates with `GapCentral::defaultConnectionParameters` (interval 24-40, latency 0, timeout 500), which the central then also answers a peripheral's update request with (below); `timeout` (default 5000 ms) bounds the initiating procedure. `ERR busy` unless the central is in `standby`
+  - `ble.cancel` → `OK`: cancels an outstanding `ble.connect`
+  - `ble.phy tx=1m|2m|coded rx=1m|2m|coded` → `OK`; `ERR failed` without a link. Coded PHY depends on the link layer (not offered by ST's basic one)
+  - `ble.datalength` → `OK`: asks for the largest data length of LE 2M (251 octets)
+  - `ble.mtu` → `OK`: ATT MTU exchange (the middleware's configured 251 bytes)
+  - `ble.discover` → `OK`: discovers the Nordic UART service of the peer and subscribes to its transmit characteristic; the service is open on both boards when `EVT ble uart state=open` has arrived on both
+- Both roles:
+  - `ble.disconnect` → `OK` (the peripheral does it through `Standby`)
+  - `ble.conparams min=<6..3200> max=<6..3200> latency=<0..499> timeout=<10..3200>` → `OK`: the central updates the link with them and remembers them; the peripheral asks for them with an L2CAP request, which the central answers with the parameters it used last, so the link ends at the central's, not the peripheral's. `min` above `max`, or a timeout not above 2 × (1 + latency) × max interval, returns `ERR range`; no link `ERR failed`
+  - `ble.link` → `OK state=<state> connected=0|1` and, on a link, `peer=<mac> interval=<n> latency=<n> timeout=<n> txphy=<phy> rxphy=<phy> txoctets=<n> rxoctets=<n>|- mtu=<n>`: what the firmware has learnt from the controller's events (`state` is `standby`, `advertising`, `scanning`, `connecting` or `connected`). The PHYs and data lengths start at `1m`, 27 and 23 on each link and change with the events below; the central's `rxoctets` is `-` after a data length change, because hal-st's observer reports the transmit side only
+  - `ble.send <hex>|- [len=<n> pattern=<p> seed=<n>]` → `OK len=<n> crc=<8 hex digits>`: a payload over the Nordic UART service (the central writes Rx, the peripheral notifies Tx), by the generic rules of the Framing section, at most 248 bytes (`ERR range` above that, above what the MTU allows, or empty). `ERR notopen` unless the service is open, `ERR busy` while the previous send has not completed (`EVT ble sent`)
+  - `ble.security level=1|2` → `OK`: security mode 1 level 1 (no security) or 2 (unauthenticated pairing with encryption); IO capabilities stay `none` (Just Works), so levels 3 and 4, passkey, numeric comparison and out-of-band pairing are not offered. `EVT ble security result=<n>` follows
+  - `ble.pair` → `OK`: pairs and bonds with the connected peer (`PairAndBond`); `EVT ble paired` or `EVT ble pairfailed` follows
+  - `ble.bonds` → `OK count=<n> max=<n>`
+  - `ble.removebonds` → `OK`; `EVT ble bonds count=<n>` follows. Bonds are in RAM and gone after a reset
+- Events (`EVT ble <name>`, on both boards unless said otherwise). Most come through hal-st's own interfaces: `state` (the GAP observers), `found` (the central's discovery observer), `phy` and `datalength` on the central (`GapCentralObserver::PhyUpdated` and `DataLengthChanged`), `paired`/`pairfailed`/`bonds`/`security` (pairing and bonding), `connectfailed` (the result of `Connect`), `mtu` on the central, and the Nordic UART events. Others have no hal-st interface and print what the controller reported, after hal-st's handler for it ran: `connected`, `disconnected`, `conparams`, and `phy`, `datalength` and `mtu` on the peripheral:
+  - `ready`
+  - `state value=<state>`: the GAP state changed, as `ble.link` names them
+  - `found addr=<mac> type=public|random event=advInd|advDirectInd|advScanInd|advNonconnInd|scanResponse rssi=<dBm> name=<name>|-` (central; the name's spaces and non-printable characters become `_`; `rssi=0` when the controller gave none)
+  - `connected peer=<mac> interval=<n> latency=<n> timeout=<n>`; `connectfailed reason=timeout|cancelled|failed` (central)
+  - `disconnected reason=<n>`: the HCI error code in decimal, 22 (0x16, connection terminated by the local host) on the side that asked, 19 (0x13, remote user terminated) on the other, 8 (0x08, connection timeout) when the peer reset
+  - `conparams interval=<n> latency=<n> timeout=<n>`, `phy tx=<phy> rx=<phy>` (each side's own point of view; the peripheral gets none when the request changes nothing), `datalength txoctets=<n> txtime=<us>` on the central and `datalength txoctets=<n> rxoctets=<n> txtime=<us> rxtime=<us>` on the peripheral, `mtu size=<n>`
+  - `uart state=open maxsend=<n>` or `state=closed`; `uart state=failed result=<n>` when `ble.discover` fails
+  - `sent` (a `ble.send` completed), `rx len=<n> crc=<8 hex digits>` (one per write or notification)
+  - `security result=<n>`, `paired secure=0|1 auth=0|1 keysize=<n>`, `pairfailed result=<n>` (`services::GapPairingResult`), `bonds count=<n>`
+- Limits: one link, one role; the Nordic UART service is the only GATT service besides the generic attribute service.
+
 ## Not available on these boards
 
+The `ble` group is in `hal_st.validation_ble_firmware` only (see above).
 hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474, so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
