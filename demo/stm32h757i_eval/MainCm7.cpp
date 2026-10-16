@@ -533,6 +533,10 @@ int main()
         detail << static_cast<uint32_t>(uint64_t{ sdCard.NumberOfBlocks() } * sdCard.BlockSize() / (1024 * 1024)) << " MIB";
         dashboard.SetStatus(main_::Dashboard::Item::sdCard, main_::Dashboard::State::ok, detail.Storage());
         tracer.Trace() << "microSD: " << sdCard.NumberOfBlocks() << " blocks of " << sdCard.BlockSize() << " bytes";
+
+        const auto& card = sdCard.CardIdentification();
+        tracer.Trace() << "microSD: allocation unit of " << sdCard.AllocationUnitBlocks() << " blocks, product " << infra::BoundedConstString(card.product.data(), card.product.size())
+                       << ", manufacturer 0x" << infra::hex << static_cast<uint32_t>(card.manufacturer) << ", serial number 0x" << card.serialNumber;
     }
 
     alignas(32) static std::array<uint8_t, 3 * examples::SdCardDemo::scratchBlocks * sdBlockSize> sdBuffers;

@@ -8,6 +8,7 @@
 #include "infra/timer/Timer.hpp"
 #include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/ByteRange.hpp"
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <optional>
@@ -60,6 +61,16 @@ namespace hal
 #endif
         };
 
+        struct Identification
+        {
+            uint8_t manufacturer{ 0 };
+            uint16_t oem{ 0 };
+            std::array<char, 5> product{};
+            uint8_t revision{ 0 };
+            uint32_t serialNumber{ 0 };
+            uint16_t manufacturingDate{ 0 };
+        };
+
         struct DirectionPins
         {
             DirectionPins()
@@ -90,6 +101,9 @@ namespace hal
         void WriteBlocks(infra::ConstByteRange buffer, uint32_t firstBlock, const infra::Function<void(Result)>& onDone) override;
         void EraseBlocks(uint32_t beginBlock, uint32_t endBlock, const infra::Function<void(Result)>& onDone) override;
         void Flush(const infra::Function<void(Result)>& onDone) override;
+
+        uint32_t AllocationUnitBlocks() const;
+        const Identification& CardIdentification() const;
 
     private:
         struct Handle
@@ -128,6 +142,7 @@ namespace hal
         static void OnAbort(SD_HandleTypeDef* handle);
 
         void InitSdmmc();
+        void ReadCardRegisters();
         void RegisterCallbacks();
         void RegisterInterrupts();
 #if defined(SD_EXTERNAL_DMA)
@@ -169,6 +184,8 @@ namespace hal
         bool cardPresent{ false };
         uint32_t blockSize{ 512 };
         uint32_t numberOfBlocks{ 0 };
+        uint32_t allocationUnitBlocks{ 0 };
+        Identification identification;
 
         infra::AutoResetFunction<void(Result)> onDone;
         Operation operation{ Operation::none };
