@@ -19,12 +19,15 @@ namespace hal
         : windowBase(FmcStm::NorSramWindow(config.oneBasedBank))
         , numberOfSectors(config.numberOfSectors)
         , sizeOfSector(config.sizeOfSector)
+        , writeBufferBytes(config.writeBufferBytes)
         , programTimeout(config.programTimeout)
         , eraseTimeout(config.eraseTimeout)
+        , pollInterval(config.pollInterval)
     {
         really_assert(config.bus.widthBits == 16);
         really_assert(sizeOfSector != 0 && numberOfSectors != 0);
         really_assert(static_cast<uint64_t>(numberOfSectors) * sizeOfSector <= FmcStm::norSramBankSize);
+        really_assert(writeBufferBytes >= 2 && writeBufferBytes <= maxWriteBufferBytes && (writeBufferBytes & (writeBufferBytes - 1)) == 0);
 
         handle.Instance = FMC_NORSRAM_DEVICE;
         handle.Extended = FMC_NORSRAM_EXTENDED_DEVICE;
@@ -37,8 +40,17 @@ namespace hal
         really_assert(result == HAL_OK);
     }
 
+    NorFlashStm::NorFlashStm(FmcStm& fmc, GpioPin& readyBusy, const Config& config)
+        : NorFlashStm(fmc, config)
+    {
+        this->readyBusy = &readyBusy;
+    }
+
     NorFlashStm::~NorFlashStm()
     {
+        if (readyBusy != nullptr)
+            readyBusy->DisableInterrupt();
+
         HAL_NOR_DeInit(&handle);
 #if defined(FMC_BCR1_FMCEN)
         __FMC_ENABLE();
@@ -47,6 +59,8 @@ namespace hal
 
     NorFlashStm::Identification NorFlashStm::ReadIdentification()
     {
+        really_assert(!onDone);
+
         NOR_IDTypeDef id{};
 
         auto result = HAL_NOR_Read_ID(&handle, &id);
@@ -80,72 +94,130 @@ namespace hal
     void NorFlashStm::WriteBuffer(infra::ConstByteRange buffer, uint32_t address, infra::Function<void()> onDone)
     {
         really_assert(IsWithin(address, buffer.size(), numberOfSectors * sizeOfSector));
+        Begin(onDone);
 
-        if (!buffer.empty() && (address & 1) != 0)
-        {
-            ProgramHalfWord(address - 1, static_cast<uint16_t>(0x00FF | (buffer.front() << 8)));
-            ++address;
-            buffer.pop_front();
-        }
-
-        while (buffer.size() >= 2)
-        {
-            ProgramHalfWord(address, static_cast<uint16_t>(buffer[0] | (buffer[1] << 8)));
-            address += 2;
-            buffer.pop_front(2);
-        }
-
-        if (!buffer.empty())
-            ProgramHalfWord(address, static_cast<uint16_t>(0xFF00 | buffer.front()));
-
-        auto result = HAL_NOR_ReturnToReadMode(&handle);
-        really_assert(result == HAL_OK);
-
-        infra::EventDispatcher::Instance().Schedule(onDone);
+        data = buffer;
+        this->address = address;
+        ProgramNextPage();
     }
 
     void NorFlashStm::ReadBuffer(infra::ByteRange buffer, uint32_t address, infra::Function<void()> onDone)
     {
         really_assert(IsWithin(address, buffer.size(), numberOfSectors * sizeOfSector));
+        Begin(onDone);
 
         const auto* source = reinterpret_cast<const uint8_t*>(windowBase + address);
         std::copy(source, source + buffer.size(), buffer.begin());
 
-        infra::EventDispatcher::Instance().Schedule(onDone);
+        Finish();
     }
 
     void NorFlashStm::EraseSectors(uint32_t beginIndex, uint32_t endIndex, infra::Function<void()> onDone)
     {
         really_assert(beginIndex <= endIndex && endIndex <= numberOfSectors);
+        Begin(onDone);
 
-        for (uint32_t sector = beginIndex; sector != endIndex; ++sector)
+        sector = beginIndex;
+        endSector = endIndex;
+        EraseNextSector();
+    }
+
+    void NorFlashStm::Begin(const infra::Function<void()>& onDone)
+    {
+        really_assert(!this->onDone);
+        this->onDone = onDone;
+    }
+
+    void NorFlashStm::ProgramNextPage()
+    {
+        if (data.empty())
         {
-            auto result = HAL_NOR_Erase_Block(&handle, AddressOfSector(sector), windowBase);
-            really_assert(result == HAL_OK);
-            WaitForCompletion(windowBase + AddressOfSector(sector), eraseTimeout);
+            Finish();
+            return;
         }
 
+        auto pageStart = address & ~1u;
+        auto pageEnd = std::min<uint32_t>((address / writeBufferBytes + 1) * writeBufferBytes, address + data.size());
+        auto words = (pageEnd - pageStart + 1) / 2;
+        auto* bytes = reinterpret_cast<uint8_t*>(page.data());
+
+        std::fill(bytes, bytes + words * 2, 0xff);
+        std::copy(data.begin(), data.begin() + (pageEnd - address), bytes + (address - pageStart));
+        data.pop_front(pageEnd - address);
+        address = pageEnd;
+
+        auto result = HAL_NOR_ProgramBuffer(&handle, pageStart, page.data(), words);
+        really_assert(result == HAL_OK);
+        WaitUntilReady(pageStart, programTimeout, [this]
+            {
+                ProgramNextPage();
+            });
+    }
+
+    void NorFlashStm::EraseNextSector()
+    {
+        if (sector == endSector)
+        {
+            Finish();
+            return;
+        }
+
+        auto result = HAL_NOR_Erase_Block(&handle, AddressOfSector(sector), windowBase);
+        really_assert(result == HAL_OK);
+        WaitUntilReady(AddressOfSector(sector), eraseTimeout, [this]
+            {
+                ++sector;
+                EraseNextSector();
+            });
+    }
+
+    void NorFlashStm::WaitUntilReady(uint32_t offset, std::chrono::milliseconds timeout, const infra::Function<void()>& onReady)
+    {
+        statusAddress = windowBase + offset;
+        deadline = infra::Now() + timeout;
+        this->onReady = onReady;
+
+        if (readyBusy != nullptr)
+            readyBusy->EnableInterrupt([this]
+                {
+                    CheckReady();
+                },
+                InterruptTrigger::risingEdge);
+
+        pollTimer.Start(pollInterval, [this]
+            {
+                CheckReady();
+            });
+    }
+
+    void NorFlashStm::CheckReady()
+    {
+        auto status = HAL_NOR_GetStatus(&handle, statusAddress, 0);
+        really_assert(status != HAL_NOR_STATUS_ERROR);
+
+        if (status != HAL_NOR_STATUS_SUCCESS)
+        {
+            really_assert(infra::Now() <= deadline);
+            return;
+        }
+
+        pollTimer.Cancel();
+        if (readyBusy != nullptr)
+            readyBusy->DisableInterrupt();
+
+        auto continuation = onReady;
+        continuation();
+    }
+
+    void NorFlashStm::Finish()
+    {
         auto result = HAL_NOR_ReturnToReadMode(&handle);
         really_assert(result == HAL_OK);
 
-        infra::EventDispatcher::Instance().Schedule(onDone);
-    }
-
-    void NorFlashStm::ProgramHalfWord(uint32_t address, uint16_t value)
-    {
-        if (value == 0xFFFF)
-            return;
-
-        auto* target = reinterpret_cast<uint32_t*>(windowBase + address);
-        auto result = HAL_NOR_Program(&handle, target, &value);
-        really_assert(result == HAL_OK);
-        WaitForCompletion(windowBase + address, programTimeout);
-    }
-
-    void NorFlashStm::WaitForCompletion(uint32_t address, std::chrono::milliseconds timeout)
-    {
-        auto status = HAL_NOR_GetStatus(&handle, address, static_cast<uint32_t>(timeout.count()));
-        really_assert(status == HAL_NOR_STATUS_SUCCESS);
+        infra::EventDispatcher::Instance().Schedule([this]
+            {
+                onDone();
+            });
     }
 }
 
