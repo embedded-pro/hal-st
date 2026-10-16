@@ -680,7 +680,7 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
   - connecting: both boards report the link with the other's address and the same parameters, the central or the peripheral ending it (reasons 0x16 and 0x13), repeated connect/disconnect cycles, a connection attempt to an absent address timing out or cancelled;
   - the MTU agreed on both boards, the Nordic UART service opening on both, payloads of 1-244 bytes in both directions checked by length and CRC against the host's pattern, oversize and unopened sends refused;
   - connection parameters set by the central (and kept by it when the peripheral asks for others), 1M and 2M PHY, the largest data length with a maximum-size payload after it;
-  - pairing at security level 2 (Just Works): the same strength on both boards, one bond each, a bond surviving a reconnection, bonds removed, a peripheral that refuses pairing;
+  - pairing at security level 2 (Just Works): the same strength on both boards, one bond each, a bond surviving a reconnection, bonds removed, a peripheral that refuses pairing accepting no unbonded central;
   - commands of the other role, a second `ble.open` and malformed command lines refused with their reasons.
 - `test_unsupported.py` - every CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
 

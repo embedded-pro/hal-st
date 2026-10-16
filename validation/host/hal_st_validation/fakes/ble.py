@@ -54,7 +54,6 @@ _TIMEOUT_RANGE = (10, 3200)
 _LOCAL_TERMINATED = "22"
 _REMOTE_TERMINATED = "19"
 _SUPERVISION_TIMEOUT = "8"
-_PAIRING_REFUSED = 3
 _DATA_LENGTH_TIME_US = {"1m": 2120, "2m": 1064, "coded": 17040}
 
 
@@ -122,6 +121,7 @@ class FakeBle(FakeGroup):
         self.name = _DEFAULT_NAME
         self.advertise_interval = _DEFAULT_ADVERTISE_INTERVAL_MS
         self.allow = True
+        self.bonded_only = False
         self.link: _Link | None = None
         self.parameters = _DEFAULT_PARAMETERS
         self.scan_filter: tuple[str | None, str | None] = (None, None)
@@ -215,6 +215,7 @@ class FakeBle(FakeGroup):
             _fail("failed")
         self.name = name
         self.advertise_interval = interval
+        self.bonded_only = not self.allow
         restarted = self.state == "advertising"
         self._set_state("advertising")
         if not restarted:
@@ -273,7 +274,7 @@ class FakeBle(FakeGroup):
         self.connect_deadline = self.fw.clock() + timeout / 1000
         self._set_state("connecting")
         advertiser = self.air.advertiser(address) if address_type == "public" else None
-        if advertiser is not None:
+        if advertiser is not None and advertiser.accepts(self):
             self._connect_to(advertiser)
         return "OK"
 
@@ -403,10 +404,6 @@ class FakeBle(FakeGroup):
         self._need_role()
         link = self._need_link()
         peer = link.other(self)
-        if not link.peripheral.allow:
-            for end in (self, peer):
-                self._tell(end, "pairfailed", result=_PAIRING_REFUSED)
-            return "OK"
         for end, other in ((self, peer), (peer, self)):
             if len(end.bonds) < _BONDS_MAX:
                 end.bonds.add(other.address)
@@ -430,9 +427,12 @@ class FakeBle(FakeGroup):
         for scanner in self.air.centrals("scanning"):
             scanner._report(self)
         for initiator in self.air.centrals("connecting"):
-            if initiator.connect_target == self.address:
+            if initiator.connect_target == self.address and self.accepts(initiator):
                 initiator._connect_to(self)
                 break
+
+    def accepts(self, initiator: FakeBle) -> bool:
+        return not self.bonded_only or initiator.address in self.bonds
 
     def _report(self, advertiser: FakeBle) -> None:
         address, name = self.scan_filter

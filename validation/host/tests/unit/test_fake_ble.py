@@ -239,13 +239,30 @@ def test_send_needs_the_service_and_fits_the_mtu(linked):
     assert reason(peripheral, "ble.send 01") == "notopen"
 
 
-def test_pairing_bonds_both_boards_and_a_refusal_fails_it(linked):
-    central, peripheral = linked
+def test_a_peripheral_that_refuses_pairing_advertises_to_bonded_centrals_only(pair, clock):
+    central, peripheral = pair
     peripheral.ble.allow_pairing(False)
-    central.ble.pair()
-    central.ble.wait("pairfailed", 0.5)
-    assert central.ble.bonds() == (0, 10)
+    peripheral.ble.advertise()
+    central.ble.connect(PERIPHERAL, timeout=1000)
+    clock.advance(1.5)
+    central.ble.wait("connectfailed", 0.5, reason="timeout")
+    assert peripheral.ble.absent("connected", 0.2)
     peripheral.ble.allow_pairing(True)
+    peripheral.ble.advertise()
+    central.ble.connect(PERIPHERAL)
+    central.ble.wait("connected", 0.5, peer=PERIPHERAL)
+    central.ble.pair()
+    central.ble.wait("paired", 0.5)
+    central.ble.disconnect()
+    central.ble.wait("disconnected", 0.5)
+    peripheral.ble.allow_pairing(False)
+    peripheral.ble.advertise()
+    central.ble.connect(PERIPHERAL)
+    central.ble.wait("connected", 0.5, peer=PERIPHERAL)
+
+
+def test_pairing_bonds_both_boards(linked):
+    central, peripheral = linked
     central.ble.pair()
     for firmware in linked:
         paired = firmware.ble.wait("paired", 0.5)

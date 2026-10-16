@@ -132,11 +132,12 @@ Feature: BLE central and peripheral
     When both boards remove their bonds
     Then each board holds no bond
 
-  Scenario: A peripheral that refuses pairing fails it
-    Given the boards are connected with security level 2 on both
-    And the peripheral refuses pairing
-    When the central pairs
-    Then the central reports the pairing failed
+  Scenario: A peripheral that refuses pairing accepts no unbonded central
+    Given the peripheral refuses pairing
+    And the peripheral advertises
+    When the central connects to the peripheral
+    Then the central reports that its connection attempt timed out
+    And the peripheral reports no connection
     And each board holds no bond
 
   Scenario: Commands of the other role are refused

@@ -235,7 +235,7 @@ def test_remove_bonds():
     pass
 
 
-@scenario("ble.feature", "A peripheral that refuses pairing fails it")
+@scenario("ble.feature", "A peripheral that refuses pairing accepts no unbonded central")
 def test_pairing_refused():
     pass
 
@@ -679,9 +679,14 @@ def remove_bonds(ble):
         end.ble.wait("bonds", ble.settings.event_timeout, count=0)
 
 
-@then("the central reports the pairing failed")
-def pairing_failed(ble):
-    ble.central.ble.wait("pairfailed", ble.settings.connect_timeout + ble.settings.event_timeout)
+@then("the central reports that its connection attempt timed out")
+def attempt_timed_out(ble):
+    ble.central.ble.wait("connectfailed", ble.settings.connect_timeout + ble.settings.event_timeout, reason="timeout")
+
+
+@then("the peripheral reports no connection")
+def peripheral_unconnected(ble):
+    assert ble.peripheral.ble.absent("connected", ble.settings.quiet_window)
 
 
 def refused(end: BleEnd, lines, reason: str) -> None:
