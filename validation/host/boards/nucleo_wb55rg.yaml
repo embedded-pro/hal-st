@@ -1331,6 +1331,8 @@ tests:
     # RTC BKP0R-BKP19R.
     words: 20
   ble:
+    # First coprocessor binary with ACI_GAP_PAIRING_REQUEST_EVENT (ST release notes, ID 189284).
+    stack_min: "1.21.0"
     connect_timeout: 5.0
     connect_attempts: 3
     link_down_timeout: 6.0

@@ -35,6 +35,7 @@ namespace hal
         void HandleHciDisconnectEvent(const hci_disconnection_complete_event_rp0& event) override;
         void HandleHciLeEnhancedConnectionCompleteEvent(const hci_le_enhanced_connection_complete_event_rp0& event) override;
         void HandleL2capConnectionUpdateResponseEvent(const aci_l2cap_connection_update_resp_event_rp0& event) override;
+        void HandlePairingRequestEvent(const aci_gap_pairing_request_event_rp0& event) override;
 
     private:
         using PeripheralCompletion = infra::AutoResetFunction<void(Result)>;

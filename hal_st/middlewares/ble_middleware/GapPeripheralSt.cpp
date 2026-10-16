@@ -34,6 +34,12 @@ namespace
     // Connection Parameters accepted, ACI_L2CAP_CONNECTION_UPDATE_RESP_EVENT
     constexpr uint16_t connectionParametersAccepted = 0x0000u;
 
+    // SMP mode bit 3 makes the stack raise ACI_GAP_PAIRING_REQUEST_EVENT and wait for
+    // ACI_GAP_PAIRING_REQUEST_REPLY. Stacks older than this bit ignore it and accept every request.
+    constexpr uint8_t smpModePairingRequestEvent = 0x08u;
+    constexpr uint8_t rejectPairingRequest = 0x00u;
+    constexpr uint8_t acceptPairingRequest = 0x01u;
+
     services::GapPeripheral::Result ResultOf(tBleStatus status)
     {
         if (status == BLE_STATUS_SUCCESS)
@@ -345,9 +351,16 @@ namespace hal
             onRequestConnectionParameterUpdateDone(event.Result == connectionParametersAccepted ? Result::success : Result::invalidParameter);
     }
 
+    void GapPeripheralSt::HandlePairingRequestEvent(const aci_gap_pairing_request_event_rp0& event)
+    {
+        aci_gap_pairing_request_reply(event.Connection_Handle, allowPairing ? acceptPairingRequest : rejectPairingRequest);
+    }
+
     void GapPeripheralSt::Initialize(const Configuration& configuration)
     {
         uint16_t gapServiceHandle, gapDevNameCharHandle, gapAppearanceCharHandle;
+
+        aci_hal_write_config_data(CONFIG_DATA_SMP_MODE_OFFSET, CONFIG_DATA_SMP_MODE_LEN, &smpModePairingRequestEvent);
 
         aci_gap_init(GAP_PERIPHERAL_ROLE, configuration.privacy ? PRIVACY_ENABLED : PRIVACY_DISABLED, configuration.gapService.deviceName.size(), &gapServiceHandle, &gapDevNameCharHandle, &gapAppearanceCharHandle);
         aci_gatt_update_char_value(gapServiceHandle, gapDevNameCharHandle, 0, configuration.gapService.deviceName.size(), reinterpret_cast<const uint8_t*>(configuration.gapService.deviceName.data()));

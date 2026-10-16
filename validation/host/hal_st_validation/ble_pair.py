@@ -7,14 +7,25 @@ from dataclasses import dataclass, field
 from ad3_waveforms_bench.protocol import Event
 from ad3_waveforms_bench.terminal import FirmwareError, TerminalTimeout
 
-from .config import BoardConfig
+from .config import BoardConfig, ConfigError
 from .firmware import Firmware
 from .groups.ble import Ble, BleLink, BleSent, Role
 from .patterns import Pattern, crc_text, generate
 
-__all__ = ["FAILED_TO_BE_ESTABLISHED", "BleEnd", "BlePair", "BleSettings"]
+__all__ = ["FAILED_TO_BE_ESTABLISHED", "BleEnd", "BlePair", "BleSettings", "BleStackTooOld"]
 
 FAILED_TO_BE_ESTABLISHED = 0x3E
+
+
+class BleStackTooOld(RuntimeError):
+    pass
+
+
+def _version(text: str) -> tuple[int, ...] | None:
+    parts = text.split(".")
+    if not all(part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
 
 
 @dataclass(frozen=True)
@@ -69,6 +80,18 @@ class BleEnd:
     def ble(self) -> Ble:
         return self.fw.ble
 
+    def require_stack(self) -> None:
+        minimum = self.board.param("ble.stack_min", None)
+        if minimum is None:
+            return
+        required = _version(str(minimum))
+        if required is None:
+            raise ConfigError(f"{self.board.name}: tests.ble.stack_min must be a version such as 1.21.0, not {minimum!r}")
+        stack = self.ble.info().stack
+        version = _version(stack)
+        if version is None or version < required:
+            raise BleStackTooOld(f"the {self.role} ({self.board.name}) runs BLE stack {stack}; the tests need {minimum} or later")
+
 
 @dataclass
 class BlePair:
@@ -86,6 +109,8 @@ class BlePair:
         pair = cls(central, peripheral, settings, name)
         for end in pair.ends:
             end.ble.wait("ready", settings.event_timeout + settings.connect_timeout)
+        for end in pair.ends:
+            end.require_stack()
         return pair
 
     @property

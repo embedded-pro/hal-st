@@ -33,7 +33,8 @@ _MTU_MAX = 251
 _ATT_HEADER = 3
 _PAYLOAD_MAX = _MTU_MAX - _ATT_HEADER
 _BONDS_MAX = 10
-_STACK = "fake"
+_UNSPECIFIED_REASON = 8
+_STACKS = {"stm32wb55": "1.24.0", "stm32wba55": "build0"}
 _DEFAULT_PARAMETERS = (24, 40, 0, 500)
 _INTERVAL_RANGE = (6, 3200)
 _LATENCY_MAX = 499
@@ -102,6 +103,7 @@ class FakeBle(FakeGroup):
 
     def __init__(self, fw: FakeFirmware) -> None:
         super().__init__(fw)
+        self.stack = _STACKS.get(fw.family, "-")
         self._reset_state()
 
     def _reset_state(self) -> None:
@@ -177,7 +179,7 @@ class FakeBle(FakeGroup):
     def cmd_info(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 0, 0)
         ready = int(self.role is not None)
-        return f"OK ready={ready} role={self.role or 'none'} address={self.address or '-'} stack={_STACK}"
+        return f"OK ready={ready} role={self.role or 'none'} address={self.address or '-'} stack={self.stack}"
 
     def cmd_open(self, args: list[str], options: dict[str, str]) -> str:
         _shape(args, options, 0, 0, ("role", "address"))
@@ -401,6 +403,10 @@ class FakeBle(FakeGroup):
         _shape(args, options, 0, 0)
         self._need_role()
         link = self._need_link()
+        if not link.peripheral.allow:
+            for end in (link.central, link.peripheral):
+                self._tell(end, "pairfailed", result=_UNSPECIFIED_REASON)
+            return "OK"
         peer = link.other(self)
         for end, other in ((self, peer), (peer, self)):
             if len(end.bonds) < _BONDS_MAX:

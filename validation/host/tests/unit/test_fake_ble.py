@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from ad3_waveforms_bench.terminal import FirmwareTerminal, TerminalTimeout
 
-from hal_st_validation.ble_pair import BleEnd, BlePair, BleSettings
-from hal_st_validation.config import load_board
+from hal_st_validation.ble_pair import BleEnd, BlePair, BleSettings, BleStackTooOld
+from hal_st_validation.config import ConfigError, load_board
 from hal_st_validation.fake_firmware import WB55_PINS, WBA55_PINS, FakeFirmware, FakeSerial
 from hal_st_validation.fakes.ble import FakeAir
 from hal_st_validation.firmware import Firmware
@@ -267,6 +267,20 @@ def test_a_peripheral_that_refuses_pairing_advertises_to_bonded_centrals_only(pa
     central.ble.wait("connected", 0.5, peer=PERIPHERAL)
 
 
+def test_a_peripheral_that_refuses_pairing_rejects_a_request_on_a_live_link(linked):
+    central, peripheral = linked
+    peripheral.ble.allow_pairing(False)
+    central.ble.pair()
+    for firmware in linked:
+        assert firmware.ble.wait("pairfailed", 0.5).as_int("result") == 8
+        assert firmware.ble.absent("paired", 0.2)
+        assert firmware.ble.bonds()[0] == 0
+    peripheral.ble.allow_pairing(True)
+    central.ble.pair()
+    for firmware in linked:
+        firmware.ble.wait("paired", 0.5)
+
+
 def test_pairing_bonds_both_boards(linked):
     central, peripheral = linked
     central.ble.pair()
@@ -306,6 +320,31 @@ def open_pair(boards, **settings):
         BleEnd(peripheral, load_board("nucleo_wba55cg"), "peripheral"),
         BleSettings(event_timeout=0.5, connect_timeout=0.5, quiet_window=0.05, **settings),
     )
+
+
+@pytest.mark.parametrize("stack", ["1.17.0", "1.20.9", "-"])
+def test_a_pair_refuses_a_stack_older_than_the_board_file_needs(boards, stack):
+    boards[0].terminal._serial.device.group("ble").stack = stack
+    with pytest.raises(BleStackTooOld, match=r"central \(nucleo_wb55rg\) runs BLE stack .* the tests need 1\.21\.0 or later"):
+        open_pair(boards)
+
+
+@pytest.mark.parametrize("stack", ["1.21.0", "1.24.0", "2.0.0"])
+def test_a_pair_accepts_the_stack_the_board_file_needs(boards, stack):
+    boards[0].terminal._serial.device.group("ble").stack = stack
+    assert open_pair(boards).cleanup() == []
+
+
+def test_a_malformed_stack_minimum_is_a_configuration_error(boards):
+    central, peripheral = boards
+    board = load_board("nucleo_wb55rg")
+    board.set_param("ble.stack_min", "latest")
+    with pytest.raises(ConfigError, match="stack_min"):
+        BlePair.open(
+            BleEnd(central, board, "central"),
+            BleEnd(peripheral, load_board("nucleo_wba55cg"), "peripheral"),
+            BleSettings(event_timeout=0.5),
+        )
 
 
 def test_connect_retries_a_link_that_failed_to_be_established(air, boards):
@@ -405,4 +444,29 @@ def test_pair_tests_skip_without_a_second_board():
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "pair test: pass --peer-port" in result.stdout
+    assert "passed" not in result.stdout
+
+
+def test_pair_tests_stop_on_a_stack_older_than_the_board_file_needs():
+    command = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/hil/test_ble.py",
+        "--fake",
+        "--no-ad3",
+        "--board",
+        "nucleo_wb55rg",
+        "--peer-board",
+        "nucleo_wba55cg",
+    ]
+    result = subprocess.run(
+        [*command, "--set", "ble.stack_min=9.0.0", "-q", "-p", "no:cacheprovider"],
+        cwd=HOST,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 3, result.stdout + result.stderr
+    assert "runs BLE stack 1.24.0; the tests need 9.0.0 or later" in result.stdout + result.stderr
     assert "passed" not in result.stdout

@@ -6,7 +6,7 @@ import pytest
 from ad3_waveforms_bench.terminal import FirmwareError
 from pytest_bdd import given, parsers, scenario, then, when
 
-from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair, BleSettings
+from hal_st_validation.ble_pair import FAILED_TO_BE_ESTABLISHED, BleEnd, BlePair, BleSettings, BleStackTooOld
 
 pytestmark = pytest.mark.usefixtures("ble_pair")
 
@@ -24,6 +24,7 @@ DATA_TIME_MAX = 17040
 ADVERTISING_FLAGS = "06"
 UNIVERSAL_UNICAST_MASK = 0x03
 SECURITY_LEVEL = 2
+UNSPECIFIED_REASON = 8
 
 CENTRAL_ONLY = (
     "ble.scan",
@@ -92,12 +93,17 @@ def ble_pair(request, fw, peer_fw, board_cfg, peer_board_cfg) -> BlePair:
     for firmware, board in ((fw, board_cfg), (peer_fw, peer_board_cfg)):
         firmware.system.reset(timeout=board.param("system.boot_timeout", 5.0))
     central, peripheral = ((fw, board_cfg), (peer_fw, peer_board_cfg))[:: 1 if a_central else -1]
-    return BlePair.open(
-        BleEnd(central[0], central[1], "central"),
-        BleEnd(peripheral[0], peripheral[1], "peripheral"),
-        BleSettings.from_boards((board_cfg, peer_board_cfg)),
-        request.param,
-    )
+    try:
+        return BlePair.open(
+            BleEnd(central[0], central[1], "central"),
+            BleEnd(peripheral[0], peripheral[1], "peripheral"),
+            BleSettings.from_boards((board_cfg, peer_board_cfg)),
+            request.param,
+        )
+    except BleStackTooOld as error:
+        pytest.exit(
+            f"{error} (update the wireless coprocessor, hal_st/middlewares/STM32_WPAN/STM32CubeWB/binaries/README.txt)", returncode=3
+        )
 
 
 @pytest.fixture
@@ -251,6 +257,11 @@ def test_remove_bonds():
 
 @scenario("ble.feature", "A peripheral that refuses pairing accepts no unbonded central")
 def test_pairing_refused():
+    pass
+
+
+@scenario("ble.feature", "A peripheral that refuses pairing rejects a pairing request on a live link")
+def test_pairing_refused_on_live_link():
     pass
 
 
@@ -751,6 +762,15 @@ def connect_after_allowing(ble):
 @then("the peripheral reports no connection")
 def peripheral_unconnected(ble):
     assert ble.peripheral.ble.absent("connected", ble.settings.quiet_window)
+
+
+@then("both boards report that the pairing failed for an unspecified reason")
+def pairing_refused_unspecified(ble):
+    limit = ble.settings.connect_timeout + ble.settings.event_timeout
+    for end in ble.ends:
+        outcome = end.fw.terminal.wait_event("ble", lambda event: event.args[:1] in (("paired",), ("pairfailed",)), limit)
+        assert outcome.args[0] == "pairfailed", f"{end.role} paired: the stack lacks ACI_GAP_PAIRING_REQUEST_EVENT: {outcome.raw}"
+        assert outcome.as_int("result") == UNSPECIFIED_REASON, f"{end.role}: {outcome.raw}"
 
 
 def refused(end: BleEnd, lines, reason: str) -> None:
