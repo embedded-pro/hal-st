@@ -24,6 +24,7 @@ DATA_TIME_MAX = 17040
 ADVERTISING_FLAGS = "06"
 UNIVERSAL_UNICAST_MASK = 0x03
 SECURITY_LEVEL = 2
+UNSPECIFIED_REASON = 8
 
 CENTRAL_ONLY = (
     "ble.scan",
@@ -251,6 +252,11 @@ def test_remove_bonds():
 
 @scenario("ble.feature", "A peripheral that refuses pairing accepts no unbonded central")
 def test_pairing_refused():
+    pass
+
+
+@scenario("ble.feature", "A peripheral that refuses pairing rejects a pairing request on a live link")
+def test_pairing_refused_on_live_link():
     pass
 
 
@@ -751,6 +757,15 @@ def connect_after_allowing(ble):
 @then("the peripheral reports no connection")
 def peripheral_unconnected(ble):
     assert ble.peripheral.ble.absent("connected", ble.settings.quiet_window)
+
+
+@then("both boards report that the pairing failed for an unspecified reason")
+def pairing_refused_unspecified(ble):
+    limit = ble.settings.connect_timeout + ble.settings.event_timeout
+    for end in ble.ends:
+        outcome = end.fw.terminal.wait_event("ble", lambda event: event.args[:1] in (("paired",), ("pairfailed",)), limit)
+        assert outcome.args[0] == "pairfailed", f"{end.role} paired: the stack lacks ACI_GAP_PAIRING_REQUEST_EVENT: {outcome.raw}"
+        assert outcome.as_int("result") == UNSPECIFIED_REASON, f"{end.role}: {outcome.raw}"
 
 
 def refused(end: BleEnd, lines, reason: str) -> None:

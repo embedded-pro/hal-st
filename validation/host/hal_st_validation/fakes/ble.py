@@ -33,6 +33,7 @@ _MTU_MAX = 251
 _ATT_HEADER = 3
 _PAYLOAD_MAX = _MTU_MAX - _ATT_HEADER
 _BONDS_MAX = 10
+_UNSPECIFIED_REASON = 8
 _STACK = "fake"
 _DEFAULT_PARAMETERS = (24, 40, 0, 500)
 _INTERVAL_RANGE = (6, 3200)
@@ -401,6 +402,10 @@ class FakeBle(FakeGroup):
         _shape(args, options, 0, 0)
         self._need_role()
         link = self._need_link()
+        if not link.peripheral.allow:
+            for end in (link.central, link.peripheral):
+                self._tell(end, "pairfailed", result=_UNSPECIFIED_REASON)
+            return "OK"
         peer = link.other(self)
         for end, other in ((self, peer), (peer, self)):
             if len(end.bonds) < _BONDS_MAX:

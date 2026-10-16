@@ -503,6 +503,9 @@ namespace hal
             case ACI_GAP_PAIRING_COMPLETE_VSEVT_CODE:
                 HandlePairingCompleteEvent(*reinterpret_cast<const aci_gap_pairing_complete_event_rp0*>(event.data));
                 break;
+            case ACI_GAP_PAIRING_REQUEST_VSEVT_CODE:
+                HandlePairingRequestEvent(*reinterpret_cast<const aci_gap_pairing_request_event_rp0*>(event.data));
+                break;
             case ACI_GAP_BOND_LOST_VSEVT_CODE:
                 HandleBondLostEvent();
                 break;

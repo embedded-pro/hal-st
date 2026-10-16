@@ -267,6 +267,20 @@ def test_a_peripheral_that_refuses_pairing_advertises_to_bonded_centrals_only(pa
     central.ble.wait("connected", 0.5, peer=PERIPHERAL)
 
 
+def test_a_peripheral_that_refuses_pairing_rejects_a_request_on_a_live_link(linked):
+    central, peripheral = linked
+    peripheral.ble.allow_pairing(False)
+    central.ble.pair()
+    for firmware in linked:
+        assert firmware.ble.wait("pairfailed", 0.5).as_int("result") == 8
+        assert firmware.ble.absent("paired", 0.2)
+        assert firmware.ble.bonds()[0] == 0
+    peripheral.ble.allow_pairing(True)
+    central.ble.pair()
+    for firmware in linked:
+        firmware.ble.wait("paired", 0.5)
+
+
 def test_pairing_bonds_both_boards(linked):
     central, peripheral = linked
     central.ble.pair()

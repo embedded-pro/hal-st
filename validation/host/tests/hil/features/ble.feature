@@ -157,6 +157,13 @@ Feature: BLE central and peripheral
     And each board holds no bond
     And the boards connect once the peripheral allows pairing again
 
+  Scenario: A peripheral that refuses pairing rejects a pairing request on a live link
+    Given the boards are connected with security level 2 on both
+    And the peripheral refuses pairing
+    When the central pairs
+    Then both boards report that the pairing failed for an unspecified reason
+    And each board holds no bond
+
   Scenario: Commands of the other role are refused
     Then the peripheral refuses the central commands with unsupported
     And the central refuses the peripheral commands with unsupported

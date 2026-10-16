@@ -94,6 +94,7 @@ namespace hal
         virtual void HandleHciLeReadLocalP256PublicKeyCompleteEvent(const hci_le_read_local_p256_public_key_complete_event_rp0& event);
 
         virtual void HandlePairingCompleteEvent(const aci_gap_pairing_complete_event_rp0& event);
+        virtual void HandlePairingRequestEvent(const aci_gap_pairing_request_event_rp0& event) {};
         virtual void HandleBondLostEvent();
         virtual void HandleGapProcedureCompleteEvent(const aci_gap_proc_complete_event_rp0& event) {};
         virtual void HandleGattCompleteEvent(const aci_gatt_proc_complete_event_rp0& event) {};
