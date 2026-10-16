@@ -682,20 +682,20 @@ BLE needs two boards linked over the air, a central and a peripheral, so it has 
 
 References are to the Bluetooth Core Specification 5.4 (Vol 1 Part C 12.4: Master, Slave and White List became Central, Peripheral and Filter Accept List in 5.3).
 
-| Rule | Where | Test |
-| ---- | ----- | ---- |
-| A public device address is a universal EUI-48 of an IEEE-assigned block | Vol 6 Part B 1.3.1, Vol 2 Part B 1.2 | roles |
-| An LE-only general discoverable advertiser carries Flags `0x06` | Vol 3 Part C 9.2.4.2, CSS Part A 1.3.1 | scan |
-| Advertising interval 20 ms to 10.24 s | Vol 4 Part E 7.8.5 | malformed commands |
-| Connection interval 7.5 ms to 4 s, latency up to 499, supervision timeout 100 ms to 32 s and larger than (1 + latency) x interval_max x 2 | Vol 4 Part E 7.8.12, Vol 6 Part B 4.5.2 | malformed commands |
-| A connection is created at the CONNECT_IND and lost after 6 connection events without an answer, reported with 0x3E | Vol 6 Part B 4.4.4.1, 4.5, 4.5.2, Vol 1 Part F 2.59 | pairing refused, `BlePair.connect` |
-| A peripheral should not start a connection parameter update within 5 s of connecting | Vol 3 Part C 9.3.12.2 | the central keeps its parameters |
-| ATT_MTU is 23 until the Exchange MTU, then the smaller of the two receive MTUs; the exchange is sent once per connection | Vol 3 Part G 5.2.1, 4.3.1, Part F 3.4.2 | MTU, service, default ATT_MTU |
-| A notification or write command carries at most ATT_MTU - 3 bytes; an attribute value at most 512 | Vol 3 Part F 3.4.7.1, 3.4.5.3, 3.2.9 | service, default ATT_MTU, data |
-| Data length 27 to 251 octets and 328 to 17040 us; on an uncoded PHY one side's effective transmit values equal the other's receive values; no event when nothing changed | Vol 4 Part E 7.7.65.7, 7.8.33, Vol 6 Part B 4.5.10 | data length |
-| The initiator of a PHY update always gets the event, the peer only when a PHY changed | Vol 4 Part E 7.7.65.12, Vol 6 Part B 5.1.10 | PHY |
-| Pairing without MITM is Just Works: unauthenticated (security mode 1 level 2), key size 7 to 16 octets | Vol 3 Part H 2.3.5.1, 3.5.1, Part C 10.2.1 | pairing |
-| Disconnect reasons 0x16 (local host), 0x13 (remote user), 0x08 (timeout), 0x3E (failed to be established) | Vol 1 Part F | disconnect, pairing refused |
+| Rule                                                                                                                                                                     | Where                                               | Test                               |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|------------------------------------|
+| A public device address is a universal EUI-48 of an IEEE-assigned block                                                                                                  | Vol 6 Part B 1.3.1, Vol 2 Part B 1.2                | roles                              |
+| An LE-only general discoverable advertiser carries Flags `0x06`                                                                                                          | Vol 3 Part C 9.2.4.2, CSS Part A 1.3.1              | scan                               |
+| Advertising interval 20 ms to 10.24 s                                                                                                                                    | Vol 4 Part E 7.8.5                                  | malformed commands                 |
+| Connection interval 7.5 ms to 4 s, latency up to 499, supervision timeout 100 ms to 32 s and larger than (1 + latency) x interval_max x 2                                | Vol 4 Part E 7.8.12, Vol 6 Part B 4.5.2             | malformed commands                 |
+| A connection is created at the CONNECT_IND and lost after 6 connection events without an answer, reported with 0x3E                                                      | Vol 6 Part B 4.4.4.1, 4.5, 4.5.2, Vol 1 Part F 2.59 | pairing refused, `BlePair.connect` |
+| A peripheral should not start a connection parameter update within 5 s of connecting                                                                                     | Vol 3 Part C 9.3.12.2                               | the central keeps its parameters   |
+| ATT_MTU is 23 until the Exchange MTU, then the smaller of the two receive MTUs; the exchange is sent once per connection                                                 | Vol 3 Part G 5.2.1, 4.3.1, Part F 3.4.2             | MTU, service, default ATT_MTU      |
+| A notification or write command carries at most ATT_MTU - 3 bytes; an attribute value at most 512                                                                        | Vol 3 Part F 3.4.7.1, 3.4.5.3, 3.2.9                | service, default ATT_MTU, data     |
+| Data length 27 to 251 octets and 328 to 17040 us; on an uncoded PHY one side's effective transmit values equal the other's receive values; no event when nothing changed | Vol 4 Part E 7.7.65.7, 7.8.33, Vol 6 Part B 4.5.10  | data length                        |
+| The initiator of a PHY update always gets the event, the peer only when a PHY changed                                                                                    | Vol 4 Part E 7.7.65.12, Vol 6 Part B 5.1.10         | PHY                                |
+| Pairing without MITM is Just Works: unauthenticated (security mode 1 level 2), key size 7 to 16 octets                                                                   | Vol 3 Part H 2.3.5.1, 3.5.1, Part C 10.2.1          | pairing                            |
+| Disconnect reasons 0x16 (local host), 0x13 (remote user), 0x08 (timeout), 0x3E (failed to be established)                                                                | Vol 1 Part F                                        | disconnect, pairing refused        |
 
 Behaviour of hal-st and the ST stack that the specification leaves open, and that the tests therefore only document: a central may accept or reject an L2CAP connection parameter update request (hal-st answers with the parameters it used last), and the specification allows the L2CAP request only when the Link Layer procedure is unavailable; pairing is refused by advertising to bonded devices only; `paired secure=` is derived from the security level, not from the pairing method; `rssi=0` stands for a report without a usable RSSI (the HCI range is -127 to +20 dBm, 127 meaning not available); hal-st asks the ST stack for the same minimum and maximum advertising interval, which Vol 4 Part E 7.8.5 says it should not; a repeated Exchange MTU has no defined answer and is not tested.
 
