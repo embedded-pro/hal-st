@@ -27,7 +27,7 @@ if (HALST_STANDALONE)
     FetchContent_Declare(
         emil
         GIT_REPOSITORY https://github.com/embedded-pro/embedded-infra-lib.git
-        GIT_TAG        6364c1a12112098a009074dfa3b89bd6180b7be6 # Unreleased
+        GIT_TAG        b53f49e8a556f493117d94e23a9e12931d826f18 # Unreleased
     )
 
     add_definitions(-DEMIL_ENABLE_TRACING=1)
@@ -39,19 +39,17 @@ if (HALST_STANDALONE)
     # unset there).
     if (TARGET_MCU_VENDOR STREQUAL st)
         set(EMIL_BUILD_CORTEX_M On CACHE BOOL "" FORCE)
+
+        # Only examples/sesame generates Echo code, and a cross build can only run the Echo plugins
+        # when they are built for the host.
+        if (TARGET_MCU STREQUAL stm32f767)
+            set(CMAKE_PROJECT_emil_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/cmake/NativeEchoPlugins.cmake")
+        else()
+            set(EMIL_INCLUDE_ECHO Off)
+        endif()
     endif()
 
     FetchContent_MakeAvailable(emil)
-
-    if (EMIL_HOST_BUILD)
-        FetchContent_Declare(
-            cucumber-cpp-runner
-            GIT_REPOSITORY https://github.com/philips-software/amp-cucumber-cpp-runner.git
-            GIT_TAG        752b9f6f82b1f2f35bc01a4ae19aff4fd43ad97f # v1.1.0
-        )
-
-        FetchContent_MakeAvailable(cucumber-cpp-runner)
-    endif()
 endif()
 
 project(hal_st LANGUAGES C CXX ASM VERSION 4.0.0) # x-release-please-version
@@ -77,9 +75,6 @@ endif()
 add_subdirectory(st)
 add_subdirectory(hal_st)
 add_subdirectory(hal_st_lwip)
-if (HALST_STANDALONE)
-    add_subdirectory(integration_test)
-endif()
 add_subdirectory(services)
 if (HALST_BUILD_EXAMPLES OR HALST_BUILD_EXAMPLES_FREERTOS)
     add_subdirectory(examples)

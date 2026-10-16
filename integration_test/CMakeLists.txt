@@ -1,5 +1,0 @@
-add_subdirectory(logic)
-add_subdirectory(tested)
-add_subdirectory(tester)
-add_subdirectory(runner)
-add_subdirectory(flasher)
