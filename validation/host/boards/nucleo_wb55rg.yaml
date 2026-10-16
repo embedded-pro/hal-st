@@ -1332,6 +1332,7 @@ tests:
     words: 20
   ble:
     connect_timeout: 5.0
+    connect_attempts: 3
     scan_timeout: 5.0
     event_timeout: 3.0
     quiet_window: 0.5

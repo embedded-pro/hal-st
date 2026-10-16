@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
@@ -11,12 +12,15 @@ from .firmware import Firmware
 from .groups.ble import Ble, BleLink, BleSent, Role
 from .patterns import Pattern, crc_text, generate
 
-__all__ = ["BleEnd", "BlePair", "BleSettings"]
+__all__ = ["FAILED_TO_BE_ESTABLISHED", "BleEnd", "BlePair", "BleSettings"]
+
+FAILED_TO_BE_ESTABLISHED = 0x3E
 
 
 @dataclass(frozen=True)
 class BleSettings:
     connect_timeout: float = 5.0
+    connect_attempts: int = 3
     scan_timeout: float = 5.0
     event_timeout: float = 3.0
     quiet_window: float = 0.5
@@ -37,6 +41,7 @@ class BleSettings:
         common = tuple(phy for phy in phys[0] if all(phy in other for other in phys))
         return cls(
             connect_timeout=max(values("connect_timeout", defaults.connect_timeout)),
+            connect_attempts=min(values("connect_attempts", defaults.connect_attempts)),
             scan_timeout=max(values("scan_timeout", defaults.scan_timeout)),
             event_timeout=max(values("event_timeout", defaults.event_timeout)),
             quiet_window=max(values("quiet_window", defaults.quiet_window)),
@@ -66,6 +71,7 @@ class BlePair:
     settings: BleSettings
     name: str = ""
     changed: set[str] = field(default_factory=set)
+    retries: int = 0
 
     @classmethod
     def open(cls, central: BleEnd, peripheral: BleEnd, settings: BleSettings, name: str = "") -> BlePair:
@@ -88,15 +94,29 @@ class BlePair:
         return self.central.ble.wait(name, limit, **fields), self.peripheral.ble.wait(name, limit, **fields)
 
     def connect(self, interval: int | None = None) -> tuple[Event, Event]:
-        timeout = self.settings.connect_timeout
+        settings = self.settings
+        limit = settings.connect_timeout + settings.event_timeout
         self.peripheral.ble.advertise(interval=interval)
-        self.peripheral.ble.wait("state", self.settings.event_timeout, value="advertising")
-        self.central.ble.connect(self.peripheral.address, "public", timeout=int(timeout * 1000))
-        limit = timeout + self.settings.event_timeout
-        return (
-            self.central.ble.wait("connected", limit, peer=self.peripheral.address),
-            self.peripheral.ble.wait("connected", limit, peer=self.central.address),
-        )
+        self.peripheral.ble.wait("state", settings.event_timeout, value="advertising")
+        attempt = 1
+        while True:
+            self.central.ble.connect(self.peripheral.address, "public", timeout=int(settings.connect_timeout * 1000))
+            central = self.central.ble.wait("connected", limit, peer=self.peripheral.address)
+            try:
+                return central, self.peripheral.ble.wait("connected", settings.event_timeout, peer=self.central.address)
+            except TerminalTimeout:
+                if attempt >= settings.connect_attempts or not self.link_not_established():
+                    raise
+            self.retries += 1
+            warnings.warn(
+                f"BLE connect attempt {attempt} of {settings.connect_attempts} ended with reason {FAILED_TO_BE_ESTABLISHED}",
+                stacklevel=2,
+            )
+            self.central.ble.drain()
+            attempt += 1
+
+    def link_not_established(self) -> bool:
+        return not self.central.ble.absent("disconnected", self.settings.event_timeout, reason=FAILED_TO_BE_ESTABLISHED)
 
     def disconnect(self, initiator: BleEnd) -> dict[str, Event]:
         initiator.ble.disconnect()

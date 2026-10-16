@@ -155,7 +155,7 @@ pytest validation/host/tests/hil/test_ble.py --no-ad3 --board nucleo_wb55rg --po
 pytest validation/host/tests/hil/test_ble.py --no-ad3 --fake --board nucleo_wb55rg --peer-board nucleo_wba55cg
 ```
 
-Two ST-LINK virtual COM ports enumerate as `ttyACM0` and `ttyACM1` in no fixed order, so name them by `/dev/serial/by-id/...` (or `HAL_ST_PORT` and `HAL_ST_PEER_PORT`). With `--fake` both boards are fakes sharing one radio (`fakes/ble.py`); the tests skip without `--peer-port` or `--fake`. A known gap in either board file applies to a pair test, and `tests.ble` of both board files sets the timeouts (the larger wins), the RSSI floor and the PHYs both support.
+Two ST-LINK virtual COM ports enumerate as `ttyACM0` and `ttyACM1` in no fixed order, so name them by `/dev/serial/by-id/...` (or `HAL_ST_PORT` and `HAL_ST_PEER_PORT`). With `--fake` both boards are fakes sharing one radio (`fakes/ble.py`); the tests skip without `--peer-port` or `--fake`. A known gap in either board file applies to a pair test, and `tests.ble` of both board files sets the timeouts (the larger wins), the connect attempts (the smaller wins), the RSSI floor and the PHYs both support. A connect that ends with `disconnected reason=62` before the peripheral reports it (the connection request was lost) is repeated up to `connect_attempts` times; each repeat is a pytest warning, and the scenarios that check the connect procedure itself (timeout, cancel, a peripheral that refuses pairing) never repeat. On the NUCLEO-WB55RG run the BLE stack the middleware matches (1.24.0, above); the first hardware runs, on stack 1.17.0, lost one or two connects in about every second run.
 
 Options from `tests/conftest.py` for the second board:
 

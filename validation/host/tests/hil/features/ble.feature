@@ -136,9 +136,10 @@ Feature: BLE central and peripheral
     Given the peripheral refuses pairing
     And the peripheral advertises
     When the central connects to the peripheral
-    Then the central reports that its connection attempt timed out
+    Then the central reports that the link failed to be established
     And the peripheral reports no connection
     And each board holds no bond
+    And the boards connect once the peripheral allows pairing again
 
   Scenario: Commands of the other role are refused
     Then the peripheral refuses the central commands with unsupported
