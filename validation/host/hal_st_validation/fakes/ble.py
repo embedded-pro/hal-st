@@ -299,9 +299,11 @@ class FakeBle(FakeGroup):
         rx = _choice(options, "rx", _PHYS, "")
         self._need_role("central")
         link = self._need_link()
+        changed = (link.tx_phy, link.rx_phy) != (tx, rx)
         link.tx_phy, link.rx_phy = tx, rx
         self._event("phy", tx=tx, rx=rx)
-        self._tell(link.peripheral, "phy", tx=rx, rx=tx)
+        if changed:
+            self._tell(link.peripheral, "phy", tx=rx, rx=tx)
         return "OK"
 
     def cmd_datalength(self, args: list[str], options: dict[str, str]) -> str:

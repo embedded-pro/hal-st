@@ -672,7 +672,7 @@ BLE needs two boards linked over the air, a central and a peripheral, so it has 
   - `found addr=<mac> type=public|random event=advInd|advDirectInd|advScanInd|advNonconnInd|scanResponse rssi=<dBm> name=<name>|-` (central; the name's spaces and non-printable characters become `_`; `rssi=0` when the controller gave none)
   - `connected peer=<mac> interval=<n> latency=<n> timeout=<n>`; `connectfailed reason=timeout|cancelled|failed` (central)
   - `disconnected reason=<n>`: the HCI error code in decimal, 22 (0x16, connection terminated by the local host) on the side that asked, 19 (0x13, remote user terminated) on the other, 8 (0x08, connection timeout) when the peer reset
-  - `conparams interval=<n> latency=<n> timeout=<n>`, `phy tx=<phy> rx=<phy>` (each side's own point of view), `datalength txoctets=<n> txtime=<us>` on the central and `datalength txoctets=<n> rxoctets=<n> txtime=<us> rxtime=<us>` on the peripheral, `mtu size=<n>`
+  - `conparams interval=<n> latency=<n> timeout=<n>`, `phy tx=<phy> rx=<phy>` (each side's own point of view; the peripheral gets none when the request changes nothing), `datalength txoctets=<n> txtime=<us>` on the central and `datalength txoctets=<n> rxoctets=<n> txtime=<us> rxtime=<us>` on the peripheral, `mtu size=<n>`
   - `uart state=open maxsend=<n>` or `state=closed`; `uart state=failed result=<n>` when `ble.discover` fails
   - `sent` (a `ble.send` completed), `rx len=<n> crc=<8 hex digits>` (one per write or notification)
   - `security result=<n>`, `paired secure=0|1 auth=0|1 keysize=<n>`, `pairfailed result=<n>` (`services::GapPairingResult`), `bonds count=<n>`

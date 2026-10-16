@@ -572,7 +572,9 @@ def central_requests_phy(ble, phy):
 
 @then("both boards report the PHY")
 def phy_reported(ble, phy):
-    for event in ble.wait_both("phy", ble.settings.event_timeout * 2):
+    ends = ble.ends if phy != "1m" else (ble.central,)
+    for end in ends:
+        event = end.ble.wait("phy", ble.settings.event_timeout * 2)
         assert (event["tx"], event["rx"]) == (phy, phy)
 
 

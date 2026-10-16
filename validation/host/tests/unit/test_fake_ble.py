@@ -193,6 +193,9 @@ def test_mtu_phy_and_data_length_reach_both_boards(linked):
     assert (central.ble.wait("phy", 0.5)["tx"], central.ble.wait_link(lambda link: True, 0.5).rx_phy) == ("2m", "1m")
     event = peripheral.ble.wait("phy", 0.5)
     assert (event["tx"], event["rx"]) == ("1m", "2m")
+    central.ble.phy("2m", "1m")
+    assert central.ble.wait("phy", 0.5)["tx"] == "2m"
+    assert peripheral.ble.absent("phy", 0.2)
     central.ble.datalength()
     central_event = central.ble.wait("datalength", 0.5)
     peripheral_event = peripheral.ble.wait("datalength", 0.5)

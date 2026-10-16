@@ -176,7 +176,6 @@ class BlePair:
         attempt("central stopscan", central.stopscan)
         attempt("peripheral standby", peripheral.standby)
         attempt("central disconnect", central.disconnect)
-        attempt("peripheral disconnect", peripheral.disconnect)
         attempt("peripheral allowpairing", lambda: peripheral.allow_pairing(True))
         for end in self.ends:
             attempt(f"{end.role} link down", lambda end=end: self.wait_link(end, lambda link: not link.connected))
