@@ -3,6 +3,7 @@
 
 #include "ble/ble.h"
 #include "hal_st/middlewares/ble_middleware/HciEventObserver.hpp"
+#include "infra/util/BoundedVector.hpp"
 #include "services/ble/GattServer.hpp"
 
 namespace hal
@@ -32,7 +33,10 @@ namespace hal
         virtual void ReportError(tBleStatus status) const;
 
     private:
+        static constexpr std::size_t maxAttributeValueSize = 512;
+
         infra::IntrusiveForwardList<services::GattServerService> services;
+        infra::BoundedVector<uint8_t>::WithMaxSize<maxAttributeValueSize> fragmentedValue;
     };
 
     class GattConfirmIndication

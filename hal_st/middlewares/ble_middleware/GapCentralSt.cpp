@@ -449,7 +449,8 @@ namespace hal
 
     void GapCentralSt::HandleGapDirectConnectionProcedureCompleteEvent()
     {
-        if (initiatingStateTimer.Armed())
+        // The STM32WBA stack completes the procedure after a successful connection as well.
+        if (initiatingStateTimer.Armed() || connectionContext.connectionHandle != GapSt::invalidConnection)
             return;
 
         // The procedure ended without a connection; a connection reports through the connection
@@ -511,6 +512,6 @@ namespace hal
         initiatingStateTimer.Cancel();
 
         if (onConnectDone)
-            onConnectDone(status == BLE_STATUS_SUCCESS ? Result::success : Result::connectionFailed);
+            onConnectDone(status == BLE_STATUS_SUCCESS ? Result::success : connectFailureResult);
     }
 }

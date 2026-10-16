@@ -112,7 +112,7 @@ namespace hal
 
         aci_hal_write_config_data(CONFIG_DATA_PUBADDR_OFFSET, CONFIG_DATA_PUBADDR_LEN, configuration.address.data());
 
-        const std::array<uint8_t, 8> events = { { 0x9F, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+        const std::array<uint8_t, 8> events = { { 0xDF, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
         hci_le_set_event_mask(events.data());
 
         SVCCTL_Init();
