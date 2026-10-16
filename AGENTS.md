@@ -105,6 +105,12 @@ Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read 
 - The data phase moves the FIFO in the interrupt, so a long read or program keeps the core in the handler for about its length on the wire; the status polls of erases and programs, the long waits, no longer hold the core at all
 - Local vendor patch to keep on re-import: `USE_HAL_QSPI_REGISTER_CALLBACKS` is `1U` in the F4, F7, G4, H7 and WB `hal_conf` headers (the callbacks are registered after `HAL_QSPI_Init`, which resets them while the state is RESET). `SynchronousQuadSpiStm` uses only the blocking HAL functions, which the setting does not change
 
+## Parallel NOR flash (`NorFlashStm`)
+
+- `NorFlashStm` implements EMIL `hal::Flash` over a 16-bit NOR bank of the FMC/FSMC (`FmcStm`), with the AMD/Fujitsu or the Intel/Sharp extended command set that `HAL_NOR_Init` reads from the CFI. Reads copy from the memory window. Programs go through the write buffer of the chip, `Config::writeBufferBytes` at a time (64 by default, at most 1024; set it from the datasheet of the chip, as a write must not cross a page of the buffer), with `HAL_NOR_ProgramBuffer`: a write is cut at the write-buffer pages and an odd first or last byte is padded with 0xFF
+- Programs and erases do not block the event loop: after each write-buffer page and each sector, the driver checks the status with `HAL_NOR_GetStatus` at a timeout of 0 and, while the chip is busy, schedules the next check on the event dispatcher, so other events run in between and the completion follows the chip within one pass of the loop. The dispatcher therefore does not idle while a program or an erase runs. The completion runs on the event dispatcher, one operation at a time (`really_assert`), and the object must not be destroyed while an operation is in progress (`really_assert`); a status error or a page or sector that takes longer than `programTimeout` or `eraseTimeout` asserts, as before
+- `hal::Flash` has no status, so an error stays fatal; the timeouts are the maxima of the chip, not of a request
+
 ## SD card (`SdCardStm`)
 
 - `SdCardStm` implements EMIL `hal::BlockDevice` and is async only: `ReadBlocks`, `WriteBlocks` and `EraseBlocks` complete on the event dispatcher, never from the calling function, one operation at a time (`really_assert`). It exists on F4 (SDIO), F7, H5 and H7 (SDMMC1/2) and compiles to nothing where `HAS_PERIPHERAL_SD` is undefined (G0, G4, WB, WBA)

@@ -2,8 +2,11 @@
 
 #include "hal/interfaces/Flash.hpp"
 #include "hal_st/stm32fxxx/FmcStm.hpp"
+#include "infra/timer/Timer.hpp"
+#include "infra/util/AutoResetFunction.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/Function.hpp"
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include DEVICE_HEADER
@@ -16,6 +19,8 @@ namespace hal
         : public hal::Flash
     {
     public:
+        static constexpr uint32_t maxWriteBufferBytes = 1024;
+
         struct Identification
         {
             uint16_t manufacturer;
@@ -32,6 +37,7 @@ namespace hal
             uint8_t oneBasedBank{ 1 };
             uint32_t numberOfSectors{ 0 };
             uint32_t sizeOfSector{ 0 };
+            uint32_t writeBufferBytes{ 64 };
             FmcStm::NorSramBus bus;
             std::chrono::milliseconds programTimeout{ 1000 };
             std::chrono::milliseconds eraseTimeout{ 10000 };
@@ -54,16 +60,33 @@ namespace hal
         void EraseSectors(uint32_t beginIndex, uint32_t endIndex, infra::Function<void()> onDone) override;
 
     private:
-        void ProgramHalfWord(uint32_t address, uint16_t value);
-        void WaitForCompletion(uint32_t address, std::chrono::milliseconds timeout);
+        void Begin(const infra::Function<void()>& onDone);
+        void ProgramNextPage();
+        void EraseNextSector();
+        void WaitUntilReady(uint32_t offset, std::chrono::milliseconds timeout, const infra::Function<void()>& onReady);
+        void ScheduleCheck();
+        void CheckReady();
+        void Finish();
 
     private:
         NOR_HandleTypeDef handle{};
         uint32_t windowBase;
         uint32_t numberOfSectors;
         uint32_t sizeOfSector;
+        uint32_t writeBufferBytes;
         std::chrono::milliseconds programTimeout;
         std::chrono::milliseconds eraseTimeout;
+
+        infra::ConstByteRange data;
+        uint32_t address = 0;
+        uint32_t sector = 0;
+        uint32_t endSector = 0;
+        std::array<uint16_t, maxWriteBufferBytes / 2> page{};
+
+        uint32_t statusAddress = 0;
+        infra::TimePoint deadline;
+        infra::Function<void()> onReady;
+        infra::AutoResetFunction<void()> onDone;
     };
 }
 
