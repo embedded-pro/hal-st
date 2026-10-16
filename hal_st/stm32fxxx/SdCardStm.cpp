@@ -73,6 +73,13 @@ namespace
 
         return hal::BlockDevice::Result::failed;
     }
+
+    uint32_t AllocationUnitKiB(uint8_t code)
+    {
+        static constexpr std::array<uint32_t, 16> kibByCode{ { 0, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 12288, 16384, 24576, 32768, 65536 } };
+
+        return kibByCode[code & 0x0f];
+    }
 }
 
 namespace hal
@@ -131,6 +138,16 @@ namespace hal
     uint32_t SdCardStm::NumberOfBlocks() const
     {
         return numberOfBlocks;
+    }
+
+    uint32_t SdCardStm::AllocationUnitBlocks() const
+    {
+        return allocationUnitBlocks;
+    }
+
+    const SdCardStm::Identification& SdCardStm::CardIdentification() const
+    {
+        return identification;
     }
 
     void SdCardStm::ReadBlocks(infra::ByteRange buffer, uint32_t firstBlock, const infra::Function<void(Result)>& onDone)
@@ -256,11 +273,27 @@ namespace hal
         handle.ErrorCode = HAL_SD_ERROR_NONE;
         cardPresent = true;
 
+        ReadCardRegisters();
         RegisterCallbacks();
 #if defined(SD_EXTERNAL_DMA)
         InitDma();
 #endif
         RegisterInterrupts();
+    }
+
+    void SdCardStm::ReadCardRegisters()
+    {
+        HAL_SD_CardCIDTypeDef cid{};
+        if (HAL_SD_GetCardCID(&handle, &cid) == HAL_OK)
+            identification = { cid.ManufacturerID, cid.OEM_AppliID,
+                { { static_cast<char>(cid.ProdName1 >> 24), static_cast<char>(cid.ProdName1 >> 16), static_cast<char>(cid.ProdName1 >> 8), static_cast<char>(cid.ProdName1), static_cast<char>(cid.ProdName2) } },
+                cid.ProdRev, cid.ProdSN, cid.ManufactDate };
+
+        HAL_SD_CardStatusTypeDef status{};
+        if (HAL_SD_GetCardStatus(&handle, &status) == HAL_OK)
+            allocationUnitBlocks = AllocationUnitKiB(status.AllocationUnitSize) * 1024 / blockSize;
+
+        handle.ErrorCode = HAL_SD_ERROR_NONE;
     }
 
     void SdCardStm::RegisterCallbacks()
