@@ -125,13 +125,17 @@ namespace hal
 
     void UartStm::ReceiveData(infra::Function<void(infra::ConstByteRange data)> dataReceived)
     {
-        this->dataReceived = dataReceived;
-
         // Atomic, otherwise a TXEIE clear by Invoke during the read-modify-write is undone and TXE interrupts never stop
         if (dataReceived == nullptr)
+        {
+            this->dataReceived.Clear();
             ATOMIC_CLEAR_BIT(uartArray[uartIndex]->CR1, USART_CR1_RE | USART_CR1_RXNEIE);
+        }
         else
+        {
+            this->dataReceived.Set(dataReceived);
             ATOMIC_SET_BIT(uartArray[uartIndex]->CR1, USART_CR1_RE | USART_CR1_RXNEIE);
+        }
     }
 
     void UartStm::RegisterInterrupt(const Config& config)
@@ -171,8 +175,7 @@ namespace hal
                 buffer.push_back(receivedByte);
             }
 
-            if (dataReceived != nullptr)
-                dataReceived(buffer.range());
+            dataReceived(buffer.range());
         }
 
 #if defined(USART_ICR_ORECF)

@@ -4,6 +4,7 @@
 #include "hal/interfaces/Gpio.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
+#include "infra/util/HotSwapFunction.hpp"
 #include "infra/util/InterfaceConnector.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include <array>
@@ -372,7 +373,7 @@ namespace hal
         infra::MemoryRange<const infra::MemoryRange<const GpioStm::PinoutTable>> pinoutTable;
         infra::MemoryRange<const GpioStm::AnalogPinPosition> analogTable;
 
-        std::array<infra::Function<void()>, 16> handlers;
+        std::array<infra::HotSwapFunction<void()>, 16> handlers;
         std::array<InterruptType, 16> interruptTypes{};
         std::array<std::atomic_bool, 16> notificationScheduled{};
         std::array<uint32_t, 11> assignedPins;

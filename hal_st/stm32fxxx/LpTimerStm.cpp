@@ -76,7 +76,7 @@ namespace hal
 
     void LowPowerTimerWithInterruptStm::Start(const infra::Function<void()>& onIrq, InterruptType type)
     {
-        this->onIrq = onIrq;
+        this->onIrq.Set(onIrq);
         this->type = type;
 #if defined(STM32WB) || defined(STM32G4)
         auto result = HAL_LPTIM_Counter_Start_IT(&handle, currentPeriod);

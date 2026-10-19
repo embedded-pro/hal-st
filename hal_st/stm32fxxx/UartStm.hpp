@@ -7,6 +7,7 @@
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/Function.hpp"
+#include "infra/util/HotSwapFunction.hpp"
 #include "infra/util/MemoryRange.hpp"
 #include <cstdint>
 
@@ -60,7 +61,7 @@ namespace hal
 
     protected:
         uint8_t uartIndex;
-        infra::Function<void(infra::ConstByteRange data)> dataReceived;
+        infra::HotSwapFunction<void(infra::ConstByteRange data)> dataReceived;
         infra::MemoryRange<USART_TypeDef* const> uartArray;
 
     private:

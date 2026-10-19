@@ -7,6 +7,7 @@
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/TimerStm.hpp"
+#include "infra/util/HotSwapFunction.hpp"
 #include <variant>
 
 namespace hal
@@ -41,7 +42,7 @@ namespace hal
         infra::MemoryRange<AnalogPinStm> analogPins;
         AdcStm& adc;
         std::variant<ReceiveDmaChannel, CircularReceiveDmaChannel> dmaStream;
-        infra::Function<void(Samples)> onDone;
+        infra::HotSwapFunction<void(Samples)> onDone;
 
         void Initialize();
         void TransferDone();
