@@ -73,15 +73,15 @@ namespace hal
 
     void UartStmDuplexDma::ReceiveData(infra::Function<void(infra::ConstByteRange data)> dataReceived)
     {
-        this->dataReceived = dataReceived;
-
         if (dataReceived == nullptr)
         {
+            this->dataReceived.Clear();
             uartArray[uartIndex]->CR1 &= ~USART_CR1_RE;
             receiveDmaChannel.StopTransfer();
         }
         else
         {
+            this->dataReceived.Set(dataReceived);
             receiveDmaChannel.StartReceive(rxBuffer);
 
             uartArray[uartIndex]->CR2 |= USART_CR2_RTOEN;
@@ -102,7 +102,7 @@ namespace hal
 
     void UartStmDuplexDma::ReceiveComplete(size_t currentPosition)
     {
-        if (currentPosition == lastReceivedPosition || !dataReceived)
+        if (currentPosition == lastReceivedPosition || !dataReceived.IsSet())
             return;
 
         really_assert(lastReceivedPosition <= currentPosition);
@@ -110,8 +110,7 @@ namespace hal
         infra::ConstByteRange receivedData(rxBuffer.begin() + lastReceivedPosition, rxBuffer.begin() + currentPosition);
         lastReceivedPosition = currentPosition == rxBuffer.size() ? 0 : currentPosition;
 
-        if (dataReceived != nullptr)
-            dataReceived(receivedData);
+        dataReceived(receivedData);
     }
 
     void UartStmDuplexDma::Invoke()

@@ -99,7 +99,7 @@ namespace hal
 
     void AdcDmaMultiChannelStmBase::Measure(const infra::Function<void(Samples)>& onDone)
     {
-        this->onDone = onDone;
+        this->onDone.Set(onDone);
 
         auto result = LL_ADC_REG_IsConversionOngoing(adc.Handle().Instance);
         assert(result == 0);
@@ -177,7 +177,6 @@ namespace hal
             auto result = ADC_Disable(&adc.Handle());
             assert(result == HAL_OK);
         }
-        if (this->onDone)
-            onDone(buffer);
+        onDone(buffer);
     }
 }
