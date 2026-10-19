@@ -131,6 +131,56 @@ namespace hal
 #endif
         }
 #endif
+
+        void MaskExtiLine(std::size_t line)
+        {
+#if defined(STM32H7)
+            ExtiCore()->IMR1 &= ~(1 << line);
+#elif defined(EXTI_IMR1_IM0)
+            EXTI->IMR1 &= ~(1 << line);
+#else
+            EXTI->IMR &= ~(1 << line);
+#endif
+        }
+
+        void UnmaskExtiLine(std::size_t line)
+        {
+#if defined(STM32H7)
+            ExtiCore()->IMR1 |= 1 << line;
+#elif defined(EXTI_IMR1_IM0)
+            EXTI->IMR1 |= 1 << line;
+#else
+            EXTI->IMR |= 1 << line;
+#endif
+        }
+
+        bool IsExtiPending(std::size_t line)
+        {
+#if defined(STM32WB) || defined(STM32G4)
+            return (EXTI->PR1 & (1 << line)) != 0;
+#elif defined(STM32H7)
+            return (ExtiCore()->PR1 & (1 << line)) != 0;
+#elif defined(STM32G0) || defined(STM32WBA) || defined(STM32H5)
+            return ((EXTI->RPR1 & (1 << line)) || (EXTI->FPR1 & (1 << line)));
+#else
+            return (EXTI->PR & (1 << line)) != 0;
+#endif
+        }
+
+        // Interrupt pending is cleared by writing a 1 to it
+        void ClearExtiPending(std::size_t line)
+        {
+#if defined(STM32WB) || defined(STM32G4)
+            EXTI->PR1 = 1 << line;
+#elif defined(STM32H7)
+            ExtiCore()->PR1 = 1 << line;
+#elif defined(STM32G0) || defined(STM32WBA) || defined(STM32H5)
+            EXTI->RPR1 = 1 << line;
+            EXTI->FPR1 = 1 << line;
+#else
+            EXTI->PR = 1 << line;
+#endif
+        }
     }
 
     DummyPinStm dummyPinStm;
@@ -542,6 +592,9 @@ namespace hal
 
     void GpioStm::EnableInterrupt(Port port, uint8_t index, const infra::Function<void()>& action, InterruptTrigger trigger, InterruptType type)
     {
+        really_assert(!handlers[index].IsSet());
+        MaskExtiLine(index);
+
 #if defined(EXTI_EXTICR1_EXTI0)
         uint32_t shift = (index & 0x03) * EXTI_EXTICR1_EXTI1_Pos;
 #else
@@ -569,12 +622,6 @@ namespace hal
             EXTI->FTSR1 |= 1 << index;
         else
             EXTI->FTSR1 &= ~(1 << index);
-
-#if defined(STM32H7)
-        ExtiCore()->IMR1 |= 1 << index;
-#else
-        EXTI->IMR1 |= 1 << index;
-#endif
 #else
         if (trigger != InterruptTrigger::fallingEdge)
             EXTI->RTSR |= 1 << index;
@@ -585,49 +632,30 @@ namespace hal
             EXTI->FTSR |= 1 << index;
         else
             EXTI->FTSR &= ~(1 << index);
-
-        EXTI->IMR |= 1 << index;
 #endif
-        really_assert(!handlers[index]);
-        handlers[index] = action;
+
+        handlers[index].Set(action);
         interruptTypes[index] = type;
+
+        ClearExtiPending(index);
+        UnmaskExtiLine(index);
     }
 
     void GpioStm::DisableInterrupt(Port port, uint8_t index)
     {
-#if defined(STM32H7)
-        ExtiCore()->IMR1 &= ~(1 << index);
-#elif defined(EXTI_IMR1_IM0)
-        EXTI->IMR1 &= ~(1 << index);
-#else
-        EXTI->IMR &= ~(1 << index);
-#endif
-        handlers[index] = nullptr;
+        MaskExtiLine(index);
+        handlers[index].Clear();
     }
 
     void GpioStm::ExtiInterrupt(IRQn_Type irq, std::size_t from, std::size_t to)
     {
         for (std::size_t line = from; line != to; ++line)
         {
-#if defined(STM32WB) || defined(STM32G4)
-            if (EXTI->PR1 & (1 << line))
+            if (IsExtiPending(line))
             {
-                EXTI->PR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
-#elif defined(STM32H7)
-            if (ExtiCore()->PR1 & (1 << line))
-            {
-                ExtiCore()->PR1 = (1 << line); // Interrupt pending is cleared by writing a 1 to it
-#elif defined(STM32G0) || defined(STM32WBA) || defined(STM32H5)
-            if ((EXTI->RPR1 & (1 << line)) || (EXTI->FPR1 & (1 << line)))
-            {
-                EXTI->RPR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
-                EXTI->FPR1 &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
-#else
-            if (EXTI->PR & (1 << line))
-            {
-                EXTI->PR &= (1 << line); // Interrupt pending is cleared by writing a 1 to it
-#endif
-                if (handlers[line])
+                ClearExtiPending(line);
+
+                if (handlers[line].IsSet())
                 {
                     if (interruptTypes[line] == InterruptType::dispatched)
                     {
@@ -647,8 +675,7 @@ namespace hal
             infra::EventDispatcher::Instance().Schedule([this, line]
                 {
                     notificationScheduled[line] = false;
-                    if (handlers[line])
-                        handlers[line]();
+                    handlers[line]();
                 });
     }
 
