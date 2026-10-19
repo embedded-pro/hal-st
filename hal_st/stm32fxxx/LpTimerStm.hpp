@@ -5,6 +5,7 @@
 #include "hal/interfaces/Gpio.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/Function.hpp"
+#include "infra/util/HotSwapFunction.hpp"
 #include <atomic>
 #include DEVICE_HEADER
 
@@ -61,7 +62,7 @@ namespace hal
 
     private:
         cortex::ImmediateInterruptHandler interruptHandler;
-        infra::Function<void()> onIrq;
+        infra::HotSwapFunction<void()> onIrq;
         InterruptType type;
         std::atomic_bool scheduled{};
 

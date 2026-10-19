@@ -246,7 +246,7 @@ namespace hal
 
     void TimerWithInterruptStm::Start(const infra::Function<void()>& onIrq, InterruptType type)
     {
-        this->onIrq = onIrq;
+        this->onIrq.Set(onIrq);
         this->type = type;
         // Some HAL versions leave UIF set from the UG of HAL_TIM_Base_Init, which would fire
         // a callback as soon as the interrupt is enabled.
