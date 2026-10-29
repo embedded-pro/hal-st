@@ -13,6 +13,8 @@ requires-python = ">=3.10"
 dependencies = [
     "ad3-waveforms-bench @ git+https://github.com/embedded-pro/ad3-waveforms-bench@dcb3754fd4a4997e4e78cd824f48bc13b0c2435a",
     "pyserial>=3.5",
+    # CAN bus peer (CANable): slcan works with this alone; gs_usb and candle need python-can's extras of the same name.
+    "python-can>=4.4",
     "pyyaml>=6.0",
     "pytest>=7.4",
     "pytest-bdd>=9.0,<10",

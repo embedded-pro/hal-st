@@ -37,6 +37,9 @@ clocks:
     lpuart1: 170000000
   lptim:
     1: 170000000
+  # FDCAN kernel clock: the 24 MHz HSE after reset (FDCANSEL), which the
+  # firmware leaves selected.
+  fdcan: 24000000
 
 terminal:
   baud: 921600
@@ -94,6 +97,8 @@ pins:
   tim17ch1n: PB7
   tim20ch1: PB2
   tim20ch2: PC2
+  can1rx: PA11
+  can1tx: PA12
   qei1a: PA8
   qei1b: PA9
   qei1idx: PA10
@@ -567,6 +572,8 @@ tests:
       - spis.open 4
       - comp.open 0
       - comp.open 8
+      - can.open 0
+      - can.open 4
     # Features the MCU lacks: ERR unsupported (no encoder interface).
     unsupported_instances:
       - qei.open 6
@@ -1648,6 +1655,64 @@ tests:
       phase_s: 3.0e-8
       adc_rate: 0.02
     fault_settle_s: 0.01
+  can:
+    # FDCAN1 on its default pins PA11/PA12 (can1rx, can1tx). The frame,
+    # timing and filter tests run in the external loopback mode (no wiring)
+    # or, with --can-mode bus, through a 3.3 V transceiver to a CANable
+    # (validation/README.md, "CAN bus"; not with bundle1, whose DIO7 and
+    # DIO11 sit on PA11 and PA12).
+    index: 1
+    rx: can1rx
+    tx: can1tx
+    # Every instance on pins of its own, in loopback: FDCAN1 and FDCAN2 on
+    # AF9, FDCAN3 on AF11.
+    instances:
+      - {name: fdcan1, index: 1, rx: can1rx, tx: can1tx}
+      - {name: fdcan2, index: 2, rx: PB12, tx: PB13}
+      - {name: fdcan3, index: 3, rx: PA8, tx: PA15}
+    # Bit rates the 24 MHz kernel clock reaches exactly with 8 to 25 quanta
+    # (24 quanta; 16 at 750 kbit/s), all of them CANable (slcan) rates.
+    frames:
+      bitrate: [125000, 250000, 500000, 750000, 1000000]
+      ext: [0, 1]
+      dlc: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+    ids:
+      std: [0x000, 0x123, 0x7ff]
+      ext: [0x00000000, 0x1abcdef0, 0x1fffffff]
+    # tseg1, tseg2, sjw, brp; the bit rate is
+    # 24 MHz / (brp * (1 + tseg1 + tseg2)): 500 kbit/s with 16 quanta,
+    # 1 Mbit/s with sjw = tseg2, 125 kbit/s, and 500 kbit/s with 48 quanta
+    # (beyond the 25 of the automatic timing).
+    timings:
+      - [13, 2, 1, 3]
+      - [19, 4, 4, 1]
+      - [20, 3, 2, 8]
+      - [40, 7, 4, 1]
+    # One id/mask filter of one id type; with match 0 the frames of the other
+    # id type pass unfiltered.
+    filters:
+      - name: std-match
+        filter: [0x120, 0x7f0, 0, 1]
+        accepted: [[0x120, 0], [0x12f, 0]]
+        rejected: [[0x130, 0], [0x220, 0], [0x120, 1]]
+      - name: std-any-type
+        filter: [0x120, 0x7f0, 0, 0]
+        accepted: [[0x120, 0], [0x12a, 0], [0x120, 1], [0x1fffffff, 1]]
+        rejected: [[0x130, 0], [0x7ff, 0]]
+      - name: ext-match
+        filter: [0x1abc0000, 0x1fff0000, 1, 1]
+        accepted: [[0x1abc0000, 1], [0x1abcffff, 1]]
+        rejected: [[0x1abd0000, 1], [0x0abc0000, 1], [0x6af, 0]]
+      - name: ext-any-type
+        filter: [0x1abc0000, 0x1fff0000, 1, 0]
+        accepted: [[0x1abc1234, 1], [0x6af, 0], [0x000, 0]]
+        rejected: [[0x1abd0000, 1], [0x0abc0000, 1]]
+    recover: [0, 1]
+    # Bus tests: the controller at `bitrate`; the CANable at
+    # `wrong_bitrate` destroys its frames with error flags.
+    bus:
+      bitrate: 500000
+      wrong_bitrate: 125000
   uart_sendonly:
     # hal::SynchronousUartStmSendOnly on USART1. `rx` only gives the AD3
     # UART a transmit DIO: the send-only driver leaves the pin alone.
@@ -1807,9 +1872,6 @@ tests:
     unbonded_pin: PD0
   unsupported:
     commands:
-      - can.open 1
-      - can.send 1 0x123 01
-      - can.close 1
       - eth.open
       - eth.status
       - eth.close

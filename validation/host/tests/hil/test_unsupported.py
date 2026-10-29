@@ -1,5 +1,5 @@
-"""Groups hal-st has no driver for on these boards (comparator, CAN, Ethernet) and the groups the running MCU lacks
-answer `ERR unsupported`.
+"""Groups hal-st has no driver for on these boards (Ethernet) and the groups the running MCU lacks (among them CAN on
+the STM32WB55 and STM32WBA55) answer `ERR unsupported`.
 
 Scenarios: features/unsupported.feature.
 """
