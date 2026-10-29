@@ -131,12 +131,7 @@ namespace validation
     AdcFactoryStm::PwmTriggeredSequence::PwmTriggeredSequence(infra::MemoryRange<uint16_t> samples, infra::MemoryRange<hal::AnalogPinStm> inputs, hal::AdcStm& converter, hal::DmaStm::ReceiveStream& receiveStream, ChannelConfigs configs, uint32_t triggerSource)
         : Sequence(samples, inputs, converter, receiveStream, configs, hal::AdcDmaMultiChannelStmBase::Unlimited{})
     {
-        HAL_ADC_Stop(&converter.Handle());
-
-        LL_ADC_REG_SetTriggerSource(converter.Handle().Instance, triggerSource);
-#if defined(ADC_CFGR1_EXTEN) || defined(ADC_CFGR_EXTEN)
-        LL_ADC_REG_SetTriggerEdge(converter.Handle().Instance, ADC_EXTERNALTRIGCONVEDGE_RISING);
-#endif
+        SelectExternalTrigger(triggerSource);
     }
 
     void AdcFactoryStm::PwmTriggeredSequence::Measure(const infra::Function<void(Samples)>& onDone)
