@@ -36,6 +36,7 @@ namespace hal
 
     protected:
         void ConfigureChannels(infra::MemoryRange<const detail::AdcStmChannelConfig> configs);
+        void SelectExternalTrigger(uint32_t triggerSource);
 
     private:
         infra::MemoryRange<uint16_t> buffer;
@@ -121,6 +122,19 @@ namespace hal
         void Stop() override;
     };
 
+    // One sequence per rising edge of an external trigger the caller configures, such as a PWM timer's TRGO
+    // placing the conversion at a chosen point of the period. The timer is not owned, so it can drive outputs too.
+    template<std::size_t Channels>
+    class AdcDmaMultiChannelStmTriggeredExternally
+        : public AdcDmaMultiChannelStm<Channels, AdcDmaMultiChannelStmBase::Unlimited>
+    {
+    public:
+        template<AdcPin... Pins>
+        explicit AdcDmaMultiChannelStmTriggeredExternally(AdcStm& adc, DmaStm::ReceiveStream& receiveStream, uint32_t triggerSource, Pins&&... pins);
+        template<PinConfig... PinConfigs>
+        explicit AdcDmaMultiChannelStmTriggeredExternally(AdcStm& adc, DmaStm::ReceiveStream& receiveStream, uint32_t triggerSource, PinConfigs&&... pinConfigs);
+    };
+
     ////    Implementation    ////
 
     template<std::size_t Channels, DmaMode Mode>
@@ -182,6 +196,22 @@ namespace hal
     {
         StartTimer();
         AdcDmaMultiChannelStmBase::Measure(onDone);
+    }
+
+    template<std::size_t Channels>
+    template<AdcPin... Pins>
+    AdcDmaMultiChannelStmTriggeredExternally<Channels>::AdcDmaMultiChannelStmTriggeredExternally(AdcStm& adc, DmaStm::ReceiveStream& receiveStream, uint32_t triggerSource, Pins&&... pins)
+        : AdcDmaMultiChannelStm<Channels, AdcDmaMultiChannelStmBase::Unlimited>(adc, receiveStream, std::forward<Pins>(pins)...)
+    {
+        this->SelectExternalTrigger(triggerSource);
+    }
+
+    template<std::size_t Channels>
+    template<PinConfig... PinConfigs>
+    AdcDmaMultiChannelStmTriggeredExternally<Channels>::AdcDmaMultiChannelStmTriggeredExternally(AdcStm& adc, DmaStm::ReceiveStream& receiveStream, uint32_t triggerSource, PinConfigs&&... pinConfigs)
+        : AdcDmaMultiChannelStm<Channels, AdcDmaMultiChannelStmBase::Unlimited>(adc, receiveStream, std::forward<PinConfigs>(pinConfigs)...)
+    {
+        this->SelectExternalTrigger(triggerSource);
     }
 
     template<std::size_t Channels>

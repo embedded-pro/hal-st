@@ -32,6 +32,8 @@ target_sources(hal_st.stm32fxxx PRIVATE
     CanStm.hpp
     ComparatorStm.cpp
     ComparatorStm.hpp
+    FdCanStm.cpp
+    FdCanStm.hpp
     CordicStm.cpp
     CordicStm.hpp
     CordicStmDma.cpp

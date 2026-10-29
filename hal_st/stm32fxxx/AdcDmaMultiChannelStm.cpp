@@ -170,6 +170,16 @@ namespace hal
         LL_ADC_REG_SetSequencerLength(adc.Handle().Instance, sequencerLength[analogPins.size() - 1]);
     }
 
+    void AdcDmaMultiChannelStmBase::SelectExternalTrigger(uint32_t triggerSource)
+    {
+        really_assert(!LL_ADC_REG_IsConversionOngoing(adc.Handle().Instance));
+
+        LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, triggerSource);
+#if defined(ADC_CFGR1_EXTEN) || defined(ADC_CFGR_EXTEN)
+        LL_ADC_REG_SetTriggerEdge(adc.Handle().Instance, LL_ADC_REG_TRIG_EXT_RISING);
+#endif
+    }
+
     void AdcDmaMultiChannelStmBase::TransferDone()
     {
         if (std::holds_alternative<ReceiveDmaChannel>(dmaStream))
