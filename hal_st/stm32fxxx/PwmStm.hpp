@@ -138,6 +138,7 @@ namespace hal
         uint8_t timerIndex;
         Config config;
         bool idleStateRequested{ false };
+        bool offStateControl{ false };
         bool started{ false };
         bool outputsEnabled{ false };
         TIM_HandleTypeDef handle{};
