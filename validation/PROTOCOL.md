@@ -80,6 +80,7 @@ The NUCLEO-G474RE aliases (the board has no `led`/`sw` alias: LD2 on PA5 is the 
 | `spi1clk` `spi1miso` `spi1mosi` `spi1cs` `spi2clk` `spi2miso` `spi2mosi` `spi2cs` `spi3clk` `spi3miso` `spi3mosi` `spi3cs`                                                      | PB3 PB4 PB5 PA15 PB13 PB14 PB15 PB12 PC10 PC11 PC12 PA4                    | SPI clock / MISO / MOSI / chip select                              |
 | `spi1nss` `spi2nss` `spi3nss`                                                                                                                                                   | PA15 PB12 PA4                                                              | SPI hardware NSS (the pin of `spiNcs`)                             |
 | `i2c1scl` `i2c1sda` `i2c2scl` `i2c2sda` `i2c3scl` `i2c3sda` `i2c4scl` `i2c4sda`                                                                                                 | PB8 PB9 PA9 PA8 PC8 PC9 PC6 PC7                                            | I2C SCL / SDA                                                      |
+| `can1rx` `can1tx`                                                                                                                                                               | PA11 PA12                                                                  | FDCAN1 RX / TX, the default CAN pins                               |
 | `usart1tx` `usart1rx` `usart1rts` `usart1cts` `usart3tx` `usart3rx` `usart3rts` `usart3cts` `uart4tx` `uart4rx` `uart4rts` `uart4cts` `uart5tx` `uart5rx` `uart5rts` `uart5cts` | PA9 PA10 PA12 PA11 PB10 PB11 PB14 PB13 PC10 PC11 PA15 PB7 PC12 PD2 PB4 PB5 | USART / UART TX / RX / RTS / CTS                                   |
 | `lpuart1tx` `lpuart1rx` `lpuart1rts` `lpuart1cts`                                                                                                                               | PC1 PC0 PB1 PB13                                                           | LPUART1 TX / RX / RTS / CTS                                        |
 | `dac1out1` `dac2out1`                                                                                                                                                           | PA4 PA6                                                                    | DAC outputs (`dac` group)                                          |
@@ -88,7 +89,7 @@ The NUCLEO-G474RE aliases (the board has no `led`/`sw` alias: LD2 on PA5 is the 
 | `gpio0` `gpio1` `gpio2` `gpio3` `gpio4`                                                                                                                                         | PC4 PC5 PD2 PB2 PA4                                                        | general-purpose test pins (`gpio0` is the watchdog warning toggle) |
 
 - Wherever a pin is expected, an alias from these tables may be used instead of `P<port><index>`; several aliases may name the same pin, and no alias carries a default pull.
-- Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`, G474 TIM1 `qei1a`/`qei1b`/`qei1idx`). Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
+- Per-instance default pins apply only when a command gets no pins at all: LPUART1 `lpuart1tx`/`lpuart1rx`; the default encoder (WB55 TIM2 `qei2a`/`qei2b`/`qei2idx`, WBA55 TIM1 `qei1a`/`qei1b`/`qei1idx`, G474 TIM1 `qei1a`/`qei1b`/`qei1idx`); G474 FDCAN1 `can1rx`/`can1tx`. Other UART and encoder instances need their pins; SPI and the ADC always do, PWM needs `channels` or `pins`.
 - `board.pins` → `OK <alias>=<pin>,...` lists the table for the running board.
 - The buttons short their pin to ground when pressed; never configure `sw1`-`sw3` as outputs.
 
@@ -99,7 +100,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
 - After reset the firmware prints `EVT boot board=<name> family=<stm32wb55|stm32wba55|stm32g474> sysclk=<hz> reset=<cause>` once; `<cause>` is `iwdg`, `wwdg`, `sw`, `lpwr`, `obl`, `bor`, `pin` or `unknown` (the RCC reset flags in that priority order; a reset through NRST also sets `pin`, so `pin` is checked last).
 - Pins are written as `P<port><index>`, for example `PA15`, `PB3`, `PH3`: ports A-E and H on STM32WB55, A-C and H on STM32WBA55, and A-C, PD2, PF0, PF1 and PG10 on the STM32G474 (LQFP64), index 0-15; a pin the package does not bond out returns `ERR pin` (on the STM32WBA55 UFQFPN48 also PA3, PB10, PB11 and PB13, its SMPS and VDD11 pads).
 - Instance numbers are the STM32 peripheral numbers: USART 1-2 and LPUART 1 (selected with `lp=1`), I2C 1-3, SPI 1-3, TIM 1-17 (PWM, encoder, timer and timer PWM), LPTIM 1-2 (low-power timer, LPTIM PWM, and the encoder with `lp=1`), QUADSPI 1, ADC 1 (WB55) or 4 (WBA55), watchdog 0 (the WWDG).
-  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`), OPAMP 1-6 (`opamp`) and the HRTIM timing units A-F as 1-6 (`hrtim`).
+  On the STM32G474: USART 1-3 and UART 4-5 (`lp=0`, the index is the peripheral number) and LPUART 1, I2C 1-4, SPI 1-3, TIM 1-8, 15-17 and 20, LPTIM 1, QUADSPI 1, ADC 1, DAC 1-2 (`dac`, by pin), the CORDIC (`cordic`) and the FMAC (`fmac`), without an instance number, COMP 1-7 (`comp`), OPAMP 1-6 (`opamp`), the HRTIM timing units A-F as 1-6 (`hrtim`) and FDCAN 1-3 (`can`).
   A number the running MCU lacks, including 0 where the peripherals start at 1, returns `ERR range`: both MCUs have I2C1 and I2C3 (not I2C2) and LPTIM1 and LPTIM2; the encoder with `lp=1` takes LPTIM1 on the WB55 and LPTIM1 or LPTIM2 on the WBA55; QUADSPI exists on the WB55 only (the `qspi` commands are unsupported on the WBA55, see below).
 - The terminal UART and its pins, the debug LED, the SWD pins PA13/PA14, the LSE crystal pins PC14/PC15 and BOOT0 (PH3) are reserved and cannot be opened (`ERR busy`); on the STM32G474 also the HSE pins PF0/PF1 and NRST (PG10), and BOOT0 is PB8 (not reserved: the option bytes of a stock board boot from flash); any other pin, aliased or not, can be reconfigured freely.
   The debug LED blinks while the firmware runs: WB55 PB5, the blue LD1; G474 PA5, the green LD2; WBA55 PA9, the green LD2 (alias `led1`), which is not connected on a stock NUCLEO-WBA55CG (SB28 open), so it stays dark unless SB28 is closed.
@@ -170,6 +171,7 @@ The generic framing (`OK`/`ERR`/`EVT` lines, reasons, the deferred `\r\n` prefix
   - `trgo` selects the trigger output (TIMx_CR2.MMS) an `adc.open trgo=` sequence runs on: `reset`, `enable`, `update`, `oc1` (compare pulse of channel 1), `oc1ref`-`oc4ref` (the channel's reference signal); without `trgo` the trigger output is `reset`; it needs a master timer, TIM1, TIM2 or (STM32WBA55) TIM3 (`ERR unsupported` on TIM16/TIM17)
   - `dead` is the dead time inserted between a channel and its complementary output, at most 1000000 ns; it saturates at the largest dead time the DTG field encodes
   - `inv` and `invn` invert every channel output or complementary output, `idle` and `idlen` set their level while the outputs are disabled; the timer never drives a channel and its complementary output to their active levels together, so idle levels that are both active (`idle=1 idlen=1` with `inv=0 invn=0`) leave both at their inactive levels
+  - with `dead`, `brk` or an idle level of 1, `pwm.stop` keeps the timer driving the idle levels (0 unless set), so a bridge's gate inputs stay off; without any of them it releases the outputs
   - `brk=<pin>` muxes the break input of the timer (`ERR pin` for another pin); `brkpol` is the active level and `brkauto=1` re-enables the outputs automatically after the break input releases
   - complementary outputs, `dead`, `idle`, `idlen` and `brk` need a timer with a break function, TIM1, TIM16 or TIM17 (`ERR unsupported` otherwise)
   - a channel the timer does not have, or a complementary output it does not have (CH4N; CH2-CH4 on TIM16/TIM17), returns `ERR unsupported`
@@ -633,6 +635,20 @@ The HRTIM runs on the APB2 timer clock fHRTIM (170 MHz); the DLL multiplies it b
 - `hrtim.close <u>` → `OK`
 - The output and fault pins are held exclusively while the unit is open
 
+## CAN (`hal::FdCanStm`, NUCLEO-G474RE only)
+
+- `can.open <index> [rx=<pin>] [tx=<pin>] [bitrate=<bps>] [timing=<tseg1>,<tseg2>,<sjw>,<brp>] [filter=<id>,<mask>,<ext0|1>[,<match0|1>]] [loopback=0|1] [recover=0|1]` → `OK`
+  - FDCAN 1-3, classic frames only (`ERR range` for 0 and above 3); the bit timing follows the FDCAN kernel clock the application selects, the 24 MHz HSE after reset
+  - defaults `bitrate=500000 loopback=0 recover=1`, no filter; without pins FDCAN1 uses `can1rx` and `can1tx`, other instances need both pins (`ERR usage`); a pin without the `canRx`/`canTx` function of the instance returns `ERR pin`
+  - a bit rate the kernel clock does not reach exactly with 8 to 25 time quanta returns `ERR range`; the driver places the sample point near 87.5 %
+  - `timing` sets the nominal bit timing instead of `bitrate` (both together: `ERR usage`): `tseg1` 1-256 (propagation plus phase segment 1, in quanta), `tseg2` 1-128, `sjw` 1-128 and at most `tseg2`, `brp` 1-512 (`ERR range` outside); the bit rate is the kernel clock / (`brp` × (1 + `tseg1` + `tseg2`))
+  - `filter` accepts ids matching `<id>` under `<mask>` as standard (`ext0`) or extended (`ext1`) ids; `match` (default 1) also requires the id type to match, `match0` lets frames of the other type through unfiltered; remote frames are never received
+  - `loopback=1` is the external loopback mode: transmitted frames come back internally and still leave on the TX pin, so it needs no transceiver
+  - `recover=1` leaves bus off by itself after the 129 × 11 recessive bits of the recovery; with `recover=0` the controller stays off until it is closed. A frame pending when the controller went bus off fails and is not sent after the recovery
+- `can.send <index> <id> <hex> [ext=0|1]` → `OK` when transmission succeeded, `ERR failed` otherwise (`ERR timeout` after 1000 ms; later sends return `ERR busy` until the frame leaves or the controller is closed); up to 8 bytes, `-` for none
+- Received frames: `EVT can index=<i> id=<id> ext=<0|1> data=<hex>`, at most 8 data bytes also for a DLC above 8; errors: `EVT can index=<i> error=<name>` with `<name>` one of `stuffError formError ackError bit1Error bit0Error crcError errorWarning errorPassive busOff messageLost`; the same error repeated within 100 ms is reported once
+- `can.close <index>` → `OK`
+
 ## BLE (`hal_st.validation_ble_firmware`: `hal::GapCentralSt`, `hal::GapPeripheralSt`, `hal::GattClientSt`, `hal::GattServerSt`, the Nordic UART service; STM32WB55 and STM32WBA55)
 
 BLE needs two boards linked over the air, a central and a peripheral, so it has an image of its own, `validation/ble_firmware`. It carries the console, `ping`, `info` and `reset` of everything above and only the `ble` group; `hal_st.validation_firmware` has no `ble.*` (they answer `ERR usage`, an unknown command), which is how the host tells the two images apart. The same BLE image runs on both boards.
@@ -703,7 +719,7 @@ Behaviour of hal-st and the ST stack that the specification leaves open, and tha
 ## Not available on these boards
 
 The `ble` group is in `hal_st.validation_ble_firmware` only (see above).
-hal-st has no CAN or Ethernet driver for STM32WB55/STM32WBA55/STM32G474, so `can.open`, `can.send`, `can.close`, `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`.
+hal-st has no Ethernet driver for these MCUs, so `eth.open`, `eth.status` and `eth.close` return `ERR unsupported`; `can.open`, `can.send` and `can.close` do so on STM32WB55 and STM32WBA55, which have no FDCAN.
 The groups one MCU lacks return `ERR unsupported` on that MCU:
 
 - STM32WB55: `lptpwm.open`, `lptpwm.duty`, `lptpwm.pulse`, `lptpwm.start`, `lptpwm.stop`, `lptpwm.close` (`hal::LpTimerPwmStm` is not built for STM32WB), and `dac.open`, `dac.set`, `dac.close` (no DAC driver on the board).

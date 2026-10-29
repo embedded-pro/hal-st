@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cstdint>
 #include <optional>
+#include <variant>
 #include DEVICE_HEADER
 
 #if defined(HAS_PERIPHERAL_FDCAN)
@@ -28,6 +29,7 @@ namespace hal
     // are queued in the interrupt and delivered, as are errors, from the event dispatcher.
     class FdCanStm
         : public Can
+        , private cortex::InterruptHandler
     {
     public:
         template<std::size_t StorageSize>
@@ -47,18 +49,7 @@ namespace hal
             messageLost,
         };
 
-        struct Config
-        {
-            constexpr Config()
-            {}
-
-            uint32_t bitRate{ 1'000'000 };
-
-            // Transmitted frames are looped back internally while still driven onto the bus
-            bool testMode{ false };
-            bool autoBusOffRecovery{ true };
-            cortex::InterruptPriority interruptPriority{ cortex::InterruptPriority::normal };
-        };
+        using BitRate = uint32_t;
 
         struct NominalBitTiming
         {
@@ -68,7 +59,31 @@ namespace hal
             uint32_t syncJumpWidth;
         };
 
-        static NominalBitTiming CalculateNominalBitTiming(uint32_t kernelClock, uint32_t bitRate);
+        // Without a filter every data frame is received. With one, only frames whose id matches id under mask; with
+        // matchIdType clear, frames of the other id type pass unfiltered.
+        struct Filter
+        {
+            uint32_t id;
+            uint32_t mask;
+            bool extended;
+            bool matchIdType;
+        };
+
+        struct Config
+        {
+            constexpr Config()
+            {}
+
+            std::variant<BitRate, NominalBitTiming> timing{ BitRate{ 1'000'000 } };
+            std::optional<Filter> filter;
+
+            // Transmitted frames are looped back internally while still driven onto the bus
+            bool testMode{ false };
+            bool autoBusOffRecovery{ true };
+            cortex::InterruptPriority interruptPriority{ cortex::InterruptPriority::normal };
+        };
+
+        static NominalBitTiming CalculateNominalBitTiming(uint32_t kernelClock, BitRate bitRate);
 
         FdCanStm(infra::MemoryRange<FdCanRxEntry> rxStorage, uint8_t oneBasedIndex, GpioPinStm& rx, GpioPinStm& tx, const Config& config, const infra::Function<void(Error)>& onError);
         FdCanStm(const FdCanStm&) = delete;
@@ -85,10 +100,13 @@ namespace hal
             bool success{ false };
         };
 
+        void Invoke() override;
+
         void Initialize();
+        void ConfigureFilter();
         bool InterruptPending(uint32_t flag, uint32_t interrupt);
-        void HandleInterrupt();
         void HandleStatusInterrupt();
+        void HandleBusOff();
         void HandleTxInterrupt();
         void HandleRxInterrupt();
 
@@ -115,7 +133,7 @@ namespace hal
         std::atomic<uint8_t> sendCompletionsEnd{ 0 };
         bool previousWarning{ false };
         bool previousPassive{ false };
-        std::optional<cortex::ImmediateInterruptHandler> interruptHandler;
+        bool busOff{ false };
     };
 }
 

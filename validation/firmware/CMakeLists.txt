@@ -33,6 +33,8 @@ target_sources(hal_st.validation_firmware PRIVATE
     BoardInfoStm.cpp
     BoardInfoStm.hpp
     BoardTypes.hpp
+    CanFactory.cpp
+    CanFactory.hpp
     ChannelPins.hpp
     ClockGroup.cpp
     ClockGroup.hpp

@@ -11,7 +11,12 @@ namespace
     constexpr uint32_t minimumTimeQuanta = 8;
     constexpr uint32_t maximumTimeQuanta = 25;
     constexpr uint32_t maximumPrescaler = 512;
+    constexpr uint32_t maximumTimeSegment1 = 256;
+    constexpr uint32_t maximumTimeSegment2 = 128;
     constexpr uint8_t maxDataLength = 8;
+
+    // A classic frame may carry a DLC of 9 to 15, for which the HAL copies the FD length of the element
+    constexpr std::size_t maxElementData = 64;
 
     // The HAL encodes the data length differently across families, so lengths go through its own constants
     constexpr std::array<uint32_t, maxDataLength + 1> dataLengthCodes{ {
@@ -60,7 +65,7 @@ namespace
 namespace hal
 {
     // Sample point near 87.5 %, the CiA recommendation; the most time quanta that divide the clock exactly win
-    FdCanStm::NominalBitTiming FdCanStm::CalculateNominalBitTiming(uint32_t kernelClock, uint32_t bitRate)
+    FdCanStm::NominalBitTiming FdCanStm::CalculateNominalBitTiming(uint32_t kernelClock, BitRate bitRate)
     {
         really_assert(bitRate != 0);
 
@@ -108,24 +113,30 @@ namespace hal
 
         Initialize();
 
-        interruptHandler.emplace(peripheralfdCanIt0Irq[index], this->config.interruptPriority, [this]()
-            {
-                HandleInterrupt();
-            });
+        // Served in the interrupt, not dispatched: a receive FIFO holds three frames, fewer than arrive at 1 Mbit/s
+        // while the event dispatcher runs a long action
+        Register(peripheralfdCanIt0Irq[index], this->config.interruptPriority);
     }
 
-    // The bus and kernel clock is shared by every instance, so it stays on
     FdCanStm::~FdCanStm()
     {
-        interruptHandler.reset();
+        Unregister();
 
         HAL_FDCAN_Stop(&handle);
         HAL_FDCAN_DeInit(&handle);
+        DisableClockfdCan(index);
     }
 
     void FdCanStm::Initialize()
     {
-        const auto timing = CalculateNominalBitTiming(HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN), config.bitRate);
+        const auto timing = std::holds_alternative<NominalBitTiming>(config.timing)
+                                ? std::get<NominalBitTiming>(config.timing)
+                                : CalculateNominalBitTiming(HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN), std::get<BitRate>(config.timing));
+
+        really_assert(timing.prescaler >= 1 && timing.prescaler <= maximumPrescaler);
+        really_assert(timing.timeSegment1 >= 1 && timing.timeSegment1 <= maximumTimeSegment1);
+        really_assert(timing.timeSegment2 >= 1 && timing.timeSegment2 <= maximumTimeSegment2);
+        really_assert(timing.syncJumpWidth >= 1 && timing.syncJumpWidth <= timing.timeSegment2);
 
         handle.Init.ClockDivider = FDCAN_CLOCK_DIV1;
         handle.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
@@ -141,20 +152,47 @@ namespace hal
         handle.Init.DataSyncJumpWidth = 1;
         handle.Init.DataTimeSeg1 = 1;
         handle.Init.DataTimeSeg2 = 1;
-        handle.Init.StdFiltersNbr = 0;
-        handle.Init.ExtFiltersNbr = 0;
+        handle.Init.StdFiltersNbr = config.filter && !config.filter->extended ? 1 : 0;
+        handle.Init.ExtFiltersNbr = config.filter && config.filter->extended ? 1 : 0;
         handle.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
 
         auto result = HAL_FDCAN_Init(&handle);
         really_assert(result == HAL_OK);
 
-        result = HAL_FDCAN_ConfigGlobalFilter(&handle, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
-        really_assert(result == HAL_OK);
+        ConfigureFilter();
 
         result = HAL_FDCAN_ActivateNotification(&handle, interrupts, allTxBuffers);
         really_assert(result == HAL_OK);
 
         result = HAL_FDCAN_Start(&handle);
+        really_assert(result == HAL_OK);
+    }
+
+    void FdCanStm::ConfigureFilter()
+    {
+        if (!config.filter)
+        {
+            auto result = HAL_FDCAN_ConfigGlobalFilter(&handle, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
+            really_assert(result == HAL_OK);
+            return;
+        }
+
+        FDCAN_FilterTypeDef filter{};
+        filter.IdType = config.filter->extended ? FDCAN_EXTENDED_ID : FDCAN_STANDARD_ID;
+        filter.FilterIndex = 0;
+        filter.FilterType = FDCAN_FILTER_MASK;
+        filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+        filter.FilterID1 = config.filter->id;
+        filter.FilterID2 = config.filter->mask;
+
+        auto result = HAL_FDCAN_ConfigFilter(&handle, &filter);
+        really_assert(result == HAL_OK);
+
+        const auto otherIdType = config.filter->matchIdType ? FDCAN_REJECT : FDCAN_ACCEPT_IN_RX_FIFO0;
+        const auto nonMatchingStandard = config.filter->extended ? otherIdType : FDCAN_REJECT;
+        const auto nonMatchingExtended = config.filter->extended ? FDCAN_REJECT : otherIdType;
+
+        result = HAL_FDCAN_ConfigGlobalFilter(&handle, nonMatchingStandard, nonMatchingExtended, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
         really_assert(result == HAL_OK);
     }
 
@@ -198,7 +236,7 @@ namespace hal
         return true;
     }
 
-    void FdCanStm::HandleInterrupt()
+    void FdCanStm::Invoke()
     {
         if (InterruptPending(FDCAN_FLAG_RX_FIFO0_NEW_MESSAGE, FDCAN_IT_RX_FIFO0_NEW_MESSAGE))
             HandleRxInterrupt();
@@ -211,10 +249,10 @@ namespace hal
 
         const auto warning = InterruptPending(FDCAN_FLAG_ERROR_WARNING, FDCAN_IT_ERROR_WARNING);
         const auto passive = InterruptPending(FDCAN_FLAG_ERROR_PASSIVE, FDCAN_IT_ERROR_PASSIVE);
-        const auto busOff = InterruptPending(FDCAN_FLAG_BUS_OFF, FDCAN_IT_BUS_OFF);
+        const auto busOffChanged = InterruptPending(FDCAN_FLAG_BUS_OFF, FDCAN_IT_BUS_OFF);
         const auto protocol = InterruptPending(FDCAN_FLAG_ARB_PROTOCOL_ERROR, FDCAN_IT_ARB_PROTOCOL_ERROR);
 
-        if (warning || passive || busOff || protocol)
+        if (warning || passive || busOffChanged || protocol)
             HandleStatusInterrupt();
     }
 
@@ -236,17 +274,32 @@ namespace hal
             ScheduleError(Error::errorPassive);
         previousPassive = passive;
 
-        if (status.BusOff != 0)
+        if (status.BusOff != 0 && !busOff)
+            HandleBusOff();
+        else if (status.BusOff == 0 && busOff)
         {
-            ScheduleError(Error::busOff);
+            busOff = false;
+            HAL_FDCAN_ActivateNotification(&handle, FDCAN_IT_ARB_PROTOCOL_ERROR, 0);
+        }
+    }
 
-            // The frame is cancelled so that recovery does not send it after its failure was reported
-            HAL_FDCAN_AbortTxRequest(&handle, allTxBuffers);
-            NotifySendFailedFromInterrupt();
+    void FdCanStm::HandleBusOff()
+    {
+        busOff = true;
+        ScheduleError(Error::busOff);
 
-            // Bus-off sets CCCR.INIT and the HAL offers no call to clear it; clearing starts the recovery sequence
-            if (config.autoBusOffRecovery)
-                CLEAR_BIT(handle.Instance->CCCR, FDCAN_CCCR_INIT);
+        // The recovery sequence reports a protocol error every 11 recessive bits until it ends
+        HAL_FDCAN_DeactivateNotification(&handle, FDCAN_IT_ARB_PROTOCOL_ERROR);
+
+        // Cancelled so that recovery does not send the frame after its failure was reported
+        HAL_FDCAN_AbortTxRequest(&handle, allTxBuffers);
+        NotifySendFailedFromInterrupt();
+
+        // Bus-off leaves the controller in initialisation; leaving it starts the recovery sequence
+        if (config.autoBusOffRecovery)
+        {
+            HAL_FDCAN_Stop(&handle);
+            HAL_FDCAN_Start(&handle);
         }
     }
 
@@ -259,7 +312,7 @@ namespace hal
     void FdCanStm::HandleRxInterrupt()
     {
         FDCAN_RxHeaderTypeDef header{};
-        std::array<uint8_t, maxDataLength> payload{};
+        std::array<uint8_t, maxElementData> payload{};
 
         while (HAL_FDCAN_GetRxFifoFillLevel(&handle, FDCAN_RX_FIFO0) != 0)
         {
