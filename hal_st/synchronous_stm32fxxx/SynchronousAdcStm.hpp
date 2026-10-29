@@ -19,7 +19,7 @@ namespace hal
     public:
         static constexpr std::size_t maxSamples{ 8 };
 
-#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED)
+#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)
         enum class Oversampling : uint8_t
         {
             x2,
@@ -40,7 +40,7 @@ namespace hal
 
             uint32_t samplingTime{ detail::AdcStmChannelConfig{}.samplingTime };
 
-#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED)
+#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)
             // Each sample is the mean of this many conversions, which the converter accumulates and shifts back
             std::optional<Oversampling> oversampling;
 #endif

@@ -15,7 +15,7 @@ namespace
 {
     constexpr uint32_t conversionTimeoutMs = 10;
 
-#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED)
+#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)
     constexpr std::array<uint32_t, 8> oversamplingRatios{ {
         LL_ADC_OVS_RATIO_2,
         LL_ADC_OVS_RATIO_4,
@@ -117,7 +117,7 @@ namespace hal
     // The oversampler belongs to the converter, not the channel, so every measurement sets it for itself
     void SynchronousAdcStm::ConfigureOversampling()
     {
-#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED)
+#if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)
         if (!config.oversampling)
         {
             LL_ADC_SetOverSamplingScope(adc.Handle().Instance, LL_ADC_OVS_DISABLE);
