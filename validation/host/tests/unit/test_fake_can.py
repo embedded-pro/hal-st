@@ -53,7 +53,6 @@ def test_nominal_bit_timing_takes_the_most_quanta_that_hit_the_rate(bitrate, exp
 
 def test_achievable_bit_rates():
     assert all(bitrate_achievable(CLOCK, rate) for rate in (1_000_000, 800_000, 750_000, 500_000, 250_000, 100_000, 1_875))
-    # 24 MHz / 123457 is no whole number; 1000 bit/s needs a prescaler above 512; 1536 bit/s needs 15625 quanta.
     assert not any(bitrate_achievable(CLOCK, rate) for rate in (123_457, 83_333, 1_000, 1_536))
     with pytest.raises(ValueError):
         nominal_bit_timing(CLOCK, 0)

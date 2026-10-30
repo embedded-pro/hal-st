@@ -10,9 +10,6 @@
 
 namespace hal
 {
-    // Polled conversions of one channel on a shared AdcStm. Built from a pin it owns that pin's analog mode; built
-    // from a channel it leaves the pin to whichever driver owns it, so a second converter can read a pin that a
-    // sequence on another converter samples.
     class SynchronousAdcStm
         : public SynchronousAdc
     {
@@ -41,7 +38,6 @@ namespace hal
             uint32_t samplingTime{ detail::AdcStmChannelConfig{}.samplingTime };
 
 #if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)
-            // Each sample is the mean of this many conversions, which the converter accumulates and shifts back
             std::optional<Oversampling> oversampling;
 #endif
         };

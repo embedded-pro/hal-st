@@ -39,11 +39,8 @@ STANDARD_ID_MAX = 0x7FF
 EXTENDED_ID_MAX = 0x1FFFFFFF
 DATA_MAX = 8
 BITRATE_MAX = 1_000_000
-# Time quanta per bit `CalculateNominalBitTiming` tries, most first.
 QUANTA = (8, 25)
-# `timing=<tseg1>,<tseg2>,<sjw>,<brp>`: the upper limits of the FDCAN nominal bit timing fields.
 TIMING_MAX = (256, 128, 128, 512)
-# `EVT can error=` names in the order of `hal::FdCanStm::Error`.
 ERROR_NAMES = (
     "stuffError",
     "formError",
@@ -57,7 +54,6 @@ ERROR_NAMES = (
     "messageLost",
 )
 
-# `filter=<id>,<mask>,<ext>,<match>`
 CanFilter = tuple[int, int, bool, bool]
 
 

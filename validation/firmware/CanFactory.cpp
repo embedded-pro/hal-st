@@ -26,7 +26,6 @@ namespace validation
 
         constexpr std::array<const char*, 7> openKeys{ { "rx", "tx", "bitrate", "timing", "filter", "loopback", "recover" } };
 
-        // In the order of hal::FdCanStm::Error
         constexpr std::array<const char*, 10> errorNames{ {
             "stuffError",
             "formError",
@@ -45,7 +44,6 @@ namespace validation
             return HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
         }
 
-        // The driver takes the nearest timing it finds; a bit rate it cannot reach exactly is refused instead
         bool BitRateAchievable(uint32_t bitRate)
         {
             const auto timing = hal::FdCanStm::CalculateNominalBitTiming(KernelClock(), bitRate);
@@ -92,7 +90,6 @@ namespace validation
                 values[i] = *value;
             }
 
-            // The resynchronisation jump is part of phase segment 2
             if (values[2] > values[1])
                 return HilStatus::range;
 
@@ -147,8 +144,6 @@ namespace validation
     {
         this->onClosed = onClosed;
 
-        // The driver schedules events with its own address from its interrupt; with the interrupt masked, destroying
-        // it behind the events already queued lets those run against a live driver
         HAL_NVIC_DisableIRQ(hal::peripheralfdCanIt0Irq[index - 1]);
         infra::EventDispatcher::Instance().Schedule([this]()
             {
