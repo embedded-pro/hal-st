@@ -122,7 +122,6 @@ namespace hal
         {
             LL_ADC_REG_StopConversion(adc.Handle().Instance);
 
-            // The stop takes effect when the conversion under way ends, and the converter refuses to disable before
             while (LL_ADC_REG_IsStopConversionOngoing(adc.Handle().Instance))
             {}
         }

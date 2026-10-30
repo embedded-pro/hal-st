@@ -15,10 +15,8 @@ namespace
     constexpr uint32_t maximumTimeSegment2 = 128;
     constexpr uint8_t maxDataLength = 8;
 
-    // A classic frame may carry a DLC of 9 to 15, for which the HAL copies the FD length of the element
     constexpr std::size_t maxElementData = 64;
 
-    // The HAL encodes the data length differently across families, so lengths go through its own constants
     constexpr std::array<uint32_t, maxDataLength + 1> dataLengthCodes{ {
         FDCAN_DLC_BYTES_0,
         FDCAN_DLC_BYTES_1,
@@ -64,7 +62,6 @@ namespace
 
 namespace hal
 {
-    // Sample point near 87.5 %, the CiA recommendation; the most time quanta that divide the clock exactly win
     FdCanStm::NominalBitTiming FdCanStm::CalculateNominalBitTiming(uint32_t kernelClock, BitRate bitRate)
     {
         really_assert(bitRate != 0);
@@ -113,8 +110,6 @@ namespace hal
 
         Initialize();
 
-        // Served in the interrupt, not dispatched: a receive FIFO holds three frames, fewer than arrive at 1 Mbit/s
-        // while the event dispatcher runs a long action
         Register(peripheralfdCanIt0Irq[index], this->config.interruptPriority);
     }
 
@@ -288,14 +283,11 @@ namespace hal
         busOff = true;
         ScheduleError(Error::busOff);
 
-        // The recovery sequence reports a protocol error every 11 recessive bits until it ends
         HAL_FDCAN_DeactivateNotification(&handle, FDCAN_IT_ARB_PROTOCOL_ERROR);
 
-        // Cancelled so that recovery does not send the frame after its failure was reported
         HAL_FDCAN_AbortTxRequest(&handle, allTxBuffers);
         NotifySendFailedFromInterrupt();
 
-        // Bus-off leaves the controller in initialisation; leaving it starts the recovery sequence
         if (config.autoBusOffRecovery)
         {
             HAL_FDCAN_Stop(&handle);
@@ -350,7 +342,6 @@ namespace hal
         }
     }
 
-    // A bus nobody acknowledges reports an error per retransmission; one pending notification per class keeps the event queue bounded
     void FdCanStm::ScheduleError(Error error) const
     {
         const auto bit = static_cast<uint16_t>(1u << static_cast<uint8_t>(error));
@@ -373,7 +364,6 @@ namespace hal
             QueueSendCompletion(false);
     }
 
-    // The callback is copied here because the next SendData may rebind onSendComplete before the dispatcher runs the completion
     void FdCanStm::QueueSendCompletion(bool success)
     {
         const auto end = sendCompletionsEnd.load(std::memory_order_relaxed);

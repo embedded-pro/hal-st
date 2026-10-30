@@ -39,7 +39,6 @@ __all__ = [
 
 LISTEN_ONLY_INTERFACES = frozenset({"slcan"})
 FIXED_BITRATE_INTERFACES = frozenset({"socketcan"})
-# The bit rates python-can's slcan interface maps to the CANable's S0-S9 commands.
 SLCAN_BITRATES = frozenset({10000, 20000, 50000, 83300, 100000, 125000, 250000, 500000, 750000, 1000000})
 
 _FRAME = struct.Struct("<IBxxx8s")

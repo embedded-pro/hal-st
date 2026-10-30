@@ -313,7 +313,6 @@ _UNSUPPORTED_EVERYWHERE = (
     "eth.close",
 )
 
-# The STM32WB55 and STM32WBA55 have no FDCAN.
 _UNSUPPORTED_CAN = ("can.open", "can.send", "can.close")
 
 _UNSUPPORTED_DAC = ("dac.open", "dac.set", "dac.close")
@@ -646,8 +645,6 @@ class _Family:
     lptim_repetition: bool = False
     # Pin -> DAC number of the `dac` group (`board::dacOutputs`); empty where the MCU has no DAC.
     dac_outputs: Mapping[str, int] = field(default_factory=dict)
-    # `Instances()` of the CAN factory (`board::canInstances`: FDCAN 1 .. n-1), the FDCAN kernel clock (the HSE after
-    # reset) and `board::defaultCan` (instance, RX, TX); 0 and None where the MCU has no FDCAN.
     can_instances: int = 0
     fdcan_clock: int = 0
     default_can: tuple[int, str, str] | None = None
@@ -901,7 +898,6 @@ class FakeFirmware(FakeTerminalDevice):
     spi_miso: int = 0x00
     opened: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     air: Any = None
-    # python-can virtual channel an open CAN controller joins (the `--fake` CAN peer), or None for no bus.
     can_bus: str | None = None
     reset_cause: str = "pin"
     # The terminal's line rate: what the reset leaves of a watchdog warning, the time an `adc.measure` reply takes.

@@ -114,7 +114,6 @@ namespace hal
         really_assert(result == HAL_OK);
     }
 
-    // The oversampler belongs to the converter, not the channel, so every measurement sets it for itself
     void SynchronousAdcStm::ConfigureOversampling()
     {
 #if defined(LL_ADC_OVS_GRP_REGULAR_CONTINUED) && defined(LL_ADC_OVS_RATIO_2)

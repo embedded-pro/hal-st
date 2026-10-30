@@ -501,8 +501,6 @@ namespace hal
 
         started = false;
 
-        // With off-state control the stopped timer keeps driving the idle levels, low unless requested otherwise, so
-        // a bridge's gate inputs are held off rather than left floating
         if (offStateControl)
         {
             handle.Instance->CR1 &= ~TIM_CR1_CEN;

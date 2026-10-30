@@ -122,8 +122,6 @@ namespace hal
         void Stop() override;
     };
 
-    // One sequence per rising edge of an external trigger the caller configures, such as a PWM timer's TRGO
-    // placing the conversion at a chosen point of the period. The timer is not owned, so it can drive outputs too.
     template<std::size_t Channels>
     class AdcDmaMultiChannelStmTriggeredExternally
         : public AdcDmaMultiChannelStm<Channels, AdcDmaMultiChannelStmBase::Unlimited>

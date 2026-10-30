@@ -25,8 +25,6 @@ namespace hal
         bool is29Bit;
     };
 
-    // Classic CAN frames on an FDCAN instance. Like hal::Can, one frame is in flight at a time; received frames
-    // are queued in the interrupt and delivered, as are errors, from the event dispatcher.
     class FdCanStm
         : public Can
         , private cortex::InterruptHandler
@@ -59,8 +57,6 @@ namespace hal
             uint32_t syncJumpWidth;
         };
 
-        // Without a filter every data frame is received. With one, only frames whose id matches id under mask; with
-        // matchIdType clear, frames of the other id type pass unfiltered.
         struct Filter
         {
             uint32_t id;
@@ -77,7 +73,6 @@ namespace hal
             std::variant<BitRate, NominalBitTiming> timing{ BitRate{ 1'000'000 } };
             std::optional<Filter> filter;
 
-            // Transmitted frames are looped back internally while still driven onto the bus
             bool testMode{ false };
             bool autoBusOffRecovery{ true };
             cortex::InterruptPriority interruptPriority{ cortex::InterruptPriority::normal };
