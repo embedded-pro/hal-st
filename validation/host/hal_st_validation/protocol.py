@@ -29,6 +29,7 @@ _ALIAS_PATTERNS = (
     r"usart[1-3](tx|rx|rts|cts)",
     r"uart[45](tx|rx|rts|cts)",
     r"lpuart1(tx|rx|rts|cts)",
+    r"can[1-3](rx|tx)",
     r"dac[1-4]out[12]",
     r"led[0-7]",
     r"gpio(1[0-5]|[0-9])",
@@ -53,6 +54,7 @@ def _generic_aliases() -> frozenset[str]:
     names |= {f"usart{index}{signal}" for index in range(1, 4) for signal in ("tx", "rx", "rts", "cts")}
     names |= {f"uart{index}{signal}" for index in (4, 5) for signal in ("tx", "rx", "rts", "cts")}
     names |= {f"lpuart1{signal}" for signal in ("tx", "rx", "rts", "cts")}
+    names |= {f"can{index}{signal}" for index in range(1, 4) for signal in ("rx", "tx")}
     names |= {f"dac{index}out{channel}" for index in range(1, 5) for channel in (1, 2)}
     names |= {f"led{index}" for index in range(8)}
     names |= {f"gpio{index}" for index in range(16)}

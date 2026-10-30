@@ -7,7 +7,8 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
 - `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
-- hal-st has no CAN or Ethernet driver for these MCUs, so those commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards"). The `dac`, `cordic`, `fmac`, `comp`, `opamp` and `hrtim` groups exist on the NUCLEO-G474RE only.
+- hal-st has no Ethernet driver for these MCUs, so the `eth` commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards").
+  The `can` (`hal::FdCanStm` on FDCAN1-3), `dac`, `cordic`, `fmac`, `comp`, `opamp` and `hrtim` groups exist on the NUCLEO-G474RE only; the STM32WB55 and STM32WBA55 have no FDCAN, so the `can` commands answer `ERR unsupported` there.
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
 
 ## Why C++ and Python
@@ -25,6 +26,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 | SPI                      | SPI master in the SDK; SPI slave reported in recent WaveForms, unverified in SDK | Firmware is the master: logic-analyzer decode, static MISO level or MOSI-MISO jumper        |
 | PWM, encoder, GPIO, WWDG | Pattern generator, logic analyzer with DIO-edge trigger, static DIO              | Encoder signals, pulse trains, break inputs and CTS; frequency, duty, dead time and periods |
 | ADC                      | Wavegen W1/W2 (DC) and scope channels 1/2                                        | Analog levels on the inputs; the scope measures the level actually applied                  |
+| CAN                      | TX/RX at logic level (`FDwfDigitalCan*`); ACK behaviour unverified               | Not used: the bus peer is a CANable behind a transceiver (see [CAN bus](#can-bus))          |
 
 ## Hardware setup
 
@@ -54,6 +56,7 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
   Each position names its source; check the silkscreen and do the pre-power check of the bring-up before fitting the I2C option.
 - NUCLEO-WB55RG: the firmware runs on the Cortex-M4 alone and never starts the wireless coprocessor (the BLE image does, on `ble.open`); the linker script keeps it below the flash and SRAM the wireless stack uses.
 - NUCLEO-G474RE: the HSE is the 24 MHz crystal of the board and the firmware runs at 170 MHz; HSI48 is on for the RNG. The green LD2 on PA5 is the debug LED, so PA5 stays unwired; B1 (PC13) is not used.
+  The FDCAN kernel clock is the HSE, so the CAN bit rates are those 24 MHz reaches exactly. CAN needs no wiring in loopback mode; the bus tests take FDCAN1 (PA11 RX, PA12 TX) through a 3.3 V transceiver to a CANable, never together with `bundle1` (see [CAN bus](#can-bus)); the AD3 is not on the bus.
   The user manual, UM2505, could not be consulted: the Arduino labels are the standard Nucleo-64 mapping and the other positions are morpho pins named by port and pin. The firmware and the board file were checked against the pin signals of the STM32G474RE, but **not** against the board: confirm every position against the silkscreen and the connector tables of UM2505, and do the pre-power check of the bring-up, before the first run.
 
 ## Build and flash the firmware
@@ -146,6 +149,7 @@ Options from `tests/conftest.py`:
 - `--depth quick|full` - `quick` (default, or `HAL_ST_DEPTH`) runs a pairwise subset of every parameter matrix: every pair of values of any two parameters appears in at least one test. `full` runs the complete cartesian products.
 - `--set path=value` - override a test parameter, value parsed as YAML: `--set pwm.waveform.freq=[20000] --set uart.transfer.baud=[921600]`.
 - `--run-known-gaps` - also run the tests of known driver gaps that abort or hang the firmware (see [Known driver gaps](#known-driver-gaps)); they are skipped by default.
+- `--can-mode loopback|bus|both`, `--can-peer`, `--can-peer-bitrate` - the CAN link and the adapter on the bus (or `HAL_ST_CAN_MODE`, `HAL_ST_CAN_PEER`, `HAL_ST_CAN_PEER_BITRATE`), see [CAN bus](#can-bus).
 
 BLE pair tests (`test_ble.py`, tagged `@pair`) need a second board: `--port` is the first board and `--peer-port` the second, each with the BLE image and a board file (`--board`, `--peer-board`; the peer defaults to `--board`). No AD3 and no wiring; the boards only have to be in radio range, a few centimetres to a metre apart.
 Any pair works (WB55 + WB55, WBA55 + WBA55, WB55 + WBA55); the module runs once with the `--port` board as the central (`a-central`) and once with the `--peer-port` board (`b-central`), resetting both boards between the two.
@@ -164,11 +168,11 @@ Options from `tests/conftest.py` for the second board:
 Options from the `ad3_waveforms_bench` pytest plugin (loaded automatically once the package is installed); `tests/conftest.py` feeds it the `ad3` section of the board file:
 
 - `--ad3-serial` - pick an AD3 by serial number (or `AD3_SERIAL`); `--ad3-remote host[:port]` uses an AD3 on another machine (or `AD3_REMOTE`); `--no-ad3` skips every test that needs it.
-- `--fake` - run the HIL plumbing against the in-memory fakes (`FakeDwfApi` for the AD3, `hal_st_validation.fake_firmware` for the terminal); only useful when changing the test code.
-  - The fake firmware validates arguments in the firmware's order and models pins, instances, timer sharing, the peripherals and DMA channels groups share, EXTI line ownership, ADC triggers and the watchdog; the groups of `fakes/*.py` add the newer command groups.
-  - It models no measured signal, so most tests that read the AD3 fail under `--fake --wiring-set ...`; `--fake --no-ad3` passes completely.
+- `--fake` - run the HIL plumbing against the in-memory fakes (`FakeDwfApi` for the AD3, `hal_st_validation.fake_firmware` for the terminal, a python-can virtual bus for the CANable); only useful when changing the test code.
+  - The fake firmware validates arguments in the firmware's order and models pins, instances, timer sharing, the peripherals and DMA channels groups share, EXTI line ownership, ADC triggers and the watchdog; the groups of `fakes/*.py` add the newer command groups, among them CAN loopback and bus frames with the acceptance filter.
+  - It models no measured signal and no CAN bit errors, so most tests that read the AD3 fail under `--fake --wiring-set ...` and the CAN acknowledge, receive-error and bus-off tests skip; `--fake --no-ad3` passes completely.
 
-Tests that need no AD3 (system, argument errors, limits, instance and timer sharing, watchdog behaviour) run with any wiring set.
+Tests that need no AD3 (system, argument errors, limits, instance and timer sharing, watchdog behaviour, CAN in loopback mode) run with any wiring set.
 Optional wiring loads pins: a test that resolves an AD3 channel (`need.dio`, `need.wavegen`, `need.scope`) for a pin an enabled option loads skips ("pin X loaded by --with T") unless its scenario is tagged `@uses_option:T` or `@requires_option:T`.
 Pins an option ties to a channel with a jumper resolve only for such tests. `requires_option` skips the test without the option, `conflicts_option` skips it with the option.
 Tests that reset the board on purpose (watchdog, UART swap) are marked `resets_board`; any other unexpected `EVT boot` fails the test that caused it.
@@ -176,6 +180,42 @@ Every instance a test opened is closed afterwards and the AD3 outputs are releas
 Use `-k`, `-m "not slow"` and `--junitxml report.xml` as usual.
 `-k` and the `known_gaps` patterns match the test function a scenario is bound to (`test_waveform`, `test_write_read`), so test ids are the same as before the scenarios were written in Gherkin.
 `-v --gherkin-terminal-reporter` prints the steps of every scenario, and `--cucumber-json report.json` writes a Cucumber JSON report.
+
+### CAN bus
+
+The CAN tests (`test_can.py`, NUCLEO-G474RE) run the frame, bit-timing and acceptance-filter scenarios over the link `--can-mode` selects:
+
+- `loopback` (default) - the FDCAN external loopback mode (`loopback=1`): the controller receives its own frames and ignores its RX pin, so it needs no wiring (the frames still leave on the TX pin).
+- `bus` - FDCAN1 sends through the transceiver to a CANable, which sends every frame back; the acceptance filter is checked on frames the CANable sends.
+- `both` - each test runs once per link.
+
+FDCAN2 and FDCAN3 (on the pins of `tests.can.instances`), the default pins and the argument checks run in loopback mode whatever the link.
+The `test_bus_*` tests need the CANable whatever the mode: an unacknowledged send (CANable listen-only), receive errors and bus off (CANable at `can.bus.wrong_bitrate`), the bus-off recovery with `recover=0/1`, and the TX pin driven in loopback mode.
+
+Wiring for the bus: a 3.3 V CAN transceiver (SN65HVD230 or similar, VCC from a 3V3 pin of the board, GND to GND) with TXD on PA12 (`can1tx`, FDCAN1 TX) and RXD on PA11 (`can1rx`, FDCAN1 RX), CANH/CANL/GND to the CANable CANH/CANL/GND, and 120 Ohm across CANH/CANL at each end (the CANable has a termination jumper).
+PA11 and PA12 are morpho pins (find them by name on the silkscreen, see [NUCLEO-G474RE wiring](#nucleo-g474re-wiring)) and carry DIO7 and DIO11 in `bundle1`, where other tests drive them: fit the transceiver alone or with `bundle2` or `bundle3`, which leave both pins free, and remove it before a `bundle1` run.
+The loopback link needs nothing on these pins; a transceiver left on them only puts the loopback frames on the bus.
+
+`--can-peer` names the CANable:
+
+| `--can-peer`                       | CANable firmware        | Bit rate per test | Listen-only | Bus-off tests |
+|------------------------------------|-------------------------|-------------------|-------------|---------------|
+| `slcan:/dev/ttyACM1`, `slcan:COM7` | slcan (factory default) | yes               | yes         | yes           |
+| `gs_usb:0`, `candle:0`             | candleLight             | yes               | no          | yes           |
+| `socketcan:can0`                   | candleLight (Linux)     | no, `ip link`     | no          | no            |
+| `port-bridge:<host>:5001`          | any                     | no, port-bridge   | no          | no            |
+
+- slcan gives every test; on Linux the CANable shows up as `/dev/ttyACM*` next to the ST-LINK virtual COM port, so name both by `/dev/serial/by-id/...`.
+- `gs_usb` and `candle` need python-can's extras of the same name (`pip install "python-can[gs-usb]"`).
+- With a fixed bit rate, pass it as `--can-peer-bitrate` (500000 is what the bus tests use); tests at other bit rates skip, and so do the bit rates and timings the slcan interface has no command for.
+- `slcan:` accepts any pyserial URL, so `slcan:socket://<host>:<port>` reaches a CANable whose COM port another machine forwards (see the bridge mode below).
+- With `--fake` the CANable is a python-can virtual bus the fake controller joins (`--can-peer` replaces it), so `--can-mode bus` runs as well.
+
+```bash
+pytest validation/host/tests/hil/test_can.py --board nucleo_g474re --port /dev/ttyACM0
+pytest validation/host/tests/hil/test_can.py --board nucleo_g474re --port /dev/ttyACM0 --can-mode both --can-peer slcan:/dev/serial/by-id/usb-<CANable>-if00
+pytest validation/host/tests/hil/test_can.py --board nucleo_g474re --fake --can-mode both
+```
 
 ## Known driver gaps
 
@@ -226,6 +266,7 @@ Use this when the build and the tests run in the hal-st devcontainer (Docker) bu
 | 5025  | [`ad3-bench-server`](https://github.com/embedded-pro/ad3-waveforms-bench) (WaveForms, AD3)  | `--ad3-remote host.docker.internal:5025` or `AD3_REMOTE`                                                                                 |
 | 5000  | [`port-bridge`](https://github.com/gabrielfrasantos/port-bridge) serial (firmware terminal) | `--port socket://host.docker.internal:5000` or `HAL_ST_PORT`                                                                             |
 | 61234 | ST-LINK GDB server of STM32CubeIDE / STM32CubeCLT                                           | `gdb-multiarch ... -ex "target remote host.docker.internal:61234"`, and the `stm32wb55rg` / `stm32wba55cg` VS Code launch configurations |
+| 5002  | second `port-bridge`, serial (the CANable's slcan COM port; CAN bus tests only)             | `--can-peer slcan:socket://host.docker.internal:5002` or `HAL_ST_CAN_PEER`                                                               |
 
 On Windows:
 
@@ -250,8 +291,17 @@ On Windows:
    - Start the ST-LINK GDB server (from STM32CubeIDE or STM32CubeCLT) on port 61234, accepting connections from the container.
    - `port-bridge` holds the COM port while it runs; stop it before opening the port in another tool. `ad3-bench-server --fake` serves a simulated AD3 to try the setup without hardware.
 
+4. For the CAN bus tests (NUCLEO-G474RE), forward the CANable's COM port with a second `port-bridge` (slcan firmware; the TTY baud rate does not matter over USB):
+
+   ```powershell
+   port-bridge --serial-port COM7 --serial-baudrate 115200 --serial-tcp-port 5002
+   ```
+
+   - The CANable's slcan commands go through the byte stream, so the tests set the bit rate and listen-only mode themselves.
+   - Alternatively, add `--can-interface slcan --can-channel COM7 --can-bitrate 500000` (or `--can-interface candle --can-channel 0` for candleLight) to the first `port-bridge` and use `--can-peer port-bridge:host.docker.internal:5001 --can-peer-bitrate 500000`. That bridge runs the CANable at one fixed bit rate, so the tests at other bit rates, the listen-only test and the bus-off tests skip.
+
 Both bridges listen on `127.0.0.1` by default, which Docker Desktop reaches through `host.docker.internal`. If the container cannot connect (for example Docker Engine inside WSL2), listen on all
-interfaces with `ad3-bench-server --host 0.0.0.0 --token <secret>` (and `AD3_REMOTE_TOKEN=<secret>` in the container) and `port-bridge --bind 0.0.0.0`, and keep ports 5025, 5000 and 61234 blocked from
+interfaces with `ad3-bench-server --host 0.0.0.0 --token <secret>` (and `AD3_REMOTE_TOKEN=<secret>` in the container) and `port-bridge --bind 0.0.0.0`, and keep ports 5025, 5000, 5002 and 61234 blocked from
 the network in the Windows firewall: whoever reaches them controls the AD3 and the board.
 
 In the container:
@@ -271,6 +321,8 @@ export AD3_REMOTE=host.docker.internal:5025
 export HAL_ST_PORT=socket://host.docker.internal:5000
 pytest validation/host/tests/hil --board nucleo_wb55rg --wiring-set bundle1 --depth quick
 ```
+
+On a NUCLEO-G474RE with the CANable forwarded, `export HAL_ST_CAN_PEER=slcan:socket://host.docker.internal:5002` and run `pytest validation/host/tests/hil/test_can.py --board nucleo_g474re --can-mode both`.
 
 ## Wiring sets
 
@@ -412,11 +464,11 @@ UM2505 could not be consulted, so no position has a sourced header number: the P
 | `bundle1`  | DIO4     | PA8 (tim1ch1)     | Arduino D7                 | TIM1 CH1, encoder TIM1 A, MCO, I2C3 SCL, I2C2 SDA, GPIO                                                               |
 | `bundle1`  | DIO5     | PA9 (tim1ch2)     | Arduino D8                 | TIM1 CH2, encoder TIM1 B, USART1 TX, I2C2 SCL, GPIO                                                                   |
 | `bundle1`  | DIO6     | PA10 (tim1ch3)    | Arduino D2                 | TIM1 CH3, encoder TIM1 index, USART1 RX, TIM17 break, GPIO                                                            |
-| `bundle1`  | DIO7     | PA11 (tim1ch4)    | morpho PA11                | TIM1 CH4, USART1 CTS, GPIO                                                                                            |
+| `bundle1`  | DIO7     | PA11 (tim1ch4)    | morpho PA11                | TIM1 CH4, USART1 CTS, FDCAN1 RX (`can1rx`; no transceiver with `bundle1`), GPIO                                       |
 | `bundle1`  | DIO8     | PA7 (tim1ch1n)    | Arduino D11                | TIM1 CH1N, TIM17 CH1, GPIO                                                                                            |
 | `bundle1`  | DIO9     | PB0 (tim1ch2n)    | Arduino A3                 | TIM1 CH2N, TIM3 CH3, ADC1 IN15, GPIO                                                                                  |
 | `bundle1`  | DIO10    | PB1 (tim1ch3n)    | morpho PB1                 | TIM1 CH3N, TIM3 CH4, LPUART1 RTS, ADC1 IN12, GPIO                                                                     |
-| `bundle1`  | DIO11    | PA12 (usart1rts)  | morpho PA12                | USART1 RTS, TIM16 CH1, GPIO                                                                                           |
+| `bundle1`  | DIO11    | PA12 (usart1rts)  | morpho PA12                | USART1 RTS, TIM16 CH1, FDCAN1 TX (`can1tx`, driven in CAN loopback mode), GPIO                                        |
 | `bundle1`  | DIO12    | PC1 (lpuart1tx)   | Arduino A4                 | LPUART1 TX, ADC1 IN7, GPIO                                                                                            |
 | `bundle1`  | DIO13    | PC0 (lpuart1rx)   | Arduino A5                 | LPUART1 RX, ADC1 IN6, GPIO                                                                                            |
 | `bundle1`  | DIO14    | PC4 (gpio0)       | Arduino D1, PC4            | GPIO/EXTI line 4, TIM2 and TIM3 encoder index, timer marker, DMA wave output, watchdog warning toggle, low-power wake |
@@ -596,6 +648,7 @@ Scope 1+ on PA4 (DAC1 OUT1, the A2 socket) and scope 2+ on PA6 (DAC2 OUT1, the D
 - NUCLEO-WBA55CG `bundle2`: the ADC, LPUART1 and TIM1/TIM16 break tests skip (no DIO, wavegen or scope on their pins).
 - NUCLEO-G474RE: no bundle wires all six QUADSPI pins (PA6 only serves `--with dac`), so `tests.qspi` is not configured and the QUADSPI cases skip; the HSEM, AES and PKA cases skip (WB55 and WBA55 only); the `dac` voltage cases need `--with dac` on `bundle3` (its argument checks run anywhere).
   `bundle2` and `bundle3` have no TIM1, SPI1 or USART1 pins, and `bundle3` has no ADC inputs, so the tests that need them skip there.
+- CAN (NUCLEO-G474RE only): the `bus` link and the `test_bus_*` tests skip without `--can-peer` (or `--fake`), a bit rate the CANable cannot run at skips its case, and the acknowledge, receive-error and bus-off tests skip with `--fake`.
 - `--with` a tag that no selected wiring set offers, or without `--wiring-set`: the run stops with a usage error.
 
 ## What is tested
@@ -656,6 +709,10 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
   the self-calibration (OPAMP3 with its output on PB1) and factory trims, the DAC and the one-amplifier limit shared with the other groups, argument errors.
 - `test_hrtim.py` (NUCLEO-G474RE) - for `HighResolutionPwmStm` (`SingleChannelPwm` and `TwoChannelsPwm`): the prescaler ratio, period, compares and dead-time ticks of the replies against the driver's arithmetic, the frequency limits, duty and frequency changes, the duty count per mode;
   in bundle1 unit A on PA8/PA9 (DIO4/DIO5) at 10 kHz-1 MHz and 10-90 %, with a duty per output, complementary with 50-250 ns dead time (no overlap, each switch-over), shifted by a phase, and forced low by FLT1 (PA12 on DIO11) until started again; the ADC1 conversion rate on HRTIM trigger 1, the pins held while open and argument errors.
+- `test_can.py` (NUCLEO-G474RE) - for `FdCanStm` through EMIL's `can` group (see [CAN bus](#can-bus)):
+  - over loopback and/or the bus (`--can-mode`): bit rate x standard/extended id x DLC 0-8, explicit bit timings (on the bus, the CANable runs at the computed bit rate), standard and extended acceptance filters with and without id-type match;
+  - in loopback mode: FDCAN1-3 each on pins of its own, the default pins of FDCAN1, one controller at a time, the refused bit rates, timings, filters, pins and frames;
+  - on the bus only: `ackError` with a listen-only CANable, receive errors and bus off with the CANable at a wrong bit rate, the failed frame not resent after bus off, `recover=0/1`, and the loopback frames on the TX pin.
 - `test_pka.py` - for `PkaStm` on secp256r1: G, 2G and 3G, the default operands, a short scalar padded by the firmware, (n - 1)G = -G, the NIST CAVP ECC CDH vector, a given base point, points on and off the curve, comparisons of 4, 32 and 60-byte numbers, the duration of one multiplication and argument errors; every result against the P-256 arithmetic of `crypto_ref`.
 - `test_qspi.py` (NUCLEO-WB55RG) - for `QuadSpiStm` (`variant=poll`), `QuadSpiStmDma` (`variant=dma`) and `SingleSpeedQuadSpiStmDma` (`variant=spi`): instruction, address, alternate bytes and data of writes decoded on the logic analyzer on 1 and on 4 lines, and SPI mode 0 transfers.
   - Reads: 4-line reads of static AD3 levels, a status poll that matches and one that times out (`variant=dma`; `variant=poll` hangs, a known gap).
@@ -682,7 +739,7 @@ Each peripheral has a feature file `host/tests/hil/features/<peripheral>.feature
   - connection parameters set by the central (and kept by it when the peripheral asks for others), 1M and 2M PHY, the largest data length with a maximum-size payload after it;
   - pairing at security level 2 (Just Works): the same strength on both boards, one bond each, a bond surviving a reconnection, bonds removed, a peripheral that refuses pairing accepting no unbonded central and rejecting a Pairing Request on a live link;
   - commands of the other role, a second `ble.open` and malformed command lines refused with their reasons.
-- `test_unsupported.py` - every CAN and Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"), answer `ERR unsupported`.
+- `test_unsupported.py` - every Ethernet command, and the commands of the groups the running MCU lacks (PROTOCOL.md, "Not available on these boards"; CAN on the NUCLEO-WB55RG and NUCLEO-WBA55CG), answer `ERR unsupported`.
 
 ## Customising
 
@@ -720,7 +777,7 @@ In `tests`:
 
 - `hil/features/*.feature` - the scenarios, one feature per peripheral.
 - `hil/test_*.py` - the scenario bindings with their parametrisation markers, the step definitions and the helpers of one peripheral.
-- `conftest.py` - the command line options, the board-file parametrisation, `known_gaps`, the tag hook and the fixtures (`fw`, `need`, `board_cfg`, `ad3_released`, the per-test cleanup).
+- `conftest.py` - the command line options, the board-file parametrisation (with the `--can-mode` links), `known_gaps`, the tag hook and the fixtures (`fw`, `need`, `board_cfg`, `ad3_released`, `can_peer`, the per-test cleanup).
 - `unit/` - tests of `hal_st_validation` and of the scenario bindings that need no hardware.
 
 In `hal_st_validation` (hal-st specific):
@@ -743,6 +800,8 @@ In `hal_st_validation` (hal-st specific):
 - `groups/comp.py` - `fw.comp` and the threshold model (`threshold_volts`, VREFINT fractions, DAC codes); `fakes/comp.py` - its fake group (the output compares the `adc_codes` level of INP with the threshold).
 - `groups/opamp.py` - `fw.opamp` and the output model (`opamp_volts`); `fakes/opamp.py` - its fake group (the output follows the model of the `adc_codes` level of VINP or the DAC code).
 - `groups/hrtim.py` - `fw.hrtim` and the driver's arithmetic (`timing_for`, `compare_ticks`, `dead_time`, `frequency_range`, and `duty_cycle` as EMIL parses a duty); `fakes/hrtim.py` - its fake group (replies from that arithmetic, no fault input, conversions at the PWM frequency while running).
+- `groups/can.py` - `fw.can` (`open`, `send`, `begin_send`, `wait_frame`, `frames`, `errors`, `close`) and the model of `FdCanStm` and `CanFactoryStm` (`nominal_bit_timing`, `bitrate_achievable`, `timing_bitrate`, `filter_accepts`); `fakes/can.py` - its fake group (loopback frames, and frames on the python-can virtual bus of `--fake`);
+  `can_peer.py` - the CANable on the bus (`--can-peer`: a python-can interface or port-bridge's CAN bridge).
 - `fmac_ref.py` - the bit-exact FMAC model (FIR and direct-form-1 IIR with the accumulator, gain and clipping as parameters) and its calibration vectors; `groups/fmac.py` - `fw.fmac` (`load`, `load_all`, `fir`, `iir`); `fakes/fmac.py` - its fake group with the four stores.
 - `groups/qspi.py` - `fw.qspi` and the decoding of QUADSPI captures (`qspi_samples`, `qspi_bytes`, `qspi_frame`); `fakes/qspi.py` is its fake firmware model (STM32WB55).
 - `groups/ble.py` - `fw.ble` (the `ble` group of `hal_st.validation_ble_firmware`, with `wait` for its `EVT ble` events and `wait_link`); `ble_pair.py` - `BleSettings` (`tests.ble` of both board files merged), `BlePair` (the central and the peripheral, with connect, Nordic UART and verified transfer flows and the cleanup between tests); `fakes/ble.py` - the fake `ble` group and `FakeAir`, the radio two fake boards share.
@@ -766,6 +825,7 @@ In the firmware (`firmware/`):
 - `RngGroup`, `AesGroup` and `PkaGroup` are stateless command groups: `rng` and `aes` build their driver per command; `pka` builds one `PkaStm` on first use and keeps it.
 - `DacGroup` (STM32G4) serves `dac.*` over `hal::DigitalToAnalogPinImplStm`; `CordicGroup` (STM32G4) serves `cordic.calc`, building `SynchronousCordicStm`, `CordicStm` or `CordicStmDma` per command;
   `ComparatorFactory` (STM32G4) is the factory of EMIL's `comp` group and serves `comp.dac`; `FmacGroup` (STM32G4) serves `fmac.*`, keeping the coefficient and history stores and building `SynchronousFmacStm`, `FmacStm` or `FmacStmDma` per block;
-  `OpampGroup` (STM32G4) serves `opamp.*`, one `OpampStm` at a time, and reads its output with ADC1; `HrtimGroup` (STM32G4) serves `hrtim.*`, one `HighResolutionPwmStm` at a time, and counts ADC1 conversions on its trigger.
+  `OpampGroup` (STM32G4) serves `opamp.*`, one `OpampStm` at a time, and reads its output with ADC1; `HrtimGroup` (STM32G4) serves `hrtim.*`, one `HighResolutionPwmStm` at a time, and counts ADC1 conversions on its trigger;
+  `CanFactoryStm` (STM32G4) is the factory of EMIL's `can` group: it parses the bit rate or timing, filter and modes and builds one `FdCanStm` on FDCAN1-3 at a time.
 - `ble_firmware/` is the BLE image (`hal_st.validation_ble_firmware`), built from its own `Main.cpp` with the console, board profiles, pin factory and payload helpers of `firmware/`: `BleGroup` parses the `ble.*` commands, `BleController` starts the stack of the board (the transport to the wireless coprocessor on the STM32WB55, the host stack and link layer on the STM32WBA55), `BleRoles` holds the peripheral (GAP, GATT server, Nordic UART) and the central (GAP, GATT client, Nordic UART), and `BleReporter` prints every `EVT ble` line and keeps the link state `ble.link` reports.
 - `FlashGroup`, `HsemGroup` (STM32WB), `BackupRamGroup` and `LowPowerGroup` serve `flash.*`, `hsem.*`, `bkp.*` and `lpm.*`; `WatchDogFactory` lends the WWDG to the coordinated flash driver (`Borrow`/`Return`).

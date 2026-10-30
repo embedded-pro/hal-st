@@ -48,9 +48,6 @@ namespace validation
         });
 #elif defined(STM32G4)
         constexpr auto commandNames = std::to_array<const char*>({
-            "can.open",
-            "can.send",
-            "can.close",
             "eth.open",
             "eth.status",
             "eth.close",

@@ -6,6 +6,7 @@
 #include "services/hil/HilPinPool.hpp"
 #include "services/hil/HilSystemCommands.hpp"
 #include "services/hil/commands/HilAdcCommands.hpp"
+#include "services/hil/commands/HilCanCommands.hpp"
 #include "services/hil/commands/HilEepromCommands.hpp"
 #include "services/hil/commands/HilGpioCommands.hpp"
 #include "services/hil/commands/HilPwmCommands.hpp"
@@ -19,6 +20,7 @@
 #include "validation/firmware/AnalogInputGroup.hpp"
 #include "validation/firmware/BackupRamGroup.hpp"
 #include "validation/firmware/BoardInfoStm.hpp"
+#include "validation/firmware/CanFactory.hpp"
 #include "validation/firmware/ClockGroup.hpp"
 #include "validation/firmware/ComparatorFactory.hpp"
 #include "validation/firmware/Console.hpp"
@@ -144,6 +146,10 @@ int main()
 #endif
 #if defined(HAS_PERIPHERAL_HRTIM)
     static validation::HrtimCommands hrtim{ context, resources };
+#endif
+#if defined(HAS_PERIPHERAL_FDCAN)
+    static validation::CanFactoryStm canFactory{ naming };
+    static services::HilCanCommands can{ context, canFactory };
 #endif
 
     static validation::RngCommands rng{ context, resources };

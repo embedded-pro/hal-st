@@ -224,6 +224,8 @@ namespace hal
         really_assert(config.alignment == Alignment::edgeAligned || IS_TIM_COUNTER_MODE_SELECT_INSTANCE(instance));
         really_assert((!config.deadTime && !config.breakInput && !idleStateRequested) || IS_TIM_BREAK_INSTANCE(instance));
 
+        offStateControl = config.deadTime || config.breakInput || idleStateRequested;
+
         EnableClockTimer(timerIndex);
         handle.Instance = instance;
 
@@ -330,7 +332,6 @@ namespace hal
 
         // The idle levels only reach the pins while the timer keeps controlling them after
         // MOE clears, which is what the off-state selections enable.
-        const auto offStateControl = config.deadTime || config.breakInput || idleStateRequested;
         init.OffStateRunMode = offStateControl ? TIM_OSSR_ENABLE : TIM_OSSR_DISABLE;
         init.OffStateIDLEMode = offStateControl ? TIM_OSSI_ENABLE : TIM_OSSI_DISABLE;
         init.DeadTime = config.deadTime ? EncodeDeadTime(config.deadTime->duration, TimerClockFrequency(), handle.Init.ClockDivision) : 0;
@@ -500,7 +501,9 @@ namespace hal
 
         started = false;
 
-        if (idleStateRequested)
+        // With off-state control the stopped timer keeps driving the idle levels, low unless requested otherwise, so
+        // a bridge's gate inputs are held off rather than left floating
+        if (offStateControl)
         {
             handle.Instance->CR1 &= ~TIM_CR1_CEN;
             __HAL_TIM_MOE_DISABLE_UNCONDITIONALLY(&handle);

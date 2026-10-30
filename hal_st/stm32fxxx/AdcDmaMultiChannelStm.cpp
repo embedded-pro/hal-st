@@ -119,7 +119,13 @@ namespace hal
     void AdcDmaMultiChannelStmBase::Stop()
     {
         if (LL_ADC_REG_IsConversionOngoing(adc.Handle().Instance))
+        {
             LL_ADC_REG_StopConversion(adc.Handle().Instance);
+
+            // The stop takes effect when the conversion under way ends, and the converter refuses to disable before
+            while (LL_ADC_REG_IsStopConversionOngoing(adc.Handle().Instance))
+            {}
+        }
 
         auto result = ADC_Disable(&adc.Handle());
         assert(result == HAL_OK);
@@ -168,6 +174,16 @@ namespace hal
             assert(result == HAL_OK);
         }
         LL_ADC_REG_SetSequencerLength(adc.Handle().Instance, sequencerLength[analogPins.size() - 1]);
+    }
+
+    void AdcDmaMultiChannelStmBase::SelectExternalTrigger(uint32_t triggerSource)
+    {
+        HAL_ADC_Stop(&adc.Handle());
+
+        LL_ADC_REG_SetTriggerSource(adc.Handle().Instance, triggerSource);
+#if defined(ADC_CFGR1_EXTEN) || defined(ADC_CFGR_EXTEN)
+        LL_ADC_REG_SetTriggerEdge(adc.Handle().Instance, LL_ADC_REG_TRIG_EXT_RISING);
+#endif
     }
 
     void AdcDmaMultiChannelStmBase::TransferDone()

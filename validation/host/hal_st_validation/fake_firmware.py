@@ -225,6 +225,8 @@ G474_PINS: dict[str, str] = {
     "tim17ch1n": "PB7",
     "tim20ch1": "PB2",
     "tim20ch2": "PC2",
+    "can1rx": "PA11",
+    "can1tx": "PA12",
     "qei1a": "PA8",
     "qei1b": "PA9",
     "qei1idx": "PA10",
@@ -306,13 +308,13 @@ G474_PINS: dict[str, str] = {
 }
 
 _UNSUPPORTED_EVERYWHERE = (
-    "can.open",
-    "can.send",
-    "can.close",
     "eth.open",
     "eth.status",
     "eth.close",
 )
+
+# The STM32WB55 and STM32WBA55 have no FDCAN.
+_UNSUPPORTED_CAN = ("can.open", "can.send", "can.close")
 
 _UNSUPPORTED_DAC = ("dac.open", "dac.set", "dac.close")
 
@@ -345,6 +347,7 @@ _UNSUPPORTED_G474_ONLY = (
 # `HilUnsupportedCommands` of validation/firmware/UnsupportedGroups.cpp: groups hal-st has no driver for on the MCU.
 UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
     "stm32wb55": (
+        *_UNSUPPORTED_CAN,
         *_UNSUPPORTED_EVERYWHERE,
         "lptpwm.open",
         "lptpwm.duty",
@@ -376,6 +379,7 @@ UNSUPPORTED_COMMANDS: dict[str, tuple[str, ...]] = {
         "lptpwm.close",
     ),
     "stm32wba55": (
+        *_UNSUPPORTED_CAN,
         *_UNSUPPORTED_EVERYWHERE,
         "hsem.take",
         "hsem.release",
@@ -565,6 +569,8 @@ _G474_FUNCTIONS: dict[str, Table] = {
     "hrtimFlt4": _table(i1="PB11"),
     "hrtimFlt5": _table(i1="PB0 PC7"),
     "hrtimFlt6": _table(i1="PC10"),
+    "canRx": _table(i1="PA11 PB8 PD0", i2="PB5 PB12", i3="PA8 PB3"),
+    "canTx": _table(i1="PA12 PB9 PD1", i2="PB6 PB13", i3="PA15 PB4"),
 }
 
 
@@ -640,6 +646,11 @@ class _Family:
     lptim_repetition: bool = False
     # Pin -> DAC number of the `dac` group (`board::dacOutputs`); empty where the MCU has no DAC.
     dac_outputs: Mapping[str, int] = field(default_factory=dict)
+    # `Instances()` of the CAN factory (`board::canInstances`: FDCAN 1 .. n-1), the FDCAN kernel clock (the HSE after
+    # reset) and `board::defaultCan` (instance, RX, TX); 0 and None where the MCU has no FDCAN.
+    can_instances: int = 0
+    fdcan_clock: int = 0
+    default_can: tuple[int, str, str] | None = None
     # `board::imageLimitsErase`: the sectors below the firmware image end page are left out of the erase tests.
     image_limits_erase: bool = True
     # {master: slave} of the SPI instances wired to each other when the MCU has more than two (`spiloop` option).
@@ -766,6 +777,9 @@ _FAMILIES: dict[str, _Family] = {
         spi_loop={2: 3, 3: 2},
         lpm_deep=False,
         dac_outputs={"PA4": 1, "PA6": 2},
+        can_instances=4,
+        fdcan_clock=24_000_000,
+        default_can=(1, "PA11", "PA12"),
     ),
 }
 
@@ -887,6 +901,8 @@ class FakeFirmware(FakeTerminalDevice):
     spi_miso: int = 0x00
     opened: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     air: Any = None
+    # python-can virtual channel an open CAN controller joins (the `--fake` CAN peer), or None for no bus.
+    can_bus: str | None = None
     reset_cause: str = "pin"
     # The terminal's line rate: what the reset leaves of a watchdog warning, the time an `adc.measure` reply takes.
     terminal_baud: int = 921600

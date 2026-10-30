@@ -62,6 +62,13 @@ namespace validation
         HilPinId sda;
     };
 
+    struct CanPins
+    {
+        uint8_t index;
+        HilPinId rx;
+        HilPinId tx;
+    };
+
     struct QuadSpiPins
     {
         HilPinId clk;

@@ -21,6 +21,7 @@ namespace validation::board
     inline constexpr uint8_t maximumPinIndex = 15;
     inline constexpr uint8_t uartInstances = 6;
     inline constexpr uint8_t i2cInstances = 5;
+    inline constexpr uint8_t canInstances = 4;
     inline constexpr uint8_t timerInstances = 21;
     static_assert(static_cast<uint8_t>(Port::G) == 6, "portLetters must follow hal::Port");
 
@@ -47,6 +48,7 @@ namespace validation::board
 
     inline constexpr std::optional<UartPins> defaultUart = UartPins{ 1, true, Pin(Port::C, 1), Pin(Port::C, 0) };
     inline constexpr QeiPins defaultQei{ 1, Pin(Port::A, 8), Pin(Port::A, 9), Pin(Port::A, 10) };
+    inline constexpr std::optional<CanPins> defaultCan = CanPins{ 1, Pin(Port::A, 11), Pin(Port::A, 12) };
     inline constexpr std::array<I2cPins, 2> i2cPins{ {
         { 1, Pin(Port::B, 8), Pin(Port::B, 9) },
         { 3, Pin(Port::C, 8), Pin(Port::C, 9) },
@@ -123,6 +125,8 @@ namespace validation::board
         { "tim17ch1n", Pin(Port::B, 7) },
         { "tim20ch1", Pin(Port::B, 2) },
         { "tim20ch2", Pin(Port::C, 2) },
+        { "can1rx", defaultCan->rx },
+        { "can1tx", defaultCan->tx },
         { "qei1a", defaultQei.a },
         { "qei1b", defaultQei.b },
         { "qei1idx", defaultQei.idx },

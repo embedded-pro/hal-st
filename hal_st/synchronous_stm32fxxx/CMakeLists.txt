@@ -15,6 +15,8 @@ target_link_libraries(hal_st.synchronous_stm32fxxx PUBLIC
 target_sources(hal_st.synchronous_stm32fxxx PRIVATE
     SynchronousAesStm.cpp
     SynchronousAesStm.hpp
+    SynchronousAdcStm.cpp
+    SynchronousAdcStm.hpp
     SynchronousComparatorStm.cpp
     SynchronousComparatorStm.hpp
     SynchronousCordicStm.cpp
