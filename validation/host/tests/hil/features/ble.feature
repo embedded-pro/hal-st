@@ -1,4 +1,4 @@
-@pair
+@pair @family:stm32wb55 @family:stm32wba55
 Feature: BLE central and peripheral
   Two boards linked over the air through the `ble` group of `hal_st.validation_ble_firmware`: one runs
   `hal::GapCentralSt` with `hal::GattClientSt`, the other `hal::GapPeripheralSt` with `hal::GattServerSt` and the Nordic

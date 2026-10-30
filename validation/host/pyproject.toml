@@ -16,7 +16,8 @@ dependencies = [
     # CAN bus peer (CANable): slcan works with this alone; gs_usb and candle need python-can's extras of the same name.
     "python-can>=4.4",
     "pyyaml>=6.0",
-    "pytest>=7.4",
+    # pytest 9.2 dropped FixtureManager._arg2fixturedefs, which pytest-bdd 9.0 reads (--generate-missing, step lookup).
+    "pytest>=7.4,<9.2",
     "pytest-bdd>=9.0,<10",
 ]
 
