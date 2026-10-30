@@ -5,9 +5,9 @@
 #if defined(HAS_PERIPHERAL_FDCAN)
 
 #include "hal_st/stm32fxxx/FdCanStm.hpp"
+#include "infra/util/AutoResetFunction.hpp"
 #include "services/hil/commands/HilCanCommands.hpp"
 #include "validation/firmware/BoardTypes.hpp"
-#include "infra/util/AutoResetFunction.hpp"
 #include <optional>
 
 namespace validation
