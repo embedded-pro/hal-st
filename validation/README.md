@@ -7,7 +7,8 @@ The structure follows hal-ti's `validation/`; the firmware runs on EMIL's hardwa
 - `firmware/` - C++ firmware on hal-st and EMIL. It exposes the hal-st peripherals through a line-based terminal; the command set is specified in [PROTOCOL.md](PROTOCOL.md).
 - `host/` - Python package `hal_st_validation` and a pytest-bdd suite that talks to the firmware terminal over a serial port and to the AD3 through the WaveForms SDK. The scenarios are Gherkin (`host/tests/hil/features/`), their steps are Python (`host/tests/hil/test_*.py`).
 - The generic bench code (AD3 wrapper over the WaveForms SDK, signal analysis, `OK`/`ERR`/`EVT` terminal client, console, pytest plugin and fakes) lives in the separate [ad3-waveforms-bench](https://github.com/embedded-pro/ad3-waveforms-bench) repository; `hal_st_validation` only adds what is specific to hal-st.
-- hal-st has no Ethernet driver for these MCUs, so the `eth` commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards"). The `can` (`hal::FdCanStm` on FDCAN1-3), `dac`, `cordic`, `fmac`, `comp`, `opamp` and `hrtim` groups exist on the NUCLEO-G474RE only; the STM32WB55 and STM32WBA55 have no FDCAN, so the `can` commands answer `ERR unsupported` there.
+- hal-st has no Ethernet driver for these MCUs, so the `eth` commands answer `ERR unsupported`, as do the command groups one MCU lacks (PROTOCOL.md, "Not available on these boards").
+  The `can` (`hal::FdCanStm` on FDCAN1-3), `dac`, `cordic`, `fmac`, `comp`, `opamp` and `hrtim` groups exist on the NUCLEO-G474RE only; the STM32WB55 and STM32WBA55 have no FDCAN, so the `can` commands answer `ERR unsupported` there.
   Peripherals EMIL's terminal has no command group for (I2C, timers, LPTIM, QUADSPI, flash, RNG, AES, PKA and others) get command groups of the validation firmware; the `eeprom` commands are EMIL's, served by an external 24Cxx EEPROM on the I2C bus.
 
 ## Why C++ and Python
