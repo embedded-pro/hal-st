@@ -125,13 +125,21 @@ namespace hal
             DutyCycle dutyCycle{};
         };
 
+        struct CompareScale
+        {
+            uint64_t period;
+            uint32_t maximum;
+            bool countsDown;
+        };
+
         void ConfigureTimeBase();
         void ConfigureTriggerOutput();
         void ConfigureChannel(const Channel& channel, const ChannelConfig& config);
         void ConfigureBreakAndDeadTime();
         void ConfigureBreakInputSource();
         void DisableOutputs();
-        void SetDutyCycle(Channel& channel, DutyCycle dutyCycle);
+        CompareScale Scale() const;
+        void SetDutyCycle(Channel& channel, DutyCycle dutyCycle, const CompareScale& scale);
         uint32_t TimerClockFrequency() const;
         uint32_t MaximumCompare() const;
 
