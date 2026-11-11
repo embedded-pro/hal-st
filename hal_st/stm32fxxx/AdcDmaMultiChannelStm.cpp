@@ -75,7 +75,7 @@ namespace hal
         : buffer{ buffer }
         , analogPins{ analogPins }
         , adc{ adc }
-        , dmaStream(std::in_place_type_t<CircularReceiveDmaChannel>{}, receiveStream, &adc.Handle().Instance->DR, sizeof(uint16_t), infra::emptyFunction, [this]()
+        , dmaStream(std::in_place_type_t<CircularReceiveDmaChannel>{}, receiveStream, &adc.Handle().Instance->DR, sizeof(uint16_t), nullptr, [this]()
               {
                   TransferDone();
               })

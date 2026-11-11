@@ -978,18 +978,19 @@ namespace hal
         , transferFullComplete{ transferFullComplete }
     {
         stream.EnableCircularMode();
-        stream.EnableHalfTransferCompleteInterrupt();
+        if (this->transferHalfComplete)
+            stream.EnableHalfTransferCompleteInterrupt();
         stream.EnableTransferCompleteInterrupt();
     }
 
     bool DmaStm::CircularStreamInterruptHandler::IsInterruptPending() const
     {
-        return stream.IsHalfComplete() || stream.IsFullComplete();
+        return (transferHalfComplete && stream.IsHalfComplete()) || stream.IsFullComplete();
     }
 
     void DmaStm::CircularStreamInterruptHandler::OnInterrupt()
     {
-        if (stream.IsHalfComplete())
+        if (transferHalfComplete && stream.IsHalfComplete())
         {
             stream.ClearHalfComplete();
 
