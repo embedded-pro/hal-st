@@ -419,29 +419,37 @@ namespace hal
         handle.Init.Period = autoReload;
         __HAL_TIM_SET_AUTORELOAD(&handle, handle.Init.Period);
 
+        const auto scale = Scale();
         for (auto& channel : channels)
-            SetDutyCycle(channel, channel.dutyCycle);
+            SetDutyCycle(channel, channel.dutyCycle, scale);
     }
 
-    void PwmStmBase::SetDutyCycle(Channel& channel, DutyCycle dutyCycle)
+    PwmStmBase::CompareScale PwmStmBase::Scale() const
     {
-        really_assert(dutyCycle.IsValid());
         really_assert(handle.Init.Period != 0);
-
-        channel.dutyCycle = dutyCycle;
 
         // Centre-aligned PWM is active for 2 x CCR of the 2 x ARR ticks, so ARR is the full
         // scale there; edge-aligned it is ARR + 1, where CCR > ARR holds the output active.
         const auto period = static_cast<uint64_t>(handle.Init.Period) + (IsCenterAligned(handle.Init.CounterMode) ? 0 : 1);
-        auto counts = dutyCycle.ToCounts(period);
+
+        return { period, MaximumCompare(), handle.Init.CounterMode == TIM_COUNTERMODE_DOWN };
+    }
+
+    [[gnu::always_inline]] inline void PwmStmBase::SetDutyCycle(Channel& channel, DutyCycle dutyCycle, const CompareScale& scale)
+    {
+        really_assert(dutyCycle.IsValid());
+
+        channel.dutyCycle = dutyCycle;
+
+        auto counts = dutyCycle.ToCounts(scale.period);
 
         // Counting down, PWM mode 1 is active while CNT <= CCR, one tick more than CCR.
-        if (handle.Init.CounterMode == TIM_COUNTERMODE_DOWN && counts != 0)
+        if (scale.countsDown && counts != 0)
             --counts;
 
         // Clamped rather than taken modulo: at the widest period the full-duty value is one
         // past what the compare register holds, and would otherwise wrap to no output at all.
-        const auto compare = std::min<uint64_t>(counts, MaximumCompare());
+        const auto compare = std::min<uint64_t>(counts, scale.maximum);
 
         __HAL_TIM_SET_COMPARE(&handle, TimerChannel(channel.index), static_cast<uint32_t>(compare));
     }
@@ -449,10 +457,10 @@ namespace hal
     void PwmStmBase::StartImpl(infra::MemoryRange<const DutyCycle> dutyCycles)
     {
         really_assert(dutyCycles.size() == channels.size());
-        really_assert(handle.Init.Period != 0);
 
+        const auto scale = Scale();
         for (std::size_t i = 0; i != channels.size(); ++i)
-            SetDutyCycle(channels[i], dutyCycles[i]);
+            SetDutyCycle(channels[i], dutyCycles[i], scale);
 
         if (started)
         {
