@@ -1,5 +1,4 @@
-#ifndef HAL_I2C_STM_HPP
-#define HAL_I2C_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -74,4 +73,3 @@ namespace hal
         infra::AutoResetFunction<void(Result)> onReceived;
     };
 }
-#endif

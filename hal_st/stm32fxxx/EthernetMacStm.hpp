@@ -1,5 +1,4 @@
-#ifndef HAL_ETHERNET_MAC_STM_HPP
-#define HAL_ETHERNET_MAC_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
@@ -81,7 +80,5 @@ namespace hal
         SendDescriptors sendDescriptors;
     };
 }
-
-#endif
 
 #endif

@@ -1,5 +1,4 @@
-#ifndef HAL_CAN_STM_HPP
-#define HAL_CAN_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
@@ -49,7 +48,5 @@ namespace hal
         cortex::DispatchedInterruptHandler canErrorInterruptDispatcher;
     };
 }
-
-#endif
 
 #endif

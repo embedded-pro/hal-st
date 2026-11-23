@@ -1,5 +1,4 @@
-#ifndef HAL_ST_LPTIMER_PWM_ST_HPP
-#define HAL_ST_LPTIMER_PWM_ST_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/stm32fxxx/LpTimerStm.hpp"
@@ -81,7 +80,5 @@ namespace hal
         void ConfigChannelInit();
     };
 }
-
-#endif
 
 #endif

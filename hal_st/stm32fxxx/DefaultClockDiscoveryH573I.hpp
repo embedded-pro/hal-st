@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_DISCOVERY_H573I_HPP
-#define HAL_ST_DEFAULT_CLOCK_DISCOVERY_H573I_HPP
+#pragma once
 
 void ConfigureDefaultClockDiscoveryH573I();
-
-#endif

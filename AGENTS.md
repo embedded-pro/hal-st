@@ -1,191 +1,138 @@
-# hal-st — Agent Rules (canonical)
+# hal-st — Agent Rules
 
-Single source of truth for **Claude, Copilot, and sub-agents**. `CLAUDE.md` points here. Detailed C++ coding rules: `.github/instructions/hal-st-cpp.instructions.md` (binding for all `*.hpp/*.cpp/*.h/*.c` changes). Copilot custom agents: `.github/agents/`. Build presets: `CMakePresets.json`.
+<!-- shared:begin 0.3.0 sha256:9aee198041110762 -->
+Canonical rules for Claude, Copilot and sub-agents. Sections marked *(shared)* come from embedded-pro/embedded-agent-kit:
+edit them there, not here. *(repo)* sections belong to this repository. *Exceptions* overrides a shared rule.
 
-hal-st is a Hardware Abstraction Layer for ST ARM Cortex-M microcontrollers (F4, F7, G0, G4, H5, H7, WB, WBA families), implementing [embedded-infra-lib](https://github.com/embedded-pro/embedded-infra-lib) HAL interfaces over the STM32 HAL/LL library. It's a copy of [philips-software/amp-hal-st](https://github.com/philips-software/amp-hal-st).
+## Behaviour *(shared)*
 
-## Architecture
+- **Be as terse as possible.** No preamble, summary or narration. Report file paths and pass/fail.
+- Everything you write — code, docs, agent files, PR text — uses the fewest words that stay unambiguous.
+- Prose (docs, comments, agent files, commit and PR text) follows ASD-STE100 Simplified Technical English:
+  one word, one meaning; active voice; one instruction per sentence; sentences ≤ 20 words (procedures) or ≤ 25 (descriptions).
+- Ambiguous request: ask. Clear request: act.
+- Do only what was asked. No unrelated refactors, no extra features.
+- Batch reads, don't re-read, prefer targeted edits.
+- Never change a shared section. Add a deviation to *Exceptions* only when the user approves it.
 
-- `hal_st/stm32fxxx/` — STM32 peripheral drivers (Uart, Can, Spi, Adc, Gpio, Dma, Timer, Flash, Ethernet, USB, parallel memories on FSMC/FMC — `FmcStm` controller with `SramStm`, `NorFlashStm`, `SdRamStm` banks, `SdCardStm` SD card and `MmcStm` eMMC on the shared `SdmmcBlockDeviceStm`, …), with `ip/` and `mcu/` holding the ST pin-data XML (GPIO alternate functions, per-MCU peripheral lists) the build turns into `PeripheralTable`/`PinoutTableDefault`
-- Display: `LtdcStm` (`hal::DisplayController`), `Dma2dStm` (`hal::Blitter`) and `DsiHostStm` (`hal::DsiHost` + `hal::DsiVideoStream`) implement interfaces hosted in embedded-infra-lib (`hal/interfaces`). LTDC and DMA2D exist on F429, F746/F767 and H757, the DSI host on H757 only; the files compile to nothing elsewhere
-- Display pins and memory: LTDC pins are one `PinConfigTypeStm::ltdc*` per signal because some pins carry two LTDC signals on different alternate functions. Frame buffers must be reachable by the LTDC and DMA2D (not DTCM/CCM); nothing here does cache maintenance. The LTDC layer registers are shadowed and a read returns the active value: write `LxCR` whole, never read-modify-write it between `ConfigureLayer` and `Commit` (the HAL's CLUT calls did and left every layer disabled)
-- Display panels: controller set-up (ILI9341, OTM8009A command tables) lives in EMIL `drivers/display` and `boards` (`Stm32f429iDiscoLcdSetup`, `Mb1166Setup`); the demos only wire it to the drivers
-- Audio pins and tables: `PinConfigTypeStm::sai*` (SCK, MCLK, SD, FS, and the PDM CK1/CK2/D1–D3; blocks A and B share one type per signal) and `i2s*` (CK, WS, MCK, SD; the SDI/SDO split of H5/H7 maps to the one `i2sSd`). I2S has no `PeripheralTable` entry because I2Sx is SPIx: it uses the `Spi` arrays (`PeripheralTableH7xx.xml` gained `Spi` and `Sai`, `PeripheralTableH5xx.xml` gained `Sai`). `HAS_PERIPHERAL_SAI` exists on F429, F746/F767, G4, WB55, WBA55/65, H5 and H7; `ResetPeripheralSai` is generated next to `ResetPeripheralSpi`. WBA55 uses its own pin data (`mcu/STM32WBA55CGUx.xml` with `ip/GPIO-STM32WBAx`) because the WBA52 data has no SAI1 block A/B. The pin generator skips F4 `I2Sx_ext_SD` signals
-- `hal_st/synchronous_stm32fxxx/` — Blocking driver variants (`SynchronousUart`, `SynchronousSpiMaster`, …)
-- `hal_st/instantiations/` — Board event infrastructure (`StmEventInfrastructure`, `NucleoUi`, `DiscoveryUi`)
-- `hal_st/bringup/` — Startup glue (`Default_Handler_Forwarded`, HAL tick/assert hooks); the Cortex-M core code (`InterruptCortex`, `SystemTick`, …) comes from EMIL `hal.cortex_m`
-- `hal_st/middlewares/` — `STM32_WPAN`, `ble_middleware`
-- `hal_st_lwip/` — lwIP network stack instantiations
-- `st/` — CMSIS headers, STM32 HAL driver sources (per family), `hal_conf/`, `ldscripts/`
-- `services/st_util/` — ST bootloader communicator services
-- `validation/` — hardware-in-the-loop validation app (NUCLEO-WB55RG, NUCLEO-WBA55CG, NUCLEO-G474RE): `firmware/` (target `hal_st.validation_firmware`, every driver behind EMIL's `services/hil` terminal), `host/` (Python package `hal_st_validation` + pytest suite driving the firmware and a Digilent Analog Discovery 3); command set in `validation/PROTOCOL.md`
-- `examples/` — `blink`, `helloworld`, `sesame`, `freertos` (generic, `examples_st.*` targets, `HALST_BUILD_EXAMPLES`)
-- `demo/` — board demos (`demo_st.*` targets, `HALST_BUILD_DEMOS`): `display_demo` (shared, interface-only), `audio_demo` (shared tone generator), `sd_card_demo` (shared SD card and eMMC test) and `common` (helpers of the H7 demos: I2C address scanner, counting I2C driver, memory tests, QSPI flash check, canvas, touch cursor layer, touch monitor, dashboard colours) as support libraries, `stm32f746g_disco` (SAI2 + WM8994, microSD on SDMMC1, USART1 trace), `stm32f407g_disco` (LIS3DSH, CS43L22, MP45DT02, RTT), `stm32f429i_disco` (LTDC + DMA2D + SDRAM, ILI9341 set up over SPI5 by EMIL's `boards.stm32f429i_disco_lcd`, gyroscope sharing SPI5, STMPE811 touch, DAC-to-ADC loopback, USART1 terminal), `stm32h757i_eval` (CM7: DSI panel dashboard in SDRAM, FT6x06 touch, MFX joystick, FMC SDRAM/SRAM/NOR, QSPI flash, ADC potentiometer, DAC, SAI1 + WM8994, microSD on SDMMC1, USART1 terminal), `stm32h745i_disco` (CM7: LTDC dashboard on the 480 x 272 RGB panel in SDRAM, FT5336 touch, QSPI check, eMMC on SDMMC1, I2C4 scan, SAI2 + WM8994, USART3 terminal), and `stm32wb_stm32wba_nucleo/` (`ble_peripheral`, `ble_central` for NUCLEO-WB55RG and NUCLEO-WBA55CG)
+## Workflow *(shared)*
 
-## Memory — no heap
+1. Multi-file or architectural change: update the design document first. Get approval before you write code.
+2. Read *Domain* and *Build*. Read each `.github/instructions/*.instructions.md` whose `applyTo` matches a file you change.
+3. Find the nearest existing pattern. Follow it.
+4. Per behaviour: write a failing test, write the minimum code that passes it, refactor with all tests green.
+5. Add each new file to its `CMakeLists.txt`.
+6. Update the documentation for each behavioural change.
+7. Run the *Build* commands until build and tests pass. Never disable, skip or weaken a test to get green.
+8. Non-trivial change: run the `reviewer` agent, or ask the user to run it. Fix each CRITICAL and WARNING finding.
+9. Report changed files, build pass/fail, test pass/fail.
 
-This is a driver library that always ends up running on constrained MCUs. Forbidden everywhere: `new`/`delete`/`malloc`/`free`, `make_unique`/`make_shared`, `std::vector`/`string`/`deque`/`list`/`map`/`set`. No recursion in driver code — stack depth must be statically bounded.
+## Memory *(shared)*
 
-Use: `infra::BoundedVector<T>`, `infra::BoundedString`, `infra::BoundedDeque<T>`, `infra::MemoryRange<T>` (buffer params, not raw pointer+size), `std::array<T,N>`, `std::optional<T>`.
+Scope: production code. Tests and host tools may use the heap.
 
-## STM32 HAL/LL & driver conventions
+- Forbidden: `new`/`delete`/`malloc`/`free`, `make_unique`/`make_shared`,
+  `std::vector`/`string`/`deque`/`list`/`map`/`set`, recursion.
+- Use: `infra::BoundedVector<T>::WithMaxSize<N>`, `infra::BoundedString::WithStorage<N>`,
+  `infra::BoundedDeque`, `infra::BoundedList`/`IntrusiveList`, `std::array`, `std::optional`, `std::variant`.
 
-Full detail lives in `.github/instructions/hal-st-cpp.instructions.md` — read it before touching driver code. Key points:
+## Interfaces & errors *(shared)*
 
-- `HAL_*`/`LL_*` only; never write to registers via magic offsets
-- `HAL_FOO_Init` in constructor, `HAL_FOO_DeInit` + clock disable in destructor (RAII)
-- Interrupt handlers: `private InterruptHandler` (single-vector) or `DispatchedInterruptHandler` (multi-vector, one member per vector); never call `NVIC_EnableIRQ` directly
-- Every alternate-function pin: a `PeripheralPinStm` member, declared in constructor-init order
-- Every driver: inner `Config` struct with mandatory `constexpr Config() {}` and sensible field defaults
-- `oneBasedIndex` convention for peripheral indices; `really_assert` bounds; table access as `table[oneBasedIndex - 1]`
-- `HAS_PERIPHERAL_xxx` guards come from generated `PeripheralTable.hpp` — never hand-edit anything under `generated/`
-- DMA: `DMA_STREAM_BASED` (F4/F7/H7; on H7 `DmaChannelId::channel` is the DMAMUX1 request, `DMA_REQUEST_*`; DMA1/DMA2 only, BDMA is not supported) vs `DMA_CHANNEL_BASED` (G0/G4/WB/WBA/H5) — use `hal_st` DMA wrappers, not raw HAL DMA handles (the exceptions are `DcmiStm`, see "DCMI camera capture", and `SdCardStm` on F4/F7, see "SD card and eMMC")
-- Naming: `FooStm` drivers, `SynchronousFooStm` blocking variants
+- No virtual destructors: each adds a deleting destructor and thunks to flash.
+  Interface = pure virtual methods + `protected: ~I() = default;` (non-virtual).
+- Public `virtual ~Base() = default;` only on a base destroyed through a base pointer:
+  `delete`/`std::unique_ptr<Base>`, `infra::PolymorphicVariant<Base, ...>`, `infra::OptionalForPolymorphicObjects<Base, ...>`.
+  Put it on that base, not on every interface.
+- Not needed for `std::variant`, `std::optional<Concrete>`, `infra::SharedPtr`: they destroy the concrete type.
+- No exceptions. `std::optional`, `bool` or status enum; `really_assert` for preconditions. Never swallow an error.
+- Constructor injection; no global state.
 
-## STM32H7 (H745, H757, dual-core)
+## Optimisation *(shared)*
 
-- One preset builds one core's image: `TARGET_CORTEX` (`m7`|`m4`) defines `CORE_CM7`/`CORE_CM4` and selects `startup_stm32h7{45,57}xx[_cm4].s` and `st/ldscripts/mem_stm32h7{45,57}_c{m7,m4}.ld` (CM7 flash `0x08000000`/AXI SRAM, CM4 flash `0x08100000`/SRAM1-3). Flash both images. `hal::WaitForCortexM4Stop()` sets `RCC_GCR.BOOT_C2` when the option bytes have BCM4 cleared (seen on an MB1246), otherwise the CM4 never runs.
-- `system_stm32h7xx_dualcore_boot_cm4_cm7.c` is the only system file compiled (`add_hal_driver(… SYSTEM_SOURCE …)`). CM7 first waits for the CM4 domain to stop (`hal::WaitForCortexM4Stop()`, before touching any D2 peripheral), configures the clocks and then calls `hal::ReleaseCortexM4()`; CM4 calls `hal::WaitForCortexM7()` before `HAL_Init()` (`hal_st/stm32fxxx/DualCoreHandshakeStm`).
-- Per-core peripheral state (EXTI mask/pending) goes through `EXTI_D1` (CM7) / `EXTI_D2` (CM4); don't share GPIO ports between cores without HSEM arbitration.
-- Drivers not yet ported to H7 are excluded in `hal_st/stm32fxxx/CMakeLists.txt` (`HEADER_FILE_ONLY`) and `hal_st/synchronous_stm32fxxx/CMakeLists.txt`; shrink those lists as drivers are ported. `PeripheralTableH7xx.xml` has `I2c`, `Adc`, `Dac` and `QuadSpi` besides the display, FMC, SAI and DCMI entries.
-- H7 I2C (`I2cStm`) shares the WB/WBA code paths (own-address 1 disabled, NACK and bus-error recovery) and defaults to 400 kHz for a 100 MHz kernel clock. H7 ADC (`AdcStm`) uses `ADC_CLOCK_ASYNC_DIV4`: the application selects the ADC kernel clock (`RCC_PERIPHCLK_ADC`; after reset it is PLL2 P, which is off) and `AnalogToDigitalChannelStm` measures a channel that has no GPIO, such as the `_C` pads (PA0_C is ADC1/2 channel 0).
-- MB1246 (EVAL) board support lives in `demo/stm32h757i_eval/` (active-low LEDs and the tamper button via `InvertedGpioPin`, `DefaultClockEvalH757I`, USART1 tracer and terminal on `hal::UartStm`). `stm32h757-cm7` builds `demo_st.stm32h757i_eval_cm7` (the demo, see its README), `stm32h757-cm4` builds `demo_st.stm32h757i_eval_cm4` (orange LED).
-- The CM7 image of `demo/stm32h757i_eval/` draws a dashboard on the 800 x 480 DSI panel (OTM8009A set up by EMIL's `boards.mb1166`, RGB565 frame buffer in the first 768 KB of the SDRAM, cursor layer in AXI SRAM, pixel clock from PLL3 via `ConfigureLtdcClockEvalH757I`)
-- MB1246 pin sharing: PE2 and PE4 to PE6 are SAI1 MCLK/FS/SCK/SD and also FMC A23, A20 to A22 of the NOR flash. The demo keeps them out of the FMC pin list, drives A20 to A22 low while it checks the NOR identification at boot and hands the pins to the SAI afterwards, so the NOR array is only reachable before the audio starts. The FMC pin list must be one `FmcStm` because a pin is claimed once
-- `DsiHostStm` sends every DCS and generic command in low power (`HAL_DSI_ConfigCommand`; `Config::commandsInLowPower` turns it off) and only programs the D-PHY timers when `Config::phyTimer` is set, so the timers, host timeouts and receive filter keep the reset values that ST's OTM8009A bring-up relies on. `Config::lowPowerReceiveFilter` is optional for the same reason
-- Panel bring-up on the MB1246: with EMIL's own order (DSI host running, then the panel reset, 0x05 final writes, PHY timers of 35) the OTM8009A kept showing its frame memory, static coloured pixels, even for the DSI host test pattern. ST's `LCD_DSI_VideoMode_SingleBuffer` drives the same module on that board
-- The demo follows that example: it resets the panel and switches the backlight on before `DsiHostStm` exists (EMIL gets a pin that ignores its own reset pulse), starts the stream before the panel init and ends it with a no-operation and a memory write start as one-parameter short writes. The steps were not tried one by one; ST's `LCD_DSI_VideoMode_SingleBuffer` is the register reference
-- `stm32h745-cm7`/`stm32h745-cm4` target the STM32H745XIH6 of the STM32H745I-DISCO (MB1381): the same memory map as the H757, pin data `mcu/STM32H745XIHx.xml` with the H747 GPIO modes file, no DSI. The MB1381 feeds the core from its SMPS. The vendor `Reset_Handler` calls `ExitRun0Mode` before `SystemInit`, which applies the supply picked by a `USE_PWR_*` define; no other target sets one, the H745 target defines `USE_PWR_DIRECT_SMPS_SUPPLY` in `st/CMakeLists.txt` and `DefaultClockDiscoveryH745I` checks it with `HAL_PWREx_ConfigSupply`. A firmware that selects another supply makes the ST-LINK lose the target (UM2488: move the 10 kOhm resistor from R143 to R144, erase the flash, move it back)
-- The CM7 image of `demo/stm32h745i_disco/` (see its README) draws its dashboard through the parallel-RGB LTDC: the 28 signals come from `DiscoveryLcdPins` (pin data of ST's `.ioc`, checked against the generated pin table), the pixel clock from PLL3 via `ConfigureLtdcClockDiscoveryH745I` and the SAI2 kernel clock from PLL2 via `ConfigureAudioClockDiscoveryH745I`. The panel timing is `boards::rk043fn48hTiming` from EMIL (ST's RK043FN48H with the back porch cut to 2 clocks, so the data starts 43 clocks after the start of HSYNC as in the board support package of this board). The two QSPI flash chips share CLK and BK1_NCS: `QuadSpiStm` drives bank 1 only, so the demo reaches the chip on the bank 1 data lines and never addresses the other. `demo/common/QuadSpiMemory` runs the flash in its power-up mode through `FlashQuadSpiGeneric` with `Protocol::extendedSpi` (commands on one line, reads 1-4-4, programs 1-1-4), with the geometry from `FlashGeometryQuadSfdp` and 4-byte addresses above 16 MB, and compares every quad read with a read on one line (`FlashQuadSpiSingleSpeed`); a Micron flash keeps the dummy cycles of its fast reads in its volatile configuration register, which survives a processor reset, and ST's board support package leaves 8 there against the 10 of the SFDP table, so `QuadSpiMemory` writes the SFDP number back when the register holds another explicit one; `QuadSpiStm::PollStatus` used to wait with `HAL_MAX_DELAY` and block the event loop, so a flash that never answered the status read hung the core (seen on the MB1381 with the earlier flash class, which sent every command on four lines to a flash in its power-up mode); it now completes from the status-match interrupt, and such a flash leaves the poll pending without blocking the core. The FT5336 axes follow ST's `TS_SWAP_XY`; the touch controller of later board revisions is a GT911, which EMIL has no driver for
-- Local vendor patches to keep on re-import: every `gcc/startup_*.s` (`Default_Handler_Forwarded`) and the `.cpu cortex-m4` copies `startup_stm32h757xx_cm4.s` and `startup_stm32h745xx_cm4.s`; `hal_conf/stm32h7xx_hal_conf.h` (`hse_value`, `stm32_assert.h`, USART/COMP aliases); pin-data XML namespace rewritten to `http://mcd.rou.st.com/modules.php?name=mcu`; `GeneratePinoutTableStructure.xsl` skips `*_C` analog pads.
-- Local vendor patches to keep on re-import (display): `USE_HAL_LTDC_REGISTER_CALLBACKS` and `USE_HAL_DMA2D_REGISTER_CALLBACKS` set to `1U` in `hal_conf/stm32{f4,f7,h7}xx_hal_conf.h`, because `LtdcStm` and `Dma2dStm` register their callbacks
+- No `#pragma GCC optimize`, no `optimize` attribute: GCC won't inline across differing options.
+  The consumer sets flags per translation unit.
+- `OPTIMIZE_FOR_SPEED` only on hot functions defined in a header.
+- Hot paths: no heap, no virtual dispatch, no blocking.
 
-## STM32G4 (G474, NUCLEO-G474RE)
+## Style *(shared)*
 
-- `stm32g474` (variant `stm32g474rxt`, LQFP64 pin data `mcu/STM32G474R(B-C-E)Tx.xml`) targets the NUCLEO-G474RE: 170 MHz from the 24 MHz HSE (`DefaultClockNucleoG474xxx`; the validation firmware sets `hse_value` from `board::hseValue`), all APB prescalers 1, so every timer kernel clock is 170 MHz. `Nucleo64Ui` and `NucleoG474reTracerInfrastructure` (USART2 on PA2/PA3, the ST-LINK VCP, AF7) serve the board; LD2 is PA5. Reserved: PA13/PA14 (SWD), PC14/PC15 (LSE), PF0/PF1 (HSE), PG10 (NRST); BOOT0 is PB8 (a stock board boots from flash whatever PB8 does).
-- `PeripheralTableGxxx.xml` has `TIM1_8G4` and `TIM6_7G4` timers, `Lpuart`, `LpTimer`, `fdCan` (FDCAN1-3 with their IT0/IT1 vectors, as in `PeripheralTableH5xx.xml`) and `QuadSpi` (`base="QSPI_R_BASE"`; the generated `QUADSPI1_IRQn` is mapped to `QUADSPI_IRQn` by a define for `stm32g474vxt`); `PinoutTableItems.xml` also lists the `QUADSPI1_*` signals, the name the G4 pin files use.
-  `TimerStm.cpp` maps the shared vectors (TIM1/TIM16/TIM17 update vectors, TIM6/TIM7 with the DAC, TIM15 with TIM1 break, TIM20); TIM18/TIM19 are placeholders.
-- ADC DMA: `stm32g4xx` is in `AdcDmaMcuFamilies` and the `AdcDmaStm` guards include `STM32G4` (DMAMUX request `board::adcDmaRequest`).
-  `AdcDmaMultiChannelStmTriggeredExternally<N>` runs a circular sequence on a trigger the caller owns, such as a PWM timer's TRGO, without taking the timer as `AdcDmaMultiChannelStmTriggeredByTimer` does; the validation firmware's `adc.open trgo=` sequence goes through the same `SelectExternalTrigger`.
-  `Stop()` waits for ADSTP to clear before disabling, as the converter refuses to disable while a conversion ends.
-- `SynchronousAdcStm` (`hal::SynchronousAdc`) polls one channel on a shared `AdcStm`, configured at every `Measure` like `AnalogToDigitalPinImplStm`. Built from a channel instead of a pin it leaves the pin to its owner, so a second ADC can read a pin a sequence on another one samples.
-  Hardware oversampling (2-256, shifted back to 12 bits) exists where the LL has `LL_ADC_OVS_GRP_REGULAR_CONTINUED` and the `LL_ADC_OVS_RATIO_n` constants (not H7, whose ratio is numeric) and is set per measurement, as it belongs to the converter.
-- I2C: G4 shares the WB/WBA/H7 code paths of `I2cStm` (own-address 1 disabled, NACK and bus-error recovery); on the older path a NACK left NACKF set and only called `DeviceNotFound`, so the transfer never completed.
-- FDCAN: `FdCanStm` (`hal::Can`, wherever `HAS_PERIPHERAL_FDCAN`: G4 and H5) sends and receives classic frames, one frame in flight as with `hal::Can`.
-  Every interrupt line stays on IT0 and is served in the interrupt (`private InterruptHandler`): a receive FIFO holds three frames, fewer than arrive at 1 Mbit/s while the event loop runs a long action, so frames are queued there and delivered, with completions and errors, on the event dispatcher.
-  Lengths go through the HAL's `FDCAN_DLC_BYTES_n` (G4 encodes them shifted, H5 not); a frame with a DLC of 9-15 is read into a 64-byte element buffer and delivers 8 bytes.
-  The bit timing comes from `HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN)`, so the application owns FDCANSEL (the HSE after reset); `CalculateNominalBitTiming` takes the most time quanta (8-25) that divide the clock exactly, sample point near 87.5 %, or `Config::timing` takes an explicit `NominalBitTiming`. `Config::filter` is one id/mask filter of one id type; `testMode` is external loopback.
-  Bus off masks the protocol-error interrupt (the recovery reports one every 11 recessive bits), aborts and fails the frame in flight, and with `autoBusOffRecovery` leaves initialisation through `HAL_FDCAN_Stop`/`HAL_FDCAN_Start`.
-  The validation firmware's `can` group (EMIL `HilCanCommands`, `CanFactoryStm`) opens FDCAN1-3, by default FDCAN1 on PA11/PA12 (`can1rx`/`can1tx`). Not run on a board yet.
-- The G4 LPTIM uses the old HAL API (period passed at start, `LPTIM_FLAG_ARRM`, no CCR1/CCR2, no repetition counter), so `LpTimerStm` follows the WB path and `LpTimerPwmStm` is not built; the LPTIM encoder reads `LL_LPTIM_GetCounter`.
-- Flash is dual bank with 2 KB pages (`FLASH_OPTR.DBANK`, bank 2 at `0x08040000`); `FlashHomogeneousInternalStm`/`FlashInternalStm` and their synchronous twins erase through `detail::ErasePages`, which adds the region offset, picks the bank and asserts DBANK. Programming is by double words.
-- `BackupRamStm` on G4 enables the RTCAPB clock and backup domain access first (TAMP BKP0R-BKP15R); the RNG kernel clock is CLK48, so the board profile switches HSI48 on. DMA is channel based behind the DMAMUX (`DMA_REQUEST_*`), and the LL DMA channels are numbered from 0.
-- `mem_stm32g474.ld` has one 128 KB RAM: SRAM1 80 KB + SRAM2 16 KB + the CCM SRAM alias at `0x20018000`. The validation firmware uses 33 KB, so its DMA buffers stay in SRAM1; DMA into the CCM alias is not verified.
-- The validation firmware adds `DacGroup` (`dac.*`, DAC1 OUT1 PA4 and DAC2 OUT1 PA6) , `CordicGroup` (`cordic.calc`), `FmacGroup` (`fmac.*`), `ComparatorFactory` (EMIL's `comp.*` and `comp.dac`), `OpampGroup` (`opamp.*`) and `HrtimGroup` (`hrtim.*`) and does without AES, PKA, HSEM, `lptpwm` and `lpm.enter deep` (`LowPowerModeStm::Stop` enters real Stop on G4, which stops the scaffold timer).
-- CORDIC: `CordicBaseStm` holds the HAL init and configuration and resets the CORDIC in its constructor, so a q1.31 calculation with one argument gets ARG2 = +1.
-  `SynchronousCordicStm` uses `HAL_CORDIC_Calculate`/`CalculateZO`, `CordicStm` the result interrupt (`DispatchedInterruptHandler`, LL reads and writes; IEN is set before the first argument, as the interrupt only fires when RRDY becomes set), `CordicStmDma` `DmaStm` channels on WDATA/RDATA with the LL DMA request bits (at most 16383 words per direction).
-  `HAL_CORDIC_Calculate_DMA` is not used because it needs raw DMA handles; `USE_HAL_CORDIC_REGISTER_CALLBACKS` stays 0 as no HAL callback is used. The validation firmware runs it on DMA2 channels 5 and 6.
-- FMAC: `FmacBaseStm` configures a FIR or a direct-form-1 IIR through `HAL_FMAC_FilterConfig` with polling access (coefficients, X1 and Y laid out over the 256 words), preloads P - 1 input and Q output history samples (`HAL_FMAC_FilterPreload`) and starts it, so every input sample gives one output.
-  `SynchronousFmacStm` streams with LL polling, `FmacStm` on the write and read interrupts, `FmacStmDma` through `DmaStm` channels on WDATA/RDATA (32-bit peripheral, 16-bit memory) instead of the HAL DMA path,
-  with DMA buffer access in the filter configuration so that `HAL_FMAC_FilterStart` sets DMAWEN/DMAREN before START (the FMAC ignores them while it runs); DMA2 channels 7 and 8 in the validation firmware. The FMAC adds the IIR feedback.
-  The bit-exact host model (`validation/host/hal_st_validation/fmac_ref.py`) was written without RM0440 at hand; a NUCLEO-G474RE run matched its calibration vectors bit for bit and showed that SAT flags a wrapped accumulator, not a clipped or wrapped output.
-- COMP: `ComparatorStm` (`hal::AnalogComparator`) and `SynchronousComparatorStm` over `ComparatorBaseStm` (`HAL_COMP_Init`/`Start` with the trigger mode off; INP IO1/IO2, INM IO1/IO2, the VREFINT fractions or a DAC, hysteresis, polarity, blanking; the output pin is `PinConfigTypeStm::compOutput`).
-  The EXTI lines (21, 22, 29-33) are set through LL by `Enable`; the shared vectors COMP1_2_3, COMP4_5_6 (COMP4 on G431) and COMP7 belong to `ComparatorInterruptsStm`, an `InterfaceConnector` the application constructs once, which runs each comparator's callback in the interrupt or on the event dispatcher.
-  COMP and OPAMP have `ClockEnableMode="none"` in the MCU XML: `GeneratePeripheralTableStructure.xsl` marks such items `clock="none"` and `GeneratePeripheralTableCpp.xsl` gives them empty `EnableClock`/`DisableClock` cases (they run on SYSCFG, which GpioStm enables and nothing disables).
-- OPAMP: `OpampStm` (`HAL_OPAMP_Init`, optional `HAL_OPAMP_SelfCalibrate`, `HAL_OPAMP_Start`): follower, non-inverting PGA (gains 2-64, VINM0 for a filter or an inverting bias) or standalone, VINP0-VINP2 or the internal DAC, VOUT or the internal output to the ADC, normal or high speed; the trims are read back through LL.
-  Self-calibration is off by default and needs the output on VOUT: with the internal output OUTCAL reads high at every step and the calibration ends at trims 0/0 (bench run, NUCLEO-G474RE); the factory trims read within a few codes.
-  The validation firmware's `opamp` group owns pin owner id 9 (`owners::opamp`), one EMIL leaves free below `extension`, because ids 16-31 of the 32-bit owner mask are taken.
-- HRTIM: `HighResolutionTimerStm` owns HRTIM1 (reset, DLL calibration, the APB2 timer clock it runs on; G4 has no HRTIM kernel clock mux).
-  `HighResolutionPwmStm` is a `hal::SingleChannelPwm` and `hal::TwoChannelsPwm` (two duties only with `Outputs::inPhase`) over one timing unit A-F: in phase, complementary with dead time, or output 1 shifted by `SetPhase` against output 2.
-  A `FaultInput` FLT1-FLT6 forces the outputs inactive until the next `Start` (as `PwmStm`'s break without automatic output enable); an optional ADC trigger fires on the unit period.
-  As with `PwmStm`, `SetBaseFrequency` asserts a frequency `TimingFor` refuses and comes before `Start`. The period is preloaded and transferred with `HAL_HRTIM_SoftwareUpdate`; the prescaler (MUL32-DIV4) is not, so a change of prescaler stops the counter.
-  Compares stay three fHRTIM periods away from 0 and the period. The pins are `PinConfigTypeStm::hrtimChA1`-`hrtimChF2` and `hrtimFlt1`-`hrtimFlt6`; the validation firmware's `hrtim` group (its `duty`, `freq` and `stop` as EMIL's `pwm`) owns pin owner id 10.
-- The UM2505 user manual was not consulted: header positions in `validation/README.md` use the Arduino labels and morpho port names, and `BackupRamStm`, the dual-bank erase, the VCP at 921600 baud and the DAC buffer range have not run on a board yet.
+- `.clang-format` is authoritative. Allman, 4 spaces, `{}` init.
+- PascalCase types/methods; camelCase members and enum values; lowercase namespaces.
+  No `I` prefix; implementations end in `Impl`.
+- `#pragma once` only.
+- Fixed-width integers. `const`/`constexpr`-correct. Functions ≤ 30 lines (hard limit 50).
+- Comments: non-obvious *why* only, one line. No `TODO`/`FIXME`, commented-out code, or restating the code.
+  Fix or delete a comment the change makes stale.
 
-## PWM (`PwmStm`)
+## Testing *(shared)*
 
-- With off-state control (a dead time, a break input or an idle level requested high), `Stop` clears CEN and MOE but keeps the channel enables, so the timer goes on driving the idle levels, low unless requested otherwise: a bridge's gate inputs stay off instead of floating. Without it, `Stop` releases the outputs as before.
+- `TEST_F` for fixtures, `TYPED_TEST` for types, plain `TEST()` for stateless checks.
+- `StrictMock` only. `EXPECT_NEAR` with explicit tolerance. Fixture in an anonymous namespace, macros outside.
+- Heap allowed in tests.
 
-## DCMI camera capture (`DcmiStm`)
+## Documentation *(shared)*
 
-- `DcmiStm` implements EMIL `hal::Camera` on F4, F7, H5 and H7, the families that have a DCMI; it compiles to nothing where `HAS_PERIPHERAL_DCMI` is undefined. On H5 the DCMI shares its interrupt and clock with PSSI. Its pins are one `MultiGpioPinStm` (D0..Dn, HSYNC, VSYNC, PIXCLK, `PinConfigTypeStm::dcmi`); XCLK for the sensor is the application's job (timer or MCO).
-- It owns a raw `DMA_HandleTypeDef` and calls `HAL_DCMI_Start_DMA` instead of using `DmaStm`: `DmaStm` takes `uint16_t` byte counts (a QVGA RGB565 frame is 153600 bytes) and has no double-buffer mode, which the ST HAL uses to split frames of more than 65535 words. On H5 it builds the one-node, or circular two-node, GPDMA linked-list queue that `HAL_DCMI_Start_DMA` expects. It enables the DMA clocks and never disables them, and it does not reserve its stream in `DmaStm`; a conflict with another user of the stream shows up as a second registration of the same IRQ.
-- Both its vectors (DCMI and DMA stream) use `ImmediateInterruptHandler` at the same priority: the HAL re-programs the memory addresses of a split frame from the DMA ISR, so deferring that work to the event dispatcher would corrupt frames silently. The HAL callbacks only post an event; `onFrame` and `onError` run on the event dispatcher.
-- It registers the HAL frame and error callbacks, so `USE_HAL_DCMI_REGISTER_CALLBACKS` is `1U` in the F4, F7, H5 and H7 `hal_conf` headers (keep on re-import).
-- Frame buffers are caller-owned: 4-byte aligned, a whole number of words, at most 262140 bytes per DMA pass (65535 on H5) unless the frame divides evenly into a power-of-two number of passes, and not in TCM. A JPEG frame is snapshot-only and must fit in one pass. On F7/H7 with the D-cache enabled they must be 32-byte aligned and sized; the driver cleans and invalidates the cache around a capture.
+- Update docs before or with any behavioural change.
+- One fact, one place: link, never restate.
+- Visuals: Mermaid or ASCII.
+<!-- shared:end -->
 
-## Quad-SPI (`QuadSpiStm`)
+## Domain *(repo)*
 
-- `QuadSpiStm` implements EMIL `hal::QuadSpi` without DMA, for the H7, whose QUADSPI only the MDMA serves: the command, the data phases and the status polls run on the HAL interrupt functions (`HAL_QSPI_Command_IT`, `Transmit_IT`, `Receive_IT`, `AutoPolling_IT`), and the driver is the `InterruptHandler` of the QUADSPI vector, at `Config::priority`. The HAL callbacks only schedule the completion, so it runs on the event dispatcher, never inside the call that started the request; one request at a time (`really_assert`)
-- A request that fails to start or ends with a transfer error is aborted and still completes, since `hal::QuadSpi` has no status; before, the completion was dropped and the caller waited for ever
-- The data phase moves the FIFO in the interrupt, so a long read or program keeps the core in the handler for about its length on the wire; the status polls of erases and programs, the long waits, no longer hold the core at all
-- Local vendor patch to keep on re-import: `USE_HAL_QSPI_REGISTER_CALLBACKS` is `1U` in the F4, F7, G4, H7 and WB `hal_conf` headers (the callbacks are registered after `HAL_QSPI_Init`, which resets them while the state is RESET). `SynchronousQuadSpiStm` uses only the blocking HAL functions, which the setting does not change
+- HAL for ST Cortex-M families F4, F7, G0, G4, H5, H7, WB, WBA. It implements embedded-infra-lib HAL interfaces
+  over the STM32 HAL/LL library. It started as a copy of philips-software/amp-hal-st.
+- Before you change a driver, read its section in `doc/driver-notes.md`.
+- Layout:
+  - `hal_st/stm32fxxx/` — drivers. `ip/` and `mcu/` hold the ST pin-data XML that generates `PeripheralTable`
+    and `PinoutTableDefault`.
+  - `hal_st/synchronous_stm32fxxx/` — blocking variants. `hal_st/instantiations/` — board event infrastructure.
+  - `hal_st/bringup/` — startup glue; Cortex-M core code comes from EMIL `hal.cortex_m`.
+  - `hal_st/middlewares/` — `STM32_WPAN`, `ble_middleware`. `hal_st_lwip/` — lwIP instantiations.
+  - `st/` — vendor CMSIS, HAL sources, `hal_conf/`, `ldscripts/`. `services/st_util/` — ST bootloader communicator.
+  - `validation/` — hardware-in-the-loop app: `firmware/` (`hal_st.validation_firmware`), `host/` (pytest and an
+    Analog Discovery 3); commands in `validation/PROTOCOL.md`.
+  - `examples/` (`HALST_BUILD_EXAMPLES`) and `demo/` (`HALST_BUILD_DEMOS`) — board examples and demos.
+- *Memory* applies to the whole repository. Buffer parameters are `infra::MemoryRange<T>`, not pointer and size.
+  Callbacks: `infra::AutoResetFunction<void()>` (one-shot) or `infra::Function<void()>`.
+- Use only `HAL_*` and `LL_*`; never write a register through a magic offset. New code includes `DEVICE_HEADER`.
+- RAII: `HAL_FOO_Init` and clock enable in the constructor; `HAL_FOO_DeInit`, force/release reset and clock disable
+  in the destructor. Register HAL callbacks with `HAL_FOO_RegisterCallback`; do not override weak symbols.
+- Peripheral handles (`xxx_HandleTypeDef`) are non-static members, value-initialised with `{}`.
+- Interrupts: single vector → `private InterruptHandler`; several vectors → one `DispatchedInterruptHandler` member
+  per vector. Never call `NVIC_EnableIRQ`. `ImmediateInterruptHandler` only with a one-line why.
+- Each alternate-function pin is a `PeripheralPinStm` member, declared in constructor-initialiser order; never call
+  `HAL_GPIO_Init` for it. Pins are constructed before the peripheral is enabled.
+- Each driver has an inner `Config` with `constexpr Config() {}` and a default for every field. More than four related
+  fields go in a named sub-struct (`PinConfig`, `DmaConfig`, ...).
+- Peripheral indices are `uint8_t oneBasedIndex`: `really_assert` the range, read tables as `table[oneBasedIndex - 1]`.
+- Family presence: `#if HAS_PERIPHERAL_xxx` from the generated `PeripheralTable.hpp`. Never edit `generated/`;
+  change the XML and regenerate.
+- DMA: `DMA_STREAM_BASED` (F4, F7, H7; on H7 the channel is the DMAMUX1 request) or `DMA_CHANNEL_BASED`
+  (G0, G4, WB, WBA, H5). Use the `hal_st` DMA wrappers, not raw HAL DMA handles; exceptions are in
+  `doc/driver-notes.md`.
+- Names: `FooStm` drivers, `SynchronousFooStm` blocking variants. No public member variables.
+- No C-style casts. `reinterpret_cast` only where the HAL needs a register or `void*` cast. No implicit narrowing.
+- A change to a driver on WB55, WBA55 or G474 keeps `validation/PROTOCOL.md`, the firmware factory and the host
+  tests in step.
 
-## Parallel NOR flash (`NorFlashStm`)
-
-- `NorFlashStm` implements EMIL `hal::Flash` over a 16-bit NOR bank of the FMC/FSMC (`FmcStm`), with the AMD/Fujitsu or the Intel/Sharp extended command set that `HAL_NOR_Init` reads from the CFI. Reads copy from the memory window. Programs go through the write buffer of the chip, `Config::writeBufferBytes` at a time (64 by default, at most 1024; set it from the datasheet of the chip, as a write must not cross a page of the buffer), with `HAL_NOR_ProgramBuffer`: a write is cut at the write-buffer pages and an odd first or last byte is padded with 0xFF
-- Programs and erases do not block the event loop: after each write-buffer page and each sector, the driver checks the status with `HAL_NOR_GetStatus` at a timeout of 0 and, while the chip is busy, schedules the next check on the event dispatcher, so other events run in between and the completion follows the chip within one pass of the loop. The dispatcher therefore does not idle while a program or an erase runs. The completion runs on the event dispatcher, one operation at a time (`really_assert`), and the object must not be destroyed while an operation is in progress (`really_assert`); a status error or a page or sector that takes longer than `programTimeout` or `eraseTimeout` asserts, as before
-- `hal::Flash` has no status, so an error stays fatal; the timeouts are the maxima of the chip, not of a request
-
-## SD card and eMMC (`SdCardStm`, `MmcStm`)
-
-- `SdCardStm` (SD cards) and `MmcStm` (eMMC) implement EMIL `hal::BlockDevice` on the class template `SdmmcBlockDeviceStm<CardHal>`, which holds the transfer state machine below; `detail::SdCardHal` and `detail::MmcHal` are the HAL calls of each protocol, and `SdmmcBlockDeviceStm.cpp` instantiates the template for both. They are async only: `ReadBlocks`, `WriteBlocks`, `EraseBlocks` and `Flush` complete on the event dispatcher, never from the calling function, one operation at a time (`really_assert`). `SdCardStm` exists on F4 (SDIO), F7, H5 and H7 (SDMMC1/2), `MmcStm` on H5 and H7, which have the SDMMC internal DMA; both compile to nothing where `HAS_PERIPHERAL_SD` is undefined (G0, G4, WB, WBA). The derived class identifies the card in its constructor and then calls `Activate` (callbacks, vector, capacity); its destructor calls `Deactivate` before the HAL `DeInit`
-- The constructor runs the blocking card identification (`HAL_SD_Init`) and reads the SD status (ACMD13, `HAL_SD_GetCardStatus`) and the CID: `AllocationUnitBlocks()` is the allocation unit of the SD status in blocks (0 when the card reports none or the read fails), and `CardIdentification()` the manufacturer, OEM, product name, revision, serial number and date of the CID, both of which `hal::BlockDevice` has no place for; the Cortex-M7 image of `demo/stm32h757i_eval` traces them at boot. No card, or a card that does not initialise, gives `NumberOfBlocks() == 0` and every operation completes `notPresent`; to pick up a card inserted later, re-create the object. Not supported: card detect, power switching and pull-ups (board or application), 1.8 V/UHS
-- `MmcStm` runs `HAL_MMC_Init` in its constructor (identification, the EXT_CSD read into the handle, the switch to four data lines) and drives D0 to D3 only; 8-bit, high-speed and DDR modes are not supported. `EraseGroupBlocks()` is the high-capacity erase group (HC_ERASE_GRP_SIZE of the EXT_CSD, in units of 512 KiB) in blocks, `DeviceIdentification()` the CID in the eMMC layout, read from the raw words because `HAL_MMC_GetCardCID` parses it as an SD CID, and `CacheEnabled()` the CACHE_CTRL of the EXT_CSD. `EraseBlocks` trims (`HAL_MMC_EraseSequence` with `HAL_MMC_TRIM`), because `HAL_MMC_Erase` erases whole erase groups, beyond the requested range; on a device whose EXT_CSD does not report trim (SEC_GB_CL_EN), which could take the trim for such an erase, it completes without touching the blocks, which `hal::BlockDevice` allows. With `Config::cache`, the constructor switches the cache of the device on when it has one and reads the EXT_CSD back (hardware flow control is on, so that full-speed read cannot overrun); `Flush` then sends FLUSH_CACHE (CMD6) before it waits for the device, and without the cache it only waits. The SWITCH_ERROR bit of the status that follows a CMD6 fails the operation, since `HAL_MMC_GetCardState` drops it. The destructor does not flush: writes still in the cache of the device are lost if the object is destroyed, or re-created, without a `Flush`. A device with 4 KiB native sectors (DATA_SECTOR_SIZE) is not hidden: the HAL rejects requests that are not aligned to 8 blocks. A step of the construction that fails leaves the device not present. The Cortex-M7 image of `demo/stm32h745i_disco` traces all of it at boot
-- The application owns the SDMMC kernel clock (48 MHz on F4/F7, PLL1Q on H5/H7). `Config::clockDivider` is the HAL `ClockDiv` and its default stays at or below 25 MHz for a 48 MHz (F4/F7) or 200 MHz (H5/H7) kernel clock; `SdCardStm::Config::busWidth` is 4-bit by default and the unused data pins are `dummyPinStm`
-- F4/F7 need an external DMA handle for the SD HAL: `SdCardStm` owns one raw `DMA_HandleTypeDef` on DMA2 (default stream 3, channel 4; peripheral flow control, linked as both `hdmarx` and `hdmatx` because the HAL forces the direction per transfer) instead of `DmaStm`, and does not reserve its stream there. H5/H7 use the SDMMC internal DMA and only the SDMMC vector. All vectors are `DispatchedInterruptHandler`; the HAL callbacks only post one event, so `onDone` never runs inside the HAL
-- A request is cut into chunks of at most `Config::maxBlocksPerTransfer` blocks (default and limit 511 on F4/F7, 65535 on H5/H7; the demos set 4 so that the test splits its requests). Each chunk is bounded by `Config::transferTimeout` (the transfer is aborted and completes `timeout`). A write chunk, an erase and a flush complete when `HAL_SD_GetCardState` or `HAL_MMC_GetCardState` reports TRANSFER again (polled every `busyPollInterval`, bounded by `busyTimeout`), so `success` means the card has committed the data (on eMMC with its cache on, into the cache until the next `Flush`). `busyTimeout` also bounds a trim, whose time grows with the number of erase groups it touches. `HAL_SD_Erase` and the trim of `MmcStm` return after the card answers CMD38, and the FLUSH_CACHE of `MmcStm` after it answers CMD6; on H5/H7 the vendor `SDMMC_GetCmdResp1` also accepts the busy end of these R1b responses, so they may block for the card's busy time (not verified on hardware)
-- Buffers are 4-byte aligned whole blocks, not in TCM, and reachable by the DMA (H7: AXI SRAM for SDMMC1). On F7/H7 with the D-cache enabled they must also be 32-byte aligned; the driver cleans the cache before a transfer and invalidates it after a read (`DataCacheStm.hpp`)
-- Pins: `PinConfigTypeStm::sdClk/sdCmd/sdD0..sdD3`. F4 SDIO has pin-table index 0, the SDMMC instances start at 1. H5/H7 also have `sdD0Dir/sdD123Dir/sdCDir` for microSD level shifters, passed as `DirectionPins` (all `dummyPinStm` by default). `PeripheralTableFxxx.xml` gained the F4 `SDIO` item and `PeripheralTableH5xx.xml`/`PeripheralTableH7xx.xml` gained `Sd`
-- Local vendor patches to keep on re-import: `USE_HAL_SD_REGISTER_CALLBACKS` is `1U` in the F4, F7, H5 and H7 `hal_conf` headers (the callbacks are registered after `HAL_SD_Init`, which resets them while the state is RESET), `USE_HAL_MMC_REGISTER_CALLBACKS` is `1U` in the H5 and H7 ones (the same for `HAL_MMC_Init`), and `USE_SD_DIRPOL` is defined in the H5 and H7 ones (direction signal polarity of the level shifter; no effect without the DIR pins)
-- Demos: `demo/sd_card_demo` is the validation test of the drivers (async write and read-back of 1, 2, 5 and 16 blocks, the effect and the exact range of an erase, out-of-range and empty requests, a flush, no completion inside its own call, all on the last 16 blocks of the card, which it saves and restores; it logs one PASS/FAIL line per check and a summary to the global tracer) runs at boot on `demo/stm32f746g_disco` (SDMMC1, USART1 on the ST-LINK VCP) and, with a dashboard row, on the `sdcard` terminal command of the `demo/stm32h757i_eval` Cortex-M7 image (SDMMC1 behind the level shifter on PC6/PC7/PB9, taken from the H743I-EVAL). The H757I-EVAL has run it on a 15193 MiB card (4-bit, level shifter direction pins and `USE_SD_DIRPOL` as above): 28 of 28 checks twice, about 137 ms per run, before the flush check and `SdmmcBlockDeviceStm` were added; the MB1246 schematic was not read, so the pins are known to work on that board and no more. The `emmc` terminal command of the `demo/stm32h745i_disco` Cortex-M7 image runs the same test on the eMMC (SDMMC1, 4-bit, cache on). The F746G-DISCO demo, the F4, F7 and H5 paths and `MmcStm` are build-verified only, and `validation/` has no SDMMC board, so it does not cover SD cards or eMMC
-
-## Audio (`SaiOutputStm`, `SaiInputStm`, `I2sOutputStm`, `I2sInputStm`)
-
-- They implement EMIL `hal::AudioOutput` / `hal::AudioInput` (EMIL `docs/ExecutionModel.md`, "Streaming audio"), one class per direction. SAI: `SaiStm` owns the instance (clock, reset) and each block (`Config::block`, A or B) is one object; a block that is `synchronousToOtherBlock` must be a slave, is started before the block that provides its clocks and stopped before it (both are asserted). I2S: one object per SPI instance, half duplex. SAI exists on F429, F746/F767, G4, WB55, WBA55/65, H5 and H7 (SAI1–3; SAI4 sits behind BDMA); I2S on F4, F7, G4, H5 and H7. G070 I2S is not supported because `DmaStm` cannot drive its shared DMA vectors
-- The format arrives in `Start()`, so `HAL_SAI_InitProtocol` / `HAL_I2S_Init` run there and `HAL_*_DeInit` in `Stop()`; the constructor only claims clock, pins and the DMA stream. The data is 16-bit I2S (Philips), master or slave. Mono: SAI uses its mono mode, I2S duplicates a mono output into both slots and keeps the left slot of a mono input, in place
-- `AudioDmaOutputStm` / `AudioDmaInputStm` cycle a caller-owned buffer (`WithBuffer<N>`, 32-byte aligned) with a `DmaStm` circular channel. The buffer is two periods and a period is a half: an even size, whole frames, at most 65535 bytes, not in TCM, and a multiple of 64 bytes where the D-cache is on (they clean and invalidate around each period). The DMA interrupt only records the completed half and schedules one event, so half and full-transfer events never coalesce; the callback runs on the event dispatcher, and a callback that is not done before the DMA wraps into its half, or a dispatcher more than a period late, gets `onUnderrun` / `onOverrun` while the stream goes on. The first two periods of an output are silence. `SetVolume` / `SetMuted` are software (linear gain on the filled period). `Stop(onStopped)`, `SetVolume(percent, onDone)` and `SetMuted(muted, onDone)` take effect at once and schedule their callback on the event dispatcher; a period already scheduled when the stream stops is dropped, so no stream callback runs after `Stop()` returns
-- The application owns the kernel clock. The SAI driver picks the master clock divider itself, because `HAL_SAI_Init` asserts (and aborts) on any rate outside its standard list, and range-checks it against the MCKDIV field; `HAL_I2S_Init` derives the divider and the driver reads it back. Either way `ActualSampleRate()` is the rate the divider really gives and the driver asserts when it is more than `maxRateErrorPermille` (default 10) off the request, so G4 and WBA, which have no audio PLL, only reach rates their system PLL divides to. `Config::kernelClock` only applies to F4 SAI and `mclkOutput` only to the SAI of G4, WB, WBA, H5 and H7 (the older SAI always drives MCLK) `AudioClockSwitchStm` applies one of two application-supplied `RCC_PeriphCLKInitTypeDef` (the 48 kHz or the 44.1 kHz family) when a master stream starts: pass it in `Config::audioClock` and do not start a stream of the other family while one runs
-- PDM: `Config::mode = pdm` on an input captures one microphone. The format is EMIL's raw one (rate = clock / 16, one channel), a frame of two 16-bit slots is read as two consecutive words, and `pdmSampleEdge` selects the clock edge the receiver samples the data line on (rising by default; match it to how the microphone's select pin is strapped). The SAI PDM interface for several microphones is not used; its pin types (`saiCk1`, `saiCk2`, `saiD1`–`saiD3`) exist
-- Demos: `demo/audio_demo` (a tone generator on `hal::AudioOutput`) and `demo/stm32f746g_disco` (SAI2 block A into EMIL `drivers::Wm8994` over I2C3). The board has the TFBGA216 part, whose pin data is `mcu/STM32F746NGHx.xml`, so the example is only built by the `stm32f746g-disco` preset (`TARGET_MCU_VARIANT=stm32f746ng`); its DMA stream and PLLI2S numbers are the ones of ST's board support package. `demo/stm32h757i_eval` plays a tone through the WM8994 on SAI1 block A (DMA1 stream 0, `DMA_REQUEST_SAI1_A`) with SAI1 clocked from PLL2 P (49.152 MHz) by `ConfigureAudioClockEvalH757I`. `demo/stm32f407g_disco` drives EMIL `drivers::Cs43l22` from `I2sOutputStm` on I2S3 and EMIL `drivers::Mp45dt02` from `I2sInputStm` (PDM) on I2S2 with the app-side `PdmDecimator`; both I2S share one fixed PLLI2S, and the example only exists when `EMIL_INCLUDE_SEGGER_RTT` is set (the `stm32f407` preset does)
-- Only `demo/stm32f407g_disco` has run on hardware: `I2sOutputStm` playing a tone through the CS43L22 and `I2sInputStm` in PDM mode running without overruns. `validation/` does not cover audio
-
-## Style
-
-- Allman braces, 4-space indent, `.clang-format` authoritative
-- PascalCase types/methods, camelCase members/locals; `const`-correct on all observer/query methods
-- `#pragma once` for new/modified headers; legacy `#ifndef` guards may stay untouched
-- No C-style casts — `static_cast<>`; `reinterpret_cast<>` only where the HAL requires register/void-pointer casts
-- **No comments** except non-obvious *why*. No `TODO`/`FIXME`/`HACK`, no commented-out code
-
-## Interfaces & errors
-
-- Interfaces = pure virtual; `virtual ~I() = default` — **never** `= 0` destructors. Interfaces hosted in embedded-infra-lib follow that repo's style instead (protected non-virtual destructor)
-- No exceptions. `std::optional<T>` or status enums. `really_assert()` for preconditions
-- No global mutable state — all state lives in driver class members
-
-## Testing
-
-No unit tests in this repo. hal-st is validated on real hardware — the `validation/` app (firmware + pytest-bdd/AD3 host suite: Gherkin scenarios in `validation/host/tests/hil/features/`, steps in `validation/host/tests/hil/test_*.py`; see `validation/README.md`), manual testing on Nucleo/Discovery boards,
-logic-analyser/scope verification — not by GoogleTest suites. A driver change on STM32WB55/WBA55/G474 should keep `validation/PROTOCOL.md`, the firmware factory and the host
-tests in step. `validation/host/tests/unit` tests the host harness itself (`pytest validation/host/tests/unit`), not the drivers. Don't add unit tests for new or changed drivers.
-(`services/st_util/test/` is a pre-existing exception gated behind `HALST_BUILD_TESTS`; leave it as-is, don't extend the pattern elsewhere.)
-
-## Build
+## Build *(repo)*
 
 ```bash
-cmake --preset host && cmake --build --preset host-Debug   # host tooling/build check
-cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo   # embedded target
+cmake --preset host && cmake --build --preset host-Debug
+cmake --preset stm32f407 && cmake --build --preset stm32f407-RelWithDebInfo
+cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware
+pytest validation/host/tests/unit
 ```
 
-Embedded presets configure and build from a clean checkout, with no installed EMIL package or host build. They set `EMIL_INCLUDE_ECHO=Off`, because nothing in hal-st but `examples/sesame` needs Echo code. `stm32f767` keeps it on, and `cmake/NativeEchoPlugins.cmake` builds EMIL's Echo plugins for the host under `<build>/_native_echo_plugins` (first build only).
+- Embedded presets build from a clean checkout and set `EMIL_INCLUDE_ECHO=Off`; `stm32f767` keeps Echo on and builds
+  EMIL's Echo plugins under `<build>/_native_echo_plugins`.
+- Presets: `stm32f407`, `stm32f429`, `stm32f746`, `stm32f746g-disco`, `stm32f767`, `stm32g070`, `stm32g431`,
+  `stm32g474`, `stm32wb55`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h745-cm7`,
+  `stm32h745-cm4`, `stm32h757-cm7`, `stm32h757-cm4`.
+- Validation firmware: `stm32wb55`, `stm32wba55`, `stm32g474`.
 
-Other target presets: `stm32f746g-disco` (STM32F746G-DISCO, TFBGA216 pin data), `stm32wb55`, `stm32g070`, `stm32g431`, `stm32f429`, `stm32f746`, `stm32f767`, `stm32g474`, `stm32wba52`, `stm32wba55`, `stm32wba65`, `stm32h563`, `stm32h573`, `stm32h745-cm7`, `stm32h745-cm4`, `stm32h757-cm7`, `stm32h757-cm4`.
+## Exceptions *(repo)*
 
-Validation firmware (stm32wb55, stm32wba55, stm32g474): `cmake --build --preset stm32wb55-RelWithDebInfo --target hal_st.validation_firmware`.
-
-## Assistant behavior — be terse
-
-- Minimal prose. No preamble/postamble, no restating the plan, no summaries unless asked
-- Report results as file paths + build pass/fail (no test suite to report)
-- Don't re-read files already read; batch reads; prefer targeted edits
+- No unit tests: drivers are validated on hardware (`validation/`, boards, logic analyser). Workflow step 4 and
+  *Testing* do not apply to drivers. `services/st_util/test/` is a legacy exception; do not extend it.
+- Vendor code (`st/`, `hal_st/middlewares/`) and `generated/` keep their own style.

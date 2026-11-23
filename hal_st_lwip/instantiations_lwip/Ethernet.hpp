@@ -1,5 +1,4 @@
-#ifndef HAL_ST_ETHERNET_HPP
-#define HAL_ST_ETHERNET_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/EthernetSmiStm.hpp"
 #include "hal_st_lwip/instantiations_lwip/EthernetSmiObserver.hpp"
@@ -125,5 +124,3 @@ namespace main_
     extern const std::array<std::pair<hal::Port, uint8_t>, 9> ethernetPinsNucleoF767;
     extern const std::array<std::pair<hal::Port, uint8_t>, 9> ethernetPinsDiscoveryF7;
 }
-
-#endif

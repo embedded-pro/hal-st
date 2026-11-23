@@ -78,7 +78,7 @@ The DAC output buffer cannot reach the rails, so the sweep runs from 512 to 3584
 Run on an STM32H757I-EVAL (DEV_ID 0x450, revision 0x2003) with an MB1166-A03 display module, through an ST-LINK GDB server and USART1:
 
 - Boot report: SDRAM 32 MB and SRAM 2 MB with 0 errors, NOR manufacturer 0x89 and device 0x227e, QSPI 64 MB with JEDEC id 0x20ba20 (made with a flash class that sent every command on four lines, which a flash in its power-up mode does not understand, so only the identification counts: the access through extended SPI has not been run on this board), MFX id 0x7b with the joystick pins released.
-- The display shows the dashboard at about 60 frames per second without underruns while the SDRAM serves the frame buffer. ST's own `LCD_DSI_VideoMode_SingleBuffer` example drives the same module on that board; the demo only matched it once the panel was brought up in ST's order, see `AGENTS.md`.
+- The display shows the dashboard at about 60 frames per second without underruns while the SDRAM serves the frame buffer. ST's own `LCD_DSI_VideoMode_SingleBuffer` example drives the same module on that board; the demo only matched it once the panel was brought up in ST's order, see `doc/driver-notes.md`.
 - The FT6x06 answers at 0x38 with vendor id 0x11 and chip id 0x64 and reports presses, moves and releases.
 - `sdram`, `sram`, `qspi`, `adc`, `dac`, `wave`, `volume` and `mute` reply.
 - The microSD (`hal::SdCardStm`, SDMMC1, 4-bit behind the level shifter on PC6, PC7 and PB9 with `USE_SD_DIRPOL`) identified a 15193 MiB card (31116288 blocks) and passed the 28 checks of `sdcard` twice, about 137 ms per run, restoring the saved blocks each time.

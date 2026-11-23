@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_SYNCHRONOUS_HARDWARE_SEMAPHORE_STM_HPP
-#define SYNCHRONOUS_HAL_SYNCHRONOUS_HARDWARE_SEMAPHORE_STM_HPP
+#pragma once
 
 #include <stdint.h>
 
@@ -44,5 +43,3 @@ namespace hal
         hal::Semaphore semaphore;
     };
 }
-
-#endif

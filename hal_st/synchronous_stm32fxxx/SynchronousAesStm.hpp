@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_INSTANTIATIONS_AES_STM_HPP
-#define SYNCHRONOUS_HAL_INSTANTIATIONS_AES_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "infra/util/ByteRange.hpp"
@@ -61,5 +60,4 @@ namespace hal
     };
 }
 
-#endif
 #endif

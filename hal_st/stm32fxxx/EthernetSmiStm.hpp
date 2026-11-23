@@ -1,5 +1,4 @@
-#ifndef HAL_ETHERNET_SMI_STM_HPP
-#define HAL_ETHERNET_SMI_STM_HPP
+#pragma once
 
 #include "hal/interfaces/Ethernet.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
@@ -72,5 +71,3 @@ namespace hal
         static const uint16_t phyAnlpaFullDuplex100MHz = 8;
     };
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HAL_FLASH_COORDINATED_WITH_WIRELESS_STACK_HPP
-#define HAL_FLASH_COORDINATED_WITH_WIRELESS_STACK_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/interfaces/Flash.hpp"
@@ -85,5 +84,3 @@ namespace hal
         infra::AutoResetFunction<void()> onDone;
     };
 }
-
-#endif

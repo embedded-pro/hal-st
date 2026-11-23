@@ -1,5 +1,4 @@
-#ifndef HAL_DMA_STM_HPP
-#define HAL_DMA_STM_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/ByteRange.hpp"
@@ -71,7 +70,7 @@ namespace hal
         protected:
             Stream(const Stream&) = delete;
             Stream(Stream&& other) noexcept;
-            virtual ~Stream();
+            ~Stream();
 
         public:
             uint8_t DataSize() const;
@@ -483,5 +482,3 @@ namespace hal
     }
 
 }
-
-#endif

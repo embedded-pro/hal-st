@@ -1,5 +1,4 @@
-#ifndef HAL_RANDOM_DATA_GENERATOR_STM_HPP
-#define HAL_RANDOM_DATA_GENERATOR_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -27,7 +26,5 @@ namespace hal
         infra::Function<void()> onDone;
     };
 }
-
-#endif
 
 #endif

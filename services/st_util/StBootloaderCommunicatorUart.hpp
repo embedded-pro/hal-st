@@ -1,5 +1,4 @@
-#ifndef SERVICES_ST_UTIL_ST_UART_BOOTLOADER_COMMUNICATOR_HPP
-#define SERVICES_ST_UTIL_ST_UART_BOOTLOADER_COMMUNICATOR_HPP
+#pragma once
 
 #include "hal/interfaces/SerialCommunication.hpp"
 #include "infra/event/QueueForOneReaderOneIrqWriter.hpp"
@@ -19,7 +18,7 @@ namespace services
     {
     public:
         StBootloaderCommunicatorUart(hal::SerialCommunication& serial, const infra::Function<void()>& onInitialized, const infra::Function<void(infra::BoundedConstString reason)>& onError);
-        virtual ~StBootloaderCommunicatorUart();
+        ~StBootloaderCommunicatorUart();
 
         void Stop();
 
@@ -219,5 +218,3 @@ namespace services
         uint8_t checksum;
     };
 }
-
-#endif

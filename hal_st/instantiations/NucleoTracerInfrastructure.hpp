@@ -1,5 +1,4 @@
-#ifndef HAL_ST_NUCLEO_TRACER_INFRASTRUCTURE_HPP
-#define HAL_ST_NUCLEO_TRACER_INFRASTRUCTURE_HPP
+#pragma once
 
 #include "hal_st/instantiations/StmTracerInfrastructure.hpp"
 
@@ -59,5 +58,3 @@ namespace main_
         services::Tracer& alwaysEnabledTracer;
     };
 }
-
-#endif

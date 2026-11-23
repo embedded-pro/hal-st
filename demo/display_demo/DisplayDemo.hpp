@@ -1,5 +1,4 @@
-#ifndef EXAMPLES_DISPLAY_DEMO_DISPLAY_DEMO_HPP
-#define EXAMPLES_DISPLAY_DEMO_DISPLAY_DEMO_HPP
+#pragma once
 
 #include "hal/interfaces/Blitter.hpp"
 #include "hal/interfaces/DisplayController.hpp"
@@ -72,5 +71,3 @@ namespace examples
         Step step{ Step::prepareFront };
     };
 }
-
-#endif

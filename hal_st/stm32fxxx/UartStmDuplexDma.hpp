@@ -1,5 +1,4 @@
-#ifndef HAL_UART_STM_DUPLEX_DMA_HPP
-#define HAL_UART_STM_DUPLEX_DMA_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
@@ -57,5 +56,3 @@ namespace hal
         std::atomic<size_t> lastReceivedPosition{};
     };
 }
-
-#endif

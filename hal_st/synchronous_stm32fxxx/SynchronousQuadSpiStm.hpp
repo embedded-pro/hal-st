@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_SYNCHRONOUS_QUAD_SPI_STM
-#define SYNCHRONOUS_HAL_SYNCHRONOUS_QUAD_SPI_STM
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/synchronous_interfaces/SynchronousQuadSpi.hpp"
@@ -44,7 +43,5 @@ namespace hal
         QSPI_HandleTypeDef handle;
     };
 }
-
-#endif
 
 #endif

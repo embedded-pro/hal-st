@@ -1,5 +1,4 @@
-#ifndef HAL_BACKUPRAM_STM_HPP
-#define HAL_BACKUPRAM_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/interfaces/BackupRam.hpp"
@@ -15,5 +14,3 @@ namespace hal
         infra::MemoryRange<volatile uint32_t> Get() const override;
     };
 }
-
-#endif

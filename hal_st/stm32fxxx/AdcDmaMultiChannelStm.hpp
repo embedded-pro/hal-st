@@ -1,5 +1,4 @@
-#ifndef HAL_ST_ADC_DMA_MULTI_CHANNEL_HPP
-#define HAL_ST_ADC_DMA_MULTI_CHANNEL_HPP
+#pragma once
 
 #include "hal/interfaces/AdcMultiChannel.hpp"
 #include "hal_st/stm32fxxx/AdcTimerTriggeredBase.hpp"
@@ -219,5 +218,3 @@ namespace hal
         StopTimer();
     }
 }
-
-#endif

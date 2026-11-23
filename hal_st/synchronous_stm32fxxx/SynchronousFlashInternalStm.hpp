@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_SYNCHRONOUS_FLASH_INTERNAL_STM_HPP
-#define SYNCHRONOUS_HAL_SYNCHRONOUS_FLASH_INTERNAL_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/synchronous_interfaces/SynchronousFlash.hpp"
@@ -59,5 +58,3 @@ namespace hal
         uint32_t sizeOfEachSector;
     };
 }
-
-#endif

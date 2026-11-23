@@ -1,5 +1,4 @@
-#ifndef HAL_ST_STM_TRACER_INFRASTRUCTURE_HPP
-#define HAL_ST_STM_TRACER_INFRASTRUCTURE_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousUartStm.hpp"
@@ -49,5 +48,3 @@ namespace main_
         services::TracerWithDateTime tracer;
     };
 }
-
-#endif

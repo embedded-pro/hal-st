@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_SYNCHRONOUS_SYNCHRONIZED_RANDOM_DATA_GENERATOR_HPP
-#define SYNCHRONOUS_HAL_SYNCHRONOUS_SYNCHRONIZED_RANDOM_DATA_GENERATOR_HPP
+#pragma once
 
 #include "hal/synchronous_interfaces/SynchronousRandomDataGenerator.hpp"
 #include "hal_st/synchronous_stm32fxxx/SynchronousHardwareSemaphoreStm.hpp"
@@ -30,5 +29,3 @@ namespace hal
         hal::SynchronousHardwareSemaphoreMasterStm& synchronousHardwareSemaphoreMasterStm;
     };
 }
-
-#endif

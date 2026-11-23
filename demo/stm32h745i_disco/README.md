@@ -72,7 +72,7 @@ The two chips share the clock and BK1_NCS and `hal::QuadSpiStm` drives bank 1 on
 
 ## eMMC
 
-The 4 GB eMMC is wired for 8 bits on SDMMC1; `hal::MmcStm` drives it on four, at 25 MHz from the 200 MHz PLL1Q ("SD card and eMMC" in `AGENTS.md`).
+The 4 GB eMMC is wired for 8 bits on SDMMC1; `hal::MmcStm` drives it on four, at 25 MHz from the 200 MHz PLL1Q ("SD card and eMMC" in `doc/driver-notes.md`).
 The demo enables the cache of the eMMC, so `Flush` sends FLUSH_CACHE; the boot trace says whether the device took it. Four blocks per transfer make the test split its larger requests.
 `emmc` writes the last 16 blocks of the device and restores them at the end; if the power fails in the middle, those blocks can keep the test pattern. The test logs as `SD card:` since it is the test of `hal::SdCardStm`.
 The trim and the cache flush may block the event loop for the busy time of the eMMC, which can cost the audio an underrun.

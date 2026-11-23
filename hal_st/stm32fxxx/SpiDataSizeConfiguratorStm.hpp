@@ -1,5 +1,4 @@
-#ifndef HAL_SPI_DATA_SIZE_CONFIGURATOR_STM_HPP
-#define HAL_SPI_DATA_SIZE_CONFIGURATOR_STM_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/SpiMasterStmDma.hpp"
 
@@ -20,5 +19,3 @@ namespace hal
         uint32_t oldDataSize = 0;
     };
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef SERVICES_ST_UTIL_ST_BOOTLOADER_COMMUNICATOR_MOCK_HPP
-#define SERVICES_ST_UTIL_ST_BOOTLOADER_COMMUNICATOR_MOCK_HPP
+#pragma once
 
 #include "services/st_util/StBootloaderCommunicator.hpp"
 #include "gmock/gmock.h"
@@ -24,5 +23,3 @@ namespace services
         MOCK_METHOD(void, ExtendedSpecial, (uint16_t subcommand, infra::ConstByteRange txData1, infra::ConstByteRange txData2, infra::ByteRange& rxData, const infra::Function<void()>& onDone));
     };
 }
-
-#endif
