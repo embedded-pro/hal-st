@@ -70,7 +70,7 @@ namespace hal
         protected:
             Stream(const Stream&) = delete;
             Stream(Stream&& other) noexcept;
-            virtual ~Stream();
+            ~Stream();
 
         public:
             uint8_t DataSize() const;

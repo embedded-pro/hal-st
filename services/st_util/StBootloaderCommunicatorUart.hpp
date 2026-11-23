@@ -18,7 +18,7 @@ namespace services
     {
     public:
         StBootloaderCommunicatorUart(hal::SerialCommunication& serial, const infra::Function<void()>& onInitialized, const infra::Function<void(infra::BoundedConstString reason)>& onError);
-        virtual ~StBootloaderCommunicatorUart();
+        ~StBootloaderCommunicatorUart();
 
         void Stop();
 

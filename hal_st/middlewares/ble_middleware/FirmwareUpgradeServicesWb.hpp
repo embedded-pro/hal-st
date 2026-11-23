@@ -25,7 +25,6 @@ namespace hal
         FirmwareUpgradeServices() = default;
         FirmwareUpgradeServices(const FirmwareUpgradeServices& other) = delete;
         FirmwareUpgradeServices& operator=(const FirmwareUpgradeServices& other) = delete;
-        virtual ~FirmwareUpgradeServices() = default;
 
         virtual uint32_t SecureFlashStartAddress() const = 0;
         virtual void RequestFirmwareUpgradeServices() = 0;
@@ -34,6 +33,9 @@ namespace hal
         virtual bool DeleteWirelessStack() = 0;
         virtual bool StartWirelessStack() = 0;
         virtual void ResetDevice() = 0;
+
+    protected:
+        ~FirmwareUpgradeServices() = default;
     };
 
     class FirmwareUpgradeServicesWb
