@@ -1,5 +1,4 @@
-#ifndef HAL_USB_DEVICE_LINK_LAYER_STM_HPP
-#define HAL_USB_DEVICE_LINK_LAYER_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "generated/stm32fxxx/PeripheralTable.hpp"
@@ -53,7 +52,5 @@ namespace hal
         PCD_HandleTypeDef pcd;
     };
 }
-
-#endif
 
 #endif

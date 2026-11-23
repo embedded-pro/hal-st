@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_NUCLEO_WBA_55CG_HPP
-#define HAL_ST_DEFAULT_CLOCK_NUCLEO_WBA_55CG_HPP
+#pragma once
 
 void ConfigureDefaultClockNucleoWBA55CG();
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HAL_SYNCHRONOUS_RANDOM_DATA_GENERATOR_STM_HPP
-#define HAL_SYNCHRONOUS_RANDOM_DATA_GENERATOR_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/synchronous_interfaces/SynchronousRandomDataGenerator.hpp"
@@ -18,7 +17,5 @@ namespace hal
         void GenerateRandomData(infra::ByteRange result) override;
     };
 }
-
-#endif
 
 #endif

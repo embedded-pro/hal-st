@@ -1,5 +1,4 @@
-#ifndef HAL_FLASH_INTERNAL_STM_HPP
-#define HAL_FLASH_INTERNAL_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/interfaces/Flash.hpp"
@@ -53,5 +52,3 @@ namespace hal
         uint32_t sizeOfEachSector;
     };
 }
-
-#endif

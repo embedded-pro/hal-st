@@ -1,5 +1,4 @@
-#ifndef HAL_LOW_POWER_MODE_STM_HPP
-#define HAL_LOW_POWER_MODE_STM_HPP
+#pragma once
 
 #include "hal/interfaces/LowPowerMode.hpp"
 #include "infra/util/Function.hpp"
@@ -21,5 +20,3 @@ namespace hal
         infra::Function<void()> restoreClocksAfterStop;
     };
 }
-
-#endif

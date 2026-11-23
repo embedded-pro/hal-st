@@ -1,5 +1,4 @@
-#ifndef HAL_ST_ETHERNET_SMI_OBSERVER_HPP
-#define HAL_ST_ETHERNET_SMI_OBSERVER_HPP
+#pragma once
 
 #include "hal/interfaces/Ethernet.hpp"
 #include "hal_st/stm32fxxx/EthernetMacStm.hpp"
@@ -91,5 +90,3 @@ namespace main_
         std::optional<hal::EthernetMacStm> ethernetMac;
     };
 }
-
-#endif

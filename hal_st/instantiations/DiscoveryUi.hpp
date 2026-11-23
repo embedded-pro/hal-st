@@ -1,5 +1,4 @@
-#ifndef HAL_ST_DISCOVERY_UI_HPP
-#define HAL_ST_DISCOVERY_UI_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 
@@ -11,5 +10,3 @@ namespace main_
         hal::GpioPinStm ledGreen{ hal::Port::I, 1 };
     };
 }
-
-#endif

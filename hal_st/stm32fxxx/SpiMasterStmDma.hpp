@@ -1,5 +1,4 @@
-#ifndef HAL_SPI_MASTER_STM_DMA_HPP
-#define HAL_SPI_MASTER_STM_DMA_HPP
+#pragma once
 
 #include "hal/interfaces/Spi.hpp"
 #include "hal_st/stm32fxxx/DmaStm.hpp"
@@ -66,5 +65,3 @@ namespace hal
         hal::ReceiveDmaChannel rx;
     };
 }
-
-#endif

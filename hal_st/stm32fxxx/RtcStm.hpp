@@ -1,5 +1,4 @@
-#ifndef HAL_RTC_STM_HPP
-#define HAL_RTC_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 
@@ -31,4 +30,3 @@ namespace hal
         }
     };
 }
-#endif // HAL_RTC_STM_HPP

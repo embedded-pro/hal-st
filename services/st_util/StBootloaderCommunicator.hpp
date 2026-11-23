@@ -1,5 +1,4 @@
-#ifndef SERVICES_ST_UTIL_ST_BOOTLOADER_COMMUNICATOR_HPP
-#define SERVICES_ST_UTIL_ST_BOOTLOADER_COMMUNICATOR_HPP
+#pragma once
 
 #include "infra/util/ByteRange.hpp"
 #include "infra/util/Endian.hpp"
@@ -55,5 +54,3 @@ namespace services
         virtual void ExtendedSpecial(uint16_t subcommand, infra::ConstByteRange txData1, infra::ConstByteRange txData2, infra::ByteRange& rxData, const infra::Function<void()>& onDone) = 0;
     };
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HAL_ST_ADC_TIMER_TRIGGERED_BASE_HPP
-#define HAL_ST_ADC_TIMER_TRIGGERED_BASE_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
 #include "hal_st/stm32fxxx/TimerStm.hpp"
@@ -26,5 +25,3 @@ namespace hal
 }
 
 #endif
-
-#endif // HAL_ST_ADC_TIMER_TRIGGERED_BASE_HPP

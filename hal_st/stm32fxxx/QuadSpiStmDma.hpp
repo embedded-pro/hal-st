@@ -1,5 +1,4 @@
-#ifndef HAL_QUAD_SPI_STM_DMA_HPP
-#define HAL_QUAD_SPI_STM_DMA_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/QuadSpi.hpp"
@@ -56,7 +55,5 @@ namespace hal
         cortex::DispatchedInterruptHandler interruptHandler;
     };
 }
-
-#endif
 
 #endif

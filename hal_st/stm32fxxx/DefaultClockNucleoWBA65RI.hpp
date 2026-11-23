@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_NUCLEO_WBA65RI_HPP
-#define HAL_ST_DEFAULT_CLOCK_NUCLEO_WBA65RI_HPP
+#pragma once
 
 void ConfigureDefaultClockNucleoWBA65RI();
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef HAL_TAMPER_STM_HPP
-#define HAL_TAMPER_STM_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal_st/stm32fxxx/RtcStm.hpp"
@@ -24,4 +23,3 @@ namespace hal
         cortex::ImmediateInterruptHandler interruptHandler;
     };
 }
-#endif // HAL_TAMPER_STM_HPP

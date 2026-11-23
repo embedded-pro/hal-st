@@ -1,5 +1,4 @@
-#ifndef HAL_ST_NUCLEO_UI_HPP
-#define HAL_ST_NUCLEO_UI_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/GpioStm.hpp"
 
@@ -96,5 +95,3 @@ namespace main_
         hal::GpioPinStm ledBlue{ hal::Port::B, 7 };
     };
 }
-
-#endif

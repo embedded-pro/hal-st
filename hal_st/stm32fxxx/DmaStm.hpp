@@ -1,5 +1,4 @@
-#ifndef HAL_DMA_STM_HPP
-#define HAL_DMA_STM_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "infra/util/ByteRange.hpp"
@@ -483,5 +482,3 @@ namespace hal
     }
 
 }
-
-#endif

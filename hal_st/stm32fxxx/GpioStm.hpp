@@ -1,5 +1,4 @@
-#ifndef HAL_GPIO_STM_HPP
-#define HAL_GPIO_STM_HPP
+#pragma once
 
 #include "hal/interfaces/Gpio.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -407,5 +406,3 @@ namespace hal
 #endif
     };
 }
-
-#endif

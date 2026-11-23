@@ -1,6 +1,5 @@
 // Copyright (c) 2024 Koninklijke Philips N.V.
-#ifndef HAL_FLASH_INTERNAL_HIGH_CYCLE_AREA_STM_HPP
-#define HAL_FLASH_INTERNAL_HIGH_CYCLE_AREA_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/interfaces/Flash.hpp"
@@ -45,5 +44,3 @@ namespace hal
         hal::cortex::ImmediateInterruptHandler nmi;
     };
 }
-
-#endif // HAL_FLASH_INTERNAL_HIGH_CYCLE_AREA_STM_HPP

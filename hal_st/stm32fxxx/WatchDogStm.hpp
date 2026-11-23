@@ -1,5 +1,4 @@
-#ifndef HAL_WATCHDOG_STM_HPP
-#define HAL_WATCHDOG_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -37,5 +36,3 @@ namespace hal
         infra::Function<void()> onEarlyWarning;
     };
 }
-
-#endif

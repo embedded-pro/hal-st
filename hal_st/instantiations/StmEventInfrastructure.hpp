@@ -1,5 +1,4 @@
-#ifndef HAL_ST_STM_EVENT_INFRASTRUCTURE_HPP
-#define HAL_ST_STM_EVENT_INFRASTRUCTURE_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/cortex_m/LowPowerStrategyCortex.hpp"
@@ -50,5 +49,3 @@ namespace main_
         hal::cortex::SystemTickTimerService systemTick;
     };
 }
-
-#endif

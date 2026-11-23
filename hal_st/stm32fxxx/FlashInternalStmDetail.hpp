@@ -1,5 +1,4 @@
-#ifndef HAL_FLASH_INTERNAL_STM_DETAIL_HPP
-#define HAL_FLASH_INTERNAL_STM_DETAIL_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "infra/util/ReallyAssert.hpp"
@@ -95,5 +94,3 @@ namespace hal
 #endif
     }
 }
-
-#endif

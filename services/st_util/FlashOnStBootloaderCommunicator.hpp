@@ -1,5 +1,4 @@
-#ifndef SERVICES_ST_UTIL_FLASH_ON_ST_BOOTLOADER_COMMUNICATOR_HPP
-#define SERVICES_ST_UTIL_FLASH_ON_ST_BOOTLOADER_COMMUNICATOR_HPP
+#pragma once
 
 #include "hal/interfaces/FlashHeterogeneous.hpp"
 #include "hal/interfaces/FlashHomogeneous.hpp"
@@ -76,5 +75,3 @@ namespace services
     using FlashHomogeneousOnStBootloaderCommunicator = FlashOnStBootloaderCommunicator<hal::FlashHomogeneous, uint32_t, uint32_t>;
     using FlashHeterogeneousOnStBootloaderCommunicator = FlashOnStBootloaderCommunicator<hal::FlashHeterogeneous, infra::MemoryRange<uint32_t>>;
 }
-
-#endif

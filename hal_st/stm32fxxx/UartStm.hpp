@@ -1,5 +1,4 @@
-#ifndef HAL_UART_STM_HPP
-#define HAL_UART_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/SerialCommunication.hpp"
@@ -85,5 +84,3 @@ namespace hal
         infra::MemoryRange<IRQn_Type const> uartIrqArray;
     };
 }
-
-#endif

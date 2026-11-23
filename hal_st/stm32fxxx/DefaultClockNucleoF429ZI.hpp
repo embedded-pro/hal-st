@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_NUCLEO_F429ZI_HPP
-#define HAL_ST_DEFAULT_CLOCK_NUCLEO_F429ZI_HPP
+#pragma once
 
 void ConfigureDefaultClockNucleoF429ZI();
-
-#endif

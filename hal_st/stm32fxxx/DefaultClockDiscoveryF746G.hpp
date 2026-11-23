@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_DISCOVERY_F746G_HPP
-#define HAL_ST_DEFAULT_CLOCK_DISCOVERY_F746G_HPP
+#pragma once
 
 void ConfigureDefaultClockDiscoveryF746G();
-
-#endif

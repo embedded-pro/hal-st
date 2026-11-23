@@ -1,5 +1,4 @@
-#ifndef HAL_ANALOG_TO_DIGITAL_PIN_STM_HPP
-#define HAL_ANALOG_TO_DIGITAL_PIN_STM_HPP
+#pragma once
 
 #include "hal/cortex_m/InterruptCortex.hpp"
 #include "hal/interfaces/AnalogToDigitalPin.hpp"
@@ -117,5 +116,3 @@ namespace hal
         infra::AutoResetFunction<void(infra::MemoryRange<uint16_t>)> onDone;
     };
 }
-
-#endif

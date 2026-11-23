@@ -1,6 +1,3 @@
-#ifndef HAL_ST_DEFAULT_CLOCK_NUCLEO_H563ZI_HPP
-#define HAL_ST_DEFAULT_CLOCK_NUCLEO_H563ZI_HPP
+#pragma once
 
 void ConfigureDefaultClockNucleoH563ZI();
-
-#endif

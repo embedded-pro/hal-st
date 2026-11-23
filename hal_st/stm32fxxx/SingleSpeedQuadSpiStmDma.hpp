@@ -1,5 +1,4 @@
-#ifndef HAL_SINGLE_SPEED_QUAD_SPI_STM_DMA_HPP
-#define HAL_SINGLE_SPEED_QUAD_SPI_STM_DMA_HPP
+#pragma once
 
 #include "hal/interfaces/Spi.hpp"
 #include "hal_st/stm32fxxx/QuadSpiStmDma.hpp"
@@ -30,7 +29,5 @@ namespace hal
         infra::AutoResetFunction<void()> onDone;
     };
 }
-
-#endif
 
 #endif

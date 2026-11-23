@@ -1,5 +1,4 @@
-#ifndef HAL_PKA_STM_HPP
-#define HAL_PKA_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -42,5 +41,4 @@ namespace hal
     };
 }
 
-#endif
 #endif

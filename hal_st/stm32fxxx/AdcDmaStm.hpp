@@ -1,5 +1,4 @@
-#ifndef HAL_ADC_DMA_STM_HPP
-#define HAL_ADC_DMA_STM_HPP
+#pragma once
 
 #include "hal/interfaces/AnalogToDigitalPin.hpp"
 #include "hal_st/stm32fxxx/AnalogToDigitalPinStm.hpp"
@@ -37,5 +36,3 @@ namespace hal
 #endif
     };
 }
-
-#endif

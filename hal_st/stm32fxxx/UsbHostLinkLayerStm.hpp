@@ -1,5 +1,4 @@
-#ifndef HAL_USB_HOST_LINK_LAYER_STM_HPP
-#define HAL_USB_HOST_LINK_LAYER_STM_HPP
+#pragma once
 
 #include DEVICE_HEADER
 #include "infra/util/AutoResetFunction.hpp"
@@ -146,7 +145,5 @@ namespace hal
         std::array<uint8_t, maxReceptionBufferSize> receptionBuffer  __attribute__((aligned(4)));
     };
 }
-
-#endif
 
 #endif

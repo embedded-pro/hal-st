@@ -1,5 +1,4 @@
-#ifndef HAL_DIGITAL_TO_ANALOG_PIN_STM_HPP
-#define HAL_DIGITAL_TO_ANALOG_PIN_STM_HPP
+#pragma once
 
 #include "generated/stm32fxxx/PeripheralTable.hpp"
 #include "hal/interfaces/DigitalToAnalogPin.hpp"
@@ -69,7 +68,5 @@ namespace hal
         DAC_HandleTypeDef handle{};
     };
 }
-
-#endif
 
 #endif

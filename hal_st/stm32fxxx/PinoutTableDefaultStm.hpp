@@ -1,5 +1,4 @@
-#ifndef HAL_PINOUT_TABLE_DEFAULT_STM_HPP
-#define HAL_PINOUT_TABLE_DEFAULT_STM_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/public/GpioStm.hpp"
 #include "infra/util/public/MemoryRange.hpp"
@@ -20,5 +19,3 @@ namespace hal
     extern const infra::MemoryRange<const GpioStm::PinoutTable> pinoutTableLcd;
     extern const infra::MemoryRange<const GpioStm::PinoutTable> pinoutTableTimer;
 }
-
-#endif

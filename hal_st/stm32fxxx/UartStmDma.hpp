@@ -1,5 +1,4 @@
-#ifndef HAL_UART_STM_DMA_HPP
-#define HAL_UART_STM_DMA_HPP
+#pragma once
 
 #include "hal_st/stm32fxxx/DmaStm.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
@@ -39,5 +38,3 @@ namespace hal
         infra::Function<void()> transferDataComplete;
     };
 }
-
-#endif

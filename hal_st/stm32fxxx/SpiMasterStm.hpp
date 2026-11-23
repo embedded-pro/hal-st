@@ -1,5 +1,4 @@
-#ifndef HAL_SPI_MASTER_STM_HPP
-#define HAL_SPI_MASTER_STM_HPP
+#pragma once
 
 #include "hal/interfaces/Spi.hpp"
 #include "hal/cortex_m/InterruptCortex.hpp"
@@ -54,5 +53,3 @@ namespace hal
         bool continuedSession = false;
     };
 }
-
-#endif

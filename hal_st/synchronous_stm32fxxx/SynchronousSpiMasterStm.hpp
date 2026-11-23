@@ -1,5 +1,4 @@
-#ifndef SYNCHRONOUS_HAL_SYNCHRONOUS_SPI_MASTER_STM_HPP
-#define SYNCHRONOUS_HAL_SYNCHRONOUS_SPI_MASTER_STM_HPP
+#pragma once
 
 #include "hal/synchronous_interfaces/SynchronousSpi.hpp"
 #include "hal_st/stm32fxxx/GpioStm.hpp"
@@ -47,5 +46,3 @@ namespace hal
     };
 
 }
-
-#endif
